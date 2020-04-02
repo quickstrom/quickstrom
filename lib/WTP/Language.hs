@@ -18,7 +18,10 @@ import Data.Text.Prettyprint.Doc.Render.Text (renderStrict)
 import Data.Functor.Classes (Show1)
 import Data.Fix (Fix)
 
-data Action = Click { selector :: Text } | Refresh
+newtype Selector = CSS { selector :: Text }
+  deriving (Show, Generic, FromDhall)
+
+data Action = Click Selector | Refresh
   deriving (Show, Generic, FromDhall)
 
 data Formula

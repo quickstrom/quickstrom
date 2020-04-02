@@ -6,7 +6,7 @@ in  { actions = [ Language.Action.Click { selector = ".my-app form submit" } ]
           (   λ(Formula : Type)
             → λ(op : Language.Operators Formula)
             → op.until
-                (op.and op.bottom op.top)
-                (op.or op.top (op.not op.bottom))
+                (op.`if` op.false op.true)
+                (op.or op.true op.false)
           )
     }

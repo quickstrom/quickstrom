@@ -22,10 +22,8 @@ data Action = Click { selector :: Text } | Refresh
   deriving (Show, Generic, FromDhall)
 
 data Formula
-    = Top
-    | Bottom
+    = True
     | Not Formula
-    | And Formula Formula
     | Or Formula Formula
     | Until Formula Formula
   deriving (Show, Generic)

@@ -24,11 +24,15 @@ newtype Selector = CSS { selector :: Text }
 data Action = Click Selector | Refresh
   deriving (Show, Generic, FromDhall)
 
+data Attribute = InnerHTML | InnerText | ClassName
+  deriving (Show, Generic, FromDhall)
+
 data Formula
     = True
     | Not Formula
     | Or Formula Formula
     | Until Formula Formula
+    | Match Selector Attribute (Maybe Text)
   deriving (Show, Generic)
 
 TH.makeBaseFunctor ''Formula

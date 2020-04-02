@@ -18,10 +18,7 @@ import Data.Text.Prettyprint.Doc.Render.Text (renderStrict)
 import Data.Functor.Classes (Show1)
 import Data.Fix (Fix)
 
-data Selector = ByCSS Text
-  deriving (Show, Generic, FromDhall)
-
-data Action = Click Selector
+data Action = Click { selector :: Text } | Refresh
   deriving (Show, Generic, FromDhall)
 
 data Formula

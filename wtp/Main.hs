@@ -15,6 +15,6 @@ main = do
     print specs
 
 
-loadSpecification :: Text -> IO Formula
+loadSpecification :: Text -> IO (Specification Formula)
 loadSpecification path = 
-  embedFormula <$> input auto path
+  embedSpecification <$> input auto path

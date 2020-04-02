@@ -1,10 +1,6 @@
-let Selector
-    : Type
-    = < ByCSS : Text >
-
 let Action
     : Type
-    = < Click : Selector >
+    = < Click : { selector: Text } | Refresh >
 
 let FormulaF =
         λ(Formula : Type)
@@ -50,4 +46,4 @@ let operators =
               }
             : Operators Formula
 
-in { Selector, Action, FormulaF, Operators, operators }
+in  { Action, FormulaF, Operators, operators }

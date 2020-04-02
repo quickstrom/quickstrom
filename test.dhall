@@ -2,13 +2,15 @@ let Language = ./lib/WTP/Language.dhall
 
 let Specification = ./lib/WTP/Specification.dhall
 
-let Main = ./lib/WTP/Main.dhall
+in  { actions =
+          [ Language.Action.Click { selector = "form submit" } ]
+        : List Language.Action
+    , formula =
+          λ(Formula : Type)
+        → λ(Fix : Language.FormulaF Formula → Formula)
+        → let op = Language.operators Formula Fix
 
-in    λ(Formula : Type)
-    → λ(Fix : Language.FormulaF Formula → Formula)
-    → Main.specify
-        Formula
-        Fix
-        (   λ(op : Language.Operators Formula)
-          → op.not op.bottom
-        )
+          in  op.until
+                (op.and op.bottom op.top)
+                (op.or op.top (op.not op.bottom))
+    }

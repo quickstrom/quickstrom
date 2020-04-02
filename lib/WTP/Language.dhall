@@ -1,6 +1,6 @@
 let Action
     : Type
-    = < Click : { selector: Text } | Refresh >
+    = < Click : { selector : Text } | Refresh >
 
 let FormulaF =
         λ(Formula : Type)
@@ -46,4 +46,10 @@ let operators =
               }
             : Operators Formula
 
-in  { Action, FormulaF, Operators, operators }
+let withOperators =
+        λ(f : ∀(F : Type) → Operators F → F)
+      → λ(Formula : Type)
+      → λ(Fix : FormulaF Formula → Formula)
+      → f Formula (operators Formula Fix)
+
+in  { Action, FormulaF, Operators, operators, withOperators }

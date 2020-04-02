@@ -1,0 +1,6 @@
+cradle: 
+  cabal: 
+    - path: "."
+      component: "lib:wtp"
+    - path: "."
+      component: "wtp:exe:wtp"

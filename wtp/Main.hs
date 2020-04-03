@@ -3,7 +3,7 @@ module Main where
 
 import qualified Data.Text as Text
 import Data.Text (Text)
-import WTP.Language
+import WTP.Syntax.Dhall
 import Dhall (input, auto, FromDhall, Generic)
 import Data.Text (Text)
 import System.Environment (getArgs)

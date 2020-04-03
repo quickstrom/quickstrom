@@ -17,7 +17,8 @@ build-type:          Simple
 extra-source-files:  CHANGELOG.md
 
 library
-  Exposed-modules:    WTP.Language
+  exposed-modules:    WTP.Core
+                    , WTP.Syntax.Dhall
   build-depends:      base >=4.12 && <4.13
                     , data-fix
                     , dhall

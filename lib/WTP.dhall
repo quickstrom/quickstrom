@@ -102,6 +102,9 @@ let withOperators =
 
 let assertThat = { text.equals = TextAssertion.TextEquals }
 
+let Specification =
+      λ(Formula : Type) → { actions : List Action, formula : Formula }
+
 in  { css
     , Attribute
     , Action
@@ -110,4 +113,5 @@ in  { css
     , Operators
     , operators
     , withOperators
+    , Specification
     }

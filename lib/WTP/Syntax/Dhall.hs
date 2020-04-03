@@ -6,7 +6,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
-module WTP.Language where
+module WTP.Syntax.Dhall where
 
 import qualified Data.Fix                 as Fix
 import qualified Data.Functor.Foldable    as Foldable

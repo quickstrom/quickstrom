@@ -1,3 +1,4 @@
+{-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveTraversable #-}
@@ -24,7 +25,13 @@ newtype Selector = CSS { selector :: Text }
 data Action = Click Selector | Refresh
   deriving (Show, Generic, FromDhall)
 
-data Attribute = InnerHTML | InnerText | ClassName
+data Attribute
+  = InnerHTML
+  | InnerText
+  | ClassName
+  deriving (Show, Generic, FromDhall)
+
+data TextAssertion = TextEquals Text | TextContains Text
   deriving (Show, Generic, FromDhall)
 
 data Formula
@@ -32,8 +39,8 @@ data Formula
     | Not Formula
     | Or Formula Formula
     | Until Formula Formula
-    | Match Selector Attribute (Maybe Text)
-  deriving (Show, Generic)
+    | AssertText Selector Attribute TextAssertion
+  deriving (Show, Generic, FromDhall)
 
 TH.makeBaseFunctor ''Formula
 

@@ -2,6 +2,8 @@ let Language = ./lib/WTP/Language.dhall
 
 let Text/concatSep = https://prelude.dhall-lang.org/Text/concatSep
 
+let assertThat = Language.assertThat
+
 in  { actions = [ Language.Action.Click (Language.css ".my-app form submit") ]
     , formula =
         Language.withOperators
@@ -9,24 +11,24 @@ in  { actions = [ Language.Action.Click (Language.css ".my-app form submit") ]
             → λ(op : Language.Operators Formula)
             → let spinnerIsActive =
                       λ(active : Bool)
-                    → op.match
+                    → op.assertText
                         (Language.css ".my-app .spinner")
                         Language.Attribute.ClassName
-                        (if active then Some "active" else None Text)
+                        (assertThat.text.equals "active")
 
               let hasMessage =
                       λ(message : Text)
                     → λ(classes : List Text)
                     → op.and
-                        ( op.match
+                        ( op.assertText
                             (Language.css ".my-app .message")
                             Language.Attribute.ClassName
-                            (Some (Text/concatSep " " classes))
+                            (assertThat.text.equals (Text/concatSep " " classes))
                         )
-                        ( op.match
+                        ( op.assertText
                             (Language.css ".my-app .message")
                             Language.Attribute.InnerText
-                            (Some message)
+                            (assertThat.text.equals message)
                         )
 
               in  op.until

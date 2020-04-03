@@ -14,13 +14,17 @@ let Attribute
     : Type
     = < InnerHTML | InnerText | ClassName >
 
+let TextAssertion
+    : Type
+    = < TextEquals : Text | TextContains : Text >
+
 let FormulaF =
         λ(Formula : Type)
       → < TrueF
         | NotF : Formula
         | OrF : { _1 : Formula, _2 : Formula }
         | UntilF : { _1 : Formula, _2 : Formula }
-        | MatchF : { _1 : Selector, _2 : Attribute, _3 : Optional Text }
+        | AssertTextF : { _1 : Selector, _2 : Attribute, _3 : TextAssertion }
         >
 
 let Operators
@@ -30,7 +34,7 @@ let Operators
           , not : Formula → Formula
           , or : Formula → Formula → Formula
           , until : Formula → Formula → Formula
-          , match : Selector → Attribute → Optional Text → Formula
+          , assertText : Selector → Attribute → TextAssertion → Formula
           }
         ⩓ { false : Formula
           , and : Formula → Formula → Formula
@@ -58,13 +62,16 @@ let operators =
               → λ(y : Formula)
               → Fix (T.UntilF { _1 = x, _2 = y })
 
-        let match =
+        let assertText =
                 λ(selector : Selector)
               → λ(attribute : Attribute)
-              → λ(expected : Optional Text)
-              → Fix (T.MatchF { _1 = selector, _2 = attribute, _3 = expected })
+              → λ(assertion : TextAssertion)
+              → Fix
+                  ( T.AssertTextF
+                      { _1 = selector, _2 = attribute, _3 = assertion }
+                  )
 
-        let atoms = { true, not, or, until, match }
+        let atoms = { true, not, or, until, assertText }
 
         let false = not true
 
@@ -72,7 +79,8 @@ let operators =
 
         let implies = λ(x : Formula) → λ(y : Formula) → or (not x) y
 
-        let equivalent = λ(x : Formula) → λ(y : Formula) → and (implies x y) (implies y x)
+        let equivalent =
+              λ(x : Formula) → λ(y : Formula) → and (implies x y) (implies y x)
 
         let release =
               λ(x : Formula) → λ(y : Formula) → not (until (not x) (not y))
@@ -81,7 +89,8 @@ let operators =
 
         let always = λ(x : Formula) → not (eventually (not x))
 
-        let derived = { false, and, implies, equivalent, release, eventually, always }
+        let derived =
+              { false, and, implies, equivalent, release, eventually, always }
 
         in  atoms ∧ derived : Operators Formula
 
@@ -91,4 +100,14 @@ let withOperators =
       → λ(Fix : FormulaF Formula → Formula)
       → f Formula (operators Formula Fix)
 
-in  { css, Attribute, Action, FormulaF, Operators, operators, withOperators }
+let assertThat = { text.equals = TextAssertion.TextEquals }
+
+in  { css
+    , Attribute
+    , Action
+    , assertThat
+    , FormulaF
+    , Operators
+    , operators
+    , withOperators
+    }

@@ -1,32 +1,40 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
 module WTP.Syntax where
 
 import Data.Char (Char)
+import Data.Functor (Functor (..))
 import Data.String (IsString)
 import Data.Text (Text)
-import Prelude ((<>), ($), (.), Eq, Maybe, Show(..))
-import Data.Functor (Functor(..))
 import WTP.Core
+import Prelude (($), (.), (<>), Eq, Maybe, Show (..))
 
-infix 4 \/, /\
+infix 4 \/, /\, ∧, ∨
 
-(/\), (\/) :: Formula Full -> Formula Full -> Formula Full
+(/\), (\/), (∧), (∨) :: Formula Full -> Formula Full -> Formula Full
 (/\) = And
 (\/) = Or
+(∧) = And
+(∨) = Or
 
-infix 5 ===
+infix 5 ===, ≡
 
-(===) :: (Show a, Eq a) => Query a -> a -> Formula Full
+(===), (≡) :: (Show a, Eq a) => Query a -> a -> Formula Full
 query === expected = Assert query (Equals expected)
+query ≡ expected = Assert query (Equals expected)
+
+infix 6 ¬
+
+(¬) :: Formula Full -> Formula Full
+(¬) = Not
 
 --
 -- EXAMPLE
@@ -34,6 +42,8 @@ query === expected = Assert query (Equals expected)
 
 data SpinnerState = Active | Hidden
 
+-- Simple example, a form for posting a comment. Note that you can only post once, even 
+-- if there's an error.
 example :: Property
 example =
   Property
@@ -42,20 +52,20 @@ example =
         ( hasMessage
             "Post a comment below."
             ["message", "info"]
-            /\ spinnerIs Hidden
+            ∧ spinnerIs Hidden
         )
           `Until` spinnerIs Active
           `Until` ( Always
                       ( hasMessage
                           "Failed to post comment."
                           ["message", "error"]
-                          /\ spinnerIs Hidden
+                          ∧ spinnerIs Hidden
                       )
-                      \/ Always
+                      ∨ Always
                         ( hasMessage
                             "Form posted!"
                             ["message", "error"]
-                            /\ spinnerIs Hidden
+                            ∧ spinnerIs Hidden
                         )
                   )
     }
@@ -64,15 +74,15 @@ example =
       Get
         ClassList
         (Require (Query ".my-app .spinner"))
-        === case state of
+        ≡ case state of
           Active -> ["spinner", "active"]
           Hidden -> ["spinner"]
     hasMessage message classes =
       ( Get
           ClassList
           (Require (Query ".my-app .message"))
-          === classes
+          ≡ classes
       )
-        `And` ( Get InnerText (Require (Query ".my-app .message"))
-                  === message
-              )
+        ∧ ( Get InnerText (Require (Query ".my-app .message"))
+              ≡ message
+          )

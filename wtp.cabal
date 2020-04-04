@@ -17,6 +17,7 @@ library
                     , data-fix
                     , deriving-compat
                     , dhall
+                    , freer-simple
                     , hashable
                     , mtl
                     , prettyprinter
@@ -42,6 +43,7 @@ test-suite wtp-test
   other-modules:      WTP.SyntaxTest
   build-depends:      base
                     , wtp
+                    , freer-simple
                     , hedgehog
                     , mtl
                     , simple-ltl

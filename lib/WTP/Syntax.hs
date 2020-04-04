@@ -1,19 +1,25 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DeriveFunctor              #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE ExistentialQuantification  #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE KindSignatures             #-}
+{-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE StandaloneDeriving         #-}
 
 module WTP.Syntax
   ( Core.Selector (..)
   , Core.Attribute (..)
   , Core.Assertion (..)
   , Core.Element (..)
-  , Core.Query (..)
+  , Core.Query
+  , Core.query
+  , Core.queryAll
+  , Core.get
+  , Core.require
   , Formula (..),
     simplify,
     (/\),
@@ -24,13 +30,14 @@ module WTP.Syntax
     (≡),
     (¬),
     not,
+    (⊢),
   )
 where
 
-import qualified WTP.Core as Core
-import Prelude hiding (Bool (..), not)
-import qualified Data.Bool as Bool
-import Data.Bool (Bool)
+import           Control.Monad.Freer
+import           Data.Bool           (Bool)
+import           Prelude             hiding (Bool (..), not)
+import qualified WTP.Core            as Core
 
 data Formula where
   -- Simplified language operators
@@ -38,7 +45,7 @@ data Formula where
   Not :: Formula -> Formula
   Or :: Formula -> Formula -> Formula
   Until :: Formula -> Formula -> Formula
-  Assert :: Show a => Core.Query a -> Core.Assertion a -> Formula
+  Assert :: Show a => Eff '[Core.Query] a  -> Core.Assertion a -> Formula
   -- Full language operators
   False :: Formula
   Eventually :: Formula -> Formula
@@ -75,11 +82,11 @@ infix 4 \/, /\, ∧, ∨
 
 infix 5 ===, ≡
 
-(===), (≡) :: (Show a, Eq a) => Core.Query a -> a -> Formula
+(===), (≡) :: (Show a, Eq a) => Eff '[Core.Query] a -> a -> Formula
 query === expected = Assert query (Core.Equals expected)
 query ≡ expected = Assert query (Core.Equals expected)
 
-(⊢) :: Show a => Core.Query a -> (a -> Bool) -> Formula
+(⊢) :: (Show a) => Eff '[Core.Query] a -> (a -> Bool) -> Formula
 query ⊢ f = Assert query (Core.Satisfies f)
 
 infix 6 ¬

@@ -1,31 +1,32 @@
 {-# LANGUAGE OverloadedStrings #-}
 module WTP.VerifyTest where
 
-import Prelude hiding (Bool (..), not)
-import Test.Tasty.Hspec
-import qualified Data.HashMap.Strict as HashMap
-import WTP.Verify
-import WTP.Syntax
+import           Control.Monad.Freer
+import           Control.Monad.Freer.Error
+import qualified Data.HashMap.Strict       as HashMap
+import           Prelude                   hiding (Bool (..), not)
+import           Test.Tasty.Hspec
+import           WTP.Syntax
+import           WTP.Verify
 
+verify' :: Formula -> [Step] -> Either Failure ()
+verify' formula steps = run (runError (verify (simplify formula) steps))
 
 spec_verify :: Spec
 spec_verify = describe "verify" $ do
+
   it "is undetermined with true for zero steps" $ do
-    verify (simplify True) []
+    verify' True []
       `shouldBe` Left Undetermined
   it "verifies with true for one step" $ do
-    verify (simplify True) [Step HashMap.empty]
+
+    verify' True [Step HashMap.empty]
       `shouldBe` Right ()
   it "verifies with get and assertion" $ do
-    verify
-      ( simplify
-          ( Get
-              ClassList
-              (Require (Query "#some-element"))
-              ≡ ["foo", "bar"]
-          )
-      )
+    verify'
+        ((get ClassList =<< require =<< query "#some-element") ≡ ["foo", "bar"])
       [Step (HashMap.singleton "#some-element" [Element])]
+
       `shouldBe` Right ()
 
 
@@ -60,18 +61,13 @@ example =
                   )
   where
     spinnerIs state =
-      Get
-        ClassList
-        (Require (Query ".my-app .spinner"))
+      (get ClassList =<< require =<< query ".my-app .spinner")
         ≡ case state of
           Active -> ["spinner", "active"]
           Hidden -> ["spinner"]
     hasMessage message classes =
-      ( Get
-          ClassList
-          (Require (Query ".my-app .message"))
-          ≡ classes
+      ((get ClassList =<< require =<< query ".my-app .message") ≡ classes
       )
-        ∧ ( Get InnerText (Require (Query ".my-app .message"))
+        ∧ ( (get InnerText =<< require =<< query ".my-app .message")
               ≡ message
           )

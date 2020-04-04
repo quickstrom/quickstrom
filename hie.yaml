@@ -3,4 +3,6 @@ cradle:
     - path: "."
       component: "lib:wtp"
     - path: "."
-      component: "wtp:exe:wtp"
+      component: "exe:wtp"
+    - path: "."
+      component: "test:wtp-test"

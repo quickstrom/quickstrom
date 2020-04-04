@@ -8,18 +8,66 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
-module WTP.Syntax where
+module WTP.Syntax
+  ( Core.Selector (..)
+  , Core.Attribute (..)
+  , Core.Assertion (..)
+  , Core.Element (..)
+  , Core.Query (..)
+  , Formula (..),
+    simplify,
+    (/\),
+    (\/),
+    (∧),
+    (∨),
+    (===),
+    (≡),
+    (¬),
+    not,
+  )
+where
 
-import Data.Char (Char)
-import Data.Functor (Functor (..))
-import Data.String (IsString)
-import Data.Text (Text)
-import WTP.Core
-import Prelude (($), (.), (<>), Eq, Maybe, Show (..))
+import qualified WTP.Core as Core
+import Prelude hiding (Bool (..), not)
+import qualified Data.Bool as Bool
+import Data.Bool (Bool)
+
+data Formula where
+  -- Simplified language operators
+  True :: Formula
+  Not :: Formula -> Formula
+  Or :: Formula -> Formula -> Formula
+  Until :: Formula -> Formula -> Formula
+  Assert :: Show a => Core.Query a -> Core.Assertion a -> Formula
+  -- Full language operators
+  False :: Formula
+  Eventually :: Formula -> Formula
+  Always :: Formula -> Formula
+  And :: Formula -> Formula -> Formula
+  Implies :: Formula -> Formula -> Formula
+  Equivalent :: Formula -> Formula -> Formula
+  Release :: Formula -> Formula -> Formula
+
+simplify :: Formula -> Core.Formula
+simplify = \case
+  -- Derived operators (only present in `Full` language) are simplified
+  False -> Core.Not Core.True
+  Eventually p -> Core.Until Core.True (simplify p)
+  Always p -> Core.Not (simplify (Eventually (Not p)))
+  And p q -> Core.Not (Core.Not (simplify p) `Core.Or` Core.Not (simplify q))
+  Implies p q -> Core.Not (simplify p) `Core.Or` simplify q
+  Equivalent p q -> simplify (p `Implies` q) `Core.Or` simplify (q `Implies` p)
+  Release p q -> Core.Not (Core.Not (simplify p) `Core.Until` Core.Not (simplify q))
+  -- Simplified language operators are preserved
+  True -> Core.True
+  Not p -> Core.Not (simplify p)
+  Or p q -> Core.Or (simplify p) (simplify q)
+  Until p q -> Core.Until (simplify p) (simplify q)
+  Assert query assertion -> Core.Assert query assertion
 
 infix 4 \/, /\, ∧, ∨
 
-(/\), (\/), (∧), (∨) :: Formula Full -> Formula Full -> Formula Full
+(/\), (\/), (∧), (∨) :: Formula -> Formula -> Formula
 (/\) = And
 (\/) = Or
 (∧) = And
@@ -27,62 +75,15 @@ infix 4 \/, /\, ∧, ∨
 
 infix 5 ===, ≡
 
-(===), (≡) :: (Show a, Eq a) => Query a -> a -> Formula Full
-query === expected = Assert query (Equals expected)
-query ≡ expected = Assert query (Equals expected)
+(===), (≡) :: (Show a, Eq a) => Core.Query a -> a -> Formula
+query === expected = Assert query (Core.Equals expected)
+query ≡ expected = Assert query (Core.Equals expected)
+
+(⊢) :: Show a => Core.Query a -> (a -> Bool) -> Formula
+query ⊢ f = Assert query (Core.Satisfies f)
 
 infix 6 ¬
 
-(¬) :: Formula Full -> Formula Full
+not, (¬) :: Formula -> Formula
+not = Not
 (¬) = Not
-
---
--- EXAMPLE
---
-
-data SpinnerState = Active | Hidden
-
--- Simple example, a form for posting a comment. Note that you can only post once, even 
--- if there's an error.
-example :: Property
-example =
-  Property
-    { actions = [Focus ".my-app input", KeyPress 'x', Click ".my-app button[type=submit]"],
-      specification =
-        ( hasMessage
-            "Post a comment below."
-            ["message", "info"]
-            ∧ spinnerIs Hidden
-        )
-          `Until` spinnerIs Active
-          `Until` ( Always
-                      ( hasMessage
-                          "Failed to post comment."
-                          ["message", "error"]
-                          ∧ spinnerIs Hidden
-                      )
-                      ∨ Always
-                        ( hasMessage
-                            "Form posted!"
-                            ["message", "error"]
-                            ∧ spinnerIs Hidden
-                        )
-                  )
-    }
-  where
-    spinnerIs state =
-      Get
-        ClassList
-        (Require (Query ".my-app .spinner"))
-        ≡ case state of
-          Active -> ["spinner", "active"]
-          Hidden -> ["spinner"]
-    hasMessage message classes =
-      ( Get
-          ClassList
-          (Require (Query ".my-app .message"))
-          ≡ classes
-      )
-        ∧ ( Get InnerText (Require (Query ".my-app .message"))
-              ≡ message
-          )

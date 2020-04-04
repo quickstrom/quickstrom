@@ -24,8 +24,13 @@ spec_verify = describe "verify" $ do
       `shouldBe` Right ()
   it "verifies with get and assertion" $ do
     verify'
-        ((get ClassList =<< require =<< query "#some-element") ≡ ["foo", "bar"])
+      ((get ClassList =<< require =<< query "#some-element") ≡ ["foo", "bar"])
       [Step (HashMap.singleton "#some-element" [Element])]
+      `shouldBe` Right ()
+  it "verifies with get and satisfy" $ do
+    verify'
+      (queryAll "p" ⊢ ((== 2) . length))
+      [Step (HashMap.singleton "p" [Element, Element])]
 
       `shouldBe` Right ()
 

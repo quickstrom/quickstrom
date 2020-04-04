@@ -13,12 +13,13 @@
 module WTP.Core where
 
 import           Control.Monad.Freer
-import           Data.Char           (Char)
-import           Data.Hashable       (Hashable)
-import           Data.String         (IsString)
-import           Data.Text           (Text)
-import           GHC.Generics        (Generic)
-import           Prelude             hiding (False, True)
+import           Control.Monad.Freer.Error
+import           Data.Char                 (Char)
+import           Data.Hashable             (Hashable)
+import           Data.String               (IsString)
+import           Data.Text                 (Text)
+import           GHC.Generics              (Generic)
+import           Prelude                   hiding (False, True)
 
 newtype Selector = Selector Text
   deriving (Eq, Show, IsString, Generic, Hashable)
@@ -54,13 +55,9 @@ data Query a where
   Query :: Selector -> Query (Maybe Element)
   QueryAll :: Selector -> Query [Element]
   Get :: Attribute a -> Element -> Query a
-  Require :: Maybe a -> Query a
 
 query :: Member Query effs => Selector -> Eff effs (Maybe Element)
 query = send . Query
-
-require :: Member Query effs => Maybe a -> Eff effs a
-require = send . Require
 
 queryAll :: Member Query effs => Selector -> Eff effs [Element]
 queryAll = send . QueryAll
@@ -73,7 +70,7 @@ data Formula where
   Not :: Formula -> Formula
   Or :: Formula -> Formula -> Formula
   Until :: Formula -> Formula -> Formula
-  Assert :: Eff '[Query] a -> Assertion a -> Formula
+  Assert :: Eff '[Query, Error Text] a -> Assertion a -> Formula
 
 instance Show Formula where
   show = \case

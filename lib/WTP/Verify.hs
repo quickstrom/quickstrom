@@ -7,6 +7,7 @@
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
@@ -40,12 +41,23 @@ invert = \case
   Left Rejected {} -> pure ()
   Right () -> Left (Rejected "false")
 
-newtype QueryC m a = QueryC { runQueryC :: m a }
-  deriving (Applicative, Functor, Monad)
+invert'  :: Member (Error Failure) effs => Eff effs () -> Eff effs ()
+invert' ma = do
+  e <- lowerEither @Failure ma
+  liftEither (invert e)
 
-runQueryPure :: Eff '[Query] a -> Elements -> Eff '[Error Failure] a
-runQueryPure query elements =
-  reinterpret
+mapError :: (e -> f) -> Eff (Error e ': effs) a -> Eff (Error f ': effs) a
+mapError f = reinterpret (\(Error e) -> throwError (f e))
+
+lowerEither :: forall e effs a. Member (Error e) effs => Eff effs a -> Eff effs (Either e a)
+lowerEither ma = catchError (Right <$> ma) (pure . Left)
+
+liftEither :: Member (Error e) effs => Either e a -> Eff effs a
+liftEither = either throwError pure
+
+runQueryPure :: Eff '[Query, Error Text] a -> Elements -> Eff '[Error Text] a
+runQueryPure query' elements =
+  interpret
     ( \case
         Query selector -> case HashMap.lookup selector elements of
           Just (a : _) -> pure (Just a)
@@ -55,9 +67,8 @@ runQueryPure query elements =
           InnerHTML -> pure mempty
           InnerText -> pure mempty
           ClassList -> pure []
-        Require ma -> maybe (throwError (Rejected "Required value is Nothing")) pure ma
     )
-    query
+    query'
 
 runAssertion :: Member (Error Failure) effs => Assertion a -> a -> Eff effs ()
 runAssertion assertion a =
@@ -81,11 +92,11 @@ verify spec steps = case steps of
   current : rest ->
     case spec of
       True -> pure ()
-      Not p -> verify p steps
+      Not p -> invert' (verify p steps)
       p `Or` q -> do
-        (r1 :: Either Failure ()) <- catchError (Right <$> verify p steps) (pure . Left)
-        (r2 :: Either Failure ()) <- catchError (Right <$> verify q steps) (pure . Left)
-        either throwError pure (r1 <> r2)
+        r1 <- lowerEither @Failure (verify p steps)
+        r2 <- lowerEither @Failure (verify q steps)
+        liftEither (r1 <> r2)
       p `Until` q ->
         catchError
           (verify p [current] >> verify (p `Until` q) rest)
@@ -94,4 +105,5 @@ verify spec steps = case steps of
               Rejected {} -> verify q rest
           )
       Assert query' assertion ->
-        runAssertion assertion =<< runQueryPure query' (queriedElements current)
+        runAssertion assertion
+          =<< mapError Rejected (runQueryPure query' (queriedElements current))

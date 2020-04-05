@@ -34,45 +34,12 @@ spec_verify = describe "verify" $ do
 
       `shouldBe` Right ()
 
+  it "is True with (And True True)" $ do
+    verify' (And True True) [Step HashMap.empty]
+      `shouldBe` Right ()
 
---
--- EXAMPLE
---
+  it "is True with (Not False)" $ do
+    verify' (Not False) [Step HashMap.empty]
+      `shouldBe` Right ()
 
-data SpinnerState = Active | Hidden
 
--- Simple example, a form for posting a comment. Note that you can only post once, even
--- if there's an error.
-example :: Formula
-example =
-        ( hasMessage
-            "Post a comment below."
-            ["message", "info"]
-            ∧ spinnerIs Hidden
-        )
-          `Until` spinnerIs Active
-          `Until` ( Always
-                      ( hasMessage
-                          "Failed to post comment."
-                          ["message", "error"]
-                          ∧ spinnerIs Hidden
-                      )
-                      ∨ Always
-                        ( hasMessage
-                            "Form posted!"
-                            ["message", "error"]
-                            ∧ spinnerIs Hidden
-                        )
-                  )
-  where
-    spinnerIs state =
-      (get ClassList =<< require =<< query ".my-app .spinner")
-        ≡ case state of
-          Active -> ["spinner", "active"]
-          Hidden -> ["spinner"]
-    hasMessage message classes =
-      ((get ClassList =<< require =<< query ".my-app .message") ≡ classes
-      )
-        ∧ ( (get InnerText =<< require =<< query ".my-app .message")
-              ≡ message
-          )

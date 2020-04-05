@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE ExistentialQuantification  #-}
@@ -14,12 +15,13 @@ module WTP.Core where
 
 import           Control.Monad.Freer
 import           Control.Monad.Freer.Error
-import           Data.Char                 (Char)
 import           Data.Hashable             (Hashable)
-import           Data.String               (IsString)
+import           Data.String               (IsString (..))
 import           Data.Text                 (Text)
+import qualified Data.Text as Text
 import           GHC.Generics              (Generic)
 import           Prelude                   hiding (False, True)
+import qualified Data.Aeson as JSON
 
 newtype Selector = Selector Text
   deriving (Eq, Show, IsString, Generic, Hashable)
@@ -27,13 +29,14 @@ newtype Selector = Selector Text
 newtype Path = Path Text
   deriving (Show, IsString, Generic)
 
-data Action = Focus Selector | KeyPress Char | Click Selector | Navigate Path
-  deriving (Show, Generic)
-
 data Attribute a where
   InnerHTML :: Attribute Text
   InnerText :: Attribute Text
   ClassList :: Attribute [Text]
+  Property :: Text -> Attribute JSON.Value
+
+instance IsString (Attribute JSON.Value) where
+  fromString = Property . Text.pack
 
 deriving instance Show (Attribute a)
 

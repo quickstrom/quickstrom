@@ -22,8 +22,8 @@ common shared-deps
 library
   import:             shared-deps
   exposed-modules:    WTP.Core
-                    , WTP.Property
                     , WTP.Run
+                    , WTP.Specification
                     , WTP.Syntax
                     , WTP.Verify
   hs-source-dirs:     lib

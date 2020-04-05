@@ -6,12 +6,12 @@ import qualified Data.Text as Text
 import qualified Data.HashMap.Strict       as HashMap
 import qualified Data.Aeson as JSON
 import Web.Api.WebDriver
-import WTP.Property
+import WTP.Specification
 import WTP.Verify
 import WTP.Core
 
-run :: Property Formula -> WebDriverT IO [Step]
-run property = traverse go (actions property)
+run :: Specification Formula -> WebDriverT IO [Step]
+run spec = traverse go (actions spec)
   where
     find' (Selector s) = findElement CssSelector (Text.unpack s)
     go action = do

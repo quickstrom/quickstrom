@@ -12,21 +12,21 @@ import System.Directory
 import qualified WTP.Run as WTP
 import WTP.Core (Path (..))
 import WTP.Syntax
-import WTP.Property
+import WTP.Specification
 import WTP.Verify
 
 main :: IO ()
 main = do
   cwd <- getCurrentDirectory
   let ex = example cwd
-      simplified = WTP.Property.Property
+      simplified = Specification
         { actions = actions ex,
-          specification = simplify (specification ex)
+          property = simplify (property ex)
         }
-  let test prop = do
-        steps <- WTP.run prop
+  let test spec = do
+        steps <- WTP.run spec
         liftWebDriverTT (liftIO (print steps))
-        assertEqual (run (runError (verify (specification prop) steps))) (Right ()) "run failed"
+        assertEqual (run (runError (verify (property spec) steps))) (Right ()) "run failed"
   void $ execWebDriverT
     defaultWebDriverConfig
     (runIsolated defaultFirefoxCapabilities (test simplified))
@@ -39,13 +39,13 @@ data SpinnerState = Active | Hidden
 
 -- Simple example, a form for posting a comment. Note that you can only post once, even
 -- if there's an error.
-example :: FilePath -> Property Formula
+example :: FilePath -> Specification Formula
 example cwd =
-  WTP.Property.Property
+  Specification
   { actions = [ Navigate (Path ("file://" <> Text.pack cwd <> "/test/button.html"))
               , Click "button"
               ]
-  , specification =
+  , property =
       buttonIsDisabled Prelude.False
         `Until`
       (messageIs "Boom!" ∧ buttonIsDisabled Prelude.True)

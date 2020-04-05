@@ -1,22 +1,15 @@
-cabal-version:       >=1.10
+cabal-version:        3.0
 
-name:                wtp
-version:             0.1.0.0
-license-file:        LICENSE
-author:              Oskar Wickström
-maintainer:          oskar.wickstrom@ingka.com
-build-type:          Simple
-extra-source-files:  CHANGELOG.md
+name:                 wtp
+version:              0.1.0.0
+license-file:         LICENSE
+author:               Oskar Wickström
+maintainer:           oskar.wickstrom@ingka.com
+build-type:           Simple
+extra-source-files:   CHANGELOG.md
 
-library
-  exposed-modules:    WTP.Core
-                    , WTP.Syntax
-                    , WTP.Syntax.Dhall
-                    , WTP.Verify
-  build-depends:      base >=4.12 && <4.13
-                    , data-fix
-                    , deriving-compat
-                    , dhall
+common shared-deps
+  build-depends:      base ^>= 4.12
                     , freer-simple
                     , hashable
                     , mtl
@@ -24,31 +17,39 @@ library
                     , recursion-schemes
                     , text
                     , unordered-containers
+
+library
+  import:             shared-deps
+  exposed-modules:    WTP.Core
+                    , WTP.Syntax
+                    , WTP.Syntax.Dhall
+                    , WTP.Verify
+  build-depends:      data-fix
+                    , deriving-compat
+                    , dhall
   hs-source-dirs:     lib
   default-language:   Haskell2010
 
 executable wtp
+  import:             shared-deps
   main-is:            Main.hs
   build-depends:      base >=4.12 && <4.13
                     , dhall
                     , wtp
-                    , text
   hs-source-dirs:     wtp
   default-language:   Haskell2010
 
 test-suite wtp-test
+  import:             shared-deps
   type:               exitcode-stdio-1.0
   main-is:            Main.hs
   hs-source-dirs:     test
   other-modules:      WTP.SyntaxTest
   build-depends:      base
                     , wtp
-                    , freer-simple
                     , hedgehog
-                    , mtl
                     , simple-ltl
                     , tasty
                     , tasty-discover
                     , tasty-hedgehog
                     , tasty-hspec
-                    , unordered-containers

@@ -90,7 +90,8 @@ runQueryPure elements statesByElement =
         QueryAll selector -> pure (fromMaybe [] (HashMap.lookup selector elements))
         Get state element ->
           let states = fromMaybe mempty (HashMap.lookup element statesByElement)
-           in maybe (throwError ("Could not find state: " <> Text.pack (show state))) pure (findElementState state states)
+              msg = "Could not find state (" <> Text.pack (show state) <> ") for element (" <> Text.pack (show element) <> "): " <> Text.pack (show statesByElement)
+           in maybe (throwError msg) pure (findElementState state states)
     )
 
 runAssertion :: Member (Error Failure) effs => Assertion a -> a -> Eff effs ()

@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedLists #-}
 module WTP.Run (run) where
 
 import Control.Monad (void)
@@ -12,18 +13,26 @@ import WTP.Core
 
 run :: Specification Formula -> WebDriverT IO [Step]
 run spec = traverse go (actions spec)
-  where
-    find' (Selector s) = findElement CssSelector (Text.unpack s)
-    go action = do
-      case action of
-        Focus s ->
-          find' s >>= elementSendKeys ""
-        KeyPress c ->
-          getActiveElement >>= elementSendKeys [c]
-        Click s ->
-          find' s >>= elementClick
-        Navigate (Path path) -> navigateTo (Text.unpack path)
-      pure (Step {queriedElements = mempty, elementStates = mempty })
+ where
+  find' (Selector s) = findElement CssSelector (Text.unpack s)
+  go action = do
+    case action of
+      Focus    s           -> find' s >>= elementSendKeys ""
+      KeyPress c           -> getActiveElement >>= elementSendKeys [c]
+      Click    s           -> find' s >>= elementClick
+      Navigate (Path path) -> navigateTo (Text.unpack path)
+    pure
+      (Step
+        { queriedElements = mempty
+        , elementStates   =
+          [ ( Element "a"
+            , [ SomeElementState (Property "classList")
+                                 (JSON.Array [JSON.String "foo"])
+              ]
+            )
+          ]
+        }
+      )
 
 myWait :: Int -> WebDriverT IO ()
 myWait ms =

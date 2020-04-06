@@ -9,7 +9,7 @@ import Control.Monad.IO.Class (liftIO)
 import Web.Api.WebDriver
 import System.Directory
 import qualified WTP.Run as WTP
-import WTP.Core (Path (..))
+import WTP.Formula (Path (..))
 import WTP.Syntax
 import WTP.Specification
 import WTP.Verify

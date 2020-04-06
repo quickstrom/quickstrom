@@ -9,7 +9,7 @@ import qualified Data.Aeson as JSON
 import Web.Api.WebDriver
 import WTP.Specification
 import WTP.Verify
-import WTP.Core
+import WTP.Formula
 import WTP.Query
 
 run :: Specification Formula -> WebDriverT IO [Step]

@@ -24,7 +24,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import Type.Reflection
 import Data.Typeable (Typeable)
-import WTP.Core
+import WTP.Formula
 import WTP.Query
 import Prelude hiding (Bool (..), not)
 

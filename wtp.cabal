@@ -21,7 +21,7 @@ common shared-deps
 
 library
   import:             shared-deps
-  exposed-modules:    WTP.Core
+  exposed-modules:    WTP.Formula
                     , WTP.Query
                     , WTP.Run
                     , WTP.Specification

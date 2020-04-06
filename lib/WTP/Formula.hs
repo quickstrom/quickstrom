@@ -11,7 +11,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
-module WTP.Core where
+module WTP.Formula where
 
 import Control.Monad.Freer
 import Control.Monad.Freer.Error

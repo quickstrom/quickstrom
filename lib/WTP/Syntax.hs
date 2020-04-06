@@ -12,7 +12,7 @@
 
 module WTP.Syntax
   ( Core.Selector (..)
-  , Core.Attribute (..)
+  , Core.ElementState (..)
   , Core.Assertion (..)
   , Core.Element (..)
   , Core.Query

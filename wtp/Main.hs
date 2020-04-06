@@ -2,7 +2,6 @@
 module Main where
 
 import qualified Data.Text as Text
-import qualified Data.Aeson as JSON
 import Control.Monad (void)
 import Control.Monad.Freer
 import Control.Monad.Freer.Error
@@ -46,20 +45,15 @@ example cwd =
               , Click "button"
               ]
   , property =
-      buttonIsDisabled Prelude.False
+      buttonIsEnabled Prelude.True
         `Until`
-      (messageIs "Boom!" ∧ buttonIsDisabled Prelude.True)
+      (messageIs "Boom!" ∧ buttonIsEnabled Prelude.False)
   }
   where
-    buttonIsDisabled disabled = do
-      let q = do
-            v <- get "disabled" =<< require =<< query "button"
-            case v of
-              JSON.Bool b -> pure b
-              _ -> pure Prelude.False
-      q ≡ disabled
+    buttonIsEnabled enabled = do
+      (get Enabled =<< require =<< query "button") ≡ enabled
     messageIs message =
-        (get InnerText =<< require =<< query ".message") ≡ message
+        (get (Property "innerText") =<< require =<< query ".message") ≡ message
 
 
   {-

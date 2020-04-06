@@ -23,7 +23,7 @@ run spec = traverse go (actions spec)
         Click s ->
           find' s >>= elementClick
         Navigate (Path path) -> navigateTo (Text.unpack path)
-      pure (Step {queriedElements = HashMap.empty})
+      pure (Step {queriedElements = mempty, elementStates = mempty })
 
 myWait :: Int -> WebDriverT IO ()
 myWait ms =

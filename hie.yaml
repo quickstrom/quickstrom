@@ -6,3 +6,15 @@ cradle:
       component: "exe:wtp"
     - path: "."
       component: "test:wtp-test"
+  # direct: 
+  #   arguments:
+  #     - -Wunused-binds
+  #     - -Wunused-imports
+  #     - -Worphans
+  #     - -i lib
+  #     - -i test
+  #     - -i wtp
+  #     - wtp/Main.hs
+  #     - test/Main.hs
+  #     - -idist/build/autogen
+

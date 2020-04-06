@@ -1,3 +1,5 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
@@ -36,6 +38,14 @@ data Formula where
   Or :: Formula -> Formula -> Formula
   Until :: Formula -> Formula -> Formula
   Assert :: Eff '[Query, Error Text] a -> Assertion a -> Formula
+
+withQueries :: Monad m => (forall a. Eff '[Query, Error Text] a -> m b) -> Formula -> m [b]
+withQueries f = \case
+  True -> pure []
+  Not p -> withQueries f p
+  Or p q -> (<>) <$> withQueries f p <*> withQueries f q
+  Until p q -> (<>) <$> withQueries f p <*> withQueries f q
+  Assert q _ -> (: []) <$> f q
 
 instance Show Formula where
   show = \case

@@ -5,11 +5,9 @@ import qualified Data.Text as Text
 import Control.Monad (void)
 import Control.Monad.Freer
 import Control.Monad.Freer.Error
-import Control.Monad.IO.Class (liftIO)
 import Web.Api.WebDriver
 import System.Directory
 import qualified WTP.Run as WTP
-import WTP.Formula (Path (..))
 import WTP.Syntax
 import WTP.Specification
 import WTP.Verify
@@ -24,7 +22,6 @@ main = do
         }
   let test spec = do
         steps <- WTP.run spec
-        liftWebDriverTT (liftIO (print steps))
         assertEqual (run (runError (verify (property spec) steps))) (Right ()) "run failed"
   void $ execWebDriverT
     defaultWebDriverConfig

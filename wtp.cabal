@@ -16,7 +16,9 @@ common shared-deps
                     , mtl
                     , prettyprinter
                     , text
+                    , transformers
                     , unordered-containers
+                    , vector
                     , webdriver-w3c
 
 library

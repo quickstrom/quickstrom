@@ -16,7 +16,6 @@ module WTP.Verify where
 
 import Control.Monad.Freer
 import Control.Monad.Freer.Error
-import qualified Data.Bool as Bool
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (fromMaybe)
@@ -30,28 +29,19 @@ import Prelude hiding (Bool (..), not)
 
 type Elements = HashMap Selector [Element]
 
-data SomeElementState where
-  SomeElementState :: (Show a, Eq a, Typeable a) => ElementState a -> a -> SomeElementState
+data ElementStateValue where
+  ElementStateValue :: (Typeable a) => ElementState a -> a -> ElementStateValue
 
-instance Eq SomeElementState where
-  (SomeElementState (a1 :: ElementState s1) v1) == (SomeElementState (a2 :: ElementState s2) v2) =
-    case eqTypeRep (typeRep @s1) (typeRep @s2) of
-      Just HRefl -> v1 == v2
-      Nothing -> Bool.False
-
-deriving instance Show SomeElementState
-
-findElementState :: Typeable a => ElementState a -> [SomeElementState] -> Maybe a
-findElementState state [] = Nothing
-findElementState (state :: ElementState s1) (SomeElementState (_ :: ElementState s2) value : rest) =
+findElementState :: Typeable a => ElementState a -> [ElementStateValue] -> Maybe a
+findElementState _ [] = Nothing
+findElementState (state :: ElementState s1) (ElementStateValue (_ :: ElementState s2) value : rest) =
   case eqTypeRep (typeRep @s1) (typeRep @s2) of
     Just HRefl -> Just value
     Nothing -> findElementState state rest
 
-type States = HashMap Element [SomeElementState]
+type States = HashMap Element [ElementStateValue]
 
 data Step = Step {queriedElements :: Elements, elementStates :: States}
-  deriving (Eq, Show)
 
 type Result = Either Failure
 
@@ -63,8 +53,8 @@ data Failure
 
 invert :: Result () -> Result ()
 invert = \case
-  Left Undetermined -> Left Undetermined
   Left Rejected {} -> pure ()
+  Left e -> Left e
   Right () -> Left (Rejected "false")
 
 invert' :: Member (Error Failure) effs => Eff effs () -> Eff effs ()
@@ -91,7 +81,7 @@ runQueryPure elements statesByElement =
         QueryAll selector -> pure (fromMaybe [] (HashMap.lookup selector elements))
         Get state element ->
           let states = fromMaybe mempty (HashMap.lookup element statesByElement)
-              msg = "Could not find state (" <> Text.pack (show state) <> ") for element (" <> Text.pack (show element) <> "): " <> Text.pack (show statesByElement)
+              msg = "Could not find state (" <> Text.pack (show state) <> ") for element (" <> Text.pack (show element)
            in maybe (throwError msg) pure (findElementState state states)
     )
 

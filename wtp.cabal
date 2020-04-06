@@ -32,7 +32,7 @@ library
 executable wtp
   import:             shared-deps
   main-is:            Main.hs
-  build-depends:      base >=4.12 && <4.13
+  build-depends:      base >= 4.12
                     , dhall
                     , directory
                     , wtp

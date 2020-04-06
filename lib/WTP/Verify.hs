@@ -25,6 +25,7 @@ import qualified Data.Text as Text
 import Type.Reflection
 import Data.Typeable (Typeable)
 import WTP.Core
+import WTP.Query
 import Prelude hiding (Bool (..), not)
 
 type Elements = HashMap Selector [Element]

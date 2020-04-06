@@ -1,8 +1,14 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DeriveGeneric #-}
 module WTP.Specification where
 
 import GHC.Generics (Generic)
-import WTP.Core
+import WTP.Query
+import Data.Text (Text)
+import Data.String (IsString)
+
+newtype Path = Path Text
+  deriving (Show, IsString, Generic)
 
 data Action = Focus Selector | KeyPress Char | Click Selector | Navigate Path
   deriving (Show, Generic)

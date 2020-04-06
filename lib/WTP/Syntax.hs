@@ -11,14 +11,14 @@
 {-# LANGUAGE StandaloneDeriving         #-}
 
 module WTP.Syntax
-  ( Core.Selector (..)
-  , Core.ElementState (..)
-  , Core.Assertion (..)
-  , Core.Element (..)
-  , Core.Query
-  , Core.query
-  , Core.queryAll
-  , Core.get
+  ( Core.Assertion (..)
+  , Query.Selector (..)
+  , Query.ElementState (..)
+  , Query.Element (..)
+  , Query.Query
+  , Query.query
+  , Query.queryAll
+  , Query.get
   , Formula (..),
     simplify,
     (/\),
@@ -40,8 +40,9 @@ import           Data.Bool                 (Bool)
 import           Data.Text                 (Text)
 import           Prelude                   hiding (Bool (..), not)
 import qualified WTP.Core                  as Core
+import           WTP.Query                 as Query
 
-type QueryEff = Eff '[Core.Query, Error Text]
+type QueryEff = Eff '[Query, Error Text]
 
 data Formula where
   -- Simplified language operators

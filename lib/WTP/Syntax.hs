@@ -87,11 +87,11 @@ infix 4 \/, /\, ∧, ∨
 infix 5 ===, ≡
 
 (===), (≡) :: (Show a, Eq a, Simple.IsQuery eff) => Eff eff a -> a -> Formula eff
-query === expected = Assert query (Simple.Equals expected)
-query ≡ expected = Assert query (Simple.Equals expected)
+query' === expected = Assert query' (Simple.Equals expected)
+(≡) = (===)
 
 (⊢) :: (Show a, Simple.IsQuery eff) => Eff eff a -> (a -> Bool) -> Formula eff
-query ⊢ f = Assert query (Simple.Satisfies f)
+query' ⊢ f = Assert query' (Simple.Satisfies f)
 
 infix 6 ¬
 

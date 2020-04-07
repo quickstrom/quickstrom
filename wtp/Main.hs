@@ -5,14 +5,17 @@ module Main where
 
 import Control.Monad (void)
 import Control.Monad.Freer
+import Control.Monad.IO.Class (MonadIO (liftIO))
+import qualified Data.Bool as Bool
 import qualified Data.Text as Text
+import Data.Text (Text)
 import System.Directory
+import WTP.Formula (IsQuery)
 import qualified WTP.Run as WTP
 import WTP.Specification
 import WTP.Syntax
 import WTP.Verify
 import Web.Api.WebDriver
-import Control.Monad.IO.Class (MonadIO(liftIO))
 
 main :: IO ()
 main = do
@@ -25,7 +28,7 @@ main = do
           }
   let test spec = do
         steps <- WTP.run spec
-        liftWebDriverTT (liftIO (mapM print steps))
+        -- _ <- liftWebDriverTT (liftIO (mapM print steps))
         result <- runM (verify (property spec) steps)
         assertEqual result Accepted "run failed"
   void $
@@ -33,14 +36,8 @@ main = do
       defaultWebDriverConfig
       (runIsolated defaultFirefoxCapabilities (test simplified))
 
---
--- EXAMPLE
---
 
-data SpinnerState = Active | Hidden
-
--- Simple example, a form for posting a comment. Note that you can only post once, even
--- if there's an error.
+-- Simple example: a button that can be clicked, which then shows a message
 example :: FilePath -> Specification Formula effs
 example cwd =
   Specification
@@ -49,46 +46,14 @@ example cwd =
           Click "button"
         ],
       property =
-        Eventually
-          ( buttonIsEnabled Prelude.True
-              `Until` (messageIs "Boom!" ∧ buttonIsEnabled Prelude.False)
-          )
+        Eventually $
+          buttonIsEnabled
+            `Until` (messageIs "Boom!" ∧ Not buttonIsEnabled)
     }
-  where
-    buttonIsEnabled enabled = do
-      (traverse (get Enabled) =<< query "button") ≡ Just enabled
-    messageIs message =
-      (traverse (get Text) =<< query ".message") ≡ Just message
-{-
-        ( hasMessage
-            "Post a comment below."
-            ["message", "info"]
-            ∧ spinnerIs Hidden
-        )
-          `Until` spinnerIs Active
-          `Until` ( Always
-                      ( hasMessage
-                          "Failed to post comment."
-                          ["message", "error"]
-                          ∧ spinnerIs Hidden
-                      )
-                      ∨ Always
-                        ( hasMessage
-                            "Form posted!"
-                            ["message", "error"]
-                            ∧ spinnerIs Hidden
-                        )
-                  )
-  where
-    spinnerIs state =
-      (get ClassList =<< require =<< query ".my-app .spinner")
-        ≡ case state of
-          Active -> ["spinner", "active"]
-          Hidden -> ["spinner"]
-    hasMessage message classes =
-      ((get ClassList =<< require =<< query ".my-app .message") ≡ classes
-      )
-        ∧ ( (get InnerText =<< require =<< query ".my-app .message")
-              ≡ message
-          )
--}
+
+buttonIsEnabled :: IsQuery effs => Formula effs
+buttonIsEnabled = (traverse (get Enabled) =<< query "button") ≡ Just Bool.True
+
+messageIs :: IsQuery effs => Text -> Formula effs
+messageIs message =
+  (traverse (get Text) =<< query ".message") ≡ Just message

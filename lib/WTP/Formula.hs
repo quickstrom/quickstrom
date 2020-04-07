@@ -33,7 +33,7 @@ instance Show (Assertion a) where
     Contains t -> "(Contains " <> show t <> ")"
     Satisfies _ -> "(Satisfies _)"
 
-type IsQuery eff = Members '[Query, Error Text] eff
+type IsQuery eff = Members '[Query] eff
 
 data Formula (eff :: [* -> *]) where
   True :: Formula eff

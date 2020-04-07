@@ -26,6 +26,7 @@ import Type.Reflection
 import WTP.Formula
 import WTP.Query
 import Prelude hiding (Bool (..), not)
+import Debug.Trace (traceShow)
 
 type Elements = HashMap Selector [Element]
 
@@ -103,7 +104,7 @@ runAssertion assertion a =
 
 verify :: Formula (Query ': Error Text ': effs) -> [Step] -> Eff (Error Failure ': effs) ()
 verify spec steps = case steps of
-  [] -> throwError Undetermined
+  [] -> traceShow spec $ throwError Undetermined
   current : rest ->
     case spec of
       True -> pure ()

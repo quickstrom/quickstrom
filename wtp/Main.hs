@@ -55,9 +55,9 @@ example cwd =
     }
   where
     buttonIsEnabled enabled = do
-      (get Enabled =<< require =<< query "button") ≡ enabled
+      (maybe (pure Prelude.False) (get Enabled) =<< query "button") ≡ enabled
     messageIs message =
-      (get Text =<< require =<< query ".message") ≡ message
+      (maybe (pure Nothing) (fmap Just <$> get Text) =<< query ".message") ≡ Just message
 {-
         ( hasMessage
             "Post a comment below."

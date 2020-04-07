@@ -26,7 +26,6 @@ import WTP.Formula
 import WTP.Query
 import Prelude hiding (Bool (..), not)
 import qualified Data.Bool as Bool
-import Debug.Trace (traceM, traceShowM)
 
 data ElementStateValue where
   ElementStateValue :: (Typeable a, Show a, Eq a) => ElementState a -> a -> ElementStateValue
@@ -99,23 +98,27 @@ runAssertion assertion a =
         then Accepted
         else Rejected (Text.pack (show a) <> " does not satisfy custom predicate")
 
-verify :: Formula (Query ': effs) -> [Step] -> Eff effs Result
-verify spec steps = case steps of
-  [] -> pure Undetermined
-  current : rest ->
-    case spec of
-      True -> pure Accepted
-      Not p -> invert <$> verify p steps
-      p `Or` q -> do
-        r1 <- verify p steps
-        r2 <- verify q steps
-        pure (r1 <> r2)
-      p `Until` q -> do
-        (,) <$> verify p [current] <*> verify q rest >>= \case
-          (Accepted, Rejected{}) -> verify (p `Until` q) rest 
-          (Accepted, r2) -> pure r2
-          (_, Accepted) -> pure Accepted
-          (r1, _) -> pure r1
-      Assert query' assertion -> do
-        result <-runQueryPure (queriedElements current) (elementStates current) query'
-        pure (runAssertion assertion result)
+-- TODO: Add writer logging each step, returning it together with result
+verify :: Formula -> [Step] -> Result
+verify f = run . go f
+  where
+    go :: Formula -> [Step] -> Eff '[] Result
+    go spec steps = case steps of
+      [] -> pure Undetermined
+      current : rest ->
+        case spec of
+          True -> pure Accepted
+          Not p -> invert <$> go p steps
+          p `Or` q -> do
+            r1 <- go p steps
+            r2 <- go q steps
+            pure (r1 <> r2)
+          p `Until` q -> do
+            (,) <$> go p [current] <*> go q rest >>= \case
+              (Accepted, Rejected{}) -> go (p `Until` q) rest 
+              (Accepted, r2) -> pure r2
+              (_, Accepted) -> pure Accepted
+              (r1, _) -> pure r1
+          Assert query' assertion -> do
+            result <-runQueryPure (queriedElements current) (elementStates current) query'
+            pure (runAssertion assertion result)

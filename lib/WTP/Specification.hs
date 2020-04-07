@@ -6,7 +6,6 @@
 
 module WTP.Specification where
 
-import qualified Control.Monad.Freer as Eff
 import Data.String (IsString)
 import Data.Text (Text)
 import GHC.Generics (Generic)
@@ -18,8 +17,8 @@ newtype Path = Path Text
 data Action = Focus Selector | KeyPress Char | Click Selector | Navigate Path
   deriving (Show, Generic)
 
-data Specification formula effs
+data Specification formula
   = Specification
       { actions :: [Action],
-        property :: Eff.Members '[Query] effs => formula effs
+        property :: formula
       }

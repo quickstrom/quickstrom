@@ -34,14 +34,14 @@ instance Show (Assertion a) where
 
 type IsQuery eff = Members '[Query] eff
 
-data Formula (eff :: [* -> *]) where
-  True :: Formula eff
-  Not :: Formula eff -> Formula eff
-  Or :: Formula eff -> Formula eff -> Formula eff
-  Until :: Formula eff -> Formula eff -> Formula eff
-  Assert :: (Show a, IsQuery eff) => Eff eff a -> Assertion a -> Formula eff
+data Formula where
+  True :: Formula
+  Not :: Formula -> Formula
+  Or :: Formula -> Formula -> Formula
+  Until :: Formula -> Formula -> Formula
+  Assert :: Show a => Eff '[Query] a -> Assertion a -> Formula
 
-withQueries :: Monad m => (forall a. Eff eff a -> m b) -> Formula eff -> m [b]
+withQueries :: Monad m => (forall a. Eff '[Query] a -> m b) -> Formula -> m [b]
 withQueries f = \case
   True -> pure []
   Not p -> withQueries f p
@@ -49,7 +49,7 @@ withQueries f = \case
   Until p q -> (<>) <$> withQueries f p <*> withQueries f q
   Assert q _ -> (: []) <$> f q
 
-instance Show (Formula eff) where
+instance Show Formula where
   show = \case
     True -> "True"
     Not p -> "(Not " <> show p <> ")"

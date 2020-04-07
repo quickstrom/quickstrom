@@ -34,7 +34,7 @@ import Data.List (nub)
 
 type WD = WebDriverTT IdentityT IO
 
-run :: Specification Formula '[Query] -> WD [Step]
+run :: Specification Formula -> WD [Step]
 run spec = (:) <$> buildStep <*> traverse (\action -> runAction action >> buildStep) (actions spec)
   where
     extractQueries = withQueries runQuery (property spec)

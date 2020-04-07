@@ -43,23 +43,23 @@ import           Prelude                 hiding ( Bool(..)
 import qualified WTP.Formula                    as Simple
 import           WTP.Query                 as Query
 
-data Formula (eff :: [* -> *]) where
+data Formula where
   -- Simplified language operators
-  True :: Formula eff
-  Not :: Formula eff -> Formula eff
-  Or :: Formula eff -> Formula eff -> Formula eff
-  Until :: Formula eff -> Formula eff -> Formula eff
-  Assert :: (Show a, Simple.IsQuery eff) => Eff eff a -> Simple.Assertion a -> Formula eff
+  True :: Formula
+  Not :: Formula -> Formula
+  Or :: Formula -> Formula -> Formula
+  Until :: Formula -> Formula -> Formula
+  Assert :: Show a => Eff '[Query] a -> Simple.Assertion a -> Formula
   -- Full language operators
-  False :: Formula eff
-  Eventually :: Formula eff -> Formula eff
-  Always :: Formula eff -> Formula eff
-  And :: Formula eff -> Formula eff -> Formula eff
-  Implies :: Formula eff -> Formula eff -> Formula eff
-  Equivalent :: Formula eff -> Formula eff -> Formula eff
-  Release :: Formula eff -> Formula eff -> Formula eff
+  False :: Formula
+  Eventually :: Formula -> Formula
+  Always :: Formula -> Formula
+  And :: Formula -> Formula -> Formula
+  Implies :: Formula -> Formula -> Formula
+  Equivalent :: Formula -> Formula -> Formula
+  Release :: Formula -> Formula -> Formula
 
-simplify :: Formula eff -> Simple.Formula eff
+simplify :: Formula -> Simple.Formula
 simplify = \case
   -- Derived operators (only present in `Full` language) are simplified
   False -> Simple.Not Simple.True
@@ -78,7 +78,7 @@ simplify = \case
 
 infix 4 \/, /\, ∧, ∨
 
-(/\), (\/), (∧), (∨) :: Formula eff -> Formula eff -> Formula eff
+(/\), (\/), (∧), (∨) :: Formula -> Formula -> Formula
 (/\) = And
 (\/) = Or
 (∧) = And
@@ -86,15 +86,15 @@ infix 4 \/, /\, ∧, ∨
 
 infix 5 ===, ≡
 
-(===), (≡) :: (Show a, Eq a, Simple.IsQuery eff) => Eff eff a -> a -> Formula eff
+(===), (≡) :: (Show a, Eq a) => Eff '[Query] a -> a -> Formula
 query' === expected = Assert query' (Simple.Equals expected)
 (≡) = (===)
 
-(⊢) :: (Show a, Simple.IsQuery eff) => Eff eff a -> (a -> Bool) -> Formula eff
+(⊢) :: Show a => Eff '[Query] a -> (a -> Bool) -> Formula
 query' ⊢ f = Assert query' (Simple.Satisfies f)
 
 infix 6 ¬
 
-not, (¬) :: Formula eff -> Formula eff
+not, (¬) :: Formula -> Formula
 not = Not
 (¬) = Not

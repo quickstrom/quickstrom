@@ -4,13 +4,10 @@
 module Main where
 
 import Control.Monad (void)
-import Control.Monad.Freer
-import Control.Monad.IO.Class (MonadIO (liftIO))
 import qualified Data.Bool as Bool
 import qualified Data.Text as Text
 import Data.Text (Text)
 import System.Directory
-import WTP.Formula (IsQuery)
 import qualified WTP.Run as WTP
 import WTP.Specification
 import WTP.Syntax
@@ -29,8 +26,8 @@ main = do
   let test spec = do
         steps <- WTP.run spec
         -- _ <- liftWebDriverTT (liftIO (mapM print steps))
-        let result = run (verify (property spec) steps)
-        assertEqual result Accepted "run failed"
+        let result = verify (property spec) steps
+        assertEqual result Accepted "verification using WebDriver"
   void $
     execWebDriverT
       defaultWebDriverConfig
@@ -38,7 +35,7 @@ main = do
 
 
 -- Simple example: a button that can be clicked, which then shows a message
-example :: FilePath -> Specification Formula effs
+example :: FilePath -> Specification Formula
 example cwd =
   Specification
     { actions =
@@ -51,9 +48,9 @@ example cwd =
             `Until` (messageIs "Boom!" ∧ Not buttonIsEnabled)
     }
 
-buttonIsEnabled :: IsQuery effs => Formula effs
+buttonIsEnabled :: Formula
 buttonIsEnabled = (traverse (get Enabled) =<< query "button") ≡ Just Bool.True
 
-messageIs :: IsQuery effs => Text -> Formula effs
+messageIs :: Text -> Formula
 messageIs message =
   (traverse (get Text) =<< query ".message") ≡ Just message

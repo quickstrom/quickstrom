@@ -12,6 +12,7 @@ import WTP.Specification
 import WTP.Syntax
 import WTP.Verify
 import Web.Api.WebDriver
+import Control.Monad.IO.Class (MonadIO(liftIO))
 
 main :: IO ()
 main = do
@@ -24,6 +25,7 @@ main = do
           }
   let test spec = do
         steps <- WTP.run spec
+        liftWebDriverTT (liftIO (mapM print steps))
         result <- runM (verify (property spec) steps)
         assertEqual result Accepted "run failed"
   void $
@@ -54,9 +56,9 @@ example cwd =
     }
   where
     buttonIsEnabled enabled = do
-      (maybe (pure Prelude.False) (get Enabled) =<< query "button") ≡ enabled
+      (traverse (get Enabled) =<< query "button") ≡ Just enabled
     messageIs message =
-      (maybe (pure Nothing) (fmap Just <$> get Text) =<< query ".message") ≡ Just message
+      (traverse (get Text) =<< query ".message") ≡ Just message
 {-
         ( hasMessage
             "Post a comment below."

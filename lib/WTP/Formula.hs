@@ -40,7 +40,7 @@ data Formula (eff :: [* -> *]) where
   Not :: Formula eff -> Formula eff
   Or :: Formula eff -> Formula eff -> Formula eff
   Until :: Formula eff -> Formula eff -> Formula eff
-  Assert :: IsQuery eff => Eff eff a -> Assertion a -> Formula eff
+  Assert :: (Show a, IsQuery eff) => Eff eff a -> Assertion a -> Formula eff
 
 withQueries :: Monad m => (forall a. Eff eff a -> m b) -> Formula eff -> m [b]
 withQueries f = \case

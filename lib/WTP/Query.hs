@@ -46,7 +46,7 @@ newtype Selector = Selector Text
 data Query a where
   Query :: Selector -> Query (Maybe Element)
   QueryAll :: Selector -> Query [Element]
-  Get :: Typeable a => ElementState a -> Element -> Query a
+  Get :: (Typeable a, Show a, Eq a) => ElementState a -> Element -> Query a
 
 query :: Member Query effs => Selector -> Eff effs (Maybe Element)
 query = send . Query
@@ -54,5 +54,5 @@ query = send . Query
 queryAll :: Member Query effs => Selector -> Eff effs [Element]
 queryAll = send . QueryAll
 
-get :: (Member Query effs, Typeable a) => ElementState a -> Element -> Eff effs a
+get :: (Member Query effs, Typeable a, Show a, Eq a) => ElementState a -> Element -> Eff effs a
 get attr = send . Get attr

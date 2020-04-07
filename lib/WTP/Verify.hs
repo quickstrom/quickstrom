@@ -26,10 +26,20 @@ import Type.Reflection
 import WTP.Formula
 import WTP.Query
 import Prelude hiding (Bool (..), not)
-import Debug.Trace (traceShow)
+import qualified Data.Bool as Bool
+import Debug.Trace (traceM, traceShowM)
 
 data ElementStateValue where
-  ElementStateValue :: (Typeable a) => ElementState a -> a -> ElementStateValue
+  ElementStateValue :: (Typeable a, Show a, Eq a) => ElementState a -> a -> ElementStateValue
+
+deriving instance Show ElementStateValue
+
+instance Eq ElementStateValue where
+  ElementStateValue (s1 :: ElementState t1) (v1 :: t1) == ElementStateValue (s2 :: ElementState t2) (v2 :: t2) =
+    case eqTypeRep (typeRep @t1) (typeRep @t2) of
+      Just HRefl -> s1 == s2 && v1 == v2
+      Nothing -> Bool.False
+
 
 findElementState :: Typeable a => ElementState a -> [ElementStateValue] -> Maybe a
 findElementState _ [] = Nothing
@@ -42,7 +52,7 @@ type Elements = HashMap Selector [Element]
 
 type States = HashMap Element [ElementStateValue]
 
-data Step = Step {queriedElements :: Elements, elementStates :: States}
+data Step = Step {queriedElements :: Elements, elementStates :: States} deriving (Show)
 
 data Result
   = Accepted
@@ -111,11 +121,14 @@ verify spec steps = case steps of
         r1 <- verify p steps
         r2 <- verify q steps
         pure (r1 <> r2)
-      p `Until` q ->
-        verify p [current] >>= \case
-          Accepted -> verify (p `Until` q) rest 
-          Rejected {} -> verify q rest
-          Undetermined -> pure Undetermined
+      p `Until` q -> do
+        r1 <- verify p [current]
+        r2 <- verify q rest
+        case (r1, r2) of
+          (Accepted, Rejected{}) -> verify (p `Until` q) rest 
+          (Accepted, _) -> pure r2
+          (_, Accepted) -> pure Accepted
+          (r1, _) -> pure r1
       Assert query' assertion ->
         either Rejected (runAssertion assertion)
           <$> runError (runQueryPure (queriedElements current) (elementStates current) query')

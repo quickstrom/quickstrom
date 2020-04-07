@@ -36,9 +36,7 @@ module WTP.Syntax
 where
 
 import           Control.Monad.Freer
-import           Control.Monad.Freer.Error
 import           Data.Bool                 (Bool)
-import           Data.Text                 (Text)
 import           Prelude                 hiding ( Bool(..)
                                                 , not
                                                 )

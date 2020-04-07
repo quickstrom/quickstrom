@@ -32,7 +32,6 @@ import Data.Hashable (Hashable)
 import Data.Either (partitionEithers)
 import Data.Bifunctor (Bifunctor(bimap))
 import Data.Maybe (listToMaybe)
-import Control.Monad.Trans.Class (MonadTrans(lift))
 import Data.List (nub)
 
 type WD = WebDriverTT IdentityT IO
@@ -53,8 +52,7 @@ run spec = (:) <$> buildStep <*> traverse (\action -> runAction action >> buildS
           assertFailure (AssertionComment (Text.unpack err))
           pure ( Step { queriedElements = mempty, elementStates = mempty })
         Right values -> do
-          let (queriedElements, elementStates) = bimap (HashMap.map nub . groupIntoMap) groupIntoMap (partitionEithers (concat values))
-          liftWebDriverTT (lift (print queriedElements))
+          let (queriedElements, elementStates) = bimap (HashMap.map nub . groupIntoMap) (HashMap.map nub . groupIntoMap) (partitionEithers (concat values))
           pure ( Step { queriedElements, elementStates })
 
 find1 :: Selector -> WD ElementRef

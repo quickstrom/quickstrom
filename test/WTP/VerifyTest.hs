@@ -32,7 +32,7 @@ spec_verify = describe "verify" $ do
             (HashMap.singleton "#some-element" [Element "a"])
             (HashMap.singleton
               (Element "a")
-              [SomeElementState (Property "classList") classList]
+              [ElementStateValue (Property "classList") classList]
             )
         ]
       `shouldBe` Right ()

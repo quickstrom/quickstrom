@@ -39,7 +39,7 @@ data Formula where
   Until :: Formula -> Formula -> Formula
   Assert :: Eff '[Query, Error Text] a -> Assertion a -> Formula
 
-withQueries :: Monad m => (forall a. Eff '[Query, Error Text] a -> m b) -> Formula -> m [b]
+withQueries :: forall m b. Monad m => (forall a. Eff '[Query, Error Text] a -> m b) -> Formula -> m [b]
 withQueries f = \case
   True -> pure []
   Not p -> withQueries f p

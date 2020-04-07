@@ -14,6 +14,7 @@ common shared-deps
                     , freer-simple
                     , hashable
                     , mtl
+                    , natural-transformation
                     , prettyprinter
                     , text
                     , transformers

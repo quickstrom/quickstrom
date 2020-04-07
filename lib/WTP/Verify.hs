@@ -71,7 +71,7 @@ lowerEither ma = catchError (Right <$> ma) (pure . Left)
 liftEither :: Member (Error e) effs => Either e a -> Eff effs a
 liftEither = either throwError pure
 
-runQueryPure :: Elements -> States -> Eff '[Query, Error Text] a -> Eff '[Error Text] a
+runQueryPure :: Member (Error Text) effs => Elements -> States -> Eff (Query ': effs) a -> Eff effs a
 runQueryPure elements statesByElement =
   interpret
     ( \case

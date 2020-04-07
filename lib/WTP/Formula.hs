@@ -17,7 +17,6 @@
 module WTP.Formula where
 
 import Control.Monad.Freer
-import Control.Monad.Freer.Error
 import Data.Text (Text)
 import WTP.Query
 import Prelude hiding (False, True)

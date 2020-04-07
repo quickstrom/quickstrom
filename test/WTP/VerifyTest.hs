@@ -5,7 +5,6 @@ module WTP.VerifyTest where
 
 import qualified Data.Aeson as JSON
 import           Control.Monad.Freer
-import           Control.Monad.Freer.Error
 import qualified Data.HashMap.Strict       as HashMap
 import           Prelude                   hiding (Bool (..), not)
 import           Test.Tasty.Hspec
@@ -14,7 +13,7 @@ import           WTP.Verify
 import Data.Text (Text)
 import qualified Data.Bool as Bool
 
-verify' :: Formula '[Query, Error Text] -> [Step] -> Result
+verify' :: Formula '[Query] -> [Step] -> Result
 verify' formula steps = run (verify (simplify formula) steps)
 
 spec_verify :: Spec

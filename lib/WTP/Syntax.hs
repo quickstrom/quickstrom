@@ -98,7 +98,3 @@ infix 6 ¬
 not, (¬) :: Formula eff -> Formula eff
 not = Not
 (¬) = Not
-
--- require :: Simple.IsQuery eff => Maybe a -> Eff eff a
--- require = maybe (throwError ("Required value is Nothing" :: Text)) pure
-

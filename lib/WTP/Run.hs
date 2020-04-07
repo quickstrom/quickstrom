@@ -14,7 +14,6 @@ module WTP.Run
 where
 
 import qualified Control.Monad.Freer as Eff
-import Control.Monad.Freer.Error (Error, runError)
 import Control.Monad.Freer.Writer (Writer, runWriter, tell)
 import Control.Monad.Trans.Identity (IdentityT)
 import Control.Natural (type (~>))
@@ -36,24 +35,20 @@ import Data.List (nub)
 
 type WD = WebDriverTT IdentityT IO
 
-run :: Specification Formula (Query ': Error Text ': WD ': '[]) -> WD [Step]
+run :: Specification Formula (Query ': WD ': '[]) -> WD [Step]
 run spec = (:) <$> buildStep <*> traverse (\action -> runAction action >> buildStep) (actions spec)
   where
-    extractQueries = (runError (withQueries runQuery (property spec)))
+    extractQueries = withQueries runQuery (property spec)
     runAction = \case
         Focus s -> find1 s >>= elementSendKeys ""
         KeyPress c -> getActiveElement >>= elementSendKeys [c]
         Click s -> find1 s >>= elementClick
         Navigate (Path path) -> navigateTo (Text.unpack path)
-    buildStep =
-      Eff.runM extractQueries >>= \case
-        -- TODO: Somehow ignore errors. We only care about queries.
-        Left err -> do
-          assertFailure (AssertionComment (Text.unpack err))
-          pure ( Step { queriedElements = mempty, elementStates = mempty })
-        Right values -> do
-          let (queriedElements, elementStates) = bimap (HashMap.map nub . groupIntoMap) (HashMap.map nub . groupIntoMap) (partitionEithers (concat values))
-          pure ( Step { queriedElements, elementStates })
+    buildStep = do
+      values <- Eff.runM extractQueries
+      let (queriedElements, elementStates) =
+            bimap groupUniqueIntoMap groupUniqueIntoMap (partitionEithers (concat values))
+      pure ( Step { queriedElements, elementStates })
 
 find1 :: Selector -> WD ElementRef
 find1 (Selector s) = findElement CssSelector (Text.unpack s)
@@ -70,8 +65,8 @@ toRef (Element ref) = ElementRef (Text.unpack ref)
 fromRef :: ElementRef -> Element
 fromRef (ElementRef ref) = Element (Text.pack ref)
 
-groupIntoMap :: (Eq a, Hashable a) => [(a, b)] -> HashMap a [b]
-groupIntoMap = HashMap.fromListWith (++) . map (\(k, v) -> (k, [v]))
+groupUniqueIntoMap :: (Eq a, Hashable a, Eq b) => [(a, b)] -> HashMap a [b]
+groupUniqueIntoMap = HashMap.map nub . HashMap.fromListWith (++) . map (\(k, v) -> (k, [v]))
 
 type QueriedElement = (Selector, Element) 
 type QueriedElementState = (Element, ElementStateValue)

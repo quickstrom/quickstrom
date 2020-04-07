@@ -15,10 +15,9 @@
 module WTP.Verify where
 
 import Control.Monad.Freer
-import Control.Monad.Freer.Error
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, fromJust)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Typeable (Typeable)
@@ -71,16 +70,7 @@ instance Semigroup Result where
   Undetermined <> _ = Undetermined
   _ <> r = r
 
-mapError :: (e -> f) -> Eff (Error e ': effs) a -> Eff (Error f ': effs) a
-mapError f = reinterpret (\(Error e) -> throwError (f e))
-
-lowerEither :: forall e effs a. Member (Error e) effs => Eff effs a -> Eff effs (Either e a)
-lowerEither ma = catchError (Right <$> ma) (pure . Left)
-
-liftEither :: Member (Error e) effs => Either e a -> Eff effs a
-liftEither = either throwError pure
-
-runQueryPure :: Member (Error Text) effs => Elements -> States -> Eff (Query ': effs) a -> Eff effs a
+runQueryPure :: Elements -> States -> Eff (Query ': effs) a -> Eff effs a
 runQueryPure elements statesByElement =
   interpret
     ( \case
@@ -90,8 +80,7 @@ runQueryPure elements statesByElement =
         QueryAll selector -> pure (fromMaybe [] (HashMap.lookup selector elements))
         Get state element ->
           let states = fromMaybe mempty (HashMap.lookup element statesByElement)
-              msg = "Could not find state (" <> Text.pack (show state) <> ") for element (" <> Text.pack (show element)
-           in maybe (throwError msg) pure (findElementState state states)
+          in pure (fromJust (findElementState state states))
     )
 
 runAssertion :: Assertion a -> a -> Result
@@ -110,7 +99,7 @@ runAssertion assertion a =
         then Accepted
         else Rejected (Text.pack (show a) <> " does not satisfy custom predicate")
 
-verify :: Formula (Query ': Error Text ': effs) -> [Step] -> Eff effs Result
+verify :: Formula (Query ': effs) -> [Step] -> Eff effs Result
 verify spec steps = case steps of
   [] -> pure Undetermined
   current : rest ->
@@ -122,13 +111,11 @@ verify spec steps = case steps of
         r2 <- verify q steps
         pure (r1 <> r2)
       p `Until` q -> do
-        r1 <- verify p [current]
-        r2 <- verify q rest
-        case (r1, r2) of
+        (,) <$> verify p [current] <*> verify q rest >>= \case
           (Accepted, Rejected{}) -> verify (p `Until` q) rest 
-          (Accepted, _) -> pure r2
+          (Accepted, r2) -> pure r2
           (_, Accepted) -> pure Accepted
           (r1, _) -> pure r1
-      Assert query' assertion ->
-        either Rejected (runAssertion assertion)
-          <$> runError (runQueryPure (queriedElements current) (elementStates current) query')
+      Assert query' assertion -> do
+        result <-runQueryPure (queriedElements current) (elementStates current) query'
+        pure (runAssertion assertion result)

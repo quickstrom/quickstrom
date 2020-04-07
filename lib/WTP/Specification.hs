@@ -7,7 +7,6 @@
 module WTP.Specification where
 
 import qualified Control.Monad.Freer as Eff
-import Control.Monad.Freer.Error (Error)
 import Data.String (IsString)
 import Data.Text (Text)
 import GHC.Generics (Generic)
@@ -22,5 +21,5 @@ data Action = Focus Selector | KeyPress Char | Click Selector | Navigate Path
 data Specification formula effs
   = Specification
       { actions :: [Action],
-        property :: Eff.Members '[Query, Error Text] effs => formula effs
+        property :: Eff.Members '[Query] effs => formula effs
       }

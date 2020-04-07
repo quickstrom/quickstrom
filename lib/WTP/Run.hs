@@ -1,3 +1,4 @@
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -16,63 +17,86 @@ import Control.Monad.Freer.Error (Error, runError)
 import Control.Monad.Freer.Writer (Writer, runWriter, tell)
 import Control.Monad.Trans.Identity (IdentityT)
 import Control.Natural (type (~>))
-import qualified Data.Aeson as JSON
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Text as Text
 import Data.Text (Text)
-import qualified Data.Vector as Vector
-import WTP.Formula
+import WTP.Formula (Formula, withQueries)
 import WTP.Query
 import WTP.Specification
 import WTP.Verify
 import Web.Api.WebDriver hiding (Selector)
 import Control.Monad.Freer (Eff)
+import Data.HashMap.Strict (HashMap)
+import Data.Hashable (Hashable)
+import Data.Either (partitionEithers)
+import Data.Bifunctor (Bifunctor(bimap))
+import Data.Maybe (listToMaybe)
+import Control.Monad.Trans.Class (MonadTrans(lift))
+import Data.List (nub)
 
-run :: Specification Formula -> WebDriverT IO [Step]
-run spec = traverse go (actions spec)
+type WD = WebDriverTT IdentityT IO
+
+run :: Specification Formula (Query ': Error Text ': WD ': '[]) -> WD [Step]
+run spec = (:) <$> buildStep <*> traverse (\action -> runAction action >> buildStep) (actions spec)
   where
-    find' (Selector s) = findElement CssSelector (Text.unpack s)
-    go action = do
-      case action of
-        Focus s -> find' s >>= elementSendKeys ""
+    extractQueries = (runError (withQueries runQuery (property spec)))
+    runAction = \case
+        Focus s -> find1 s >>= elementSendKeys ""
         KeyPress c -> getActiveElement >>= elementSendKeys [c]
-        Click s -> find' s >>= elementClick
+        Click s -> find1 s >>= elementClick
         Navigate (Path path) -> navigateTo (Text.unpack path)
-      (r :: Either Text [(Element, ElementStateValue)]) <- Eff.runM (runError (runQuery _))
-      (r :: Either Text [[(Element, ElementStateValue)]]) <- Eff.runM (runError (withQueries (runQuery . _) (property spec)))
-      pure
-        ( Step
-            { queriedElements = mempty,
-              elementStates =
-                HashMap.fromList
-                  [ ( Element "a",
-                      [ ElementStateValue
-                          (Property "classList")
-                          (JSON.Array (Vector.singleton (JSON.String "foo")))
-                      ]
-                    )
-                  ]
-            }
-        )
+    buildStep =
+      Eff.runM extractQueries >>= \case
+        -- TODO: Somehow ignore errors. We only care about queries.
+        Left err -> do
+          assertFailure (AssertionComment (Text.unpack err))
+          pure ( Step { queriedElements = mempty, elementStates = mempty })
+        Right values -> do
+          let (queriedElements, elementStates) = bimap (HashMap.map nub . groupIntoMap) groupIntoMap (partitionEithers (concat values))
+          liftWebDriverTT (lift (print queriedElements))
+          pure ( Step { queriedElements, elementStates })
+
+find1 :: Selector -> WD ElementRef
+find1 (Selector s) = findElement CssSelector (Text.unpack s)
+
+findMaybe :: Selector -> WD (Maybe ElementRef)
+findMaybe = fmap listToMaybe . findAll
+
+findAll :: Selector -> WD [ElementRef]
+findAll (Selector s) = findElements CssSelector (Text.unpack s)
 
 toRef :: Element -> ElementRef
 toRef (Element ref) = ElementRef (Text.unpack ref)
 
+fromRef :: ElementRef -> Element
+fromRef (ElementRef ref) = Element (Text.pack ref)
+
+groupIntoMap :: (Eq a, Hashable a) => [(a, b)] -> HashMap a [b]
+groupIntoMap = HashMap.fromListWith (++) . map (\(k, v) -> (k, [v]))
+
+type QueriedElement = (Selector, Element) 
+type QueriedElementState = (Element, ElementStateValue)
+
 runQuery
-      :: Eff.LastMember (WebDriverTT IdentityT IO) effs 
-      => Eff (Query ': effs) a -> Eff effs [(Element, ElementStateValue)]
+      :: Eff.LastMember WD effs 
+      => Eff (Query ': effs) a -> Eff effs [Either QueriedElement QueriedElementState]
 runQuery query' =
   fmap snd
     $ runWriter
     $ Eff.reinterpret go query'
   where
     go 
-      :: Eff.Member (Writer [(Element, ElementStateValue)]) effs
-      => Eff.LastMember (WebDriverTT IdentityT IO) effs 
+      :: Eff.Member (Writer [Either (Selector, Element) (Element, ElementStateValue)]) effs
+      => Eff.LastMember WD effs 
       => Query ~> Eff effs
     go =
       ( \case
-          Query selector -> pure (Just (Element "a"))
+          Query selector -> do
+            el <- fmap fromRef <$> Eff.sendM (findMaybe selector)
+            case el of
+              Just el' -> tell [Left (selector, el') :: Either QueriedElement QueriedElementState]
+              Nothing -> pure ()
+            pure el
           QueryAll selector -> do
             pure [Element "a"]
           Get state element -> do
@@ -82,7 +106,7 @@ runQuery query' =
               CssValue name -> Text.pack <$> getElementCssValue (Text.unpack name) (toRef element)
               Text -> Text.pack <$> getElementText (toRef element)
               Enabled -> isElementEnabled (toRef element)
-            tell [(element, ElementStateValue state value)]
+            tell [Right (element, ElementStateValue state value) :: Either QueriedElement QueriedElementState]
             pure value
       )
 {-

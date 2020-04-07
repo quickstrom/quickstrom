@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
@@ -22,7 +23,8 @@ main = do
         }
   let test spec = do
         steps <- WTP.run spec
-        assertEqual (run (runError (verify (property spec) steps))) (Right ()) "run failed"
+        result <- runM (runError (verify (property spec) steps))
+        assertEqual result (Right ()) "run failed"
   void $ execWebDriverT
     defaultWebDriverConfig
     (runIsolated defaultFirefoxCapabilities (test simplified))
@@ -35,7 +37,7 @@ data SpinnerState = Active | Hidden
 
 -- Simple example, a form for posting a comment. Note that you can only post once, even
 -- if there's an error.
-example :: FilePath -> Specification Formula
+example :: FilePath -> Specification Formula effs
 example cwd =
   Specification
   { actions = [ Navigate (Path ("file://" <> Text.pack cwd <> "/test/button.html"))

@@ -1,11 +1,17 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RankNTypes #-}
+
 module WTP.Specification where
 
+import qualified Control.Monad.Freer as Eff
+import Control.Monad.Freer.Error (Error)
+import Data.String (IsString)
+import Data.Text (Text)
 import GHC.Generics (Generic)
 import WTP.Query
-import Data.Text (Text)
-import Data.String (IsString)
 
 newtype Path = Path Text
   deriving (Show, IsString, Generic)
@@ -13,9 +19,8 @@ newtype Path = Path Text
 data Action = Focus Selector | KeyPress Char | Click Selector | Navigate Path
   deriving (Show, Generic)
 
-data Specification formula
+data Specification formula effs
   = Specification
-      { actions :: [Action]
-      , property :: formula
+      { actions :: [Action],
+        property :: Eff.Members '[Query, Error Text] effs => formula effs
       }
-  deriving (Show, Generic)

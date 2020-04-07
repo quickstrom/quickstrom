@@ -21,8 +21,8 @@ import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
-import Type.Reflection
 import Data.Typeable (Typeable)
+import Type.Reflection
 import WTP.Formula
 import WTP.Query
 import Prelude hiding (Bool (..), not)
@@ -101,7 +101,7 @@ runAssertion assertion a =
         then pure ()
         else throwError (Rejected (Text.pack (show a) <> " does not satisfy custom predicate"))
 
-verify :: Formula -> [Step] -> Eff '[Error Failure] ()
+verify :: Formula (Query ': Error Text ': effs) -> [Step] -> Eff (Error Failure ': effs) ()
 verify spec steps = case steps of
   [] -> throwError Undetermined
   current : rest ->

@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DataKinds #-}
@@ -32,14 +33,16 @@ instance Show (Assertion a) where
     Contains t -> "(Contains " <> show t <> ")"
     Satisfies _ -> "(Satisfies _)"
 
-data Formula where
-  True :: Formula
-  Not :: Formula -> Formula
-  Or :: Formula -> Formula -> Formula
-  Until :: Formula -> Formula -> Formula
-  Assert :: Eff '[Query, Error Text] a -> Assertion a -> Formula
+type IsQuery eff = Members '[Query, Error Text] eff
 
-withQueries :: forall m b. Monad m => (forall a. Eff '[Query, Error Text] a -> m b) -> Formula -> m [b]
+data Formula (eff :: [* -> *]) where
+  True :: Formula eff
+  Not :: Formula eff -> Formula eff
+  Or :: Formula eff -> Formula eff -> Formula eff
+  Until :: Formula eff -> Formula eff -> Formula eff
+  Assert :: IsQuery eff => Eff eff a -> Assertion a -> Formula eff
+
+withQueries :: Monad m => (forall a. Eff eff a -> m b) -> Formula eff -> m [b]
 withQueries f = \case
   True -> pure []
   Not p -> withQueries f p
@@ -47,7 +50,7 @@ withQueries f = \case
   Until p q -> (<>) <$> withQueries f p <*> withQueries f q
   Assert q _ -> (: []) <$> f q
 
-instance Show Formula where
+instance Show (Formula eff) where
   show = \case
     True -> "True"
     Not p -> "(Not " <> show p <> ")"

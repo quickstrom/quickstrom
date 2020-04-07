@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 module WTP.VerifyTest where
 
@@ -11,7 +12,7 @@ import           WTP.Syntax
 import           WTP.Verify
 import Data.Text (Text)
 
-verify' :: Formula -> [Step] -> Either Failure ()
+verify' :: Formula '[Query, Error Text] -> [Step] -> Either Failure ()
 verify' formula steps = run (runError (verify (simplify formula) steps))
 
 spec_verify :: Spec

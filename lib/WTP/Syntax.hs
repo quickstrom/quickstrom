@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE DeriveGeneric              #-}
@@ -41,28 +42,26 @@ import           Data.Text                 (Text)
 import           Prelude                 hiding ( Bool(..)
                                                 , not
                                                 )
-import qualified WTP.Formula                   as Simple
+import qualified WTP.Formula                    as Simple
 import           WTP.Query                 as Query
 
-type QueryEff = Eff '[Query, Error Text]
-
-data Formula where
+data Formula (eff :: [* -> *]) where
   -- Simplified language operators
-  True :: Formula
-  Not :: Formula -> Formula
-  Or :: Formula -> Formula -> Formula
-  Until :: Formula -> Formula -> Formula
-  Assert :: Show a => QueryEff a -> Simple.Assertion a -> Formula
+  True :: Formula eff
+  Not :: Formula eff -> Formula eff
+  Or :: Formula eff -> Formula eff -> Formula eff
+  Until :: Formula eff -> Formula eff -> Formula eff
+  Assert :: (Show a, Simple.IsQuery eff) => Eff eff a -> Simple.Assertion a -> Formula eff
   -- Full language operators
-  False :: Formula
-  Eventually :: Formula -> Formula
-  Always :: Formula -> Formula
-  And :: Formula -> Formula -> Formula
-  Implies :: Formula -> Formula -> Formula
-  Equivalent :: Formula -> Formula -> Formula
-  Release :: Formula -> Formula -> Formula
+  False :: Formula eff
+  Eventually :: Formula eff -> Formula eff
+  Always :: Formula eff -> Formula eff
+  And :: Formula eff -> Formula eff -> Formula eff
+  Implies :: Formula eff -> Formula eff -> Formula eff
+  Equivalent :: Formula eff -> Formula eff -> Formula eff
+  Release :: Formula eff -> Formula eff -> Formula eff
 
-simplify :: Formula -> Simple.Formula
+simplify :: Formula eff -> Simple.Formula eff
 simplify = \case
   -- Derived operators (only present in `Full` language) are simplified
   False -> Simple.Not Simple.True
@@ -81,7 +80,7 @@ simplify = \case
 
 infix 4 \/, /\, ∧, ∨
 
-(/\), (\/), (∧), (∨) :: Formula -> Formula -> Formula
+(/\), (\/), (∧), (∨) :: Formula eff -> Formula eff -> Formula eff
 (/\) = And
 (\/) = Or
 (∧) = And
@@ -89,19 +88,19 @@ infix 4 \/, /\, ∧, ∨
 
 infix 5 ===, ≡
 
-(===), (≡) :: (Show a, Eq a) => QueryEff a -> a -> Formula
+(===), (≡) :: (Show a, Eq a, Simple.IsQuery eff) => Eff eff a -> a -> Formula eff
 query === expected = Assert query (Simple.Equals expected)
 query ≡ expected = Assert query (Simple.Equals expected)
 
-(⊢) :: (Show a) => QueryEff a -> (a -> Bool) -> Formula
+(⊢) :: (Show a, Simple.IsQuery eff) => Eff eff a -> (a -> Bool) -> Formula eff
 query ⊢ f = Assert query (Simple.Satisfies f)
 
 infix 6 ¬
 
-not, (¬) :: Formula -> Formula
+not, (¬) :: Formula eff -> Formula eff
 not = Not
 (¬) = Not
 
-require :: Maybe a -> QueryEff a
+require :: Simple.IsQuery eff => Maybe a -> Eff eff a
 require = maybe (throwError ("Required value is Nothing" :: Text)) pure
 

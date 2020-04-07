@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DataKinds #-}
@@ -98,6 +99,8 @@ runQuery query' =
               Nothing -> pure ()
             pure el
           QueryAll selector -> do
+            els <- fmap fromRef <$> Eff.sendM (findAll selector)
+            tell ((Left . (selector, ) <$> els) :: [Either QueriedElement QueriedElementState])
             pure [Element "a"]
           Get state element -> do
             value <- Eff.sendM $ case state of

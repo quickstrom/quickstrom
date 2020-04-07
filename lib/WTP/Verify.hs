@@ -28,8 +28,6 @@ import WTP.Query
 import Prelude hiding (Bool (..), not)
 import Debug.Trace (traceShow)
 
-type Elements = HashMap Selector [Element]
-
 data ElementStateValue where
   ElementStateValue :: (Typeable a) => ElementState a -> a -> ElementStateValue
 
@@ -40,28 +38,28 @@ findElementState (state :: ElementState s1) (ElementStateValue (_ :: ElementStat
     Just HRefl -> Just value
     Nothing -> findElementState state rest
 
+type Elements = HashMap Selector [Element]
+
 type States = HashMap Element [ElementStateValue]
 
 data Step = Step {queriedElements :: Elements, elementStates :: States}
 
-type Result = Either Failure
-
-data Failure
-  = Undetermined
+data Result
+  = Accepted
   | Rejected Text
-  | MissingState Text
+  | Undetermined
   deriving (Eq, Show)
 
-invert :: Result () -> Result ()
+invert :: Result -> Result
 invert = \case
-  Left Rejected {} -> pure ()
-  Left e -> Left e
-  Right () -> Left (Rejected "false")
+  Accepted -> Rejected "false"
+  Rejected {} -> Accepted
+  r -> r
 
-invert' :: Member (Error Failure) effs => Eff effs () -> Eff effs ()
-invert' ma = do
-  e <- lowerEither @Failure ma
-  liftEither (invert e)
+instance Semigroup Result where
+  Accepted <> _ = Accepted
+  Undetermined <> _ = Undetermined
+  _ <> r = r
 
 mapError :: (e -> f) -> Eff (Error e ': effs) a -> Eff (Error f ': effs) a
 mapError f = reinterpret (\(Error e) -> throwError (f e))
@@ -86,40 +84,38 @@ runQueryPure elements statesByElement =
            in maybe (throwError msg) pure (findElementState state states)
     )
 
-runAssertion :: Member (Error Failure) effs => Assertion a -> a -> Eff effs ()
+runAssertion :: Assertion a -> a -> Result
 runAssertion assertion a =
   case assertion of
     Equals expected ->
       if a == expected
-        then pure ()
-        else throwError (Rejected (Text.pack (show a) <> " does not equal " <> Text.pack (show expected)))
+        then Accepted
+        else Rejected (Text.pack (show a) <> " does not equal " <> Text.pack (show expected))
     Contains needle ->
       if needle `Text.isInfixOf` a
-        then pure ()
-        else throwError (Rejected (Text.pack (show a) <> " does not contain " <> Text.pack (show needle)))
+        then Accepted
+        else Rejected (Text.pack (show a) <> " does not contain " <> Text.pack (show needle))
     Satisfies predicate ->
       if predicate a
-        then pure ()
-        else throwError (Rejected (Text.pack (show a) <> " does not satisfy custom predicate"))
+        then Accepted
+        else Rejected (Text.pack (show a) <> " does not satisfy custom predicate")
 
-verify :: Formula (Query ': Error Text ': effs) -> [Step] -> Eff (Error Failure ': effs) ()
+verify :: Formula (Query ': Error Text ': effs) -> [Step] -> Eff effs Result
 verify spec steps = case steps of
-  [] -> traceShow spec $ throwError Undetermined
+  [] -> pure Undetermined
   current : rest ->
     case spec of
-      True -> pure ()
-      Not p -> invert' (verify p steps)
+      True -> pure Accepted
+      Not p -> invert <$> verify p steps
       p `Or` q -> do
-        r1 <- lowerEither @Failure (verify p steps)
-        r2 <- lowerEither @Failure (verify q steps)
-        liftEither (r1 <> r2)
+        r1 <- verify p steps
+        r2 <- verify q steps
+        pure (r1 <> r2)
       p `Until` q ->
-        catchError
-          (verify p [current] >> verify (p `Until` q) rest)
-          ( \case
-              Rejected {} -> verify q rest
-              e -> throwError e
-          )
+        verify p [current] >>= \case
+          Accepted -> verify (p `Until` q) rest 
+          Rejected {} -> verify q rest
+          Undetermined -> pure Undetermined
       Assert query' assertion ->
-        runAssertion assertion
-          =<< mapError Rejected (runQueryPure (queriedElements current) (elementStates current) query')
+        either Rejected (runAssertion assertion)
+          <$> runError (runQueryPure (queriedElements current) (elementStates current) query')

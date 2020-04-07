@@ -5,7 +5,6 @@ module Main where
 
 import Control.Monad (void)
 import Control.Monad.Freer
-import Control.Monad.Freer.Error
 import qualified Data.Text as Text
 import System.Directory
 import qualified WTP.Run as WTP
@@ -25,8 +24,8 @@ main = do
           }
   let test spec = do
         steps <- WTP.run spec
-        result <- runM (runError (verify (property spec) steps))
-        assertEqual result (Right ()) "run failed"
+        result <- runM (verify (property spec) steps)
+        assertEqual result Accepted "run failed"
   void $
     execWebDriverT
       defaultWebDriverConfig

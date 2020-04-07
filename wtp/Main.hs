@@ -1,33 +1,36 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
+
 module Main where
 
-import qualified Data.Text as Text
 import Control.Monad (void)
 import Control.Monad.Freer
 import Control.Monad.Freer.Error
-import Web.Api.WebDriver
+import qualified Data.Text as Text
 import System.Directory
 import qualified WTP.Run as WTP
-import WTP.Syntax
 import WTP.Specification
+import WTP.Syntax
 import WTP.Verify
+import Web.Api.WebDriver
 
 main :: IO ()
 main = do
   cwd <- getCurrentDirectory
   let ex = example cwd
-      simplified = Specification
-        { actions = actions ex,
-          property = simplify (property ex)
-        }
+      simplified =
+        Specification
+          { actions = actions ex,
+            property = simplify (property ex)
+          }
   let test spec = do
         steps <- WTP.run spec
         result <- runM (runError (verify (property spec) steps))
         assertEqual result (Right ()) "run failed"
-  void $ execWebDriverT
-    defaultWebDriverConfig
-    (runIsolated defaultFirefoxCapabilities (test simplified))
+  void $
+    execWebDriverT
+      defaultWebDriverConfig
+      (runIsolated defaultFirefoxCapabilities (test simplified))
 
 --
 -- EXAMPLE
@@ -40,22 +43,22 @@ data SpinnerState = Active | Hidden
 example :: FilePath -> Specification Formula effs
 example cwd =
   Specification
-  { actions = [ Navigate (Path ("file://" <> Text.pack cwd <> "/test/button.html"))
-              , Click "button"
-              ]
-  , property =
-      buttonIsEnabled Prelude.True
-        `Until`
-      (messageIs "Boom!" ∧ buttonIsEnabled Prelude.False)
-  }
+    { actions =
+        [ Navigate (Path ("file://" <> Text.pack cwd <> "/test/button.html")),
+          Click "button"
+        ],
+      property =
+        Eventually
+          ( buttonIsEnabled Prelude.True
+              `Until` (messageIs "Boom!" ∧ buttonIsEnabled Prelude.False)
+          )
+    }
   where
     buttonIsEnabled enabled = do
       (get Enabled =<< require =<< query "button") ≡ enabled
     messageIs message =
-        (get (Property "innerText") =<< require =<< query ".message") ≡ message
-
-
-  {-
+      (get Text =<< require =<< query ".message") ≡ message
+{-
         ( hasMessage
             "Post a comment below."
             ["message", "info"]

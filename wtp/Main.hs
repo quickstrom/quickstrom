@@ -29,7 +29,7 @@ main = do
   let test spec = do
         steps <- WTP.run spec
         -- _ <- liftWebDriverTT (liftIO (mapM print steps))
-        result <- runM (verify (property spec) steps)
+        let result = run (verify (property spec) steps)
         assertEqual result Accepted "run failed"
   void $
     execWebDriverT

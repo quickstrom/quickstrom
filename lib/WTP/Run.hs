@@ -19,7 +19,6 @@ import Control.Monad.Trans.Identity (IdentityT)
 import Control.Natural (type (~>))
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Text as Text
-import Data.Text (Text)
 import WTP.Formula (Formula, withQueries)
 import WTP.Query
 import WTP.Specification
@@ -35,7 +34,7 @@ import Data.List (nub)
 
 type WD = WebDriverTT IdentityT IO
 
-run :: Specification Formula (Query ': WD ': '[]) -> WD [Step]
+run :: Specification Formula '[Query] -> WD [Step]
 run spec = (:) <$> buildStep <*> traverse (\action -> runAction action >> buildStep) (actions spec)
   where
     extractQueries = withQueries runQuery (property spec)
@@ -71,18 +70,13 @@ groupUniqueIntoMap = HashMap.map nub . HashMap.fromListWith (++) . map (\(k, v) 
 type QueriedElement = (Selector, Element) 
 type QueriedElementState = (Element, ElementStateValue)
 
-runQuery
-      :: Eff.LastMember WD effs 
-      => Eff (Query ': effs) a -> Eff effs [Either QueriedElement QueriedElementState]
+runQuery :: Eff '[Query] a -> Eff '[WD] [Either QueriedElement QueriedElementState]
 runQuery query' =
   fmap snd
     $ runWriter
-    $ Eff.reinterpret go query'
+    $ Eff.reinterpret2 go query'
   where
-    go 
-      :: Eff.Member (Writer [Either (Selector, Element) (Element, ElementStateValue)]) effs
-      => Eff.LastMember WD effs 
-      => Query ~> Eff effs
+    go :: Query ~> Eff '[Writer [Either (Selector, Element) (Element, ElementStateValue)], WD]
     go =
       ( \case
           Query selector -> do
@@ -93,7 +87,7 @@ runQuery query' =
             pure el
           QueryAll selector -> do
             els <- fmap fromRef <$> Eff.sendM (findAll selector)
-            tell ((Left . (selector, ) <$> els) :: [Either QueriedElement QueriedElementState])
+            tell ((Left . (selector,) <$> els) :: [Either QueriedElement QueriedElementState])
             pure [Element "a"]
           Get state element -> do
             value <- Eff.sendM $ case state of

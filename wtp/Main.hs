@@ -28,7 +28,7 @@ main = do
   let test spec = do
         steps <- WTP.run spec
         let result = verify (property spec) steps
-        _ <- liftWebDriverTT (liftIO (putStrLn (Tree.drawTree (show <$> result))))
+        _ <- liftWebDriverTT (liftIO (putStrLn (Tree.drawTree (drawVerificationTree result))))
         assertEqual (stepResult (Tree.rootLabel result)) Accepted "verification using WebDriver"
   void $
     execWebDriverT

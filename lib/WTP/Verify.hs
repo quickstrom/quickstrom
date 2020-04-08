@@ -5,6 +5,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -14,20 +15,21 @@
 
 module WTP.Verify where
 
-import Data.Tree (Tree)
-import qualified Data.Tree as Tree
 import Control.Monad.Freer
+import qualified Data.Bool as Bool
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
-import Data.Maybe (fromMaybe, fromJust)
+import Data.Hashable (Hashable)
+import Data.Maybe (fromJust, fromMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
+import Data.Tree (Tree)
+import qualified Data.Tree as Tree
 import Data.Typeable (Typeable)
 import Type.Reflection
 import WTP.Formula
 import WTP.Query
 import Prelude hiding (Bool (..), not)
-import qualified Data.Bool as Bool
 
 data ElementStateValue where
   ElementStateValue :: (Typeable a, Show a, Eq a) => ElementState a -> a -> ElementStateValue
@@ -39,7 +41,6 @@ instance Eq ElementStateValue where
     case eqTypeRep (typeRep @t1) (typeRep @t2) of
       Just HRefl -> s1 == s2 && v1 == v2
       Nothing -> Bool.False
-
 
 findElementState :: Typeable a => ElementState a -> [ElementStateValue] -> Maybe a
 findElementState _ [] = Nothing
@@ -81,7 +82,7 @@ runQueryPure elements statesByElement =
         QueryAll selector -> pure (fromMaybe [] (HashMap.lookup selector elements))
         Get state element ->
           let states = fromMaybe mempty (HashMap.lookup element statesByElement)
-          in pure (fromJust (findElementState state states))
+           in pure (fromJust (findElementState state states))
     )
 
 runAssertion :: Assertion a -> a -> Result
@@ -111,27 +112,59 @@ data VerifiedStep
 -- TODO: Add writer logging each step, returning it together with result
 verify :: Formula -> [Step] -> Tree VerifiedStep
 verify spec steps =
-      case steps of
-        [] -> Tree.Node VerifiedStep { step = Nothing, stepFormula = spec, stepResult = Undetermined } []
-        current : rest ->
-          let (result, substeps) = case spec of
-                True -> (Accepted, [])
-                Not p -> let r = verify p steps
-                         in (stepResult (Tree.rootLabel r), [r])
-                p `Or` q ->
-                  let r1 = verify p steps
-                      r2 = verify q steps
-                  in (stepResult (Tree.rootLabel r1) <> stepResult (Tree.rootLabel r2), [r1, r2])
-                p `Until` q ->
-                  let s1 = verify p [current]
-                      s2 = verify q rest
-                      r = case (stepResult (Tree.rootLabel s1), stepResult (Tree.rootLabel s2)) of
-                            (Accepted, Rejected {}) -> stepResult (Tree.rootLabel (verify (p `Until` q) rest))
-                            (Accepted, r2) -> r2
-                            (_, Accepted) -> Accepted
-                            (r1, _) -> r1
-                  in (r, [s1, s2])
-                Assert query' assertion ->
-                  let result' = run (runQueryPure (queriedElements current) (elementStates current) query')
-                  in (runAssertion assertion result', [])
-          in Tree.Node VerifiedStep { step = Just current, stepResult = result, stepFormula = spec } substeps
+  case steps of
+    [] -> Tree.Node VerifiedStep {step = Nothing, stepFormula = spec, stepResult = Undetermined} []
+    current : rest ->
+      let (result, substeps) = case spec of
+            True -> (Accepted, [])
+            Not p ->
+              let r = verify p steps
+               in (stepResult (Tree.rootLabel r), [r])
+            p `Or` q ->
+              let r1 = verify p steps
+                  r2 = verify q steps
+               in (stepResult (Tree.rootLabel r1) <> stepResult (Tree.rootLabel r2), [r1, r2])
+            p `Until` q ->
+              let s1 = verify p [current]
+                  s2 = verify q rest
+                  r = case (stepResult (Tree.rootLabel s1), stepResult (Tree.rootLabel s2)) of
+                    (Accepted, Rejected {}) -> stepResult (Tree.rootLabel (verify (p `Until` q) rest))
+                    (Accepted, r2) -> r2
+                    (_, Accepted) -> Accepted
+                    (r1, _) -> r1
+               in (r, [s1, s2])
+            Assert query' assertion ->
+              let result' = run (runQueryPure (queriedElements current) (elementStates current) query')
+               in (runAssertion assertion result', [])
+       in Tree.Node VerifiedStep {step = Just current, stepResult = result, stepFormula = spec} substeps
+
+drawVerificationTree :: Tree VerifiedStep -> Tree String
+drawVerificationTree =
+  ( >>=
+      \VerifiedStep {step, stepResult, stepFormula} ->
+        let withStepValues :: (Eq k, Hashable k) => (Step -> HashMap k v) -> ((k, v) -> Tree String) -> [Tree String]
+            withStepValues field f = map f (HashMap.toList (fromMaybe mempty (field <$> step)))
+         in Tree.Node
+              "Step"
+              [ Tree.Node
+                  "Queried elements"
+                  ( withStepValues
+                      queriedElements
+                      ( \(sel, el) ->
+                          Tree.Node (show sel) (map (pure . Text.unpack . ref) el)
+                      )
+                  ),
+                Tree.Node
+                  "Element states"
+                  ( withStepValues
+                      elementStates
+                      ( \(el, states) ->
+                          Tree.Node (Text.unpack (ref el)) (map (pure . drawStateValue) states)
+                      )
+                  ),
+                Tree.Node ("Result = " <> show stepResult) [],
+                Tree.Node ("Formula = " <> show stepFormula) []
+              ]
+  )
+  where
+    drawStateValue (ElementStateValue state value) = show state <> " = " <> show value

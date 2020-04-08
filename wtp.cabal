@@ -11,6 +11,7 @@ extra-source-files:   CHANGELOG.md
 common shared-deps
   build-depends:      base ^>= 4.12
                     , aeson
+                    , containers
                     , freer-simple
                     , hashable
                     , mtl

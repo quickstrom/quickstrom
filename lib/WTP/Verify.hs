@@ -14,6 +14,8 @@
 
 module WTP.Verify where
 
+import Data.Tree (Tree)
+import qualified Data.Tree as Tree
 import Control.Monad.Freer
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
@@ -98,27 +100,38 @@ runAssertion assertion a =
         then Accepted
         else Rejected (Text.pack (show a) <> " does not satisfy custom predicate")
 
+data VerifiedStep
+  = VerifiedStep
+      { step :: Maybe Step,
+        stepFormula :: Formula,
+        stepResult :: Result
+      }
+  deriving (Show)
+
 -- TODO: Add writer logging each step, returning it together with result
-verify :: Formula -> [Step] -> Result
-verify f = run . go f
-  where
-    go :: Formula -> [Step] -> Eff '[] Result
-    go spec steps = case steps of
-      [] -> pure Undetermined
-      current : rest ->
-        case spec of
-          True -> pure Accepted
-          Not p -> invert <$> go p steps
-          p `Or` q -> do
-            r1 <- go p steps
-            r2 <- go q steps
-            pure (r1 <> r2)
-          p `Until` q -> do
-            (,) <$> go p [current] <*> go q rest >>= \case
-              (Accepted, Rejected{}) -> go (p `Until` q) rest 
-              (Accepted, r2) -> pure r2
-              (_, Accepted) -> pure Accepted
-              (r1, _) -> pure r1
-          Assert query' assertion -> do
-            result <-runQueryPure (queriedElements current) (elementStates current) query'
-            pure (runAssertion assertion result)
+verify :: Formula -> [Step] -> Tree VerifiedStep
+verify spec steps =
+      case steps of
+        [] -> Tree.Node VerifiedStep { step = Nothing, stepFormula = spec, stepResult = Undetermined } []
+        current : rest ->
+          let (result, substeps) = case spec of
+                True -> (Accepted, [])
+                Not p -> let r = verify p steps
+                         in (stepResult (Tree.rootLabel r), [r])
+                p `Or` q ->
+                  let r1 = verify p steps
+                      r2 = verify q steps
+                  in (stepResult (Tree.rootLabel r1) <> stepResult (Tree.rootLabel r2), [r1, r2])
+                p `Until` q ->
+                  let s1 = verify p [current]
+                      s2 = verify q rest
+                      r = case (stepResult (Tree.rootLabel s1), stepResult (Tree.rootLabel s2)) of
+                            (Accepted, Rejected {}) -> stepResult (Tree.rootLabel (verify (p `Until` q) rest))
+                            (Accepted, r2) -> r2
+                            (_, Accepted) -> Accepted
+                            (r1, _) -> r1
+                  in (r, [s1, s2])
+                Assert query' assertion ->
+                  let result' = run (runQueryPure (queriedElements current) (elementStates current) query')
+                  in (runAssertion assertion result', [])
+          in Tree.Node VerifiedStep { step = Just current, stepResult = result, stepFormula = spec } substeps

@@ -3,10 +3,12 @@
 
 module Main where
 
+import Control.Monad.IO.Class (liftIO)
 import Control.Monad (void)
 import qualified Data.Bool as Bool
 import qualified Data.Text as Text
 import Data.Text (Text)
+import qualified Data.Tree as Tree
 import System.Directory
 import qualified WTP.Run as WTP
 import WTP.Specification
@@ -25,14 +27,13 @@ main = do
           }
   let test spec = do
         steps <- WTP.run spec
-        -- _ <- liftWebDriverTT (liftIO (mapM print steps))
         let result = verify (property spec) steps
-        assertEqual result Accepted "verification using WebDriver"
+        _ <- liftWebDriverTT (liftIO (putStrLn (Tree.drawTree (show <$> result))))
+        assertEqual (stepResult (Tree.rootLabel result)) Accepted "verification using WebDriver"
   void $
     execWebDriverT
       defaultWebDriverConfig
       (runIsolated defaultFirefoxCapabilities (test simplified))
-
 
 -- Simple example: a button that can be clicked, which then shows a message
 example :: FilePath -> Specification Formula

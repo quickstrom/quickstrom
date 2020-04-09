@@ -72,8 +72,8 @@ instance Semigroup Result where
   Undetermined <> _ = Undetermined
   _ <> r = r
 
-runQueryPure :: Elements -> States -> Eff (Query ': effs) a -> Eff effs a
-runQueryPure elements statesByElement =
+runQuery :: Elements -> States -> Eff (Query ': effs) a -> Eff effs a
+runQuery elements statesByElement =
   interpret
     ( \case
         Query selector -> case HashMap.lookup selector elements of
@@ -84,6 +84,9 @@ runQueryPure elements statesByElement =
           let states = fromMaybe mempty (HashMap.lookup element statesByElement)
            in pure (fromJust (findElementState state states))
     )
+
+runQueryPure :: Elements -> States -> Eff '[Query] a -> a
+runQueryPure elements states = run . runQuery elements states
 
 runAssertion :: Assertion a -> a -> Result
 runAssertion assertion a =
@@ -134,7 +137,7 @@ verify spec steps =
                     (r1, _) -> r1
                in (r, [s1, s2])
             Assert query' assertion ->
-              let result' = run (runQueryPure (queriedElements current) (elementStates current) query')
+              let result' = runQueryPure (queriedElements current) (elementStates current) query'
                in (runAssertion assertion result', [])
        in Tree.Node VerifiedStep {step = Just current, stepResult = result, stepFormula = spec} substeps
 

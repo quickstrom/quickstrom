@@ -37,7 +37,7 @@ data SomeElementState where
 instance Eq SomeElementState where
   (SomeElementState (a1 :: ElementState s1)) == (SomeElementState (a2 :: ElementState s2)) =
     case eqTypeRep (typeRep @s1) (typeRep @s2) of
-      Just HRefl -> True
+      Just HRefl -> a1 == a2
       Nothing -> False
 
 newtype Selector = Selector Text

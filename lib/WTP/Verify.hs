@@ -13,7 +13,15 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module WTP.Verify where
+module WTP.Verify
+  ( verify,
+    Result (..),
+    Step (..),
+    VerifiedStep (..),
+    ElementStateValue (..),
+    drawVerificationTree,
+  )
+where
 
 import Control.Monad.Freer
 import qualified Data.Bool as Bool

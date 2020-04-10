@@ -27,6 +27,7 @@ library
   import:             shared-deps
   exposed-modules:    WTP.Assertion
                     , WTP.Formula.Minimal
+                    , WTP.Formula.NNF
                     , WTP.Formula.Syntax
                     , WTP.Query
                     , WTP.Run

@@ -11,9 +11,9 @@ cradle:
       - -Wunused-binds
       - -Wunused-imports
       - -Worphans
-      - -i lib
-      - -i test
-      - -i wtp
+      - -ilib
+      - -itest
+      - -iwtp
       - wtp/Main.hs
       - test/Main.hs
       - -idist/build/autogen

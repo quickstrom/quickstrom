@@ -10,7 +10,7 @@ import qualified Data.HashMap.Strict as HashMap
 import Data.Text (Text)
 import qualified Data.Tree as Tree
 import Test.Tasty.Hspec
-import WTP.Syntax
+import WTP.Formula.Syntax
 import WTP.Verify
 import Prelude hiding (Bool (..), not)
 

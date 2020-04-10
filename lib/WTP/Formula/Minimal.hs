@@ -14,23 +14,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
-module WTP.Formula where
+module WTP.Formula.Minimal where
 
 import Control.Monad.Freer
-import Data.Text (Text)
 import WTP.Query
+import WTP.Assertion
 import Prelude hiding (False, True)
-
-data Assertion a where
-  Equals :: (Show a, Eq a) => a -> Assertion a
-  Contains :: Text -> Assertion Text
-  Satisfies :: Show a => (a -> Bool) -> Assertion a
-
-instance Show (Assertion a) where
-  show = \case
-    Equals expected -> "(Equals " <> show expected <> ")"
-    Contains t -> "(Contains " <> show t <> ")"
-    Satisfies _ -> "(Satisfies _)"
 
 type IsQuery eff = Members '[Query] eff
 

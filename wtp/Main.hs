@@ -12,7 +12,7 @@ import qualified Data.Tree as Tree
 import System.Directory
 import qualified WTP.Run as WTP
 import WTP.Specification
-import WTP.Syntax
+import WTP.Formula.Syntax
 import WTP.Verify
 import Web.Api.WebDriver
 

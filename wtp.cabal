@@ -25,11 +25,12 @@ common shared-deps
 
 library
   import:             shared-deps
-  exposed-modules:    WTP.Formula
+  exposed-modules:    WTP.Assertion
+                    , WTP.Formula.Minimal
+                    , WTP.Formula.Syntax
                     , WTP.Query
                     , WTP.Run
                     , WTP.Specification
-                    , WTP.Syntax
                     , WTP.Verify
   hs-source-dirs:     lib
   default-language:   Haskell2010

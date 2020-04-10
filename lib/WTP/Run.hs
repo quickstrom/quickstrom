@@ -19,7 +19,7 @@ import Control.Monad.Trans.Identity (IdentityT)
 import Control.Natural (type (~>))
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Text as Text
-import WTP.Formula (Formula, withQueries)
+import WTP.Formula.Minimal (Formula, withQueries)
 import WTP.Query
 import WTP.Specification
 import WTP.Verify

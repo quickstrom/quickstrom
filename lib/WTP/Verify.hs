@@ -35,7 +35,8 @@ import Data.Tree (Tree)
 import qualified Data.Tree as Tree
 import Data.Typeable (Typeable)
 import Type.Reflection
-import WTP.Formula
+import WTP.Formula.Minimal
+import WTP.Assertion
 import WTP.Query
 import Prelude hiding (Bool (..), not)
 
@@ -68,12 +69,6 @@ data Result
   | Rejected Text
   | Undetermined
   deriving (Eq, Show)
-
-invert :: Result -> Result
-invert = \case
-  Accepted -> Rejected "false"
-  Rejected {} -> Accepted
-  r -> r
 
 instance Semigroup Result where
   Accepted <> _ = Accepted

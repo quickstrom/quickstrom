@@ -11,8 +11,8 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 
-module WTP.Syntax
-  ( Simple.Assertion (..)
+module WTP.Formula.Syntax
+  ( Assertion (..)
   , Query.Selector (..)
   , Query.ElementState (..)
   , Query.Element (..)
@@ -40,7 +40,8 @@ import           Data.Bool                 (Bool)
 import           Prelude                 hiding ( Bool(..)
                                                 , not
                                                 )
-import qualified WTP.Formula                    as Simple
+import qualified WTP.Formula.Minimal                    as Minimal
+import           WTP.Assertion
 import           WTP.Query                 as Query
 
 data Formula where
@@ -49,7 +50,7 @@ data Formula where
   Not :: Formula -> Formula
   Or :: Formula -> Formula -> Formula
   Until :: Formula -> Formula -> Formula
-  Assert :: Show a => Eff '[Query] a -> Simple.Assertion a -> Formula
+  Assert :: Show a => Eff '[Query] a -> Assertion a -> Formula
   -- Full language operators
   False :: Formula
   Eventually :: Formula -> Formula
@@ -59,22 +60,22 @@ data Formula where
   Equivalent :: Formula -> Formula -> Formula
   Release :: Formula -> Formula -> Formula
 
-simplify :: Formula -> Simple.Formula
+simplify :: Formula -> Minimal.Formula
 simplify = \case
   -- Derived operators (only present in `Full` language) are simplified
-  False -> Simple.Not Simple.True
-  Eventually p -> Simple.Until Simple.True (simplify p)
-  Always p -> Simple.Not (simplify (Eventually (Not p)))
-  And p q -> Simple.Not (Simple.Not (simplify p) `Simple.Or` Simple.Not (simplify q))
-  Implies p q -> Simple.Not (simplify p) `Simple.Or` simplify q
-  Equivalent p q -> simplify (p `Implies` q) `Simple.Or` simplify (q `Implies` p)
-  Release p q -> Simple.Not (Simple.Not (simplify p) `Simple.Until` Simple.Not (simplify q))
+  False -> Minimal.Not Minimal.True
+  Eventually p -> Minimal.Until Minimal.True (simplify p)
+  Always p -> Minimal.Not (simplify (Eventually (Not p)))
+  And p q -> Minimal.Not (Minimal.Not (simplify p) `Minimal.Or` Minimal.Not (simplify q))
+  Implies p q -> Minimal.Not (simplify p) `Minimal.Or` simplify q
+  Equivalent p q -> simplify (p `Implies` q) `Minimal.Or` simplify (q `Implies` p)
+  Release p q -> Minimal.Not (Minimal.Not (simplify p) `Minimal.Until` Minimal.Not (simplify q))
   -- Simplified language operators are preserved
-  True -> Simple.True
-  Not p -> Simple.Not (simplify p)
-  Or p q -> Simple.Or (simplify p) (simplify q)
-  Until p q -> Simple.Until (simplify p) (simplify q)
-  Assert query assertion -> Simple.Assert query assertion
+  True -> Minimal.True
+  Not p -> Minimal.Not (simplify p)
+  Or p q -> Minimal.Or (simplify p) (simplify q)
+  Until p q -> Minimal.Until (simplify p) (simplify q)
+  Assert query assertion -> Minimal.Assert query assertion
 
 infix 4 \/, /\, ∧, ∨
 
@@ -87,11 +88,11 @@ infix 4 \/, /\, ∧, ∨
 infix 5 ===, ≡
 
 (===), (≡) :: (Show a, Eq a) => Eff '[Query] a -> a -> Formula
-query' === expected = Assert query' (Simple.Equals expected)
+query' === expected = Assert query' (Equals expected)
 (≡) = (===)
 
 (⊢) :: Show a => Eff '[Query] a -> (a -> Bool) -> Formula
-query' ⊢ f = Assert query' (Simple.Satisfies f)
+query' ⊢ f = Assert query' (Satisfies f)
 
 infix 6 ¬
 

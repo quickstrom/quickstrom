@@ -1,3 +1,5 @@
 dist
 dist-newstyle
 cabal.project.local
+*.o
+*.hi

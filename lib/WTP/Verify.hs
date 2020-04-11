@@ -139,7 +139,7 @@ verify spec steps =
                     (_, Accepted) -> Accepted
                     (r1, _) -> r1
                in (r, [s1, s2])
-            Assert query' assertion ->
+            Assert (QueryAssertion query' assertion) ->
               let result' = runQueryPure (queriedElements current) (elementStates current) query'
                in (runAssertion assertion result', [])
        in Tree.Node VerifiedStep {step = Just current, stepResult = result, stepFormula = spec} substeps

@@ -23,12 +23,15 @@ import Prelude hiding (False, True)
 
 type IsQuery eff = Members '[Query] eff
 
-data Formula where
-  True :: Formula
-  Not :: Formula -> Formula
-  Or :: Formula -> Formula -> Formula
-  Until :: Formula -> Formula -> Formula
-  Assert :: Show a => Eff '[Query] a -> Assertion a -> Formula
+data FormulaWith assertion
+  = True 
+  | Not (FormulaWith assertion)
+  | Or (FormulaWith assertion) (FormulaWith assertion)
+  | Until (FormulaWith assertion) (FormulaWith assertion)
+  | Assert assertion
+  deriving (Show)
+
+type Formula = FormulaWith QueryAssertion
 
 withQueries :: Monad m => (forall a. Eff '[Query] a -> m b) -> Formula -> m [b]
 withQueries f = \case
@@ -36,12 +39,4 @@ withQueries f = \case
   Not p -> withQueries f p
   Or p q -> (<>) <$> withQueries f p <*> withQueries f q
   Until p q -> (<>) <$> withQueries f p <*> withQueries f q
-  Assert q _ -> (: []) <$> f q
-
-instance Show Formula where
-  show = \case
-    True -> "True"
-    Not p -> "(Not " <> show p <> ")"
-    Or p q -> "(Or " <> show p <> " " <> show q <> ")"
-    Until p q -> "(Until " <> show p <> " " <> show q <> ")"
-    Assert _ assertion -> "(Assert _ " <> show assertion <> ")"
+  Assert (QueryAssertion q _) -> (: []) <$> f q

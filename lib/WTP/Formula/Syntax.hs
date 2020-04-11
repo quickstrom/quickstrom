@@ -20,7 +20,9 @@ module WTP.Formula.Syntax
     Query.query,
     Query.queryAll,
     Query.get,
-    Formula (..),
+    FormulaWith (..),
+    Formula,
+    depth,
     simplify,
     toNNF,
     (/\),
@@ -48,21 +50,41 @@ import Prelude hiding
     not,
   )
 
-data Formula where
+data FormulaWith assertion
+
   -- Simplified language operators
-  True :: Formula
-  Not :: Formula -> Formula
-  Or :: Formula -> Formula -> Formula
-  Until :: Formula -> Formula -> Formula
-  Assert :: Show a => Eff '[Query] a -> Assertion a -> Formula
+  = True
+  | Not (FormulaWith assertion)
+  | Or (FormulaWith assertion) (FormulaWith assertion)
+  | Until (FormulaWith assertion) (FormulaWith assertion)
+  | Assert assertion
   -- Full language operators
-  False :: Formula
-  Eventually :: Formula -> Formula
-  Always :: Formula -> Formula
-  And :: Formula -> Formula -> Formula
-  Implies :: Formula -> Formula -> Formula
-  Equivalent :: Formula -> Formula -> Formula
-  Release :: Formula -> Formula -> Formula
+  | False
+  | Eventually (FormulaWith assertion)
+  | Always (FormulaWith assertion)
+  | And (FormulaWith assertion) (FormulaWith assertion)
+  | Implies (FormulaWith assertion) (FormulaWith assertion)
+  | Equivalent (FormulaWith assertion) (FormulaWith assertion)
+  | Release (FormulaWith assertion) (FormulaWith assertion)
+  deriving (Show)
+
+type Formula = FormulaWith QueryAssertion
+
+depth :: FormulaWith a -> Int
+depth = \case
+  True -> 0
+  False -> 0
+  Not p -> succ (depth p)
+  Eventually p -> succ (depth p)
+  Always p -> succ (depth p)
+  And p q -> succ (max (depth p) (depth q))
+  Or p q -> succ (max (depth p) (depth q))
+  Until p q -> succ (max (depth p) (depth q))
+  Release p q -> succ (max (depth p) (depth q))
+  Implies p q -> succ (max (depth p) (depth q))
+  Equivalent p q -> succ (max (depth p) (depth q))
+  Assert _ -> 0
+
 
 simplify :: Formula -> Minimal.Formula
 simplify = \case
@@ -79,9 +101,9 @@ simplify = \case
   Not p -> Minimal.Not (simplify p)
   Or p q -> Minimal.Or (simplify p) (simplify q)
   Until p q -> Minimal.Until (simplify p) (simplify q)
-  Assert query assertion -> Minimal.Assert query assertion
+  Assert assertion -> Minimal.Assert assertion
   
-toNNF :: Formula -> NNF.Formula
+toNNF :: Show a => FormulaWith a -> NNF.FormulaWith (NNF.Negation a)
 toNNF = \case
   -- Negation propagation (https://en.wikipedia.org/wiki/Linear_temporal_logic#Negation_normal_form)
   Not True -> NNF.False
@@ -90,7 +112,9 @@ toNNF = \case
   Not (p `And` q) -> toNNF (Not p) `NNF.Or` toNNF (Not q)
   Not (Until p q) -> toNNF (Not p) `NNF.Release` toNNF (Not q)
   Not (Release p q) -> toNNF (Not p) `NNF.Until` toNNF (Not q)
-  Not p -> toNNF (Not p) `NNF.Until` toNNF (Not q)
+  Not (Eventually p) -> toNNF (Always (Not p))
+  Not (Always p) -> toNNF (Eventually (Not p))
+  Not (Assert assertion) -> NNF.Assert (NNF.Neg assertion)
 
   -- Derived operators (only present in syntax) are simplified
   Eventually p -> NNF.Until NNF.True (toNNF p)
@@ -104,7 +128,9 @@ toNNF = \case
   And p q -> NNF.And (toNNF p) (toNNF q)
   Until p q -> NNF.Until (toNNF p) (toNNF q)
   Release p q -> NNF.Release (toNNF p) (toNNF q)
-  Assert query assertion -> NNF.Assert (NNF.Pos (NNF.QueryAssertion query assertion))
+  Assert assertion -> NNF.Assert (NNF.Pos assertion)
+
+  p -> error $ "wtf " <> show p
 
 
 infix 4 \/, /\, ∧, ∨
@@ -118,11 +144,11 @@ infix 4 \/, /\, ∧, ∨
 infix 5 ===, ≡
 
 (===), (≡) :: (Show a, Eq a) => Eff '[Query] a -> a -> Formula
-query' === expected = Assert query' (Equals expected)
+query' === expected = Assert (QueryAssertion query' (Equals expected))
 (≡) = (===)
 
 (⊢) :: Show a => Eff '[Query] a -> (a -> Bool) -> Formula
-query' ⊢ f = Assert query' (Satisfies f)
+query' ⊢ f = Assert (QueryAssertion query' (Satisfies f))
 
 infix 6 ¬
 

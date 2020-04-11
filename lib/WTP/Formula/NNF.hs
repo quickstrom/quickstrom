@@ -1,10 +1,8 @@
-{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -12,25 +10,18 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
 module WTP.Formula.NNF where
 
 import Control.Monad.Freer
-import WTP.Query
 import WTP.Assertion
+import WTP.Query
 import Prelude hiding (False, True)
 
-type IsQuery eff = Members '[Query] eff
-
-data QueryAssertion where
-  QueryAssertion :: Show a => Eff '[Query] a -> Assertion a -> QueryAssertion
-
-instance Show QueryAssertion where
-  show (QueryAssertion _q a) = "(QueryAssertion _ " <> show a <> ")"
-
-  
 data Negation a = Neg a | Pos a
   deriving (Show, Functor, Foldable, Traversable)
 
@@ -38,14 +29,27 @@ withAtomic :: (a -> b) -> Negation a -> b
 withAtomic f (Neg a) = f a
 withAtomic f (Pos a) = f a
 
-data Formula
+data FormulaWith assertion
   = True
   | False
-  | And Formula Formula
-  | Or Formula Formula
-  | Until Formula Formula
-  | Release Formula Formula
-  | Assert (Negation QueryAssertion)
+  | And (FormulaWith assertion) (FormulaWith assertion)
+  | Or (FormulaWith assertion) (FormulaWith assertion)
+  | Until (FormulaWith assertion) (FormulaWith assertion)
+  | Release (FormulaWith assertion) (FormulaWith assertion)
+  | Assert assertion
+  deriving (Show)
+
+depth :: FormulaWith a -> Int
+depth = \case
+  True -> 0
+  False -> 0
+  And p q -> succ (max (depth p) (depth q))
+  Or p q -> succ (max (depth p) (depth q))
+  Until p q -> succ (max (depth p) (depth q))
+  Release p q -> succ (max (depth p) (depth q))
+  Assert _ -> 0
+
+type Formula = FormulaWith (Negation QueryAssertion)
 
 withQueries :: Monad m => (forall a. Eff '[Query] a -> m b) -> Formula -> m [b]
 withQueries f = \case
@@ -55,12 +59,3 @@ withQueries f = \case
   Or p q -> (<>) <$> withQueries f p <*> withQueries f q
   Until p q -> (<>) <$> withQueries f p <*> withQueries f q
   Assert a -> (: []) <$> withAtomic (\(QueryAssertion q _) -> f q) a
-
-instance Show Formula where
-  show = \case
-    True -> "True"
-    False -> "False"
-    And p q -> "(And " <> show p <> " " <> show q <> ")"
-    Or p q -> "(Or " <> show p <> " " <> show q <> ")"
-    Until p q -> "(Until " <> show p <> " " <> show q <> ")"
-    Assert qa -> "(Assert _ " <> show qa <> ")"

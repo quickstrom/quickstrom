@@ -51,15 +51,14 @@ import Prelude hiding
   )
 
 data FormulaWith assertion
-
-  -- Simplified language operators
-  = True
+  = -- Simplified language operators
+    True
   | Not (FormulaWith assertion)
   | Or (FormulaWith assertion) (FormulaWith assertion)
   | Until (FormulaWith assertion) (FormulaWith assertion)
   | Assert assertion
-  -- Full language operators
-  | False
+  | -- Full language operators
+    False
   | Eventually (FormulaWith assertion)
   | Always (FormulaWith assertion)
   | And (FormulaWith assertion) (FormulaWith assertion)
@@ -85,7 +84,6 @@ depth = \case
   Equivalent p q -> succ (max (depth p) (depth q))
   Assert _ -> 0
 
-
 simplify :: Formula -> Minimal.Formula
 simplify = \case
   -- Derived operators (only present in syntax) are simplified
@@ -102,25 +100,27 @@ simplify = \case
   Or p q -> Minimal.Or (simplify p) (simplify q)
   Until p q -> Minimal.Until (simplify p) (simplify q)
   Assert assertion -> Minimal.Assert assertion
-  
+
 toNNF :: Show a => FormulaWith a -> NNF.FormulaWith (NNF.Negation a)
 toNNF = \case
   -- Negation propagation (https://en.wikipedia.org/wiki/Linear_temporal_logic#Negation_normal_form)
+  Not (Not p) -> toNNF p
   Not True -> NNF.False
   Not False -> NNF.True
-  Not (p `Or` q) -> toNNF p `NNF.And` toNNF q
+  Not (p `Or` q) -> toNNF (Not p) `NNF.And` toNNF (Not q)
   Not (p `And` q) -> toNNF (Not p) `NNF.Or` toNNF (Not q)
+  Not (p `Implies` q) -> toNNF p `NNF.And` toNNF (Not q)
+  Not (p `Equivalent` q) -> toNNF (p `Equivalent` Not q)
   Not (Until p q) -> toNNF (Not p) `NNF.Release` toNNF (Not q)
   Not (Release p q) -> toNNF (Not p) `NNF.Until` toNNF (Not q)
   Not (Eventually p) -> toNNF (Always (Not p))
   Not (Always p) -> toNNF (Eventually (Not p))
   Not (Assert assertion) -> NNF.Assert (NNF.Neg assertion)
-
   -- Derived operators (only present in syntax) are simplified
   Eventually p -> NNF.Until NNF.True (toNNF p)
-  Always p -> toNNF (Not (Eventually (Not p)))
+  Always p -> toNNF (Not (Until True (Not p)))
   Implies p q -> toNNF (Not p `Or` q)
-  Equivalent p q -> toNNF (p `Implies` q) `NNF.Or` toNNF (q `Implies` p)
+  Equivalent p q -> (toNNF (Not p) `NNF.Or` toNNF q) `NNF.Or` (toNNF (Not q) `NNF.Or` toNNF p)
   -- Language operators that are preserved
   True -> NNF.True
   False -> NNF.False
@@ -129,9 +129,6 @@ toNNF = \case
   Until p q -> NNF.Until (toNNF p) (toNNF q)
   Release p q -> NNF.Release (toNNF p) (toNNF q)
   Assert assertion -> NNF.Assert (NNF.Pos assertion)
-
-  p -> error $ "wtf " <> show p
-
 
 infix 4 \/, /\, ∧, ∨
 

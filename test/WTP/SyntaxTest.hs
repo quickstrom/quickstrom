@@ -12,8 +12,6 @@ hprop_to_nnf = property $ do
   s <- forAll genSyntax
   let nnf = Syntax.toNNF s
   annotateShow nnf
-  assert (NNF.depth nnf < 5)
-  -- assert (NNF.depth nnf <= Syntax.depth s)
   pure ()
 
 genSyntax :: Gen (Syntax.FormulaWith ())
@@ -29,6 +27,8 @@ genSyntax =
         Gen.subterm2 genSyntax genSyntax Syntax.And,
         Gen.subterm2 genSyntax genSyntax Syntax.Or,
         Gen.subterm2 genSyntax genSyntax Syntax.Until,
+        Gen.subterm2 genSyntax genSyntax Syntax.Implies,
+        Gen.subterm2 genSyntax genSyntax Syntax.Equivalent,
         Gen.subterm genSyntax Syntax.Always,
         Gen.subterm genSyntax Syntax.Eventually
       ]

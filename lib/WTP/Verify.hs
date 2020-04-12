@@ -14,10 +14,8 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module WTP.Verify
-  ( verify,
-    Result (..),
+  ( assertQuery,
     Step (..),
-    VerifiedStep (..),
     ElementStateValue (..),
     drawVerificationTree,
   )
@@ -29,15 +27,15 @@ import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Hashable (Hashable)
 import Data.Maybe (fromJust, fromMaybe)
-import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Tree (Tree)
 import qualified Data.Tree as Tree
 import Data.Typeable (Typeable)
 import Type.Reflection
-import WTP.Formula.Minimal
 import WTP.Assertion
+import qualified WTP.Formula.NNF as NNF
 import WTP.Query
+import WTP.Result
 import Prelude hiding (Bool (..), not)
 
 data ElementStateValue where
@@ -64,17 +62,6 @@ type States = HashMap Element [ElementStateValue]
 
 data Step = Step {queriedElements :: Elements, elementStates :: States} deriving (Show)
 
-data Result
-  = Accepted
-  | Rejected Text
-  | Undetermined
-  deriving (Eq, Show)
-
-instance Semigroup Result where
-  Accepted <> _ = Accepted
-  Undetermined <> _ = Undetermined
-  _ <> r = r
-
 runQuery :: Elements -> States -> Eff (Query ': effs) a -> Eff effs a
 runQuery elements statesByElement =
   interpret
@@ -97,57 +84,25 @@ runAssertion assertion a =
     Equals expected ->
       if a == expected
         then Accepted
-        else Rejected (Text.pack (show a) <> " does not equal " <> Text.pack (show expected))
+        else Rejected
     Contains needle ->
       if needle `Text.isInfixOf` a
         then Accepted
-        else Rejected (Text.pack (show a) <> " does not contain " <> Text.pack (show needle))
+        else Rejected
     Satisfies predicate ->
       if predicate a
         then Accepted
-        else Rejected (Text.pack (show a) <> " does not satisfy custom predicate")
+        else Rejected
 
-data VerifiedStep
-  = VerifiedStep
-      { step :: Maybe Step,
-        stepFormula :: Formula,
-        stepResult :: Result
-      }
-  deriving (Show)
+assertQuery :: QueryAssertion -> Step -> Result
+assertQuery = \(QueryAssertion query' assertion) step ->
+  let result' = runQueryPure (queriedElements step) (elementStates step) query'
+   in runAssertion assertion result'
 
--- TODO: Add writer logging each step, returning it together with result
-verify :: Formula -> [Step] -> Tree VerifiedStep
-verify spec steps =
-  case steps of
-    [] -> Tree.Node VerifiedStep {step = Nothing, stepFormula = spec, stepResult = Undetermined} []
-    current : rest ->
-      let (result, substeps) = case spec of
-            True -> (Accepted, [])
-            Not p ->
-              let r = verify p steps
-               in (stepResult (Tree.rootLabel r), [r])
-            p `Or` q ->
-              let r1 = verify p steps
-                  r2 = verify q steps
-               in (stepResult (Tree.rootLabel r1) <> stepResult (Tree.rootLabel r2), [r1, r2])
-            p `Until` q ->
-              let s1 = verify p [current]
-                  s2 = verify q rest
-                  r = case (stepResult (Tree.rootLabel s1), stepResult (Tree.rootLabel s2)) of
-                    (Accepted, Rejected {}) -> stepResult (Tree.rootLabel (verify (p `Until` q) rest))
-                    (Accepted, r2) -> r2
-                    (_, Accepted) -> Accepted
-                    (r1, _) -> r1
-               in (r, [s1, s2])
-            Assert (QueryAssertion query' assertion) ->
-              let result' = runQueryPure (queriedElements current) (elementStates current) query'
-               in (runAssertion assertion result', [])
-       in Tree.Node VerifiedStep {step = Just current, stepResult = result, stepFormula = spec} substeps
-
-drawVerificationTree :: Tree VerifiedStep -> Tree String
+drawVerificationTree :: Tree (NNF.VerifiedStep QueryAssertion Step) -> Tree String
 drawVerificationTree =
   ( >>=
-      \VerifiedStep {step, stepResult, stepFormula} ->
+      \NNF.VerifiedStep {NNF.step, NNF.stepResult, NNF.stepFormula} ->
         let withStepValues :: (Eq k, Hashable k) => (Step -> HashMap k v) -> ((k, v) -> Tree String) -> [Tree String]
             withStepValues field f = map f (HashMap.toList (fromMaybe mempty (field <$> step)))
          in Tree.Node

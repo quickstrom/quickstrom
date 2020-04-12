@@ -8,10 +8,7 @@ cradle:
   #     component: "test:wtp-test"
   direct: 
     arguments:
-      - -Wall
-      - -Wunused-binds
-      - -Wunused-imports
-      - -Worphans
+      - -Werror -Wall
       - -ilib
       - -itest
       - -iwtp

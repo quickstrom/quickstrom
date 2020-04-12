@@ -15,6 +15,8 @@ import WTP.Specification
 import WTP.Formula.Syntax
 import WTP.Verify
 import Web.Api.WebDriver
+import qualified WTP.Formula.Minimal as Minimal
+import WTP.Result (Result(Accepted))
 
 main :: IO ()
 main = do
@@ -27,9 +29,9 @@ main = do
           }
   let test spec = do
         steps <- WTP.run spec
-        let result = verify (property spec) steps
-        _ <- liftWebDriverTT (liftIO (putStrLn (Tree.drawTree (drawVerificationTree result))))
-        assertEqual (stepResult (Tree.rootLabel result)) Accepted "verification using WebDriver"
+        let result = Minimal.verifyWith assertQuery (property spec) steps
+        -- _ <- liftWebDriverTT (liftIO (putStrLn (Tree.drawTree (drawVerificationTree result))))
+        assertEqual result Accepted "verification using WebDriver"
   void $
     execWebDriverT
       defaultWebDriverConfig

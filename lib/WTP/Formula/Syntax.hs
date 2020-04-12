@@ -84,7 +84,7 @@ depth = \case
   Equivalent p q -> succ (max (depth p) (depth q))
   Assert _ -> 0
 
-simplify :: Formula -> Minimal.Formula
+simplify :: FormulaWith a -> Minimal.FormulaWith a
 simplify = \case
   -- Derived operators (only present in syntax) are simplified
   False -> Minimal.Not Minimal.True
@@ -101,7 +101,7 @@ simplify = \case
   Until p q -> Minimal.Until (simplify p) (simplify q)
   Assert assertion -> Minimal.Assert assertion
 
-toNNF :: Show a => FormulaWith a -> NNF.FormulaWith (NNF.Negation a)
+toNNF :: FormulaWith a -> NNF.FormulaWith (NNF.Negation a)
 toNNF = \case
   -- Negation propagation (https://en.wikipedia.org/wiki/Linear_temporal_logic#Negation_normal_form)
   Not (Not p) -> toNNF p
@@ -118,7 +118,7 @@ toNNF = \case
   Not (Assert assertion) -> NNF.Assert (NNF.Neg assertion)
   -- Derived operators (only present in syntax) are simplified
   Eventually p -> NNF.Until NNF.True (toNNF p)
-  Always p -> toNNF (Not (Until True (Not p)))
+  Always p -> NNF.False `NNF.Release` toNNF p
   Implies p q -> toNNF (Not p `Or` q)
   Equivalent p q -> (toNNF (Not p) `NNF.Or` toNNF q) `NNF.Or` (toNNF (Not q) `NNF.Or` toNNF p)
   -- Language operators that are preserved

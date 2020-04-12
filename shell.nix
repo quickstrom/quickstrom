@@ -19,6 +19,7 @@ in haskellPackages.shellFor {
   packages = p: [wtp];
   buildInputs = (with pkgs;
   [
+    ghcid
     ghcide
     cabal-install
     haskellPackages.ormolu

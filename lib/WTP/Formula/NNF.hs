@@ -105,9 +105,9 @@ verifyWith assert = go
                   let s1 = go p [current]
                       s2 = go q steps
                       r = case (stepResult (Tree.rootLabel s1), stepResult (Tree.rootLabel s2)) of
+                        (Rejected, Accepted) -> stepResult (Tree.rootLabel (go spec rest))
                         (Accepted, Accepted) -> Accepted
-                        (Accepted, _) -> stepResult (Tree.rootLabel (go spec rest))
-                        (_, Accepted) -> Accepted
+                        (Accepted, Rejected) -> Rejected
                         (r1, _) -> r1
                    in (r, [s1, s2])
                 Assert a ->

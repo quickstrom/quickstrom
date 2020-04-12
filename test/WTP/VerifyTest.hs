@@ -27,72 +27,79 @@ verifyNNF :: Eq a => NNF.FormulaWith (NNF.Negation a) -> [a] -> Result
 verifyNNF f = NNF.stepResult . Tree.rootLabel . NNF.verify f
 
 spec_verify :: Spec
-spec_verify = describe "verify" $ do
-  it "is accepted with true for zero steps" $ do
-    verifyDOM True [] `shouldBe` Accepted
-  it "verifies with true for one step" $ do
-    verifyDOM True [Step mempty mempty] `shouldBe` Accepted
-  it "verifies with get and assertion" $ do
-    let classList = JSON.toJSON ["foo", "bar" :: Text]
-    verifyDOM
-      ( (traverse (get (Property "classList")) =<< query "#some-element")
-          ≡ Just classList
-      )
-      [ Step
-          (HashMap.singleton "#some-element" [Element "a"])
-          ( HashMap.singleton
-              (Element "a")
-              [ElementStateValue (Property "classList") classList]
-          )
-      ]
-      `shouldBe` Accepted
-  it "verifies with get and satisfy" $ do
-    verifyDOM
-      (queryAll "p" ⊢ ((== 2) . length))
-      [Step (HashMap.singleton "p" [Element "a", Element "b"]) mempty]
-      `shouldBe` Accepted
-  it "is True with (And True True)" $ do
-    verifyDOM (And True True) [Step HashMap.empty mempty] `shouldBe` Accepted
-  it "is True with (Not False)" $ do
-    verifyDOM (Not False) [Step HashMap.empty mempty] `shouldBe` Accepted
-  it "works with Until" $ do
-    verifyDOM (True `Until` True) [Step mempty mempty, Step mempty mempty] `shouldBe` Accepted
-  it "verifies button example" $ do
-    let steps =
-          [ Step mempty mempty,
-            Step
-              ( HashMap.fromList
-                  [ (Selector ".message", [Element "f93eb8a0-3511-4a79-8cdf-eef9a8beb5b6"]),
-                    (Selector "button", [Element "7485ccda-3534-4f9d-9e0e-7bfccdf70abd"])
-                  ]
-              )
-              ( HashMap.fromList
-                  [ (Element "7485ccda-3534-4f9d-9e0e-7bfccdf70abd", [ElementStateValue Enabled Bool.True]),
-                    (Element "f93eb8a0-3511-4a79-8cdf-eef9a8beb5b6", [ElementStateValue Text ""])
-                  ]
-              ),
-            Step
-              ( HashMap.fromList
-                  [ (Selector ".message", [Element "f93eb8a0-3511-4a79-8cdf-eef9a8beb5b6"]),
-                    (Selector "button", [Element "7485ccda-3534-4f9d-9e0e-7bfccdf70abd"])
-                  ]
-              )
-              ( HashMap.fromList
-                  [ (Element "7485ccda-3534-4f9d-9e0e-7bfccdf70abd", [ElementStateValue Enabled Bool.False]),
-                    (Element "f93eb8a0-3511-4a79-8cdf-eef9a8beb5b6", [ElementStateValue Text "Boom!"])
-                  ]
-              )
-          ]
-    let buttonIsEnabled enabled = do
-          (traverse (get Enabled) =<< query "button") ≡ Just enabled
-        messageIs message =
-          (traverse (get Text) =<< query ".message") ≡ Just message
-        property =
-          Eventually
-            ( buttonIsEnabled Bool.True
-                `Until` (messageIs "Boom!" ∧ buttonIsEnabled Bool.False)
+spec_verify = do
+  describe "verify" $ do
+    it "is accepted with true for zero steps" $ do
+      verifyDOM True [] `shouldBe` Accepted
+    it "verifies with true for one step" $ do
+      verifyDOM True [Step mempty mempty] `shouldBe` Accepted
+    it "verifies with get and assertion" $ do
+      let classList = JSON.toJSON ["foo", "bar" :: Text]
+      verifyDOM
+        ( (traverse (get (Property "classList")) =<< query "#some-element")
+            ≡ Just classList
+        )
+        [ Step
+            (HashMap.singleton "#some-element" [Element "a"])
+            ( HashMap.singleton
+                (Element "a")
+                [ElementStateValue (Property "classList") classList]
             )
-    verifyDOM property steps `shouldBe` Accepted
+        ]
+        `shouldBe` Accepted
+    it "verifies with get and satisfy" $ do
+      verifyDOM
+        (queryAll "p" ⊢ ((== 2) . length))
+        [Step (HashMap.singleton "p" [Element "a", Element "b"]) mempty]
+        `shouldBe` Accepted
+    it "is True with (And True True)" $ do
+      verifyDOM (And True True) [Step HashMap.empty mempty] `shouldBe` Accepted
+    it "is True with (Not False)" $ do
+      verifyDOM (Not False) [Step HashMap.empty mempty] `shouldBe` Accepted
+    it "works with Until" $ do
+      verifyDOM (True `Until` True) [Step mempty mempty, Step mempty mempty] `shouldBe` Accepted
+    it "verifies button example" $ do
+      let steps =
+            [ Step mempty mempty,
+              Step
+                ( HashMap.fromList
+                    [ (Selector ".message", [Element "f93eb8a0-3511-4a79-8cdf-eef9a8beb5b6"]),
+                      (Selector "button", [Element "7485ccda-3534-4f9d-9e0e-7bfccdf70abd"])
+                    ]
+                )
+                ( HashMap.fromList
+                    [ (Element "7485ccda-3534-4f9d-9e0e-7bfccdf70abd", [ElementStateValue Enabled Bool.True]),
+                      (Element "f93eb8a0-3511-4a79-8cdf-eef9a8beb5b6", [ElementStateValue Text ""])
+                    ]
+                ),
+              Step
+                ( HashMap.fromList
+                    [ (Selector ".message", [Element "f93eb8a0-3511-4a79-8cdf-eef9a8beb5b6"]),
+                      (Selector "button", [Element "7485ccda-3534-4f9d-9e0e-7bfccdf70abd"])
+                    ]
+                )
+                ( HashMap.fromList
+                    [ (Element "7485ccda-3534-4f9d-9e0e-7bfccdf70abd", [ElementStateValue Enabled Bool.False]),
+                      (Element "f93eb8a0-3511-4a79-8cdf-eef9a8beb5b6", [ElementStateValue Text "Boom!"])
+                    ]
+                )
+            ]
+      let buttonIsEnabled enabled = do
+            (traverse (get Enabled) =<< query "button") ≡ Just enabled
+          messageIs message =
+            (traverse (get Text) =<< query ".message") ≡ Just message
+          property =
+            Eventually
+              ( buttonIsEnabled Bool.True
+                  `Until` (messageIs "Boom!" ∧ buttonIsEnabled Bool.False)
+              )
+      verifyDOM property steps `shouldBe` Accepted
+
+  describe "NNF and Minimal equivalence" $ do
+    it "works for Always True" $ do
+      let f = Always True
+          s = "a"
+      verifyNNF (toNNF f) s `shouldBe` Minimal.verify (simplify f) s
 
 hprop_minimal_and_nnf_equivalent :: Property
 hprop_minimal_and_nnf_equivalent = property $ do

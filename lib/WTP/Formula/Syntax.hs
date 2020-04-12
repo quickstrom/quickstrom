@@ -103,6 +103,15 @@ simplify = \case
 
 toNNF :: FormulaWith a -> NNF.FormulaWith (NNF.Negation a)
 toNNF = \case
+  -- Reductions
+  And p False -> NNF.False
+  And False p -> NNF.False
+  And p True -> toNNF p
+  And True p -> toNNF p
+  Or p True -> NNF.True
+  Or True p -> NNF.True
+  Or p False -> toNNF p
+  Or False p -> toNNF p
   -- Negation propagation (https://en.wikipedia.org/wiki/Linear_temporal_logic#Negation_normal_form)
   Not (Not p) -> toNNF p
   Not True -> NNF.False
@@ -110,7 +119,7 @@ toNNF = \case
   Not (p `Or` q) -> toNNF (Not p) `NNF.And` toNNF (Not q)
   Not (p `And` q) -> toNNF (Not p) `NNF.Or` toNNF (Not q)
   Not (p `Implies` q) -> toNNF p `NNF.And` toNNF (Not q)
-  Not (p `Equivalent` q) -> toNNF (p `Equivalent` Not q)
+  Not (p `Equivalent` q) -> toNNF (Not p `Equivalent` Not q)
   Not (Until p q) -> toNNF (Not p) `NNF.Release` toNNF (Not q)
   Not (Release p q) -> toNNF (Not p) `NNF.Until` toNNF (Not q)
   Not (Eventually p) -> toNNF (Always (Not p))

@@ -72,13 +72,13 @@ verifyWith assert = go
     go False _ = Rejected
     go (p `Or` q) trace = go p trace \/ go q trace
     go (p `And` q) trace = go p trace /\ go q trace
-    go (p `Until` q) trace = go q trace \/ go (p `Until` q) (tail trace)
+    go (p `Until` q) trace = go q trace \/ (go p trace /\ go (p `Until` q) (tail trace))
     go (p `Release` q) trace
       | length trace == 1 = go q trace
       | otherwise =
         case go p trace of
-          Rejected -> go (p `Release` q) (tail trace)
-          Accepted -> go q (tail trace)
+          Rejected -> go q trace /\ go (p `Release` q) (tail trace)
+          Accepted -> go q trace
     go (Assert a) (current : _) =
       case a of
         Pos a' -> assert a' current

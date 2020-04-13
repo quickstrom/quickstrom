@@ -20,18 +20,21 @@ import qualified WTP.Gen as Gen
 import WTP.Result
 import WTP.Verify
 import Prelude hiding (Bool (..), not)
+import Algebra.Lattice (fromBool)
+
+
+assertMem :: Eq a => a -> [a] -> Result
+assertMem = (\c s -> fromBool (elem c s))
 
 verifyDOM :: Formula -> [Step] -> Result
 verifyDOM f = NNF.verifyWith assertQuery (toNNF f)
 
-verifyNNF :: Eq a => NNF.FormulaWith (NNF.Negation a) -> [a] -> Result
-verifyNNF f = NNF.verify f
+verifyNNF :: Eq a => NNF.FormulaWith (NNF.Negation a) -> [[a]] -> Result
+verifyNNF f = NNF.verifyWith assertMem f
 
 spec_verify :: Spec
 spec_verify = do
   describe "verify" $ do
-    it "is accepted with true for zero steps" $ do
-      verifyDOM True [] `shouldBe` Accepted
     it "verifies with true for one step" $ do
       verifyDOM True [Step mempty mempty] `shouldBe` Accepted
     it "verifies with get and assertion" $ do
@@ -98,13 +101,13 @@ spec_verify = do
   describe "NNF and Minimal equivalence" $ do
     it "works for Always True" $ do
       let f = Always True
-          s = "a"
+          s = ["a"]
       verifyNNF (toNNF f) s `shouldBe` Minimal.verify (simplify f) s
 
 hprop_minimal_and_nnf_equivalent :: Property
-hprop_minimal_and_nnf_equivalent = property $ do
+hprop_minimal_and_nnf_equivalent = withTests 10000 . property $ do
   syntax <- forAll Gen.anySyntax
-  s <- forAll (Gen.list (Range.linear 1 10) Gen.variable)
+  s <- forAll (Gen.trace (Range.linear 1 10))
   -- NNF
   let nnf = toNNF syntax
   annotateShow nnf
@@ -113,6 +116,6 @@ hprop_minimal_and_nnf_equivalent = property $ do
   -- Minimal
   let minimal = simplify syntax
   annotateShow minimal
-  let r2 = Minimal.verify minimal s
+  let r2 = Minimal.verifyWith assertMem minimal s
   annotateShow r2
   r1 === r2

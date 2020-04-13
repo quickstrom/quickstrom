@@ -47,20 +47,12 @@ withQueries f = \case
 verifyWith :: (a -> step -> Result) -> FormulaWith a -> [step] -> Result
 verifyWith assert = go
   where
-    go spec steps =
-      case steps of
-        [] -> Accepted
-        current : rest ->
-          case spec of
-            True -> Accepted
-            Not p -> neg (go p steps)
-            p `Or` q -> go p steps \/ go q steps
-            p `Until` q ->
-              case (go p [current], go q rest) of
-                (_, Accepted) -> Accepted
-                (Accepted, Rejected) -> go (p `Until` q) rest
-                (r1, _) -> r1
-            Assert a -> assert a current
+    go _ [] = Rejected
+    go True _ = Accepted
+    go (Not p) trace = neg (go p trace)
+    go (p `Or` q) trace = go p trace \/ go q trace
+    go (p `Until` q) trace = go q trace \/ (go p trace /\ go (p `Until` q) (tail trace))
+    go (Assert a) (current : _) = assert a current
 
 verify :: Eq a => FormulaWith a -> [a] -> Result
 verify = verifyWith $ \a b -> fromBool (a == b)

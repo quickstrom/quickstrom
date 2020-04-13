@@ -34,7 +34,7 @@ spec_nnf =
                 verifyNNF nnf input `shouldBe` result
     describe "Always" $ do
       testFormula (Always True) ["a"] Accepted
-      testFormula (Always True) [] Accepted
+      testFormula (Always True) [] Rejected
     describe "Until" $ do
       testFormula (Until (Assert 'a') (Assert 'b')) ["a", "b", "c"] Accepted
       testFormula (Until (Assert 'a') (Assert 'b')) ["a", "b"] Accepted

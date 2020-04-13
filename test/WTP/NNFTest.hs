@@ -19,30 +19,31 @@ import Prelude hiding (Bool (..), not)
 import Hedgehog 
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
+import Algebra.Lattice
 
-verifyNNF :: Eq a => NNF.FormulaWith (NNF.Negation a) -> [a] -> Result
-verifyNNF f = NNF.stepResult . Tree.rootLabel . NNF.verify f
+verifyNNF :: NNF.FormulaWith (NNF.Negation Char) -> [String] -> Result
+verifyNNF f = NNF.stepResult . Tree.rootLabel . NNF.verifyWith (\c s -> fromBool (c `elem` s)) f
 
 spec_nnf :: Spec
 spec_nnf =
   describe "NNF" $ do
-    it "Always True" $ do
-      let f = Always True
-          s = "a"
-      verifyNNF (toNNF f) s `shouldBe` Accepted
-    it "Release True False" $ do
-      let f = Release (Assert 'a') (Assert 'b')
-          s = "a"
-      verifyNNF (toNNF f) s `shouldBe` Accepted
-    it "Release False True" $ do
-      let f = Release False True
-          s = "a"
-      verifyNNF (toNNF f) s `shouldBe` Accepted
-    it "Release True True" $ do
-      let f = Release True True
-          s = "a"
-      verifyNNF (toNNF f) s `shouldBe` Accepted
-    it "Release False False" $ do
-      let f = Release False False
-          s = "a"
-      verifyNNF (toNNF f) s `shouldBe` Rejected
+    let testFormula formula input result =
+          it (show input <> " ⊢ " <> show formula) $ do
+            verifyNNF (toNNF formula) input `shouldBe` result
+
+    describe "Always" $ do
+      testFormula (Always True) ["a"] Accepted
+      testFormula (Always True) [] Accepted
+
+    describe "Until" $ do
+      testFormula (Until (Assert 'a') (Assert 'b')) ["a", "b", "c"] Accepted
+      testFormula (Until (Assert 'a') (Assert 'b')) [] Accepted
+
+    describe "Release" $ do
+      testFormula (Release False True) [] Accepted
+      testFormula (Release True True) [] Accepted
+      testFormula (Release True False) ["a"] Rejected
+      testFormula (Release True True) ["a"] Accepted
+      testFormula (Release False True) ["a"] Accepted
+      testFormula (Release False False) ["a"] Rejected
+      testFormula (Release (Assert 'b') (Assert 'a')) ["a", "ab", "b"] Accepted

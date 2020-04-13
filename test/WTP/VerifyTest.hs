@@ -9,22 +9,23 @@ import qualified Data.Bool as Bool
 import qualified Data.HashMap.Strict as HashMap
 import Data.Text (Text)
 import qualified Data.Tree as Tree
-import Test.Tasty.Hspec
-import WTP.Formula.Syntax hiding ((===))
-import qualified WTP.Formula.NNF as NNF
-import qualified WTP.Formula.Minimal as Minimal
-import WTP.Verify
-import WTP.Result
-import Prelude hiding (Bool (..), not)
-import Hedgehog 
+import Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
+import Test.Tasty.Hspec
+import qualified WTP.Formula.Minimal as Minimal
+import qualified WTP.Formula.NNF as NNF
+import WTP.Formula.Syntax hiding ((===))
+import qualified WTP.Gen as Gen
+import WTP.Result
+import WTP.Verify
+import Prelude hiding (Bool (..), not)
 
 verifyDOM :: Formula -> [Step] -> Result
-verifyDOM f = NNF.stepResult . Tree.rootLabel . NNF.verifyWith assertQuery (toNNF f)
+verifyDOM f = NNF.verifyWith assertQuery (toNNF f)
 
 verifyNNF :: Eq a => NNF.FormulaWith (NNF.Negation a) -> [a] -> Result
-verifyNNF f = NNF.stepResult . Tree.rootLabel . NNF.verify f
+verifyNNF f = NNF.verify f
 
 spec_verify :: Spec
 spec_verify = do
@@ -94,7 +95,6 @@ spec_verify = do
                   `Until` (messageIs "Boom!" ∧ buttonIsEnabled Bool.False)
               )
       verifyDOM property steps `shouldBe` Accepted
-
   describe "NNF and Minimal equivalence" $ do
     it "works for Always True" $ do
       let f = Always True
@@ -103,44 +103,16 @@ spec_verify = do
 
 hprop_minimal_and_nnf_equivalent :: Property
 hprop_minimal_and_nnf_equivalent = property $ do
-  syntax <- forAll genSyntax
-  s <- forAll genString
-
+  syntax <- forAll Gen.anySyntax
+  s <- forAll (Gen.list (Range.linear 1 10) Gen.variable)
   -- NNF
   let nnf = toNNF syntax
   annotateShow nnf
   let r1 = verifyNNF nnf s
   annotateShow r1
-
   -- Minimal
   let minimal = simplify syntax
   annotateShow minimal
   let r2 = Minimal.verify minimal s
   annotateShow r2
-
   r1 === r2
-
-genChar :: Gen Char
-genChar = Gen.alpha
-
-genString :: Gen String
-genString = Gen.string (Range.linear 1 10) genChar
-
-genSyntax :: Gen (FormulaWith Char)
-genSyntax =
-  Gen.small $
-    Gen.recursive
-      Gen.choice
-      [ pure True,
-        pure False,
-        Assert <$> genChar
-      ]
-      [ Gen.subterm genSyntax Not,
-        Gen.subterm2 genSyntax genSyntax And,
-        Gen.subterm2 genSyntax genSyntax Or,
-        Gen.subterm2 genSyntax genSyntax Until,
-        Gen.subterm2 genSyntax genSyntax Implies,
-        Gen.subterm2 genSyntax genSyntax Equivalent,
-        Gen.subterm genSyntax Always,
-        Gen.subterm genSyntax Eventually
-      ]

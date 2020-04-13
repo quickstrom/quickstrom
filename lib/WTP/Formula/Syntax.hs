@@ -104,12 +104,12 @@ simplify = \case
 toNNF :: FormulaWith a -> NNF.FormulaWith (NNF.Negation a)
 toNNF = \case
   -- Reductions
-  And p False -> NNF.False
-  And False p -> NNF.False
+  And _ False -> NNF.False
+  And False _ -> NNF.False
   And p True -> toNNF p
   And True p -> toNNF p
-  Or p True -> NNF.True
-  Or True p -> NNF.True
+  Or _ True -> NNF.True
+  Or True _ -> NNF.True
   Or p False -> toNNF p
   Or False p -> toNNF p
   -- Negation propagation (https://en.wikipedia.org/wiki/Linear_temporal_logic#Negation_normal_form)

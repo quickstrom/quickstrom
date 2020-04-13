@@ -17,7 +17,6 @@ module WTP.Verify
   ( assertQuery,
     Step (..),
     ElementStateValue (..),
-    drawVerificationTree,
   )
 where
 
@@ -25,15 +24,11 @@ import Control.Monad.Freer
 import qualified Data.Bool as Bool
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
-import Data.Hashable (Hashable)
 import Data.Maybe (fromJust, fromMaybe)
 import qualified Data.Text as Text
-import Data.Tree (Tree)
-import qualified Data.Tree as Tree
 import Data.Typeable (Typeable)
 import Type.Reflection
 import WTP.Assertion
-import qualified WTP.Formula.NNF as NNF
 import WTP.Query
 import WTP.Result
 import Prelude hiding (Bool (..), not)
@@ -98,34 +93,3 @@ assertQuery :: QueryAssertion -> Step -> Result
 assertQuery = \(QueryAssertion query' assertion) step ->
   let result' = runQueryPure (queriedElements step) (elementStates step) query'
    in runAssertion assertion result'
-
-drawVerificationTree :: Tree (NNF.VerifiedStep QueryAssertion Step) -> Tree String
-drawVerificationTree =
-  ( >>=
-      \NNF.VerifiedStep {NNF.step, NNF.stepResult, NNF.stepFormula} ->
-        let withStepValues :: (Eq k, Hashable k) => (Step -> HashMap k v) -> ((k, v) -> Tree String) -> [Tree String]
-            withStepValues field f = map f (HashMap.toList (fromMaybe mempty (field <$> step)))
-         in Tree.Node
-              "Step"
-              [ Tree.Node
-                  "Queried elements"
-                  ( withStepValues
-                      queriedElements
-                      ( \(sel, el) ->
-                          Tree.Node (show sel) (map (pure . Text.unpack . ref) el)
-                      )
-                  ),
-                Tree.Node
-                  "Element states"
-                  ( withStepValues
-                      elementStates
-                      ( \(el, states) ->
-                          Tree.Node (Text.unpack (ref el)) (map (pure . drawStateValue) states)
-                      )
-                  ),
-                Tree.Node ("Result = " <> show stepResult) [],
-                Tree.Node ("Formula = " <> show stepFormula) []
-              ]
-  )
-  where
-    drawStateValue (ElementStateValue state value) = show state <> " = " <> show value

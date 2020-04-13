@@ -47,19 +47,19 @@ spec_nnf =
       testFormula (Release False False) ["a"] Rejected
       testFormula (Release (Assert 'b') (Assert 'a')) ["a", "ab", "b"] Accepted
 
-hprop_nnf_always = property $ do
+hprop_nnf_always = withTests 10000 . property $ do
   p <- forAll Gen.anySyntax
   trace <- forAll (Gen.trace (Range.linear 0 10))
   verifyNNF (toNNF (Always p)) trace === verifyNNF (toNNF (False `Release` p)) trace
 
-hprop_nnf_any_true = property $ do
+hprop_nnf_any_true = withTests 10000 . property $ do
   p <- forAll (Gen.trueSyntax (pure 'a'))
   trace <- forAll (map (List.nub . ("a" <>)) <$> Gen.trace (Range.linear 2 10))
   let nnf = (toNNF p)
   annotateShow nnf
   Accepted === verifyNNF nnf trace
 
-hprop_nnf_any_false = property $ do
+hprop_nnf_any_false = withTests 10000 . property $ do
   p <- forAll (Gen.falseSyntax Gen.variable)
   trace <- forAll (Gen.list (Range.linear 2 10) (pure []))
   let nnf = (toNNF p)

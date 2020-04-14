@@ -9,6 +9,8 @@ module Main where
 import Data.Function ((&))
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad (void)
+import Data.Generics.Product
+import Data.Generics.Sum
 import qualified Data.Bool as Bool
 import qualified Data.Text as Text
 import Data.Text (Text)
@@ -26,8 +28,7 @@ import WTP.Result (Result(Accepted))
 main :: IO ()
 main = do
   cwd <- getCurrentDirectory
-  let ex = example cwd
-      simplified :: Specification Minimal.Formula = ex & _ %~ simplify
+  let simplified = example cwd & field @"property" %~ simplify
   let test spec = do
         steps <- WTP.run spec
         let result = Minimal.verifyWith assertQuery (property spec) steps

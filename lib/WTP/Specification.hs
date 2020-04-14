@@ -19,7 +19,8 @@ data Action = Focus Selector | KeyPress Char | Click Selector | Navigate Path
 
 data Specification formula
   = Specification
-      { actions :: [Action],
+      { origin :: Path,
+        actions :: [Action],
         property :: formula
       }
   deriving (Show, Generic)

@@ -14,10 +14,12 @@ common shared-deps
                     , containers
                     , freer-simple
                     , hashable
+                    , hedgehog
                     , generic-lens
                     , lattices
                     , lens
                     , mtl
+                    , mmorph
                     , natural-transformation
                     , prettyprinter
                     , text
@@ -63,7 +65,6 @@ test-suite wtp-test
                     , WTP.VerifyTest
   build-depends:      base
                     , wtp
-                    , hedgehog
                     , simple-ltl
                     , tasty
                     , tasty-discover

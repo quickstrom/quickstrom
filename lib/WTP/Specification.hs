@@ -22,3 +22,4 @@ data Specification formula
       { actions :: [Action],
         property :: formula
       }
+  deriving (Show, Generic)

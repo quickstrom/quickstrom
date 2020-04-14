@@ -1,13 +1,18 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Main where
 
+import Data.Function ((&))
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad (void)
 import qualified Data.Bool as Bool
 import qualified Data.Text as Text
 import Data.Text (Text)
+import Control.Lens
 import qualified Data.Tree as Tree
 import System.Directory
 import qualified WTP.Run as WTP
@@ -22,11 +27,7 @@ main :: IO ()
 main = do
   cwd <- getCurrentDirectory
   let ex = example cwd
-      simplified =
-        Specification
-          { actions = actions ex,
-            property = simplify (property ex)
-          }
+      simplified :: Specification Minimal.Formula = ex & _ %~ simplify
   let test spec = do
         steps <- WTP.run spec
         let result = Minimal.verifyWith assertQuery (property spec) steps

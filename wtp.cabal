@@ -14,7 +14,9 @@ common shared-deps
                     , containers
                     , freer-simple
                     , hashable
+                    , generic-lens
                     , lattices
+                    , lens
                     , mtl
                     , natural-transformation
                     , prettyprinter

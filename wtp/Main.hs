@@ -22,22 +22,22 @@ import WTP.Specification
 import WTP.Formula.Syntax
 import WTP.Verify
 import Web.Api.WebDriver
-import qualified WTP.Formula.Minimal as Minimal
+import qualified WTP.Formula.NNF as NNF
 import WTP.Result (Result(Accepted))
 
 main :: IO ()
 main = do
   cwd <- getCurrentDirectory
-  let simplified = example cwd & field @"property" %~ simplify
+  let withNNF = example cwd & field @"property" %~ toNNF
   let test spec = do
         steps <- WTP.run spec
-        let result = Minimal.verifyWith assertQuery (property spec) steps
+        let result = NNF.verifyWith assertQuery (property spec) steps
         -- _ <- liftWebDriverTT (liftIO (putStrLn (Tree.drawTree (drawVerificationTree result))))
         assertEqual result Accepted "verification using WebDriver"
   void $
     execWebDriverT
       defaultWebDriverConfig
-      (runIsolated defaultFirefoxCapabilities (test simplified))
+      (runIsolated defaultFirefoxCapabilities (test withNNF))
 
 -- Simple example: a button that can be clicked, which then shows a message
 example :: FilePath -> Specification Formula

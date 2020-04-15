@@ -22,6 +22,7 @@ common shared-deps
                     , mmorph
                     , natural-transformation
                     , prettyprinter
+                    , prettyprinter-ansi-terminal
                     , text
                     , transformers
                     , unordered-containers
@@ -38,7 +39,7 @@ library
                     , WTP.Result
                     , WTP.Run
                     , WTP.Specification
-                    , WTP.Step
+                    , WTP.Trace
   hs-source-dirs:     lib
   default-language:   Haskell2010
   ghc-options:        -Werror -Wall

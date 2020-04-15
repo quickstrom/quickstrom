@@ -16,9 +16,10 @@ import Data.Hashable (Hashable)
 import Data.Typeable (Typeable)
 import qualified Data.Aeson as JSON
 import Data.Text (Text)
+import Data.Text.Prettyprint.Doc
 
 newtype Element = Element {ref :: Text}
-  deriving (Eq, Show, Hashable)
+  deriving (Eq, Ord, Show, Hashable, Pretty)
 
 data ElementState a where
   Attribute :: Text -> ElementState (Either Bool Text)
@@ -41,7 +42,7 @@ instance Eq SomeElementState where
       Nothing -> False
 
 newtype Selector = Selector Text
-  deriving (Eq, Show, IsString, Generic, Hashable)
+  deriving (Eq, Ord, Show, IsString, Generic, Hashable, Pretty)
 
 data Query a where
   Query :: Selector -> Query (Maybe Element)

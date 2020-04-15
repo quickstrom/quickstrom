@@ -17,7 +17,7 @@ module WTP.Run
   )
 where
 
-import Control.Lens ((%~))
+import Control.Lens
 import qualified Control.Monad.Freer as Eff
 import Control.Monad.Freer (Eff)
 import Control.Monad.Freer.Writer (Writer, runWriter, tell)
@@ -41,27 +41,31 @@ import qualified WTP.Formula.Syntax as Syntax
 import WTP.Query
 import WTP.Result
 import WTP.Specification
-import WTP.Step
+import WTP.Trace
 import Web.Api.WebDriver hiding (Selector, runIsolated)
-import qualified Data.Tree as Tree
+import Data.Text.Prettyprint.Doc
+import Data.Text.Prettyprint.Doc.Render.Terminal
 
 type Runner = Hedgehog.PropertyT (WebDriverTT IdentityT IO)
 
 asProperty :: Specification Syntax.Formula -> Hedgehog.Property
 asProperty spec = Hedgehog.property . hoist runWebDriver $ do
   let spec' = spec & field @"property" %~ Syntax.toNNF
-  steps <- hoist (runIsolated defaultFirefoxCapabilities) (runSpec spec')
-  let result = NNF.verifyWith assertQuery (property spec') steps
+  trace <- hoist (runIsolated defaultFirefoxCapabilities) (runSpec spec')
+  let result = NNF.verifyWith assertQuery (property spec') (trace ^.. observedStates)
   case result of
     Accepted -> pure ()
     Rejected -> do
-      Hedgehog.footnote (unlines (map (Tree.drawTree . drawStep) steps))
+      let t = renderStrict (layoutPretty defaultLayoutOptions (prettyTrace trace))
+      Hedgehog.footnote (Text.unpack t)
       Hedgehog.failure
 
-runSpec :: Specification NNF.Formula -> Runner [Step]
+runSpec :: Specification NNF.Formula -> Runner Trace
 runSpec spec = do
   navigateToOrigin
-  (:) <$> buildStep <*> traverse (\action -> runAction action >> buildStep) (actions spec)
+  initial <- observe
+  rest <- concat <$> traverse runActionAndObserve (actions spec)
+  pure (Trace (initial : rest))
   where
     extractQueries = NNF.withQueries runQuery (property spec)
     navigateToOrigin = case origin spec of
@@ -71,11 +75,15 @@ runSpec spec = do
       KeyPress c -> lift (getActiveElement >>= elementSendKeys [c])
       Click s -> find1 s >>= lift . elementClick
       Navigate (Path path) -> lift (navigateTo (Text.unpack path))
-    buildStep = do
+    runActionAndObserve action = do
+      runAction action
+      s <- observe
+      pure [TraceAction action, s]
+    observe = do
       values <- Eff.runM extractQueries
       let (queriedElements, elementStates) =
             bimap groupUniqueIntoMap groupUniqueIntoMap (partitionEithers (concat values))
-      pure (Step {queriedElements, elementStates})
+      pure (TraceState (ObservedState {queriedElements, elementStates}))
 
 runWebDriver :: WebDriverT IO a -> IO a
 runWebDriver ma = do
@@ -160,14 +168,14 @@ runQuery query' =
             els <- fmap fromRef <$> Eff.sendM (findAll selector)
             tell ((Left . (selector,) <$> els) :: [Either QueriedElement QueriedElementState])
             pure [Element "a"]
-          Get state element -> do
+          Get state el -> do
             value <- Eff.sendM $ case state of
-              Attribute name -> fmap Text.pack <$> lift (getElementAttribute (Text.unpack name) (toRef element))
-              Property name -> lift (getElementProperty (Text.unpack name) (toRef element))
-              CssValue name -> Text.pack <$> lift (getElementCssValue (Text.unpack name) (toRef element))
-              Text -> Text.pack <$> lift (getElementText (toRef element))
-              Enabled -> lift (isElementEnabled (toRef element))
-            tell [Right (element, ElementStateValue state value) :: Either QueriedElement QueriedElementState]
+              Attribute name -> fmap Text.pack <$> lift (getElementAttribute (Text.unpack name) (toRef el))
+              Property name -> lift (getElementProperty (Text.unpack name) (toRef el))
+              CssValue name -> Text.pack <$> lift (getElementCssValue (Text.unpack name) (toRef el))
+              Text -> Text.pack <$> lift (getElementText (toRef el))
+              Enabled -> lift (isElementEnabled (toRef el))
+            tell [Right (el, ElementStateValue state value) :: Either QueriedElement QueriedElementState]
             pure value
       )
 {-

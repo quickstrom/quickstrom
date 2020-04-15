@@ -6,27 +6,15 @@
 
 module Main where
 
-import Control.Lens
-import Control.Monad (void)
-import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Morph (MFunctor (hoist))
-import Control.Monad.Trans.Class (MonadTrans (lift))
 import qualified Data.Bool as Bool
-import Data.Function ((&))
-import Data.Generics.Product
-import Data.Generics.Sum
 import qualified Data.Text as Text
 import Data.Text (Text)
-import qualified Data.Tree as Tree
 import qualified Hedgehog as Hedgehog
 import qualified Hedgehog.Main as Hedgehog
 import System.Directory
-import qualified WTP.Formula.NNF as NNF
 import WTP.Formula.Syntax
-import WTP.Result (Result (Accepted, Rejected))
 import qualified WTP.Run as WTP
 import WTP.Specification
-import WTP.Step
 
 main :: IO ()
 main = do
@@ -52,7 +40,7 @@ props cwd =
     commentFormSpec =
       Specification
         { origin = Path ("file://" <> Text.pack cwd <> "/test/comment-form.html"),
-          actions = [Click "input[type=submit]"],
+          actions = [Focus "input[type=text]", KeyPress ' ', Click "input[type=submit]"],
           property =
             let commentPosted = isVisible ".comment-display" ∧ Not commentIsBlank ∧ Not (isVisible "form")
                 invalidComment = Not (isVisible ".comment-display") /\ isVisible "form" -- /\ ".error-message" `hasText` "Invalid comment!"

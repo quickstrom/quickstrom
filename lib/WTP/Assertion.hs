@@ -7,6 +7,8 @@ module WTP.Assertion where
 import Data.Text (Text)
 import Control.Monad.Freer (Eff, Members)
 import WTP.Query (Query)
+import WTP.Result (Result(..))
+import qualified Data.Text as Text
 
 data Assertion a where
   Equals :: (Show a, Eq a) => a -> Assertion a
@@ -27,4 +29,18 @@ data QueryAssertion where
 instance Show QueryAssertion where
   show (QueryAssertion _q a) = "(QueryAssertion _ " <> show a <> ")"
 
-  
+runAssertion :: Assertion a -> a -> Result
+runAssertion assertion a =
+  case assertion of
+    Equals expected ->
+      if a == expected
+        then Accepted
+        else Rejected
+    Contains needle ->
+      if needle `Text.isInfixOf` a
+        then Accepted
+        else Rejected
+    Satisfies predicate ->
+      if predicate a
+        then Accepted
+        else Rejected

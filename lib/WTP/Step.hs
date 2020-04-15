@@ -13,11 +13,13 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module WTP.Verify
-  ( assertQuery,
+module WTP.Step
+  ( ElementStateValue (..),
+    Elements,
+    States,
     Step (..),
     drawStep,
-    ElementStateValue (..),
+    assertQuery,
   )
 where
 
@@ -76,27 +78,6 @@ runQuery elements statesByElement =
 runQueryPure :: Elements -> States -> Eff '[Query] a -> a
 runQueryPure elements states = run . runQuery elements states
 
-runAssertion :: Assertion a -> a -> Result
-runAssertion assertion a =
-  case assertion of
-    Equals expected ->
-      if a == expected
-        then Accepted
-        else Rejected
-    Contains needle ->
-      if needle `Text.isInfixOf` a
-        then Accepted
-        else Rejected
-    Satisfies predicate ->
-      if predicate a
-        then Accepted
-        else Rejected
-
-assertQuery :: QueryAssertion -> Step -> Result
-assertQuery = \(QueryAssertion query' assertion) step ->
-  let result' = runQueryPure (queriedElements step) (elementStates step) query'
-   in runAssertion assertion result'
-
 drawStep :: Step -> Tree.Tree String
 drawStep step =
   let withStepValues :: (Eq k, Hashable k) => (Step -> HashMap k v) -> ((k, v) -> Tree.Tree String) -> [Tree.Tree String]
@@ -122,3 +103,8 @@ drawStep step =
         ]
   where
     drawStateValue (ElementStateValue state value) = show state <> " = " <> show value
+
+assertQuery :: QueryAssertion -> Step -> Result
+assertQuery = \(QueryAssertion query' assertion) step ->
+  let result' = runQueryPure (queriedElements step) (elementStates step) query'
+   in runAssertion assertion result'

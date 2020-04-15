@@ -26,7 +26,7 @@ import WTP.Formula.Syntax
 import WTP.Result (Result (Accepted, Rejected))
 import qualified WTP.Run as WTP
 import WTP.Specification
-import WTP.Verify
+import WTP.Step
 
 main :: IO ()
 main = do
@@ -56,7 +56,7 @@ props cwd =
           property =
             let commentPosted = isVisible ".comment-display" ∧ Not commentIsBlank ∧ Not (isVisible "form")
                 invalidComment = Not (isVisible ".comment-display") /\ isVisible "form" -- /\ ".error-message" `hasText` "Invalid comment!"
-            in Not (isVisible ".comment-display") `Until` (commentPosted \/ invalidComment)
+             in Not (isVisible ".comment-display") `Until` (commentPosted \/ invalidComment)
         }
 
 buttonIsEnabled :: Formula

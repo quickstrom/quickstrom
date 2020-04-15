@@ -41,7 +41,7 @@ import qualified WTP.Formula.Syntax as Syntax
 import WTP.Query
 import WTP.Result
 import WTP.Specification
-import WTP.Verify
+import WTP.Step
 import Web.Api.WebDriver hiding (Selector, runIsolated)
 import qualified Data.Tree as Tree
 

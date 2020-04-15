@@ -43,6 +43,7 @@ import WTP.Result
 import WTP.Specification
 import WTP.Verify
 import Web.Api.WebDriver hiding (Selector, runIsolated)
+import qualified Data.Tree as Tree
 
 type Runner = Hedgehog.PropertyT (WebDriverTT IdentityT IO)
 
@@ -50,9 +51,12 @@ asProperty :: Specification Syntax.Formula -> Hedgehog.Property
 asProperty spec = Hedgehog.property . hoist runWebDriver $ do
   let spec' = spec & field @"property" %~ Syntax.toNNF
   steps <- hoist (runIsolated defaultFirefoxCapabilities) (runSpec spec')
-  Hedgehog.annotateShow steps
   let result = NNF.verifyWith assertQuery (property spec') steps
-  result Hedgehog.=== Accepted
+  case result of
+    Accepted -> pure ()
+    Rejected -> do
+      Hedgehog.footnote (unlines (map (Tree.drawTree . drawStep) steps))
+      Hedgehog.failure
 
 runSpec :: Specification NNF.Formula -> Runner [Step]
 runSpec spec = do

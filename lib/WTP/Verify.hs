@@ -16,6 +16,7 @@
 module WTP.Verify
   ( assertQuery,
     Step (..),
+    drawStep,
     ElementStateValue (..),
   )
 where
@@ -24,8 +25,10 @@ import Control.Monad.Freer
 import qualified Data.Bool as Bool
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
+import Data.Hashable (Hashable)
 import Data.Maybe (fromJust, fromMaybe)
 import qualified Data.Text as Text
+import qualified Data.Tree as Tree
 import Data.Typeable (Typeable)
 import Type.Reflection
 import WTP.Assertion
@@ -93,3 +96,29 @@ assertQuery :: QueryAssertion -> Step -> Result
 assertQuery = \(QueryAssertion query' assertion) step ->
   let result' = runQueryPure (queriedElements step) (elementStates step) query'
    in runAssertion assertion result'
+
+drawStep :: Step -> Tree.Tree String
+drawStep step =
+  let withStepValues :: (Eq k, Hashable k) => (Step -> HashMap k v) -> ((k, v) -> Tree.Tree String) -> [Tree.Tree String]
+      withStepValues field f = map f (HashMap.toList (field step))
+   in Tree.Node
+        "Step"
+        [ Tree.Node
+            "Queried elements"
+            ( withStepValues
+                queriedElements
+                ( \(sel, el) ->
+                    Tree.Node (show sel) (map (pure . Text.unpack . ref) el)
+                )
+            ),
+          Tree.Node
+            "Element states"
+            ( withStepValues
+                elementStates
+                ( \(el, states) ->
+                    Tree.Node (Text.unpack (ref el)) (map (pure . drawStateValue) states)
+                )
+            )
+        ]
+  where
+    drawStateValue (ElementStateValue state value) = show state <> " = " <> show value

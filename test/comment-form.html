@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Comment Form</title>
+  </head>
+  <body>
+    <form id="comment-form">
+      <p class="error-message"></p>
+      <input name="comment" type="text" />
+      <input type="submit" />
+    </form>
+    <div class="success-message" style="display: none;">
+      <p>You posted:</p>
+      <p class="comment"></p>
+    </div>
+  </body>
+  <script>
+    var form = document.querySelector("#comment-form");
+    var commentInput = form.querySelector("input[name='comment']");
+    var errorMessage = form.querySelector(".error-message");
+    var comment = null;
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+
+      if (comment) {
+        var successMessage = document.querySelector(".success-message");
+        var commentDisplay = successMessage.querySelector(".comment");
+        commentDisplay.textContent = comment;
+        successMessage.style.display = "block";
+        form.style.display = "none";
+      }
+    });
+
+    commentInput.addEventListener("change", function (e) {
+      if (commentInput.value) {
+        errorMessage.textContent = "";
+        comment = commentInput.value;
+      } else {
+        errorMessage.textContent = "Invalid comment.";
+        comment = null;
+      }
+    });
+
+  </script>
+</html>

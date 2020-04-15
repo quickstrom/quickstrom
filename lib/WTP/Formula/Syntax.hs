@@ -148,7 +148,7 @@ toNNF = \case
   Release p q -> NNF.Release (toNNF p) (toNNF q)
   Assert assertion -> NNF.Assert (NNF.Pos assertion)
 
-infix 4 \/, /\, ∧, ∨
+infixr 4 \/, /\, ∧, ∨
 
 (/\), (\/), (∧), (∨) :: Formula -> Formula -> Formula
 (/\) = And
@@ -156,7 +156,7 @@ infix 4 \/, /\, ∧, ∨
 (∧) = And
 (∨) = Or
 
-infix 5 ===, ≡
+infixr 5 ===, ≡
 
 (===), (≡) :: (Show a, Eq a) => Eff '[Query] a -> a -> Formula
 query' === expected = Assert (QueryAssertion query' (Equals expected))
@@ -165,7 +165,7 @@ query' === expected = Assert (QueryAssertion query' (Equals expected))
 (⊢) :: Show a => Eff '[Query] a -> (a -> Bool) -> Formula
 query' ⊢ f = Assert (QueryAssertion query' (Satisfies f))
 
-infix 6 ¬
+infixr 6 ¬
 
 not, (¬) :: Formula -> Formula
 not = Not

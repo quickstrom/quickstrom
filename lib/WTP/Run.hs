@@ -35,23 +35,26 @@ import Data.Hashable (Hashable)
 import Data.List (nub)
 import Data.Maybe (listToMaybe)
 import qualified Data.Text as Text
+import Data.Text.Prettyprint.Doc
+import Data.Text.Prettyprint.Doc.Render.Terminal
 import qualified Hedgehog
+import qualified Hedgehog.Gen as Gen
+import qualified Hedgehog.Range as Range
+import qualified Hedgehog.Internal.Source as Hedgehog
 import qualified WTP.Formula.NNF as NNF
 import qualified WTP.Formula.Syntax as Syntax
 import WTP.Query
 import WTP.Result
 import WTP.Specification
 import WTP.Trace
-import Web.Api.WebDriver hiding (Selector, runIsolated)
-import Data.Text.Prettyprint.Doc
-import Data.Text.Prettyprint.Doc.Render.Terminal
+import Web.Api.WebDriver hiding (Action, Selector, runIsolated)
 
 type Runner = Hedgehog.PropertyT (WebDriverTT IdentityT IO)
 
 asProperty :: Specification Syntax.Formula -> Hedgehog.Property
-asProperty spec = Hedgehog.property . hoist runWebDriver $ do
+asProperty spec = Hedgehog.withFrozenCallStack . Hedgehog.property $ do
   let spec' = spec & field @"property" %~ Syntax.toNNF
-  trace <- hoist (runIsolated defaultFirefoxCapabilities) (runSpec spec')
+  trace <- Hedgehog.evalM (hoist (runWebDriver . runIsolated defaultFirefoxCapabilities) (runSpec spec'))
   let result = NNF.verifyWith assertQuery (property spec') (trace ^.. observedStates)
   case result of
     Accepted -> pure ()
@@ -60,36 +63,61 @@ asProperty spec = Hedgehog.property . hoist runWebDriver $ do
       Hedgehog.footnote (Text.unpack t)
       Hedgehog.failure
 
+anyActions :: Hedgehog.Gen [Action]
+anyActions = (<>) <$> genListOf early <*> genListOf late
+  where
+    genListOf = Gen.resize 100 . Gen.list (Range.linear 1 10) 
+    early =
+      Gen.choice
+        [ pure (Focus "input[type=text]"),
+          KeyPress <$> pure ' ' -- Gen.ascii
+        ]
+    late =
+      Gen.choice
+        [ pure (Click "input[type=submit]")
+        ]
+
 runSpec :: Specification NNF.Formula -> Runner Trace
 runSpec spec = do
+  -- lift breakpointsOn
+  actions <- Hedgehog.forAll anyActions
   navigateToOrigin
   initial <- observe
-  rest <- concat <$> traverse runActionAndObserve (actions spec)
+  -- lift (liftWebDriverTT (lift (print actions)))
+  rest <- concat <$> traverse runActionAndObserve actions
+  -- lift (breakpoint "after") 
   pure (Trace (initial : rest))
   where
-    extractQueries = NNF.withQueries runQuery (property spec)
+    queries = NNF.withQueries runQuery (property spec)
     navigateToOrigin = case origin spec of
       Path path -> lift (navigateTo (Text.unpack path))
-    runAction = \case
-      Focus s -> find1 s >>= lift . elementSendKeys ""
-      KeyPress c -> lift (getActiveElement >>= elementSendKeys [c])
-      Click s -> find1 s >>= lift . elementClick
-      Navigate (Path path) -> lift (navigateTo (Text.unpack path))
     runActionAndObserve action = do
       runAction action
       s <- observe
       pure [TraceAction action, s]
     observe = do
-      values <- Eff.runM extractQueries
+      values <- Eff.runM queries
       let (queriedElements, elementStates) =
             bimap groupUniqueIntoMap groupUniqueIntoMap (partitionEithers (concat values))
       pure (TraceState (ObservedState {queriedElements, elementStates}))
 
+click :: ElementRef -> Runner ()
+click el = lift (elementClick el `catchError` \_ -> pure ())
+
+runAction :: Action -> Runner ()
+runAction = \case
+  Focus s -> findMaybe s >>= lift . traverse (elementSendKeys "") >> pure ()
+  KeyPress c -> lift (getActiveElement >>= elementSendKeys [c])
+  Click s -> findMaybe s >>= traverse click >> pure ()
+  Navigate (Path path) -> lift (navigateTo (Text.unpack path))
+
 runWebDriver :: WebDriverT IO a -> IO a
-runWebDriver ma = do
-  execWebDriverT defaultWebDriverConfig ma >>= \case
+runWebDriver ma =
+  execWebDriverT (withoutLogs defaultWebDriverConfig) ma >>= \case
     (Right x, _, _) -> pure x
     (Left err, _, _) -> fail (show err)
+  where
+    withoutLogs c = c {_environment = (_environment c) {_logEntryPrinter = \_ _ -> Nothing}}
 
 -- | Mostly the same as the non-exported definition in 'Web.Api.WebDriver.Endpoints'.
 runIsolated ::
@@ -125,10 +153,6 @@ setSessionId ::
   S WDState ->
   S WDState
 setSessionId x st = st {_userState = (_userState st) {_sessionId = x}}
-
--- | Same as the non-exported definition in 'Web.Api.WebDriver.Endpoints'.
-find1 :: Selector -> Runner ElementRef
-find1 (Selector s) = lift (findElement CssSelector (Text.unpack s))
 
 findMaybe :: Selector -> Runner (Maybe ElementRef)
 findMaybe = fmap listToMaybe . findAll

@@ -102,7 +102,7 @@ prettyAction :: Action -> Doc AnsiStyle
 prettyAction = \case
   Click (Selector sel) -> "click" <+> pretty sel
   Focus (Selector sel) -> "focus" <+> pretty sel
-  KeyPress key -> "key press" <+> pretty key
+  KeyPress key -> "key press" <+> squotes (pretty key)
   Navigate (Path path) -> "navigate to" <+> pretty path
 
 prettyTrace :: Trace -> Doc AnsiStyle

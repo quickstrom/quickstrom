@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -19,12 +20,12 @@ import WTP.Specification
 main :: IO ()
 main = do
   cwd <- getCurrentDirectory
-  Hedgehog.defaultMain (Hedgehog.check <$> props cwd)
+  Hedgehog.defaultMain [Hedgehog.checkSequential (Hedgehog.Group "WTP" (props cwd))]
 
-props :: FilePath -> [Hedgehog.Property]
+props :: FilePath -> [(Hedgehog.PropertyName, Hedgehog.Property)]
 props cwd =
-  [ Hedgehog.withTests 1 (WTP.asProperty buttonSpec),
-    Hedgehog.withTests 1 (WTP.asProperty commentFormSpec)
+  [ ("button", Hedgehog.withTests 1 (WTP.asProperty buttonSpec)),
+    ("comment form", Hedgehog.withTests 2 (WTP.asProperty commentFormSpec))
   ]
   where
     -- Simple example: a button that can be clicked, which then shows a message
@@ -34,17 +35,20 @@ props cwd =
           actions =
             [Click "button"],
           property =
-            buttonIsEnabled
-              `Until` (".message" `hasText` "Boom!" ∧ Not buttonIsEnabled)
+            Always buttonIsEnabled
+            \/ buttonIsEnabled `Until` (".message" `hasText` "Boom!" ∧ Not buttonIsEnabled)
         }
     commentFormSpec =
       Specification
         { origin = Path ("file://" <> Text.pack cwd <> "/test/comment-form.html"),
-          actions = [Focus "input[type=text]", KeyPress ' ', Click "input[type=submit]"],
+          actions = [],
+
           property =
             let commentPosted = isVisible ".comment-display" ∧ Not commentIsBlank ∧ Not (isVisible "form")
-                invalidComment = Not (isVisible ".comment-display") /\ isVisible "form" -- /\ ".error-message" `hasText` "Invalid comment!"
-             in Not (isVisible ".comment-display") `Until` (commentPosted \/ invalidComment)
+                invalidComment = Not (isVisible ".comment-display") /\ isVisible "form"
+             in Always (isVisible "form")
+                  \/ isVisible "form" `Until` (commentPosted \/ invalidComment)
+
         }
 
 buttonIsEnabled :: Formula
@@ -58,4 +62,6 @@ isVisible :: Selector -> Formula
 isVisible sel = Not ((traverse (get (CssValue "display")) =<< query sel) ≡ Just "none")
 
 commentIsBlank :: Formula
-commentIsBlank = (traverse (get Text) =<< query ".comment") ≡ Just ""
+commentIsBlank = (traverse (get Text) =<< query ".comment") ⊢ \case
+  Just c -> Text.null (Text.strip c)
+  Nothing -> Bool.True

@@ -10,8 +10,6 @@ module Main where
 import qualified Data.Bool as Bool
 import qualified Data.Text as Text
 import Data.Text (Text)
-import qualified Hedgehog as Hedgehog
-import qualified Hedgehog.Main as Hedgehog
 import System.Directory
 import WTP.Formula.Syntax
 import qualified WTP.Run as WTP
@@ -20,12 +18,12 @@ import WTP.Specification
 main :: IO ()
 main = do
   cwd <- getCurrentDirectory
-  Hedgehog.defaultMain [Hedgehog.checkSequential (Hedgehog.Group "WTP" (props cwd))]
+  WTP.testSpecifications (specs cwd)
 
-props :: FilePath -> [(Hedgehog.PropertyName, Hedgehog.Property)]
-props cwd =
-  [ ("button", Hedgehog.withTests 1 (WTP.asProperty buttonSpec)),
-    ("comment form", Hedgehog.withTests 2 (WTP.asProperty commentFormSpec))
+specs :: FilePath -> [(Text, Specification Formula)]
+specs cwd = 
+  [ ("button", buttonSpec),
+    ("comment form", commentFormSpec)
   ]
   where
     -- Simple example: a button that can be clicked, which then shows a message

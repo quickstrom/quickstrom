@@ -17,7 +17,6 @@ where
 import Control.Lens
 import Control.Monad ((>=>), void)
 import qualified Control.Monad.Freer as Eff
-import Control.Exception (finally)
 import Control.Monad.Freer (Eff)
 import Control.Monad.Freer.Writer (Writer, runWriter, tell)
 import Control.Monad.Morph (MFunctor (hoist))
@@ -55,18 +54,13 @@ type Runner = Hedgehog.PropertyT (WebDriverTT IdentityT IO)
 
 testSpecifications :: [(Text, Specification Syntax.Formula)] -> IO ()
 testSpecifications specs = do
-  sid <- runWebDriver $ do
-    newSession headlessFirefoxCapabilities
-  let props = [(fromString (Text.unpack name), Hedgehog.withTests 100 (asProperty spec sid)) | (name, spec) <- specs]
+  let props = [(fromString (Text.unpack name), Hedgehog.withTests 10 (asProperty spec)) | (name, spec) <- specs]
   Hedgehog.defaultMain [Hedgehog.checkSequential (Hedgehog.Group "WTP specifications" props)]
-    `finally` runWebDriver (modifyState (setSessionId (Just sid)) >> deleteSession)
 
-asProperty :: Specification Syntax.Formula -> SessionId -> Hedgehog.Property
-asProperty spec sid = Hedgehog.withFrozenCallStack . Hedgehog.property $ do
+asProperty :: Specification Syntax.Formula -> Hedgehog.Property
+asProperty spec = Hedgehog.withFrozenCallStack . Hedgehog.property $ do
   let spec' = spec & field @"property" %~ Syntax.toNNF
-  let run' :: WebDriverTT IdentityT IO a -> IO a
-      run' ma = runWebDriver (modifyState (setSessionId (Just sid)) >> ma)
-  trace <- Hedgehog.evalM (hoist run' (runSpec spec'))
+  trace <- Hedgehog.evalM (hoist (runWebDriver . runIsolated headlessFirefoxCapabilities) (runSpec spec'))
   let result = NNF.verifyWith assertQuery (property spec') (trace ^.. observedStates)
   case result of
     Accepted -> pure ()
@@ -91,17 +85,17 @@ anyAction =
 runSpec :: Specification NNF.Formula -> Runner Trace
 runSpec spec = do
   -- lift breakpointsOn
-  numActions <- Hedgehog.forAll (Gen.int (Range.linear 1 10))
+  lift hardRefresh
   navigateToOrigin
   initial <- observe
-  rest <- concat <$> traverse runActionAndObserve [1 .. numActions]
+  actions <- Hedgehog.forAll (Gen.resize 99 (Gen.list (Range.linear 1 50) anyAction))
+  rest <- concat <$> traverse runActionAndObserve actions
   pure (Trace (initial : rest))
   where
     queries = NNF.withQueries runQuery (property spec)
     navigateToOrigin = case origin spec of
       Path path -> lift (navigateTo (Text.unpack path))
-    runActionAndObserve _n = do
-      action <- Hedgehog.forAll anyAction
+    runActionAndObserve action = do
       runAction action
       s <- observe
       pure [TraceAction action, s]
@@ -145,7 +139,6 @@ runWebDriver ma =
         }
 
 -- | Mostly the same as the non-exported definition in 'Web.Api.WebDriver.Endpoints'.
-{-
 runIsolated ::
   (Monad eff, Monad (t eff), MonadTrans t) =>
   Capabilities ->
@@ -172,7 +165,6 @@ cleanupOnError x =
     (\e -> deleteSession >> throwHttpException e)
     (\e -> deleteSession >> throwIOException e)
     (\e -> deleteSession >> throwJsonError e)
--}
 
 -- | Same as the non-exported definition in 'Web.Api.WebDriver.Endpoints'.
 setSessionId ::
@@ -242,3 +234,6 @@ myWait ms =
     )
 
 -}
+
+hardRefresh :: WebDriverT IO ()
+hardRefresh = void (executeScript "location.reload(true);" [])

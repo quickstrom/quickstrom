@@ -19,7 +19,6 @@ import qualified WTP.Formula.NNF as NNF
 import WTP.Formula.Syntax hiding ((===))
 import qualified WTP.Gen as Gen
 import WTP.Result
-import WTP.Verify
 import Prelude hiding (Bool (..), not)
 
 verifyNNF :: NNF.FormulaWith (NNF.Negation Char) -> [String] -> Result

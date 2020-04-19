@@ -25,6 +25,8 @@ in haskellPackages.shellFor {
     haskellPackages.ormolu
     firefox
     geckodriver
+    chromium
+    chromedriver
   ]);
 }
 

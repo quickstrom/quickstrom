@@ -54,18 +54,29 @@ type Runner = Hedgehog.PropertyT (WebDriverTT IdentityT IO)
 
 testSpecifications :: [(Text, Specification Syntax.Formula)] -> IO ()
 testSpecifications specs = do
-  let props = [(fromString (Text.unpack name), Hedgehog.withTests 10 (asProperty spec)) | (name, spec) <- specs]
+  let props = [(fromString (Text.unpack name), Hedgehog.withTests 50 (asProperty spec)) | (name, spec) <- specs]
   Hedgehog.defaultMain [Hedgehog.checkSequential (Hedgehog.Group "WTP specifications" props)]
 
 asProperty :: Specification Syntax.Formula -> Hedgehog.Property
 asProperty spec = Hedgehog.withFrozenCallStack . Hedgehog.property $ do
   let spec' = spec & field @"property" %~ Syntax.toNNF
-  trace <- Hedgehog.evalM (hoist (runWebDriver . runIsolated headlessFirefoxCapabilities) (runSpec spec'))
+  trace <-
+    Hedgehog.evalM
+      ( hoist
+          ( runWebDriver
+              . runIsolated
+                ( defaultChromeCapabilities
+                    { _firefoxOptions = Just (defaultFirefoxOptions { _firefoxArgs = Just ["--headless"]})
+                    }
+                )
+          )
+          (runSpec spec')
+      )
   let result = NNF.verifyWith assertQuery (property spec') (trace ^.. observedStates)
   case result of
     Accepted -> pure ()
     Rejected -> do
-      let t = renderStrict (layoutPretty defaultLayoutOptions (prettyTrace trace))
+      let t = renderStrict (layoutPretty defaultLayoutOptions (prettyTrace (annotateStutteringSteps trace)))
       Hedgehog.footnote (Text.unpack t)
       Hedgehog.failure
 
@@ -82,10 +93,9 @@ anyAction =
       pure (Click "input[type=submit]")
     ]
 
-runSpec :: Specification NNF.Formula -> Runner Trace
+runSpec :: Specification NNF.Formula -> Runner (Trace ())
 runSpec spec = do
   -- lift breakpointsOn
-  lift hardRefresh
   navigateToOrigin
   initial <- observe
   actions <- Hedgehog.forAll (Gen.list (Range.exponential 1 100) anyAction)
@@ -98,12 +108,12 @@ runSpec spec = do
     runActionAndObserve action = do
       runAction action
       s <- observe
-      pure [TraceAction action, s]
+      pure [TraceAction () action, s]
     observe = do
       values <- Eff.runM queries
       let (queriedElements, elementStates) =
             bimap groupUniqueIntoMap groupUniqueIntoMap (partitionEithers (concat values))
-      pure (TraceState (ObservedState {queriedElements, elementStates}))
+      pure (TraceState () (ObservedState {queriedElements, elementStates}))
 
 try :: WebDriverT IO () -> Runner ()
 try action = lift (action `catchError` (const (pure ())))
@@ -134,7 +144,12 @@ runWebDriver ma =
       c
         { _environment =
             (_environment c)
-              { _logEntryPrinter = \_ _ -> Nothing
+              { _logEntryPrinter = \_ _ -> Nothing,
+                _env =
+                  (_env (_environment c))
+                    { _remotePort = 9515
+                      -- _responseFormat = ChromeFormat
+                    }
               }
         }
 
@@ -234,6 +249,3 @@ myWait ms =
     )
 
 -}
-
-hardRefresh :: WebDriverT IO ()
-hardRefresh = void (executeScript "location.reload(true);" [])

@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -21,6 +22,8 @@ module WTP.Trace
     Trace (..),
     TraceElement (..),
     observedStates,
+    TraceElementEffect,
+    annotateStutteringSteps,
     prettyTrace,
   )
 where
@@ -73,7 +76,13 @@ data ObservedState
       { queriedElements :: HashMap Selector [Element],
         elementStates :: HashMap Element [ElementStateValue]
       }
-  deriving (Show)
+  deriving (Show, Eq, Generic)
+
+instance Semigroup ObservedState where
+  ObservedState q1 s1 <> ObservedState q2 s2 = ObservedState (q1 <> q2) (s1 <> s2)
+
+instance Monoid ObservedState where
+  mempty = ObservedState mempty mempty
 
 runQueryInState :: ObservedState -> Eff '[Query] a -> a
 runQueryInState ObservedState {queriedElements, elementStates} =
@@ -94,9 +103,32 @@ assertQuery = \(QueryAssertion query' assertion) state ->
   let result' = runQueryInState state query'
    in runAssertion assertion result'
 
-newtype Trace = Trace [TraceElement]
+newtype Trace ann = Trace [TraceElement ann]
   deriving (Generic)
 
+observedStates :: Monoid r => Getting r (Trace ann) ObservedState
+observedStates = position @1 . traverse . _Ctor @"TraceState" . position @2
+          
+data TraceElement ann
+  = TraceAction ann Action
+  | TraceState ann ObservedState
+  -- TODO: `TraceEvent` when queried DOM nodes change
+  deriving (Generic)
+
+ann :: Lens (TraceElement ann) (TraceElement ann2) ann ann2
+ann = position @1
+
+data TraceElementEffect = Stutter | NoStutter
+
+annotateStutteringSteps :: Trace a -> Trace TraceElementEffect
+annotateStutteringSteps (Trace els) = Trace (go els mempty)
+  where
+    -- TODO: Not tail-recursive, might need optimization
+    go (TraceAction _ action : TraceState _ newState : rest) lastState =
+      let ann' = if newState == lastState then Stutter else NoStutter
+      in (TraceAction ann' action : TraceState ann' newState : go rest newState)
+    go (el : rest) lastState = (el & ann .~ NoStutter) : go rest lastState
+    go [] _ = []
 
 prettyAction :: Action -> Doc AnsiStyle
 prettyAction = \case
@@ -105,13 +137,16 @@ prettyAction = \case
   KeyPress key -> "key press" <+> squotes (pretty key)
   Navigate (Path path) -> "navigate to" <+> pretty path
 
-prettyTrace :: Trace -> Doc AnsiStyle
+prettyTrace :: Trace TraceElementEffect -> Doc AnsiStyle
 prettyTrace (Trace elements') = vsep (zipWith prettyElement [1..] elements')
     where
-      prettyElement :: Int -> TraceElement -> Doc AnsiStyle
+      prettyElement :: Int -> TraceElement TraceElementEffect -> Doc AnsiStyle
       prettyElement i = \case
-        TraceAction action -> annotate (color Yellow <> bold) (pretty i <> "." <+> prettyAction action)
-        TraceState state -> annotate (color Blue <> bold) (pretty i <> "." <+> "State") <> line <> indent 2 (prettyObservedState state)
+        TraceAction effect action -> annotate (effect `stutterColorOr` Yellow <> bold) (pretty i <> "." <+> prettyAction action)
+        TraceState effect state -> annotate (effect `stutterColorOr` Blue <> bold) (pretty i <> "." <+> "State") <> line <> indent 2 (prettyObservedState state)
+
+      Stutter `stutterColorOr` _ = colorDull Black
+      NoStutter `stutterColorOr` fallback = color fallback
 
 prettyObservedState :: ObservedState -> Doc AnsiStyle
 prettyObservedState state =
@@ -154,16 +189,3 @@ prettyObservedState state =
       (ElementStateValue (CssValue name) value) -> "css" <+> braces (pretty name <> ":" <+> pretty value <> ";")
       (ElementStateValue Text t) -> "text" <> "=" <> dquotes (pretty t)
       (ElementStateValue Enabled b) -> if b then "enabled" else "disabled"
-
-
-          
-data TraceElement
-  = TraceAction Action
-  | TraceState ObservedState
-  -- TODO: `TraceEvent` when queried DOM nodes change
-  deriving (Generic)
-
-
-
-observedStates :: Monoid r => Getting r Trace ObservedState
-observedStates = position @1 . traverse . _Ctor @"TraceState"

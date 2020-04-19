@@ -88,7 +88,7 @@ runSpec spec = do
   lift hardRefresh
   navigateToOrigin
   initial <- observe
-  actions <- Hedgehog.forAll (Gen.resize 99 (Gen.list (Range.linear 1 50) anyAction))
+  actions <- Hedgehog.forAll (Gen.list (Range.exponential 1 100) anyAction)
   rest <- concat <$> traverse runActionAndObserve actions
   pure (Trace (initial : rest))
   where

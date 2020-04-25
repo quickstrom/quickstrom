@@ -23,6 +23,7 @@ common shared-deps
                     , prettyprinter
                     , prettyprinter-ansi-terminal
                     , QuickCheck
+                    , QuickCheck-GenT
                     , tasty
                     , tasty-hunit
                     , text

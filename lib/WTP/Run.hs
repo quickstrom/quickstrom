@@ -15,11 +15,12 @@ module WTP.Run
 where
 
 import Control.Lens
-import Control.Monad ((>=>), void)
+import Control.Monad ((>=>), replicateM, void)
 import qualified Control.Monad.Freer as Eff
 import Control.Monad.Freer (Eff)
 import Control.Monad.Freer.Writer (Writer, runWriter, tell)
 import Control.Monad.Trans.Class (MonadTrans)
+import Control.Monad.Trans.Class (MonadTrans (lift))
 import Control.Monad.Trans.Identity (IdentityT)
 import Control.Natural (type (~>))
 import Data.Bifunctor (Bifunctor (bimap))
@@ -36,7 +37,11 @@ import qualified Data.Text as Text
 import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
-import qualified Test.QuickCheck as QuickCheck (arbitraryASCIIChar, generate)
+import qualified Debug.Trace as Debug
+import QuickCheck.GenT (GenT, liftGen, runGenT)
+import qualified Test.QuickCheck as QuickCheck 
+import qualified Test.QuickCheck.Gen as QuickCheck
+import qualified Test.QuickCheck.Monadic as QuickCheck
 import qualified Test.Tasty as Tasty
 import Test.Tasty.HUnit (assertFailure, testCase)
 import qualified WTP.Formula.NNF as NNF
@@ -46,9 +51,6 @@ import WTP.Result
 import WTP.Specification
 import WTP.Trace
 import Web.Api.WebDriver hiding (Action, Selector, assertFailure, runIsolated)
-import Control.Monad.Trans.Class (MonadTrans(lift))
-import qualified Test.QuickCheck.Gen as QuickCheck
-import qualified Debug.Trace as Debug
 
 type Runner = WebDriverTT IdentityT IO
 
@@ -59,14 +61,17 @@ testSpecifications specs =
 test :: Specification Syntax.Formula -> IO ()
 test spec = do
   let spec' = spec & field @"property" %~ Syntax.toNNF
-  trace <- runWebDriver . runIsolated headlessFirefoxCapabilities $ runSpec spec'
-  let result = NNF.verifyWith assertQuery (property spec') (trace ^.. observedStates)
-  case result of
-    Accepted -> pure ()
-    Rejected -> do
-      let t = renderStrict (layoutPretty defaultLayoutOptions (prettyTrace (annotateStutteringSteps trace)))
-      -- Hedgehog.footnote (Text.unpack t)
-      assertFailure (fromString (Text.unpack t))
+  allActions <- runWD =<< QuickCheck.generate (runGenT (genActions spec'))
+  QuickCheck.quickCheck . QuickCheck.forAll (QuickCheck.sublistOf allActions) $ \actions -> do
+    QuickCheck.ioProperty . runWD $ do
+      trace <- runActions spec' actions
+      pure $ do
+        let result = NNF.verifyWith assertQuery (property spec') (trace ^.. observedStates)
+        let t = renderStrict (layoutPretty defaultLayoutOptions (prettyTrace (annotateStutteringSteps trace)))
+        QuickCheck.counterexample (Text.unpack t) (result QuickCheck.=== Accepted)
+
+  where
+    runWD = runWebDriver . runIsolated headlessFirefoxCapabilities
 
 anyAction :: QuickCheck.Gen Action
 anyAction =
@@ -81,19 +86,25 @@ anyAction =
       pure (Click "input[type=submit]")
     ]
 
-runSpec :: Specification NNF.Formula -> Runner (Trace ())
-runSpec spec = do
+genActions :: Specification NNF.Formula -> GenT (WebDriverTT IdentityT IO) [Action]
+genActions spec = replicateM 100 $ do
+  liftGen anyAction
+  where
+    queries = NNF.withQueries runQuery (property spec)
+
+navigateToOrigin :: (Monad eff, Monad (t eff), MonadTrans t) => Specification formula -> WebDriverTT t eff ()
+navigateToOrigin spec = case origin spec of
+  Path path -> navigateTo (Text.unpack path)
+
+runActions :: Specification NNF.Formula -> [Action] -> WebDriverT IO (Trace ())
+runActions spec actions = do
   -- lift breakpointsOn
-  navigateToOrigin
+  navigateToOrigin spec
   initial <- observe
-  actions <- gen (QuickCheck.resize 100 (QuickCheck.listOf anyAction))
-  Debug.traceShowM actions
   rest <- concat <$> traverse runActionAndObserve actions
   pure (Trace (initial : rest))
   where
     queries = NNF.withQueries runQuery (property spec)
-    navigateToOrigin = case origin spec of
-      Path path -> navigateTo (Text.unpack path)
     runActionAndObserve action = do
       runAction action
       s <- observe
@@ -103,9 +114,6 @@ runSpec spec = do
       let (queriedElements, elementStates) =
             bimap groupUniqueIntoMap groupUniqueIntoMap (partitionEithers (concat values))
       pure (TraceState () (ObservedState {queriedElements, elementStates}))
-
-gen :: QuickCheck.Gen a -> Runner a
-gen g = liftWebDriverTT (lift (QuickCheck.generate (QuickCheck.resize 100 g)))
 
 try :: WebDriverT IO () -> Runner ()
 try action = (action `catchError` (const (pure ())))
@@ -136,7 +144,8 @@ runWebDriver ma =
       c
         { _environment =
             (_environment c)
-              { _logEntryPrinter = \_ _ -> Nothing }
+              { _logEntryPrinter = \_ _ -> Nothing
+              }
         }
 
 -- | Mostly the same as the non-exported definition in 'Web.Api.WebDriver.Endpoints'.

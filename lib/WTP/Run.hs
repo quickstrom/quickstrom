@@ -116,7 +116,7 @@ anyAction =
       KeyPress
         <$> QuickCheck.frequency
           [ (1, pure ' '),
-            (1, pure '\0')
+            (1, QuickCheck.arbitraryASCIIChar)
           ],
       pure (Click "input[type=submit]")
     ]

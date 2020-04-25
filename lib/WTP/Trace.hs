@@ -21,6 +21,7 @@ module WTP.Trace
     assertQuery,
     Trace (..),
     TraceElement (..),
+    traceElements,
     observedStates,
     TraceElementEffect,
     annotateStutteringSteps,
@@ -104,16 +105,19 @@ assertQuery = \(QueryAssertion query' assertion) state ->
    in runAssertion assertion result'
 
 newtype Trace ann = Trace [TraceElement ann]
-  deriving (Generic)
+  deriving (Show, Generic)
+
+traceElements :: Monoid r => Getting r (Trace ann) [TraceElement ann]
+traceElements = position @1
 
 observedStates :: Monoid r => Getting r (Trace ann) ObservedState
-observedStates = position @1 . traverse . _Ctor @"TraceState" . position @2
+observedStates = traceElements . traverse . _Ctor @"TraceState" . position @2
           
 data TraceElement ann
   = TraceAction ann Action
   | TraceState ann ObservedState
   -- TODO: `TraceEvent` when queried DOM nodes change
-  deriving (Generic)
+  deriving (Show, Generic)
 
 ann :: Lens (TraceElement ann) (TraceElement ann2) ann ann2
 ann = position @1

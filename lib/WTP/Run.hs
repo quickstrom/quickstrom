@@ -18,7 +18,10 @@ import Control.Lens
 import Control.Monad ((>=>), replicateM, void)
 import qualified Control.Monad.Freer as Eff
 import Control.Monad.Freer (Eff)
+import Control.Applicative ((<|>))
 import Control.Monad.Freer.Writer (Writer, runWriter, tell)
+import Control.Monad.Loops (takeWhileM)
+import Control.Monad.State (StateT (runStateT))
 import Control.Monad.Trans.Class (MonadTrans)
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import Control.Monad.Trans.Identity (IdentityT)
@@ -30,16 +33,19 @@ import Data.Generics.Product (field)
 import qualified Data.HashMap.Strict as HashMap
 import Data.HashMap.Strict (HashMap)
 import Data.Hashable (Hashable)
-import Data.List (nub)
-import Data.Maybe (listToMaybe)
+import Data.List (subsequences, nub)
+import Data.List.NonEmpty (nonEmpty, NonEmpty ((:|)))
+import Data.Maybe (fromMaybe, listToMaybe)
 import Data.String (IsString (..))
 import qualified Data.Text as Text
 import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
 import qualified Debug.Trace as Debug
-import QuickCheck.GenT (GenT, liftGen, runGenT)
-import qualified Test.QuickCheck as QuickCheck 
+import System.Exit (exitFailure)
+import System.IO (hPutStrLn, stderr, stdout)
+import System.Random (StdGen, getStdGen, mkStdGen)
+import qualified Test.QuickCheck as QuickCheck
 import qualified Test.QuickCheck.Gen as QuickCheck
 import qualified Test.QuickCheck.Monadic as QuickCheck
 import qualified Test.Tasty as Tasty
@@ -50,7 +56,11 @@ import WTP.Query
 import WTP.Result
 import WTP.Specification
 import WTP.Trace
-import Web.Api.WebDriver hiding (Action, Selector, assertFailure, runIsolated)
+import Web.Api.WebDriver hiding (Action, Selector, assertFailure, runIsolated, hPutStrLn)
+import Control.Monad.IO.Class (MonadIO(liftIO))
+import qualified Data.List.NonEmpty as NonEmpty
+
+type Gen = StateT StdGen (WebDriverTT IdentityT IO)
 
 type Runner = WebDriverTT IdentityT IO
 
@@ -60,18 +70,44 @@ testSpecifications specs =
 
 test :: Specification Syntax.Formula -> IO ()
 test spec = do
-  let spec' = spec & field @"property" %~ Syntax.toNNF
-  allActions <- runWD =<< QuickCheck.generate (runGenT (genActions spec'))
-  QuickCheck.quickCheck . QuickCheck.forAll (QuickCheck.sublistOf allActions) $ \actions -> do
-    QuickCheck.ioProperty . runWD $ do
-      trace <- runActions spec' actions
-      pure $ do
-        let result = NNF.verifyWith assertQuery (property spec') (trace ^.. observedStates)
-        let t = renderStrict (layoutPretty defaultLayoutOptions (prettyTrace (annotateStutteringSteps trace)))
-        QuickCheck.counterexample (Text.unpack t) (result QuickCheck.=== Accepted)
-
+  stdGen <- getStdGen
+  testResult <- runWD $ do
+    (actions, _) <- runStateT (genActions spec') stdGen
+    original@(trace, result) <- runAndVerify spec' actions
+    case result of
+      Accepted -> pure original
+      Rejected -> fromMaybe original <$> shrinkFailing spec' actions
+  case testResult of
+    (trace, Rejected) -> renderFailureAndExit trace
+    _ -> hPutStrLn stderr "Tests passed."
   where
+    renderFailureAndExit trace = do
+      renderIO stderr (layoutPretty defaultLayoutOptions (prettyTrace (annotateStutteringSteps trace) <> line))
+      assertFailure ("Tests failed with trace of length: " <> show (length (trace ^. traceElements)))
     runWD = runWebDriver . runIsolated headlessFirefoxCapabilities
+    spec' = spec & field @"property" %~ Syntax.toNNF
+
+shrinkFailing :: Specification NNF.Formula -> [Action] -> Runner (Maybe (Trace (), Result))
+shrinkFailing spec original = go (shrink original)
+  where 
+    go = \case
+      [] -> pure Nothing
+      ([] : rest) -> go rest
+      (actions : rest) ->
+        runAndVerify spec actions >>= \case
+          (trace, Accepted) -> go rest
+          (trace, Rejected) -> (<|> Just (trace, Rejected)) <$> shrinkFailing spec actions
+    shrink = QuickCheck.shrinkList (const []) 
+
+runAndVerify :: Specification NNF.Formula -> [Action] -> Runner (Trace (), Result)
+runAndVerify spec actions = do
+  let verify trace = NNF.verifyWith assertQuery (property spec) (trace ^.. observedStates)
+  trace <- runActions spec actions
+  pure (trace, verify trace)
+
+-- TODO?
+shrinkAction :: Action -> [Action]
+shrinkAction = const []
 
 anyAction :: QuickCheck.Gen Action
 anyAction =
@@ -80,15 +116,14 @@ anyAction =
       KeyPress
         <$> QuickCheck.frequency
           [ (1, pure ' '),
-            (1, pure '\0'),
-            (1, QuickCheck.arbitraryASCIIChar)
+            (1, pure '\0')
           ],
       pure (Click "input[type=submit]")
     ]
 
-genActions :: Specification NNF.Formula -> GenT (WebDriverTT IdentityT IO) [Action]
+genActions :: Specification NNF.Formula -> Gen [Action]
 genActions spec = replicateM 100 $ do
-  liftGen anyAction
+  lift (liftWebDriverTT (lift (QuickCheck.generate anyAction)))
   where
     queries = NNF.withQueries runQuery (property spec)
 

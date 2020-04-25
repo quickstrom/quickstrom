@@ -17,15 +17,18 @@ common shared-deps
                     , generic-lens
                     , lattices
                     , lens
-                    , mtl
                     , mmorph
+                    , monad-loops
+                    , mtl
                     , natural-transformation
                     , prettyprinter
                     , prettyprinter-ansi-terminal
                     , QuickCheck
                     , QuickCheck-GenT
+                    , random
                     , tasty
                     , tasty-hunit
+                    , tasty-quickcheck
                     , text
                     , transformers
                     , unordered-containers

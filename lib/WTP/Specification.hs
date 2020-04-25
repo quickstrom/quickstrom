@@ -14,13 +14,16 @@ import WTP.Query
 newtype Path = Path Text
   deriving (Show, IsString, Generic)
 
-data Action = Focus Selector | KeyPress Char | Click Selector | Navigate Path
+data Selected = Selected Selector Int
+  deriving (Show, Generic)
+
+data Action sel = Focus sel | KeyPress Char | Click sel | Navigate Path
   deriving (Show, Generic)
 
 data Specification formula
   = Specification
       { origin :: Path,
-        actions :: [Action],
+        actions :: [Action Selector],
         property :: formula
       }
   deriving (Show, Generic)

@@ -51,7 +51,7 @@ import Type.Reflection
 import WTP.Assertion
 import WTP.Query
 import WTP.Result
-import WTP.Specification (Action (..), Path (..))
+import WTP.Specification (Selected(..), Action (..), Path (..))
 import Prelude hiding (Bool (..), not)
 
 data ElementStateValue where
@@ -114,7 +114,7 @@ observedStates :: Monoid r => Getting r (Trace ann) ObservedState
 observedStates = traceElements . traverse . _Ctor @"TraceState" . position @2
           
 data TraceElement ann
-  = TraceAction ann Action
+  = TraceAction ann (Action Selected)
   | TraceState ann ObservedState
   -- TODO: `TraceEvent` when queried DOM nodes change
   deriving (Show, Generic)
@@ -134,12 +134,15 @@ annotateStutteringSteps (Trace els) = Trace (go els mempty)
     go (el : rest) lastState = (el & ann .~ NoStutter) : go rest lastState
     go [] _ = []
 
-prettyAction :: Action -> Doc AnsiStyle
+prettyAction :: Action Selected -> Doc AnsiStyle
 prettyAction = \case
-  Click (Selector sel) -> "click" <+> pretty sel
-  Focus (Selector sel) -> "focus" <+> pretty sel
+  Click sel -> "click" <+> prettySelected sel
+  Focus sel -> "focus" <+> prettySelected sel
   KeyPress key -> "key press" <+> squotes (pretty key)
   Navigate (Path path) -> "navigate to" <+> pretty path
+
+prettySelected :: Selected  -> Doc AnsiStyle
+prettySelected (Selected (Selector sel) i) = pretty sel <> ":nth-child" <> parens (pretty i)
 
 prettyTrace :: Trace TraceElementEffect -> Doc AnsiStyle
 prettyTrace (Trace elements') = vsep (zipWith prettyElement [1..] elements')

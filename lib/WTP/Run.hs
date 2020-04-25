@@ -20,7 +20,7 @@ import qualified Control.Monad.Freer as Eff
 import Control.Monad.Freer (Eff)
 import Control.Applicative ((<|>))
 import Control.Monad.Freer.Writer (Writer, runWriter, tell)
-import Control.Monad.Loops (takeWhileM)
+import Control.Monad.Loops (unfoldM, takeWhileM)
 import Control.Monad.State (StateT (runStateT))
 import Control.Monad.Trans.Class (MonadTrans)
 import Control.Monad.Trans.Class (MonadTrans (lift))
@@ -35,7 +35,7 @@ import Data.HashMap.Strict (HashMap)
 import Data.Hashable (Hashable)
 import Data.List (subsequences, nub)
 import Data.List.NonEmpty (nonEmpty, NonEmpty ((:|)))
-import Data.Maybe (fromMaybe, listToMaybe)
+import Data.Maybe (catMaybes, fromMaybe, listToMaybe)
 import Data.String (IsString (..))
 import qualified Data.Text as Text
 import Data.Text (Text)
@@ -59,8 +59,9 @@ import WTP.Trace
 import Web.Api.WebDriver hiding (Action, Selector, assertFailure, runIsolated, hPutStrLn)
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import qualified Data.List.NonEmpty as NonEmpty
+import Data.Maybe (mapMaybe)
 
-type Gen = StateT StdGen (WebDriverTT IdentityT IO)
+type Generator = StateT StdGen (WebDriverTT IdentityT IO)
 
 type Runner = WebDriverTT IdentityT IO
 
@@ -72,7 +73,7 @@ test :: Specification Syntax.Formula -> IO ()
 test spec = do
   stdGen <- getStdGen
   testResult <- runWD $ do
-    (actions, _) <- runStateT (genActions spec') stdGen
+    (actions, _) <- runStateT (genActions spec' 10) stdGen
     original@(trace, result) <- runAndVerify spec' actions
     case result of
       Accepted -> pure original
@@ -87,7 +88,7 @@ test spec = do
     runWD = runWebDriver . runIsolated headlessFirefoxCapabilities
     spec' = spec & field @"property" %~ Syntax.toNNF
 
-shrinkFailing :: Specification NNF.Formula -> [Action] -> Runner (Maybe (Trace (), Result))
+shrinkFailing :: Specification NNF.Formula -> [Action Selected] -> Runner (Maybe (Trace (), Result))
 shrinkFailing spec original = go (shrink original)
   where 
     go = \case
@@ -99,39 +100,54 @@ shrinkFailing spec original = go (shrink original)
           (trace, Rejected) -> (<|> Just (trace, Rejected)) <$> shrinkFailing spec actions
     shrink = QuickCheck.shrinkList (const []) 
 
-runAndVerify :: Specification NNF.Formula -> [Action] -> Runner (Trace (), Result)
+runAndVerify :: Specification NNF.Formula -> [Action Selected] -> Runner (Trace (), Result)
 runAndVerify spec actions = do
   let verify trace = NNF.verifyWith assertQuery (property spec) (trace ^.. observedStates)
   trace <- runActions spec actions
   pure (trace, verify trace)
 
 -- TODO?
-shrinkAction :: Action -> [Action]
+shrinkAction :: Action sel -> [Action sel]
 shrinkAction = const []
 
-anyAction :: QuickCheck.Gen Action
-anyAction =
-  QuickCheck.oneof
-    [ pure (Focus "input[type=text]"),
-      KeyPress
-        <$> QuickCheck.frequency
-          [ (1, pure ' '),
-            (1, QuickCheck.arbitraryASCIIChar)
-          ],
-      pure (Click "input[type=submit]")
-    ]
-
-genActions :: Specification NNF.Formula -> Gen [Action]
-genActions spec = replicateM 100 $ do
-  lift (liftWebDriverTT (lift (QuickCheck.generate anyAction)))
+validActions :: [Action Selector] -> Generator (Maybe (QuickCheck.Gen (Action Selected)))
+validActions actions = do
+  gens <- catMaybes <$> traverse tryGenAction actions
+  case gens of
+    [] -> pure Nothing
+    _ -> pure (Just (QuickCheck.oneof gens))
   where
-    queries = NNF.withQueries runQuery (property spec)
+    tryGenAction :: Action Selector -> Generator (Maybe (QuickCheck.Gen (Action Selected)))
+    tryGenAction = \case
+      KeyPress k -> pure (Just (pure (KeyPress k)))
+      Navigate p -> pure (Just (pure (Navigate p)))
+      Focus sel -> selectOne sel Focus
+      Click sel -> selectOne sel Click
+    selectOne :: Selector -> (Selected -> Action Selected) -> Generator (Maybe (QuickCheck.Gen (Action Selected)))
+    selectOne sel ctor = lift (findAll sel) >>= \case
+      [] -> pure Nothing
+      els -> pure (Just (ctor . Selected sel <$> QuickCheck.elements [0..pred (length els)]))
+
+genActions :: Specification NNF.Formula -> Int -> Generator [Action Selected]
+genActions spec maxNum = do
+  lift (navigateToOrigin spec)
+  go []
+  where
+    go acc
+      | length acc < maxNum = do
+        validActions (actions spec) >>= \case
+          Just genValidAction ->  do
+            next <- lift (liftWebDriverTT (lift (QuickCheck.generate genValidAction)))
+            lift (runAction next)
+            go (acc <> [next])
+          Nothing -> pure acc
+      | otherwise = pure acc
 
 navigateToOrigin :: (Monad eff, Monad (t eff), MonadTrans t) => Specification formula -> WebDriverTT t eff ()
 navigateToOrigin spec = case origin spec of
   Path path -> navigateTo (Text.unpack path)
 
-runActions :: Specification NNF.Formula -> [Action] -> WebDriverT IO (Trace ())
+runActions :: Specification NNF.Formula -> [Action Selected] -> WebDriverT IO (Trace ())
 runActions spec actions = do
   -- lift breakpointsOn
   navigateToOrigin spec
@@ -153,16 +169,16 @@ runActions spec actions = do
 try :: WebDriverT IO () -> Runner ()
 try action = (action `catchError` (const (pure ())))
 
-click :: Selector -> Runner ()
-click = findMaybe >=> (\e -> try (void (traverse elementClick e)))
+click :: Selected -> Runner ()
+click = findSelected >=> (\e -> try (void (elementClick e)))
 
 sendKey :: Char -> Runner ()
 sendKey c = try (getActiveElement >>= elementSendKeys [c])
 
-focus :: Selector -> Runner ()
-focus s = findMaybe s >>= (\e -> try (void (traverse (elementSendKeys "") e)))
+focus :: Selected -> Runner ()
+focus  = findSelected >=> (\e -> try (void (elementSendKeys "" e)))
 
-runAction :: Action -> Runner ()
+runAction :: Action Selected -> Runner ()
 runAction = \case
   Focus s -> focus s
   KeyPress c -> sendKey c
@@ -220,6 +236,9 @@ setSessionId x st = st {_userState = (_userState st) {_sessionId = x}}
 
 findMaybe :: Selector -> Runner (Maybe ElementRef)
 findMaybe = fmap listToMaybe . findAll
+
+findSelected :: Selected -> Runner ElementRef
+findSelected (Selected s i) = fmap (!! i) (findAll s)
 
 findAll :: Selector -> Runner [ElementRef]
 findAll (Selector s) = (findElements CssSelector (Text.unpack s))

@@ -9,9 +9,6 @@ import qualified Data.Bool as Bool
 import qualified Data.HashMap.Strict as HashMap
 import Data.Text (Text)
 import qualified Data.Tree as Tree
-import Hedgehog
-import qualified Hedgehog.Gen as Gen
-import qualified Hedgehog.Range as Range
 import Test.Tasty.Hspec
 import qualified WTP.Formula.Minimal as Minimal
 import qualified WTP.Formula.NNF as NNF
@@ -21,6 +18,7 @@ import WTP.Result
 import qualified WTP.Trace as Trace
 import Prelude hiding (Bool (..), not)
 import Algebra.Lattice (fromBool)
+import Test.QuickCheck (withMaxSuccess, (===), forAll)
 
 
 assertMem :: Eq a => a -> [a] -> Result
@@ -102,18 +100,11 @@ spec_verify = do
           s = ["a"]
       verifyNNF (toNNF f) s `shouldBe` Minimal.verify (simplify f) s
 
-hprop_minimal_and_nnf_equivalent :: Property
-hprop_minimal_and_nnf_equivalent = withTests 10000 . property $ do
-  syntax <- forAll Gen.anySyntax
-  s <- forAll (Gen.trace (Range.linear 1 10))
+prop_minimal_and_nnf_equivalent = withMaxSuccess 1000 $ forAll ((,) <$> Gen.anySyntax <*> Gen.nonEmpty Gen.trace) $ \(syntax, s) -> do
   -- NNF
   let nnf = toNNF syntax
-  annotateShow nnf
   let r1 = verifyNNF nnf s
-  annotateShow r1
   -- Minimal
   let minimal = simplify syntax
-  annotateShow minimal
   let r2 = Minimal.verifyWith assertMem minimal s
-  annotateShow r2
   r1 === r2

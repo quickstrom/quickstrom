@@ -10,9 +10,7 @@ import qualified Data.HashMap.Strict as HashMap
 import qualified Data.List as List
 import Data.Text (Text)
 import qualified Data.Tree as Tree
-import Hedgehog
-import qualified Hedgehog.Gen as Gen
-import qualified Hedgehog.Range as Range
+import Test.QuickCheck ((===), (==>), forAll, listOf, withMaxSuccess)
 import Test.Tasty.Hspec
 import qualified WTP.Formula.Minimal as Minimal
 import qualified WTP.Formula.NNF as NNF
@@ -46,21 +44,13 @@ spec_nnf =
       testFormula (Release False False) ["a"] Rejected
       testFormula (Release (Assert 'b') (Assert 'a')) ["a", "ab", "b"] Accepted
 
-hprop_nnf_always = withTests 10000 . property $ do
-  p <- forAll Gen.anySyntax
-  trace <- forAll (Gen.trace (Range.linear 0 10))
+prop_nnf_always = withMaxSuccess 1000 $ forAll ((,) <$> Gen.anySyntax <*> Gen.trace) $ \(p, trace) -> do
   verifyNNF (toNNF (Always p)) trace === verifyNNF (toNNF (False `Release` p)) trace
 
-hprop_nnf_any_true = withTests 10000 . property $ do
-  p <- forAll (Gen.trueSyntax (pure 'a'))
-  trace <- forAll (map (List.nub . ("a" <>)) <$> Gen.trace (Range.linear 2 10))
+prop_nnf_any_true = withMaxSuccess 1000 $ forAll ((,) <$> Gen.trueSyntax (pure 'a') <*> (map (List.nub . ("a" <>)) <$> Gen.nonEmpty Gen.trace)) $ \(p, trace) -> do
   let nnf = (toNNF p)
-  annotateShow nnf
   Accepted === verifyNNF nnf trace
 
-hprop_nnf_any_false = withTests 10000 . property $ do
-  p <- forAll (Gen.falseSyntax Gen.variable)
-  trace <- forAll (Gen.list (Range.linear 2 10) (pure []))
-  let nnf = (toNNF p)
-  annotateShow nnf
-  Rejected === verifyNNF nnf trace
+prop_nnf_any_false = forAll ((,) <$> Gen.falseSyntax Gen.variable <*> Gen.nonEmpty (listOf (pure []))) $ \(p, trace) -> do
+    let nnf = (toNNF p)
+    Rejected === verifyNNF nnf trace

@@ -1,67 +1,78 @@
 module WTP.Gen where
 
 import qualified Data.Bool as Bool
-import Hedgehog
-import qualified Hedgehog.Gen as Gen
-import qualified Hedgehog.Range as Range
+import Test.QuickCheck
 import WTP.Formula.Syntax
 import Prelude hiding (Bool (..))
 
 variable :: Gen Char
-variable = Gen.alpha
+variable = arbitraryASCIIChar
 
-trace :: Range Int -> Gen [String]
-trace range = Gen.list range (Gen.string (Range.linear 1 3) variable)
+trace :: Gen [String]
+trace = listOf (listOf variable)
+
+nonEmpty :: Gen [a] -> Gen [a]
+nonEmpty = flip suchThat (Prelude.not . null)
 
 anySyntax :: Gen (FormulaWith Char)
-anySyntax =
-  Gen.small $
-    Gen.recursive
-      Gen.choice
-      [ pure True,
-        pure False,
-        Assert <$> variable
-      ]
-      [ Gen.subterm anySyntax Not,
-        Gen.subterm2 anySyntax anySyntax And,
-        Gen.subterm2 anySyntax anySyntax Or,
-        Gen.subterm2 anySyntax anySyntax Until,
-        Gen.subterm2 anySyntax anySyntax Implies,
-        Gen.subterm2 anySyntax anySyntax Equivalent,
-        Gen.subterm anySyntax Always,
-        Gen.subterm anySyntax Eventually
-      ]
+anySyntax = sized syntax'
+  where
+    syntax' :: Int -> Gen (FormulaWith Char)
+    syntax' 0 =
+      oneof
+        [ pure True,
+          pure False,
+          Assert <$> variable
+        ]
+    syntax' n =
+      let subterm = syntax' (n `div` 2)
+       in oneof
+            [ Not <$> subterm,
+              And <$> subterm <*> subterm,
+              Or <$> subterm <*> subterm,
+              Until <$> subterm <*> subterm,
+              Implies <$> subterm <*> subterm,
+              Equivalent <$> subterm <*> subterm,
+              Always <$> subterm,
+              Eventually <$> subterm
+            ]
 
 trueSyntax :: Gen Char -> Gen (FormulaWith Char)
-trueSyntax genVariable = gen
+trueSyntax genVariable = sized syntax'
   where
-    gen =
-      Gen.recursive
-        Gen.choice
+    syntax' :: Int -> Gen (FormulaWith Char)
+    syntax' 0 =
+      oneof
         [ pure True,
           Assert <$> genVariable
         ]
-        [ Gen.subterm2 gen gen And,
-          Gen.subterm2 gen gen Or,
-          Gen.subterm2 gen gen Until,
-          Gen.subterm2 gen gen Implies,
-          Gen.subterm2 gen gen Equivalent,
-          Gen.subterm gen Always,
-          Gen.subterm gen Eventually
-        ]
+    syntax' n =
+      let subterm = syntax' (n `div` 2)
+       in oneof
+            [ And <$> subterm <*> subterm,
+              Or <$> subterm <*> subterm,
+              Until <$> subterm <*> subterm,
+              Implies <$> subterm <*> subterm,
+              Equivalent <$> subterm <*> subterm,
+              Always <$> subterm,
+              Eventually <$> subterm
+            ]
 
 falseSyntax :: Gen Char -> Gen (FormulaWith Char)
-falseSyntax genVariable = gen
+falseSyntax genVariable = sized syntax'
   where
-    gen =
-      Gen.recursive
-        Gen.choice
+    syntax' :: Int -> Gen (FormulaWith Char)
+    syntax' 0 =
+      oneof
         [ pure False,
           Assert <$> genVariable
         ]
-        [ Gen.subterm2 gen gen Or,
-          Gen.subterm2 gen gen And,
-          Gen.subterm2 gen gen Until,
-          Gen.subterm gen Always,
-          Gen.subterm gen Eventually
-        ]
+    syntax' n =
+      let subterm = syntax' (n `div` 2)
+       in oneof
+            [ And <$> subterm <*> subterm,
+              Or <$> subterm <*> subterm,
+              Until <$> subterm <*> subterm,
+              Always <$> subterm,
+              Eventually <$> subterm
+            ]

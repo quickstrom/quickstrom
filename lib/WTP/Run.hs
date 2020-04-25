@@ -19,8 +19,7 @@ import Control.Monad ((>=>), void)
 import qualified Control.Monad.Freer as Eff
 import Control.Monad.Freer (Eff)
 import Control.Monad.Freer.Writer (Writer, runWriter, tell)
-import Control.Monad.Morph (MFunctor (hoist))
-import Control.Monad.Trans.Class (MonadTrans (lift))
+import Control.Monad.Trans.Class (MonadTrans)
 import Control.Monad.Trans.Identity (IdentityT)
 import Control.Natural (type (~>))
 import Data.Bifunctor (Bifunctor (bimap))
@@ -37,58 +36,47 @@ import qualified Data.Text as Text
 import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
-import qualified Hedgehog
-import qualified Hedgehog.Gen as Gen
-import qualified Hedgehog.Internal.Source as Hedgehog
-import qualified Hedgehog.Main as Hedgehog
-import qualified Hedgehog.Range as Range
+import qualified Test.QuickCheck as QuickCheck (arbitraryASCIIChar, generate)
+import qualified Test.Tasty as Tasty
+import Test.Tasty.HUnit (assertFailure, testCase)
 import qualified WTP.Formula.NNF as NNF
 import qualified WTP.Formula.Syntax as Syntax
 import WTP.Query
 import WTP.Result
 import WTP.Specification
 import WTP.Trace
-import Web.Api.WebDriver hiding (Action, Selector, runIsolated)
+import Web.Api.WebDriver hiding (Action, Selector, assertFailure, runIsolated)
+import Control.Monad.Trans.Class (MonadTrans(lift))
+import qualified Test.QuickCheck.Gen as QuickCheck
+import qualified Debug.Trace as Debug
 
-type Runner = Hedgehog.PropertyT (WebDriverTT IdentityT IO)
+type Runner = WebDriverTT IdentityT IO
 
-testSpecifications :: [(Text, Specification Syntax.Formula)] -> IO ()
-testSpecifications specs = do
-  let props = [(fromString (Text.unpack name), Hedgehog.withTests 50 (asProperty spec)) | (name, spec) <- specs]
-  Hedgehog.defaultMain [Hedgehog.checkSequential (Hedgehog.Group "WTP specifications" props)]
+testSpecifications :: [(Text, Specification Syntax.Formula)] -> Tasty.TestTree
+testSpecifications specs =
+  Tasty.testGroup "WTP specifications" [testCase (Text.unpack name) (test spec) | (name, spec) <- specs]
 
-asProperty :: Specification Syntax.Formula -> Hedgehog.Property
-asProperty spec = Hedgehog.withFrozenCallStack . Hedgehog.property $ do
+test :: Specification Syntax.Formula -> IO ()
+test spec = do
   let spec' = spec & field @"property" %~ Syntax.toNNF
-  trace <-
-    Hedgehog.evalM
-      ( hoist
-          ( runWebDriver
-              . runIsolated
-                ( defaultChromeCapabilities
-                    { _firefoxOptions = Just (defaultFirefoxOptions { _firefoxArgs = Just ["--headless"]})
-                    }
-                )
-          )
-          (runSpec spec')
-      )
+  trace <- runWebDriver . runIsolated headlessFirefoxCapabilities $ runSpec spec'
   let result = NNF.verifyWith assertQuery (property spec') (trace ^.. observedStates)
   case result of
     Accepted -> pure ()
     Rejected -> do
       let t = renderStrict (layoutPretty defaultLayoutOptions (prettyTrace (annotateStutteringSteps trace)))
-      Hedgehog.footnote (Text.unpack t)
-      Hedgehog.failure
+      -- Hedgehog.footnote (Text.unpack t)
+      assertFailure (fromString (Text.unpack t))
 
-anyAction :: Hedgehog.Gen Action
+anyAction :: QuickCheck.Gen Action
 anyAction =
-  Gen.choice
+  QuickCheck.oneof
     [ pure (Focus "input[type=text]"),
       KeyPress
-        <$> Gen.frequency
+        <$> QuickCheck.frequency
           [ (1, pure ' '),
             (1, pure '\0'),
-            (1, Gen.ascii)
+            (1, QuickCheck.arbitraryASCIIChar)
           ],
       pure (Click "input[type=submit]")
     ]
@@ -98,13 +86,14 @@ runSpec spec = do
   -- lift breakpointsOn
   navigateToOrigin
   initial <- observe
-  actions <- Hedgehog.forAll (Gen.list (Range.exponential 1 100) anyAction)
+  actions <- gen (QuickCheck.resize 100 (QuickCheck.listOf anyAction))
+  Debug.traceShowM actions
   rest <- concat <$> traverse runActionAndObserve actions
   pure (Trace (initial : rest))
   where
     queries = NNF.withQueries runQuery (property spec)
     navigateToOrigin = case origin spec of
-      Path path -> lift (navigateTo (Text.unpack path))
+      Path path -> navigateTo (Text.unpack path)
     runActionAndObserve action = do
       runAction action
       s <- observe
@@ -115,8 +104,11 @@ runSpec spec = do
             bimap groupUniqueIntoMap groupUniqueIntoMap (partitionEithers (concat values))
       pure (TraceState () (ObservedState {queriedElements, elementStates}))
 
+gen :: QuickCheck.Gen a -> Runner a
+gen g = liftWebDriverTT (lift (QuickCheck.generate (QuickCheck.resize 100 g)))
+
 try :: WebDriverT IO () -> Runner ()
-try action = lift (action `catchError` (const (pure ())))
+try action = (action `catchError` (const (pure ())))
 
 click :: Selector -> Runner ()
 click = findMaybe >=> (\e -> try (void (traverse elementClick e)))
@@ -144,13 +136,7 @@ runWebDriver ma =
       c
         { _environment =
             (_environment c)
-              { _logEntryPrinter = \_ _ -> Nothing,
-                _env =
-                  (_env (_environment c))
-                    { _remotePort = 9515
-                      -- _responseFormat = ChromeFormat
-                    }
-              }
+              { _logEntryPrinter = \_ _ -> Nothing }
         }
 
 -- | Mostly the same as the non-exported definition in 'Web.Api.WebDriver.Endpoints'.
@@ -192,7 +178,7 @@ findMaybe :: Selector -> Runner (Maybe ElementRef)
 findMaybe = fmap listToMaybe . findAll
 
 findAll :: Selector -> Runner [ElementRef]
-findAll (Selector s) = lift (findElements CssSelector (Text.unpack s))
+findAll (Selector s) = (findElements CssSelector (Text.unpack s))
 
 toRef :: Element -> ElementRef
 toRef (Element ref) = ElementRef (Text.unpack ref)
@@ -228,11 +214,11 @@ runQuery query' =
             pure [Element "a"]
           Get state el -> do
             value <- Eff.sendM $ case state of
-              Attribute name -> fmap Text.pack <$> lift (getElementAttribute (Text.unpack name) (toRef el))
-              Property name -> lift (getElementProperty (Text.unpack name) (toRef el))
-              CssValue name -> Text.pack <$> lift (getElementCssValue (Text.unpack name) (toRef el))
-              Text -> Text.pack <$> lift (getElementText (toRef el))
-              Enabled -> lift (isElementEnabled (toRef el))
+              Attribute name -> fmap Text.pack <$> (getElementAttribute (Text.unpack name) (toRef el))
+              Property name -> (getElementProperty (Text.unpack name) (toRef el))
+              CssValue name -> Text.pack <$> (getElementCssValue (Text.unpack name) (toRef el))
+              Text -> Text.pack <$> (getElementText (toRef el))
+              Enabled -> (isElementEnabled (toRef el))
             tell [Right (el, ElementStateValue state value) :: Either QueriedElement QueriedElementState]
             pure value
       )

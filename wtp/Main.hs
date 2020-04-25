@@ -16,12 +16,14 @@ import System.IO.Unsafe (unsafePerformIO)
 import WTP.Formula.Syntax
 import qualified WTP.Run as WTP
 import WTP.Specification
+import qualified Test.Tasty as Tasty
 
 cwd :: FilePath
 cwd = unsafePerformIO getCurrentDirectory
 
 main :: IO ()
 main =
+  Tasty.defaultMain $
   WTP.testSpecifications
     [ ("button", buttonSpec),
       ("comment form", commentFormSpec)

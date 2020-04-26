@@ -56,36 +56,44 @@ testSpecifications :: [(Text, Specification Syntax.Formula)] -> Tasty.TestTree
 testSpecifications specs =
   Tasty.testGroup "WTP specifications" [testCaseSteps (Text.unpack name) (test spec) | (name, spec) <- specs]
 
+data FailingTest = FailingTest { numShrinks :: Int, trace :: Trace () }
+
+type TestResult = Either FailingTest ()
+
+data CheckResult = CheckSuccess | CheckFailure { failedAfter :: Int, failingTest :: FailingTest }
+
 test :: Specification Syntax.Formula -> (String -> IO ()) -> IO ()
 test spec step = do
   stdGen <- getStdGen
-  let numTests = 50
+  let numTests = 20
   let sizes = map (\n -> n * 100 `div` numTests) [1 .. numTests]
   step ("Running " <> show numTests <> " tests...")
   (result, _) <- runWD . flip runStateT stdGen $ runAll sizes 1
   case result of
-    Left (n, trace) -> do
-      let t = renderStrict (layoutPretty defaultLayoutOptions (prettyTrace (annotateStutteringSteps trace) <> line))
+    CheckFailure {failedAfter, failingTest} -> do
+      let t = renderStrict (layoutPretty defaultLayoutOptions (prettyTrace (annotateStutteringSteps (trace failingTest)) <> line))
       step (Text.unpack t)
-      assertFailure ("Failed after " <> show n <> " tests.")
-    Right () -> pure ()
+      assertFailure ("Failed after " <> show failedAfter <> " tests and " <> show (numShrinks failingTest) <> " shrinks.")
+    CheckSuccess -> step ("Passed " <> show numTests <> " tests.")
   where
     runSingle size = do
       actions <- genActions spec' size
-      original@(_, result) <- runAndVerify spec' actions
+      (original, result) <- runAndVerify spec' actions
       case result of
-        Accepted -> pure original
-        Rejected -> fromMaybe original <$> shrinkFailing spec' actions
-    runAll [] _ = pure (Right ())
+        Accepted -> pure (Right ())
+        Rejected -> fromMaybe (Left (FailingTest 0 original)) <$> shrinkFailing spec' actions 1
+    runAll [] _ = pure CheckSuccess
     runAll (size : sizes) (n :: Int) = do
       runSingle size >>= \case
-        (_, Accepted) -> runAll sizes (succ n)
-        (trace, Rejected) -> pure (Left (n, trace))
+        Right{} -> runAll sizes (succ n)
+        Left failingTest -> pure (CheckFailure n failingTest)
     runWD = runWebDriver . runIsolated headlessFirefoxCapabilities
     spec' = spec & field @"property" %~ Syntax.toNNF
 
-shrinkFailing :: Specification NNF.Formula -> [Action Selected] -> Runner (Maybe (Trace (), Result))
-shrinkFailing spec original = go (shrink original)
+shrinkFailing :: Specification NNF.Formula -> [Action Selected] -> Int -> Runner (Maybe TestResult)
+shrinkFailing spec original n 
+  | n < 100 = go (shrink original)
+  | otherwise = pure Nothing
   where
     go = \case
       [] -> pure Nothing
@@ -93,7 +101,7 @@ shrinkFailing spec original = go (shrink original)
       (actions : rest) ->
         runAndVerify spec actions >>= \case
           (_, Accepted) -> go rest
-          (trace, Rejected) -> (<|> Just (trace, Rejected)) <$> shrinkFailing spec actions
+          (trace, Rejected) -> (<|> Just (Left (FailingTest n trace))) <$> shrinkFailing spec actions (succ n)
     shrink = QuickCheck.shrinkList shrinkAction
 
 runAndVerify :: Specification NNF.Formula -> [Action Selected] -> Runner (Trace (), Result)

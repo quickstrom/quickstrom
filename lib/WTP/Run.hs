@@ -14,13 +14,14 @@ module WTP.Run
   )
 where
 
+import Control.Applicative ((<|>))
 import Control.Lens
 import Control.Monad ((>=>), replicateM, void)
 import qualified Control.Monad.Freer as Eff
 import Control.Monad.Freer (Eff)
-import Control.Applicative ((<|>))
 import Control.Monad.Freer.Writer (Writer, runWriter, tell)
-import Control.Monad.Loops (unfoldM, takeWhileM)
+import Control.Monad.IO.Class (MonadIO (liftIO))
+import Control.Monad.Loops (takeWhileM, unfoldM)
 import Control.Monad.State (StateT (runStateT))
 import Control.Monad.Trans.Class (MonadTrans)
 import Control.Monad.Trans.Class (MonadTrans (lift))
@@ -33,64 +34,67 @@ import Data.Generics.Product (field)
 import qualified Data.HashMap.Strict as HashMap
 import Data.HashMap.Strict (HashMap)
 import Data.Hashable (Hashable)
-import Data.List (subsequences, nub)
-import Data.List.NonEmpty (nonEmpty, NonEmpty ((:|)))
+import Data.List (nub, subsequences)
+import Data.List.NonEmpty (NonEmpty ((:|)), nonEmpty)
+import qualified Data.List.NonEmpty as NonEmpty
 import Data.Maybe (catMaybes, fromMaybe, listToMaybe)
+import Data.Maybe (mapMaybe)
 import Data.String (IsString (..))
 import qualified Data.Text as Text
 import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
-import qualified Debug.Trace as Debug
-import System.Exit (exitFailure)
-import System.IO (hPutStrLn, stderr, stdout)
-import System.Random (StdGen, getStdGen, mkStdGen)
+import System.Random (StdGen, getStdGen)
 import qualified Test.QuickCheck as QuickCheck
-import qualified Test.QuickCheck.Gen as QuickCheck
-import qualified Test.QuickCheck.Monadic as QuickCheck
 import qualified Test.Tasty as Tasty
-import Test.Tasty.HUnit (assertFailure, testCase)
+import Test.Tasty.HUnit (testCaseSteps, assertFailure)
 import qualified WTP.Formula.NNF as NNF
 import qualified WTP.Formula.Syntax as Syntax
 import WTP.Query
 import WTP.Result
 import WTP.Specification
 import WTP.Trace
-import Web.Api.WebDriver hiding (Action, Selector, assertFailure, runIsolated, hPutStrLn)
-import Control.Monad.IO.Class (MonadIO(liftIO))
-import qualified Data.List.NonEmpty as NonEmpty
-import Data.Maybe (mapMaybe)
+import Web.Api.WebDriver hiding (Action, Selector, assertFailure, hPutStrLn, runIsolated)
 
-type Generator = StateT StdGen (WebDriverTT IdentityT IO)
-
-type Runner = WebDriverTT IdentityT IO
+type Runner = StateT StdGen (WebDriverTT IdentityT IO)
 
 testSpecifications :: [(Text, Specification Syntax.Formula)] -> Tasty.TestTree
 testSpecifications specs =
-  Tasty.testGroup "WTP specifications" [testCase (Text.unpack name) (test spec) | (name, spec) <- specs]
+  Tasty.testGroup "WTP specifications" [testCaseSteps (Text.unpack name) (test spec) | (name, spec) <- specs]
 
-test :: Specification Syntax.Formula -> IO ()
-test spec = do
+test :: Specification Syntax.Formula -> (String -> IO ()) -> IO ()
+test spec step = do
   stdGen <- getStdGen
-  testResult <- runWD $ do
-    (actions, _) <- runStateT (genActions spec' 10) stdGen
-    original@(trace, result) <- runAndVerify spec' actions
-    case result of
-      Accepted -> pure original
-      Rejected -> fromMaybe original <$> shrinkFailing spec' actions
-  case testResult of
-    (trace, Rejected) -> renderFailureAndExit trace
-    _ -> hPutStrLn stderr "Tests passed."
+
+  let numTests = 50
+  let sizes = map (\n -> n * 100 `div` numTests) [1..numTests]
+
+  step ("Running " <> show numTests <> " tests...")
+  (result, _) <- runWD . flip runStateT stdGen $ runAll sizes
+  case result of
+    Left trace -> do
+      let t = renderStrict (layoutPretty defaultLayoutOptions (prettyTrace (annotateStutteringSteps trace) <> line))
+      step (Text.unpack t)
+      assertFailure "Tests failed."
+    Right () -> pure ()
   where
-    renderFailureAndExit trace = do
-      renderIO stderr (layoutPretty defaultLayoutOptions (prettyTrace (annotateStutteringSteps trace) <> line))
-      assertFailure ("Tests failed with trace of length: " <> show (length (trace ^. traceElements)))
+    runSingle size = do
+      actions <- genActions spec' size
+      original@(_, result) <- runAndVerify spec' actions
+      case result of
+        Accepted -> pure original
+        Rejected -> fromMaybe original <$> shrinkFailing spec' actions
+    runAll [] = pure (Right ())
+    runAll (size:sizes) = do
+      runSingle size >>= \case
+        (_, Accepted) -> runAll sizes
+        (trace, Rejected) -> pure (Left trace)
     runWD = runWebDriver . runIsolated headlessFirefoxCapabilities
     spec' = spec & field @"property" %~ Syntax.toNNF
 
 shrinkFailing :: Specification NNF.Formula -> [Action Selected] -> Runner (Maybe (Trace (), Result))
 shrinkFailing spec original = go (shrink original)
-  where 
+  where
     go = \case
       [] -> pure Nothing
       ([] : rest) -> go rest
@@ -98,7 +102,7 @@ shrinkFailing spec original = go (shrink original)
         runAndVerify spec actions >>= \case
           (trace, Accepted) -> go rest
           (trace, Rejected) -> (<|> Just (trace, Rejected)) <$> shrinkFailing spec actions
-    shrink = QuickCheck.shrinkList (const []) 
+    shrink = QuickCheck.shrinkList (const [])
 
 runAndVerify :: Specification NNF.Formula -> [Action Selected] -> Runner (Trace (), Result)
 runAndVerify spec actions = do
@@ -110,44 +114,46 @@ runAndVerify spec actions = do
 shrinkAction :: Action sel -> [Action sel]
 shrinkAction = const []
 
-validActions :: [Action Selector] -> Generator (Maybe (QuickCheck.Gen (Action Selected)))
+validActions :: [(Int, Action Selector)] -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
 validActions actions = do
-  gens <- catMaybes <$> traverse tryGenAction actions
+  gens <- catMaybes <$> traverse tryGenActionWithFreq actions
   case gens of
     [] -> pure Nothing
-    _ -> pure (Just (QuickCheck.oneof gens))
+    _ -> pure (Just (QuickCheck.frequency gens))
   where
-    tryGenAction :: Action Selector -> Generator (Maybe (QuickCheck.Gen (Action Selected)))
+    tryGenActionWithFreq :: (Int, Action Selector) -> Runner (Maybe (Int, QuickCheck.Gen (Action Selected)))
+    tryGenActionWithFreq (i, a) = fmap (i,) <$> tryGenAction a
+    tryGenAction :: Action Selector -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
     tryGenAction = \case
       KeyPress k -> pure (Just (pure (KeyPress k)))
       Navigate p -> pure (Just (pure (Navigate p)))
       Focus sel -> selectOne sel Focus
       Click sel -> selectOne sel Click
-    selectOne :: Selector -> (Selected -> Action Selected) -> Generator (Maybe (QuickCheck.Gen (Action Selected)))
-    selectOne sel ctor = lift (findAll sel) >>= \case
+    selectOne :: Selector -> (Selected -> Action Selected) -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
+    selectOne sel ctor = findAll sel >>= \case
       [] -> pure Nothing
-      els -> pure (Just (ctor . Selected sel <$> QuickCheck.elements [0..pred (length els)]))
+      els -> pure (Just (ctor . Selected sel <$> QuickCheck.elements [0 .. pred (length els)]))
 
-genActions :: Specification NNF.Formula -> Int -> Generator [Action Selected]
+genActions :: Specification NNF.Formula -> Int -> Runner [Action Selected]
 genActions spec maxNum = do
-  lift (navigateToOrigin spec)
+  navigateToOrigin spec
   go []
   where
     go acc
       | length acc < maxNum = do
         validActions (actions spec) >>= \case
-          Just genValidAction ->  do
+          Just genValidAction -> do
             next <- lift (liftWebDriverTT (lift (QuickCheck.generate genValidAction)))
-            lift (runAction next)
+            runAction next
             go (acc <> [next])
           Nothing -> pure acc
       | otherwise = pure acc
 
-navigateToOrigin :: (Monad eff, Monad (t eff), MonadTrans t) => Specification formula -> WebDriverTT t eff ()
+navigateToOrigin :: Specification formula -> Runner ()
 navigateToOrigin spec = case origin spec of
-  Path path -> navigateTo (Text.unpack path)
+  Path path -> lift (navigateTo (Text.unpack path))
 
-runActions :: Specification NNF.Formula -> [Action Selected] -> WebDriverT IO (Trace ())
+runActions :: Specification NNF.Formula -> [Action Selected] -> Runner (Trace ())
 runActions spec actions = do
   -- lift breakpointsOn
   navigateToOrigin spec
@@ -167,7 +173,7 @@ runActions spec actions = do
       pure (TraceState () (ObservedState {queriedElements, elementStates}))
 
 try :: WebDriverT IO () -> Runner ()
-try action = (action `catchError` (const (pure ())))
+try action = lift (action `catchError` (const (pure ())))
 
 click :: Selected -> Runner ()
 click = findSelected >=> (\e -> try (void (elementClick e)))
@@ -176,7 +182,7 @@ sendKey :: Char -> Runner ()
 sendKey c = try (getActiveElement >>= elementSendKeys [c])
 
 focus :: Selected -> Runner ()
-focus  = findSelected >=> (\e -> try (void (elementSendKeys "" e)))
+focus = findSelected >=> (\e -> try (void (elementSendKeys "" e)))
 
 runAction :: Action Selected -> Runner ()
 runAction = \case
@@ -241,7 +247,7 @@ findSelected :: Selected -> Runner ElementRef
 findSelected (Selected s i) = fmap (!! i) (findAll s)
 
 findAll :: Selector -> Runner [ElementRef]
-findAll (Selector s) = (findElements CssSelector (Text.unpack s))
+findAll (Selector s) = lift (findElements CssSelector (Text.unpack s))
 
 toRef :: Element -> ElementRef
 toRef (Element ref) = ElementRef (Text.unpack ref)
@@ -277,11 +283,11 @@ runQuery query' =
             pure [Element "a"]
           Get state el -> do
             value <- Eff.sendM $ case state of
-              Attribute name -> fmap Text.pack <$> (getElementAttribute (Text.unpack name) (toRef el))
-              Property name -> (getElementProperty (Text.unpack name) (toRef el))
-              CssValue name -> Text.pack <$> (getElementCssValue (Text.unpack name) (toRef el))
-              Text -> Text.pack <$> (getElementText (toRef el))
-              Enabled -> (isElementEnabled (toRef el))
+              Attribute name -> fmap Text.pack <$> lift (getElementAttribute (Text.unpack name) (toRef el))
+              Property name -> lift (getElementProperty (Text.unpack name) (toRef el))
+              CssValue name -> Text.pack <$> lift (getElementCssValue (Text.unpack name) (toRef el))
+              Text -> Text.pack <$> lift (getElementText (toRef el))
+              Enabled -> lift (isElementEnabled (toRef el))
             tell [Right (el, ElementStateValue state value) :: Either QueriedElement QueriedElementState]
             pure value
       )

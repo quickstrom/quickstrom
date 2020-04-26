@@ -9,6 +9,7 @@
 module Main where
 
 import qualified Data.Bool as Bool
+import Data.Function ((&))
 import qualified Data.Text as Text
 import Data.Text (Text)
 import System.Directory
@@ -17,6 +18,8 @@ import qualified Test.Tasty as Tasty
 import WTP.Formula.Syntax
 import qualified WTP.Run as WTP
 import WTP.Specification
+import Control.Lens ((^?), ix)
+import Data.Maybe (fromMaybe)
 
 cwd :: FilePath
 cwd = unsafePerformIO getCurrentDirectory
@@ -35,7 +38,7 @@ buttonSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/button.html"),
       actions =
-        [Focus "input", Click "button"],
+        [(1,  Click "button")],
       property =
         Always buttonIsEnabled
           \/ buttonIsEnabled `Until` (".message" `hasText` "Boom!" ∧ Not buttonIsEnabled)
@@ -46,13 +49,14 @@ commentFormSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/comment-form.html"),
       actions =
-        [ Click "button",
-          Click "input[type=submit]",
-          KeyPress ' ',
-          Focus "input[type=text]"
-        ],
+        [ (2, Click "input[type=submit]"),
+          (1, Focus "input[type=text]"),
+          (5, KeyPress 'a')
+        ]
+          -- <> (KeyPress <$> ['\0' .. '\127'])
+          ,
       property =
-        let commentPosted = isVisible ".comment-display" ∧ Not commentIsBlank ∧ Not (isVisible "form")
+        let commentPosted = isVisible ".comment-display" ∧ commentIsValid ∧ Not (isVisible "form")
             invalidComment = Not (isVisible ".comment-display") /\ isVisible "form"
          in Always (isVisible "form")
               \/ isVisible "form" `Until` (commentPosted \/ invalidComment)
@@ -68,7 +72,13 @@ hasText sel message =
 isVisible :: Selector -> Formula
 isVisible sel = Not ((traverse (get (CssValue "display")) =<< query sel) ≡ Just "none")
 
-commentIsBlank :: Formula
-commentIsBlank = (traverse (get Text) =<< query ".comment") ⊢ \case
-  Just c -> Text.null (Text.strip c)
-  Nothing -> Bool.True
+commentIsValid :: Formula
+commentIsValid = (traverse (get Text) =<< query ".comment") ⊢ \case
+  Just t ->
+    t
+      & Text.splitOn ": "
+      & (^? (ix 1))
+      & fromMaybe ""
+      & Text.strip
+      & (>= 3) . Text.length
+  Nothing -> Bool.False

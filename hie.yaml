@@ -8,7 +8,7 @@ cradle:
   #     component: "test:wtp-test"
   direct: 
     arguments:
-      - -Werror -Wall
+      - -Wall
       - -ilib
       - -itest
       - -iwtp

@@ -23,7 +23,7 @@ data Action sel = Focus sel | KeyPress Char | Click sel | Navigate Path
 data Specification formula
   = Specification
       { origin :: Path,
-        actions :: [Action Selector],
+        actions :: [(Int, Action Selector)],
         property :: formula
       }
   deriving (Show, Generic)

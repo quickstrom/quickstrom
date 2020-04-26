@@ -6,7 +6,7 @@
   </head>
   <body>
     <form id="comment-form">
-      <p class="error-message"></p>
+      <p class="error-message" style="color: red;"></p>
       <label>
         Name:
         <input name="name" type="text" />
@@ -18,39 +18,49 @@
       <input type="submit" />
     </form>
     <div class="success-message" style="display: none;">
-      <p>You posted:</p>
       <p class="comment"></p>
     </div>
   </body>
   <script>
+    // This form validation logic has a bug, in that if only one of the 
+    // fields are changed and valid, the form can be posted. The othre
+    // field is not checked for validity if left unchanged, and so we
+    // can post invalid comments.
     var form = document.querySelector("#comment-form");
+    var nameInput = form.querySelector("input[name='name']");
     var commentInput = form.querySelector("input[name='comment']");
+    var isValid = false;
     var errorMessage = form.querySelector(".error-message");
-    var comment = null;
+
     form.addEventListener("submit", function (e) {
       e.preventDefault();
 
-      if (comment) {
+      if (isValid) {
         var successMessage = document.querySelector(".success-message");
         var commentDisplay = successMessage.querySelector(".comment");
-        commentDisplay.textContent = comment;
+        commentDisplay.textContent =
+          nameInput.value + ": " + commentInput.value;
         successMessage.style.display = "block";
         form.style.display = "none";
-        commentInput.value = "";
+      }
+    });
+
+    nameInput.addEventListener("change", function (e) {
+      isValid = /^\w{3,100}$/.test(nameInput.value);
+      if (isValid) {
+        errorMessage.textContent = "";
+      } else {
+        errorMessage.textContent = "Invalid name.";
       }
     });
 
     commentInput.addEventListener("change", function (e) {
-      if (commentInput.value) {
+      isValid = /^\w{3,100}$/.test(commentInput.value);
+      if (isValid) {
         errorMessage.textContent = "";
-        comment = commentInput.value;
       } else {
         errorMessage.textContent = "Invalid comment.";
-        comment = null;
       }
     });
-
   </script>
 </html>
-
-

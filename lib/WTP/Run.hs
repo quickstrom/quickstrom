@@ -41,7 +41,7 @@ import Data.Text.Prettyprint.Doc.Render.Terminal
 import System.Random (StdGen, getStdGen)
 import qualified Test.QuickCheck as QuickCheck
 import qualified Test.Tasty as Tasty
-import Test.Tasty.HUnit (assertFailure, testCaseSteps)
+import Test.Tasty.HUnit (testCase, assertFailure)
 import qualified WTP.Formula.NNF as NNF
 import qualified WTP.Formula.Syntax as Syntax
 import WTP.Query
@@ -49,12 +49,14 @@ import WTP.Result
 import WTP.Specification
 import WTP.Trace
 import Web.Api.WebDriver hiding (Action, Selector, assertFailure, hPutStrLn, runIsolated)
+import Control.Monad.IO.Class (MonadIO(liftIO))
+import Control.Monad (filterM)
 
 type Runner = StateT StdGen (WebDriverTT IdentityT IO)
 
 testSpecifications :: [(Text, Specification Syntax.Formula)] -> Tasty.TestTree
 testSpecifications specs =
-  Tasty.testGroup "WTP specifications" [testCaseSteps (Text.unpack name) (test spec) | (name, spec) <- specs]
+  Tasty.testGroup "WTP specifications" [testCase (Text.unpack name) (test spec) | (name, spec) <- specs]
 
 data FailingTest = FailingTest { numShrinks :: Int, trace :: Trace () }
 
@@ -62,28 +64,32 @@ type TestResult = Either FailingTest ()
 
 data CheckResult = CheckSuccess | CheckFailure { failedAfter :: Int, failingTest :: FailingTest }
 
-test :: Specification Syntax.Formula -> (String -> IO ()) -> IO ()
-test spec step = do
+test :: Specification Syntax.Formula -> IO ()
+test spec = do
   stdGen <- getStdGen
   let numTests = 20
   let sizes = map (\n -> n * 100 `div` numTests) [1 .. numTests]
-  step ("Running " <> show numTests <> " tests...")
+  logInfo ("Running " <> show numTests <> " tests...")
   (result, _) <- runWD . flip runStateT stdGen $ runAll sizes 1
   case result of
     CheckFailure {failedAfter, failingTest} -> do
       let t = renderStrict (layoutPretty defaultLayoutOptions (prettyTrace (annotateStutteringSteps (trace failingTest)) <> line))
-      step (Text.unpack t)
+      logInfo (Text.unpack t)
       assertFailure ("Failed after " <> show failedAfter <> " tests and " <> show (numShrinks failingTest) <> " shrinks.")
-    CheckSuccess -> step ("Passed " <> show numTests <> " tests.")
+    CheckSuccess -> logInfo ("Passed " <> show numTests <> " tests.")
   where
     runSingle size = do
       actions <- genActions spec' size
+      logInfoWD ("Running and verifying " <> show (length actions) <> " actions.")
       (original, result) <- runAndVerify spec' actions
       case result of
         Accepted -> pure (Right ())
-        Rejected -> fromMaybe (Left (FailingTest 0 original)) <$> shrinkFailing spec' actions 1
+        Rejected -> do
+          logInfoWD "Test failed. Shrinking..."
+          fromMaybe (Left (FailingTest 0 original)) <$> shrinkFailing spec' actions 1
     runAll [] _ = pure CheckSuccess
     runAll (size : sizes) (n :: Int) = do
+      logInfoWD ("Running test " <> show n <> " with size: " <> show size)
       runSingle size >>= \case
         Right{} -> runAll sizes (succ n)
         Left failingTest -> pure (CheckFailure n failingTest)
@@ -127,12 +133,15 @@ validActions actions = do
     tryGenAction = \case
       KeyPress k -> pure (Just (pure (KeyPress k)))
       Navigate p -> pure (Just (pure (Navigate p)))
-      Focus sel -> selectOne sel Focus
-      Click sel -> selectOne sel Click
-    selectOne :: Selector -> (Selected -> Action Selected) -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
-    selectOne sel ctor = findAll sel >>= \case
-      [] -> pure Nothing
-      els -> pure (Just (ctor . Selected sel <$> QuickCheck.elements [0 .. pred (length els)]))
+      Focus sel -> selectOne sel Focus (lift . fmap not . isElementSelected)
+      Click sel -> selectOne sel Click (lift . isElementEnabled)
+    selectOne :: Selector -> (Selected -> Action Selected) -> (ElementRef -> Runner Bool) -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
+    selectOne sel ctor isValid = do
+      validChoices <- filterM (isValid . snd) . zip [0..] =<< findAll sel
+      case validChoices of
+        [] -> pure Nothing
+        choices -> do
+          pure (Just (ctor . Selected sel <$> QuickCheck.elements (map fst choices)))
 
 genActions :: Specification NNF.Formula -> Int -> Runner [Action Selected]
 genActions spec maxNum = do
@@ -291,6 +300,13 @@ runQuery query' =
             tell [Right (el, ElementStateValue state value) :: Either QueriedElement QueriedElementState]
             pure value
       )
+
+logInfo :: MonadIO m => String -> m ()
+logInfo = liftIO . putStrLn
+      
+logInfoWD :: String -> Runner ()
+logInfoWD = lift . liftWebDriverTT . logInfo
+
 {-
 myWait :: Int -> WebDriverT IO ()
 myWait ms =

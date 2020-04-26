@@ -1,3 +1,4 @@
+{-# LANGUAGE Strict #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -5,14 +6,9 @@
 module WTP.NNFTest where
 
 import Algebra.Lattice
-import qualified Data.Bool as Bool
-import qualified Data.HashMap.Strict as HashMap
 import qualified Data.List as List
-import Data.Text (Text)
-import qualified Data.Tree as Tree
-import Test.QuickCheck ((===), (==>), forAll, listOf, withMaxSuccess)
+import Test.QuickCheck ((===), forAll, listOf, withMaxSuccess)
 import Test.Tasty.Hspec
-import qualified WTP.Formula.Minimal as Minimal
 import qualified WTP.Formula.NNF as NNF
 import WTP.Formula.Syntax hiding ((===))
 import qualified WTP.Gen as Gen

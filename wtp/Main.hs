@@ -70,14 +70,14 @@ todoMvcSpec =
   Specification
     { origin = Path ("http://todomvc.com/examples/angularjs/"),
       actions =
-        [ (2, Click ".todoapp input"),
+        [ (2, Focus ".todoapp .new-todo"),
           (1, Click ".todoapp a"),
           (1, Click ".todoapp button"),
           (5, KeyPress 'a'),
           (2, KeyPress '\13') -- enter key
         ]
           ,
-      property = Always correctNumberItemsLeft
+      property = Always (correctNumberItemsLeft /\ unchecked === 0)
     }
 
 unchecked :: Eff '[Query] Int

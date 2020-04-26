@@ -41,7 +41,7 @@ import Data.Text.Prettyprint.Doc.Render.Terminal
 import System.Random (StdGen, getStdGen)
 import qualified Test.QuickCheck as QuickCheck
 import qualified Test.Tasty as Tasty
-import Test.Tasty.HUnit (testCaseSteps, assertFailure)
+import Test.Tasty.HUnit (assertFailure, testCaseSteps)
 import qualified WTP.Formula.NNF as NNF
 import qualified WTP.Formula.Syntax as Syntax
 import WTP.Query
@@ -59,17 +59,15 @@ testSpecifications specs =
 test :: Specification Syntax.Formula -> (String -> IO ()) -> IO ()
 test spec step = do
   stdGen <- getStdGen
-
   let numTests = 50
-  let sizes = map (\n -> n * 100 `div` numTests) [1..numTests]
-
+  let sizes = map (\n -> n * 100 `div` numTests) [1 .. numTests]
   step ("Running " <> show numTests <> " tests...")
-  (result, _) <- runWD . flip runStateT stdGen $ runAll sizes
+  (result, _) <- runWD . flip runStateT stdGen $ runAll sizes 1
   case result of
-    Left trace -> do
+    Left (n, trace) -> do
       let t = renderStrict (layoutPretty defaultLayoutOptions (prettyTrace (annotateStutteringSteps trace) <> line))
       step (Text.unpack t)
-      assertFailure "Tests failed."
+      assertFailure ("Failed after " <> show n <> " tests.")
     Right () -> pure ()
   where
     runSingle size = do
@@ -78,11 +76,11 @@ test spec step = do
       case result of
         Accepted -> pure original
         Rejected -> fromMaybe original <$> shrinkFailing spec' actions
-    runAll [] = pure (Right ())
-    runAll (size:sizes) = do
+    runAll [] _ = pure (Right ())
+    runAll (size : sizes) (n :: Int) = do
       runSingle size >>= \case
-        (_, Accepted) -> runAll sizes
-        (trace, Rejected) -> pure (Left trace)
+        (_, Accepted) -> runAll sizes (succ n)
+        (trace, Rejected) -> pure (Left (n, trace))
     runWD = runWebDriver . runIsolated headlessFirefoxCapabilities
     spec' = spec & field @"property" %~ Syntax.toNNF
 

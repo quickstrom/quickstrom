@@ -8,6 +8,7 @@
 
 module Main where
 
+import Data.Aeson as JSON
 import qualified Data.Bool as Bool
 import Data.Function ((&))
 import qualified Data.Text as Text
@@ -20,6 +21,7 @@ import qualified WTP.Run as WTP
 import WTP.Specification
 import Control.Lens ((^?), ix)
 import Data.Maybe (fromMaybe)
+import Control.Monad.Freer (Eff)
 
 cwd :: FilePath
 cwd = unsafePerformIO getCurrentDirectory
@@ -29,7 +31,8 @@ main =
   Tasty.defaultMain $
     WTP.testSpecifications
       [ ("button", buttonSpec),
-        ("comment form", commentFormSpec)
+        ("comment form", commentFormSpec),
+        ("TodoMVC AngularJS", todoMvcSpec)
       ]
 
 -- Simple example: a button that can be clicked, which then shows a message
@@ -61,6 +64,37 @@ commentFormSpec =
          in Always (isVisible "form")
               \/ isVisible "form" `Until` (commentPosted \/ invalidComment)
     }
+
+todoMvcSpec :: Specification Formula
+todoMvcSpec =
+  Specification
+    { origin = Path ("http://todomvc.com/examples/angularjs/"),
+      actions =
+        [ (2, Click ".todoapp input"),
+          (1, Click ".todoapp a"),
+          (1, Click ".todoapp button"),
+          (5, KeyPress 'a'),
+          (2, KeyPress '\13') -- enter key
+        ]
+          ,
+      property = Always correctNumberItemsLeft
+    }
+
+unchecked :: Eff '[Query] Int
+unchecked = do
+  checkBoxes <- queryAll ".todoapp .todo-list input[type=checkbox]"
+  length . filter (/= JSON.Bool Bool.True) <$> traverse (get (Property "checked")) checkBoxes
+
+numberItemsLeft :: Eff '[Query] (Maybe Text)
+numberItemsLeft = traverse (get Text) =<< query ".todoapp .todo-count strong"
+
+correctNumberItemsLeft :: Formula
+correctNumberItemsLeft =
+  ((,) <$> unchecked <*> numberItemsLeft) |- isCorrect
+  where
+    isCorrect (n, t)
+      | n > 0 = Nothing == t-- Just (Text.pack (show n)) == t
+      | otherwise = t == Just mempty || t == Nothing
 
 buttonIsEnabled :: Formula
 buttonIsEnabled = (traverse (get Enabled) =<< query "button") ≡ Just Bool.True

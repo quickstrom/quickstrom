@@ -30,6 +30,7 @@ module WTP.Formula.Syntax
     (∧),
     (∨),
     (===),
+    (|-),
     (≡),
     (¬),
     not,
@@ -162,8 +163,9 @@ infixr 5 ===, ≡
 query' === expected = Assert (QueryAssertion query' (Equals expected))
 (≡) = (===)
 
-(⊢) :: Show a => Eff '[Query] a -> (a -> Bool) -> Formula
-query' ⊢ f = Assert (QueryAssertion query' (Satisfies f))
+(|-), (⊢) :: Show a => Eff '[Query] a -> (a -> Bool) -> Formula
+query' |- f = Assert (QueryAssertion query' (Satisfies f))
+(⊢) = (|-)
 
 infixr 6 ¬
 

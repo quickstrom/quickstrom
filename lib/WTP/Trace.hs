@@ -25,6 +25,7 @@ module WTP.Trace
     observedStates,
     TraceElementEffect,
     annotateStutteringSteps,
+    prettyActions,
     prettyTrace,
   )
 where
@@ -138,11 +139,18 @@ prettyAction :: Action Selected -> Doc AnsiStyle
 prettyAction = \case
   Click sel -> "click" <+> prettySelected sel
   Focus sel -> "focus" <+> prettySelected sel
-  KeyPress key -> "key press" <+> squotes (pretty key)
+  KeyPress key -> "key press" <+> pretty (show key)
   Navigate (Path path) -> "navigate to" <+> pretty path
 
 prettySelected :: Selected  -> Doc AnsiStyle
 prettySelected (Selected (Selector sel) i) = pretty sel <> ":nth-child" <> parens (pretty i)
+
+prettyActions :: [Action Selected] -> Doc AnsiStyle
+prettyActions actions = vsep (zipWith item [1..] actions)
+    where
+      item :: Int -> Action Selected -> Doc AnsiStyle
+      item i = \case
+        action ->  (pretty i <> "." <+> prettyAction action)
 
 prettyTrace :: Trace TraceElementEffect -> Doc AnsiStyle
 prettyTrace (Trace elements') = vsep (zipWith prettyElement [1..] elements')

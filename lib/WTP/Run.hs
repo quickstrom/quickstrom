@@ -80,7 +80,7 @@ test spec = do
   where
     runSingle size = do
       actions <- genActions spec' size
-      logInfoWD ("Running and verifying " <> show (length actions) <> " actions.")
+      logInfoWD (Text.unpack (renderStrict (layoutPretty defaultLayoutOptions ("Running and verifying" <+> pretty (length actions) <+> "actions:" <> line <+> annotate (colorDull Black) (prettyActions actions)))))
       (original, result) <- runAndVerify spec' actions
       case result of
         Accepted -> pure (Right ())
@@ -289,7 +289,7 @@ runQuery query' =
           QueryAll selector -> do
             els <- fmap fromRef <$> Eff.sendM (findAll selector)
             tell ((Left . (selector,) <$> els) :: [Either QueriedElement QueriedElementState])
-            pure [Element "a"]
+            pure els
           Get state el -> do
             value <- Eff.sendM $ case state of
               Attribute name -> fmap Text.pack <$> lift (getElementAttribute (Text.unpack name) (toRef el))

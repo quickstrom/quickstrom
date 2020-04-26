@@ -16,12 +16,10 @@ where
 
 import Control.Applicative ((<|>))
 import Control.Lens
-import Control.Monad ((>=>), replicateM, void)
+import Control.Monad ((>=>), void)
 import qualified Control.Monad.Freer as Eff
 import Control.Monad.Freer (Eff)
 import Control.Monad.Freer.Writer (Writer, runWriter, tell)
-import Control.Monad.IO.Class (MonadIO (liftIO))
-import Control.Monad.Loops (takeWhileM, unfoldM)
 import Control.Monad.State (StateT (runStateT))
 import Control.Monad.Trans.Class (MonadTrans)
 import Control.Monad.Trans.Class (MonadTrans (lift))
@@ -34,12 +32,8 @@ import Data.Generics.Product (field)
 import qualified Data.HashMap.Strict as HashMap
 import Data.HashMap.Strict (HashMap)
 import Data.Hashable (Hashable)
-import Data.List (nub, subsequences)
-import Data.List.NonEmpty (NonEmpty ((:|)), nonEmpty)
-import qualified Data.List.NonEmpty as NonEmpty
+import Data.List (nub)
 import Data.Maybe (catMaybes, fromMaybe, listToMaybe)
-import Data.Maybe (mapMaybe)
-import Data.String (IsString (..))
 import qualified Data.Text as Text
 import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
@@ -100,9 +94,9 @@ shrinkFailing spec original = go (shrink original)
       ([] : rest) -> go rest
       (actions : rest) ->
         runAndVerify spec actions >>= \case
-          (trace, Accepted) -> go rest
+          (_, Accepted) -> go rest
           (trace, Rejected) -> (<|> Just (trace, Rejected)) <$> shrinkFailing spec actions
-    shrink = QuickCheck.shrinkList (const [])
+    shrink = QuickCheck.shrinkList shrinkAction
 
 runAndVerify :: Specification NNF.Formula -> [Action Selected] -> Runner (Trace (), Result)
 runAndVerify spec actions = do

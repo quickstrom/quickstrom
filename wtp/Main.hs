@@ -8,6 +8,7 @@
 
 module Main where
 
+import Prelude hiding (last, Bool(..))
 import Control.Lens ((^?), ix)
 import Control.Monad.Freer (Eff)
 import Data.Aeson as JSON
@@ -34,6 +35,7 @@ main =
   Tasty.defaultMain $
     WTP.testSpecifications
       [ ("button", buttonSpec),
+        ("toggle", toggleSpec),
         ("comment form", commentFormSpec),
         ("TodoMVC AngularJS", todoMvcSpec)
       ]
@@ -42,13 +44,28 @@ main =
 buttonSpec :: Specification Formula
 buttonSpec =
   Specification
-    { origin = Path ("file://" <> Text.pack cwd <> "/test/button.html"),
+    { origin = Path ("file://" <> Text.pack cwd <> "/test/toggle.html"),
       actions =
         [(1, [Click "button"])],
       property =
         Always buttonIsEnabled
           \/ buttonIsEnabled `Until` (".message" `hasText` "Boom!" ∧ Not buttonIsEnabled)
     }
+
+toggleSpec :: Specification Formula
+toggleSpec =
+  Specification
+    { origin = Path ("file://" <> Text.pack cwd <> "/test/toggle.html"),
+      actions =
+        [(1, [Click "button"])],
+      property =
+        let on = "button" `hasText` "Turn me off"
+            off = "button" `hasText` "Turn me on"
+        in (on `foreverOr` Next off) \/ (off `foreverOr` Next on)
+    }
+
+foreverOr :: Formula -> Formula -> Formula
+p `foreverOr` q = p /\ (Always p \/ q)
 
 commentFormSpec :: Specification Formula
 commentFormSpec =
@@ -78,7 +95,7 @@ todoMvcSpec =
           (1, [Click ".todoapp .filters a"]),
           (1, [Click ".todoapp button"])
         ],
-      property = Eventually (Always (isEmpty \/ filterActive \/ filterCompleted \/ filterAll))
+      property = isEmpty `Until` (Always (isEmpty \/ filterActive \/ filterCompleted \/ filterAll))
     }
     where
       isEmpty = currentFilter === Nothing

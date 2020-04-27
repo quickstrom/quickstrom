@@ -34,7 +34,8 @@ anySyntax = sized syntax'
               Implies <$> subterm <*> subterm,
               Equivalent <$> subterm <*> subterm,
               Always <$> subterm,
-              Eventually <$> subterm
+              Eventually <$> subterm,
+              Next <$> subterm
             ]
 
 trueSyntax :: Gen Char -> Gen (FormulaWith Char)
@@ -55,7 +56,8 @@ trueSyntax genVariable = sized syntax'
               Implies <$> subterm <*> subterm,
               Equivalent <$> subterm <*> subterm,
               Always <$> subterm,
-              Eventually <$> subterm
+              Eventually <$> subterm,
+              Next <$> subterm
             ]
 
 falseSyntax :: Gen Char -> Gen (FormulaWith Char)
@@ -74,5 +76,6 @@ falseSyntax genVariable = sized syntax'
               Or <$> subterm <*> subterm,
               Until <$> subterm <*> subterm,
               Always <$> subterm,
-              Eventually <$> subterm
+              Eventually <$> subterm,
+              Next <$> subterm
             ]

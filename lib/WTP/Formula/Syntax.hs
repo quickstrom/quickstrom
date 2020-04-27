@@ -22,13 +22,13 @@ module WTP.Formula.Syntax
     Query.get,
     FormulaWith (..),
     Formula,
-    depth,
     simplify,
     toNNF,
     (/\),
     (\/),
     (∧),
     (∨),
+    (==>),
     (===),
     (|-),
     (≡),
@@ -57,6 +57,7 @@ data FormulaWith assertion
   | Not (FormulaWith assertion)
   | Or (FormulaWith assertion) (FormulaWith assertion)
   | Until (FormulaWith assertion) (FormulaWith assertion)
+  | Next (FormulaWith assertion)
   | Assert assertion
   | -- Full language operators
     False
@@ -70,21 +71,6 @@ data FormulaWith assertion
 
 type Formula = FormulaWith QueryAssertion
 
-depth :: FormulaWith a -> Int
-depth = \case
-  True -> 0
-  False -> 0
-  Not p -> succ (depth p)
-  Eventually p -> succ (depth p)
-  Always p -> succ (depth p)
-  And p q -> succ (max (depth p) (depth q))
-  Or p q -> succ (max (depth p) (depth q))
-  Until p q -> succ (max (depth p) (depth q))
-  Release p q -> succ (max (depth p) (depth q))
-  Implies p q -> succ (max (depth p) (depth q))
-  Equivalent p q -> succ (max (depth p) (depth q))
-  Assert _ -> 0
-
 simplify :: FormulaWith a -> Minimal.FormulaWith a
 simplify = \case
   -- Reductions
@@ -96,6 +82,7 @@ simplify = \case
   Or False p -> simplify p
   Not False -> Minimal.True
   Not (Not p) -> simplify p
+  Next p -> Minimal.Next (simplify p)
   -- Derived operators (only present in syntax) are simplified
   False -> Minimal.Not Minimal.True
   Eventually p -> Minimal.Until Minimal.True (simplify p)
@@ -123,6 +110,7 @@ toNNF = \case
   Or p False -> toNNF p
   Or False p -> toNNF p
   Not (Not p) -> toNNF p
+  Next p -> NNF.Next (toNNF p)
   -- Negation propagation (https://en.wikipedia.org/wiki/Linear_temporal_logic#Negation_normal_form)
   Not True -> NNF.False
   Not False -> NNF.True
@@ -134,6 +122,7 @@ toNNF = \case
   Not (Release p q) -> toNNF (Not p) `NNF.Until` toNNF (Not q)
   Not (Eventually p) -> toNNF (Always (Not p))
   Not (Always p) -> toNNF (Eventually (Not p))
+  Not (Next p) -> toNNF (Next (Not p))
   Not (Assert assertion) -> NNF.Assert (NNF.Neg assertion)
   -- Derived operators (only present in syntax) are simplified
   Eventually p -> NNF.Until NNF.True (toNNF p)
@@ -149,13 +138,14 @@ toNNF = \case
   Release p q -> NNF.Release (toNNF p) (toNNF q)
   Assert assertion -> NNF.Assert (NNF.Pos assertion)
 
-infixr 4 \/, /\, ∧, ∨
+infixr 4 \/, /\, ∧, ∨, ==>
 
-(/\), (\/), (∧), (∨) :: Formula -> Formula -> Formula
+(/\), (\/), (∧), (∨), (==>) :: Formula -> Formula -> Formula
 (/\) = And
 (\/) = Or
 (∧) = And
 (∨) = Or
+(==>) = Implies
 
 infixr 5 ===, ≡
 

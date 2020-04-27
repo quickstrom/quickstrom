@@ -25,6 +25,9 @@ spec_nnf =
           let nnf = (toNNF formula)
            in it (show input <> " ⊢ " <> show formula <> " (" <> show nnf <> ")") $
                 verifyNNF nnf input `shouldBe` result
+    describe "Next" $ do
+      let isLast = Not (Next True)
+      testFormula isLast ["a"] Accepted
     describe "Always" $ do
       testFormula (Always True) ["a"] Accepted
       testFormula (Always True) [] Rejected

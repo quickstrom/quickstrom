@@ -39,18 +39,9 @@ data FormulaWith assertion
   | Or (FormulaWith assertion) (FormulaWith assertion)
   | Until (FormulaWith assertion) (FormulaWith assertion)
   | Release (FormulaWith assertion) (FormulaWith assertion)
+  | Next (FormulaWith assertion)
   | Assert assertion
   deriving (Show)
-
-depth :: FormulaWith a -> Int
-depth = \case
-  True -> 0
-  False -> 0
-  And p q -> succ (max (depth p) (depth q))
-  Or p q -> succ (max (depth p) (depth q))
-  Until p q -> succ (max (depth p) (depth q))
-  Release p q -> succ (max (depth p) (depth q))
-  Assert _ -> 0
 
 type Formula = FormulaWith (Negation QueryAssertion)
 
@@ -62,6 +53,7 @@ withQueries f = \case
   Or p q -> (<>) <$> withQueries f p <*> withQueries f q
   Until p q -> (<>) <$> withQueries f p <*> withQueries f q
   Release p q -> (<>) <$> withQueries f p <*> withQueries f q
+  Next p -> withQueries f p
   Assert a -> (: []) <$> withAtomic (\(QueryAssertion q _) -> f q) a
 
 verifyWith :: (a -> step -> Result) -> FormulaWith (Negation a) -> [step] -> Result
@@ -79,6 +71,9 @@ verifyWith assert = go
         case go p trace of
           Rejected -> go q trace /\ go (p `Release` q) (tail trace)
           Accepted -> go q trace
+    go (Next False) [_] = Accepted
+    go (Next _) [_] = Rejected
+    go (Next p) trace = go p (tail trace)
     go (Assert a) (current : _) =
       case a of
         Pos a' -> assert a' current

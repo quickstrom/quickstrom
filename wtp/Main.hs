@@ -8,21 +8,23 @@
 
 module Main where
 
+import Control.Lens ((^?), ix)
+import Control.Monad.Freer (Eff)
 import Data.Aeson as JSON
 import qualified Data.Bool as Bool
 import Data.Function ((&))
+import Data.Maybe (fromMaybe)
 import qualified Data.Text as Text
 import Data.Text (Text)
+import qualified Data.Text.Read as Text
+import qualified Debug.Trace as Debug
 import System.Directory
 import System.IO.Unsafe (unsafePerformIO)
 import qualified Test.Tasty as Tasty
 import WTP.Formula.Syntax
 import qualified WTP.Run as WTP
 import WTP.Specification
-import Control.Lens ((^?), ix)
-import Data.Maybe (fromMaybe)
-import Control.Monad.Freer (Eff)
-import qualified Debug.Trace as Debug
+import Text.Read (readMaybe)
 
 cwd :: FilePath
 cwd = unsafePerformIO getCurrentDirectory
@@ -42,7 +44,7 @@ buttonSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/button.html"),
       actions =
-        [(1,  [Click "button"])],
+        [(1, [Click "button"])],
       property =
         Always buttonIsEnabled
           \/ buttonIsEnabled `Until` (".message" `hasText` "Boom!" ∧ Not buttonIsEnabled)
@@ -57,9 +59,9 @@ commentFormSpec =
           (1, [Focus "input[type=text]"]),
           (1, [KeyPress 'a']),
           (2, [Focus "input[type=text]", KeyPress 'a'])
-        ]
-          -- <> (KeyPress <$> ['\0' .. '\127'])
-          ,
+        ],
+      -- <> (KeyPress <$> ['\0' .. '\127'])
+
       property =
         let commentPosted = isVisible ".comment-display" ∧ commentIsValid ∧ Not (isVisible "form")
             invalidComment = Not (isVisible ".comment-display") /\ isVisible "form"
@@ -73,28 +75,50 @@ todoMvcSpec =
     { origin = Path ("http://todomvc.com/examples/angularjs/"),
       actions =
         [ (2, [Focus ".todoapp .new-todo", KeyPress 'a', KeyPress '\xe006']),
-          (1, [Click ".todoapp a"]),
+          (1, [Click ".todoapp .filters a"]),
           (1, [Click ".todoapp button"])
-        ]
-          ,
-      property = Always correctNumberItemsLeft
+        ],
+      property = Eventually (Always (isEmpty \/ filterActive \/ filterCompleted \/ filterAll))
     }
+    where
+      isEmpty = currentFilter === Nothing
+      filterActive = currentFilter === Just Active /\ correctNumberItemsLeft
+      filterCompleted = currentFilter === Just Completed
+      filterAll = currentFilter === Just All
 
-unchecked :: Eff '[Query] Int
-unchecked = do
-  checkBoxes <- queryAll ".todoapp .todo-list input[type=checkbox]"
-  length . filter (/= JSON.Bool Bool.True) <$> traverse (get (Property "checked")) checkBoxes
+data Filter = All | Active | Completed
+  deriving (Eq, Read, Show)
 
-numberItemsLeft :: Eff '[Query] (Maybe Text)
-numberItemsLeft = traverse (get Text) =<< query ".todoapp .todo-count strong"
+currentFilter :: Eff '[Query] (Maybe Filter)
+currentFilter = (>>= (readMaybe . Text.unpack)) <$> (traverse (get Text) =<< query ".todoapp .filters .selected")
+
+numberChecked :: Eff '[Query] Int
+numberChecked = do
+  boxes <- todoCheckboxes
+  length . filter (== JSON.Bool Bool.True) <$> traverse (get (Property "checked")) boxes
+
+numberUnchecked :: Eff '[Query] Int
+numberUnchecked = do
+  boxes <- todoCheckboxes
+  length . filter (/= JSON.Bool Bool.True) <$> traverse (get (Property "checked")) boxes
+
+todoCheckboxes :: Eff '[Query] [Element]
+todoCheckboxes = queryAll ".todoapp .todo-list input[type=checkbox]"
+
+numberItemsLeft :: Eff '[Query] (Maybe Int)
+numberItemsLeft = do
+  t <- traverse (get Text) =<< query ".todoapp .todo-count strong"
+  pure (t >>= parse)
+  where
+    parse = either (const Nothing) (Just . fromIntegral . fst) . Text.decimal
 
 correctNumberItemsLeft :: Formula
 correctNumberItemsLeft =
-  ((,) <$> unchecked <*> numberItemsLeft) |- isCorrect
+  ((,) <$> numberUnchecked <*> numberItemsLeft) |- isCorrect
   where
     isCorrect (n, t)
-      | n > 0 = Just (Text.pack (show n)) == t
-      | otherwise = t == Just mempty || t == Nothing
+      | n > 0 = Just n == t
+      | otherwise = t == Nothing
 
 buttonIsEnabled :: Formula
 buttonIsEnabled = (traverse (get Enabled) =<< query "button") ≡ Just Bool.True

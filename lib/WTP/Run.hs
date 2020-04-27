@@ -148,9 +148,7 @@ validActions actions = do
 
 genActions :: Specification NNF.Formula -> Int -> Runner [Action Selected]
 genActions spec maxNum = do
-  clearLocalStorage
   navigateToOrigin spec
-  clearLocalStorage
   go []
   where
     go acc
@@ -173,7 +171,6 @@ runActions :: Specification NNF.Formula -> [Action Selected] -> Runner (Trace ()
 runActions spec actions = do
   -- lift breakpointsOn
   navigateToOrigin spec
-  clearLocalStorage
   initial <- observe
   rest <- concat <$> traverse runActionAndObserve actions
   pure (Trace (initial : rest))
@@ -351,13 +348,6 @@ myWait ms =
     )
 
 -}
-
-clearLocalStorage :: Runner ()
-clearLocalStorage = pure ()
-{-
-  lift . void $
-    executeScript "window.localStorage.clear()" []
-    -}
 
 renderString :: Doc AnsiStyle -> String
 renderString = Text.unpack . renderStrict . layoutPretty defaultLayoutOptions

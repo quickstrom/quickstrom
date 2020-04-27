@@ -25,6 +25,7 @@ module WTP.Trace
     observedStates,
     TraceElementEffect,
     annotateStutteringSteps,
+    prettyAction,
     prettyActions,
     prettyTrace,
     prettySelected,
@@ -117,6 +118,7 @@ observedStates = traceElements . traverse . _Ctor @"TraceState" . position @2
           
 data TraceElement ann
   = TraceAction ann (Action Selected)
+  | TraceFailedAction ann (Action Selected)
   | TraceState ann ObservedState
   -- TODO: `TraceEvent` when queried DOM nodes change
   deriving (Show, Generic)
@@ -144,7 +146,7 @@ prettyAction = \case
   Navigate (Path path) -> "navigate to" <+> pretty path
 
 prettySelected :: Selected  -> Doc AnsiStyle
-prettySelected (Selected (Selector sel) i) = pretty sel <> ":nth-child" <> parens (pretty i)
+prettySelected (Selected (Selector sel) i) = pretty sel <> brackets (pretty i)
 
 prettyActions :: [Action Selected] -> Doc AnsiStyle
 prettyActions actions = vsep (zipWith item [1..] actions)
@@ -158,6 +160,7 @@ prettyTrace (Trace elements') = vsep (zipWith prettyElement [1..] elements')
     where
       prettyElement :: Int -> TraceElement TraceElementEffect -> Doc AnsiStyle
       prettyElement i = \case
+        TraceFailedAction _ action -> annotate (color Red <> bold) (pretty i <> "." <+> prettyAction action)
         TraceAction effect action -> annotate (effect `stutterColorOr` Yellow <> bold) (pretty i <> "." <+> prettyAction action)
         TraceState effect state -> annotate (effect `stutterColorOr` Blue <> bold) (pretty i <> "." <+> "State") <> line <> indent 2 (prettyObservedState state)
 

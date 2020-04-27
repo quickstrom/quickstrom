@@ -16,7 +16,7 @@ where
 
 import Control.Applicative ((<|>))
 import Control.Lens
-import Control.Monad ((>=>), void)
+import Control.Monad ((>=>))
 import Control.Monad (filterM)
 import qualified Control.Monad.Freer as Eff
 import Control.Monad.Freer (Eff)
@@ -75,8 +75,8 @@ test spec = do
   (result, _) <- runWebDriver . flip runStateT stdGen $ runAll sizes 1
   case result of
     CheckFailure {failedAfter, failingTest} -> do
-      let t = renderStrict (layoutPretty defaultLayoutOptions (prettyTrace (annotateStutteringSteps (trace failingTest)) <> line))
-      logInfo (Text.unpack t)
+      logInfo . renderString $
+        prettyTrace (annotateStutteringSteps (trace failingTest)) <> line
       assertFailure ("Failed after " <> show failedAfter <> " tests and " <> show (numShrinks failingTest) <> " shrinks.")
     CheckSuccess -> logInfo ("Passed " <> show numTests <> " tests.")
   where
@@ -99,7 +99,9 @@ test spec = do
 
 shrinkFailing :: Specification NNF.Formula -> [Action Selected] -> Int -> Runner (Maybe TestResult)
 shrinkFailing spec original n
-  | n < 100 = go (shrink original)
+  | n <= 100 = do
+    logInfoWD . renderString $ "Shrink #" <> pretty n <> "..."
+    go (shrink original)
   | otherwise = pure Nothing
   where
     go = \case
@@ -156,7 +158,9 @@ genActions spec maxNum = do
         validActions (actions spec) >>= \case
           Just genValidAction -> do
             next <- lift (liftWebDriverTT (lift (QuickCheck.generate genValidAction)))
-            runAction next
+            runAction next >>= \case
+              False -> logInfoWD . renderString $ "Action considered valid but did not run successfully" <+> prettyAction next
+              True -> pure ()
             go (acc <> [next])
           Nothing -> pure acc
       | otherwise = pure acc
@@ -175,34 +179,40 @@ runActions spec actions = do
   pure (Trace (initial : rest))
   where
     queries = NNF.withQueries runQuery (property spec)
-    runActionAndObserve action = do
-      runAction action
-      s <- observe
-      pure [TraceAction () action, s]
+    runActionAndObserve action =
+      runAction action >>= \case
+        True -> do
+          s <- observe
+          pure [TraceAction () action, s]
+        False -> pure [TraceFailedAction () action]
     observe = do
       values <- Eff.runM queries
       let (queriedElements, elementStates) =
             bimap groupUniqueIntoMap groupUniqueIntoMap (partitionEithers (concat values))
       pure (TraceState () (ObservedState {queriedElements, elementStates}))
 
-try :: WebDriverT IO () -> Runner ()
-try action = lift (action `catchError` (const (pure ())))
+tryAction :: WebDriverT IO Bool -> Runner Bool
+tryAction action = lift (action `catchError` (const (pure False)))
 
-click :: Selected -> Runner ()
-click = findSelected >=> (\e -> try (void (elementClick e)))
+click :: Selected -> Runner Bool
+click = findSelected >=> \case
+  Just e -> tryAction (True <$ (elementClick e))
+  Nothing -> pure False
 
-sendKey :: Char -> Runner ()
-sendKey c = try (getActiveElement >>= elementSendKeys [c])
+sendKey :: Char -> Runner Bool
+sendKey c = tryAction (True <$ (getActiveElement >>= elementSendKeys [c]))
 
-focus :: Selected -> Runner ()
-focus = findSelected >=> (\e -> try (void (elementSendKeys "" e)))
+focus :: Selected -> Runner Bool
+focus = findSelected >=> \case
+  Just e -> tryAction (True <$ (elementSendKeys "" e))
+  Nothing -> pure False
 
-runAction :: Action Selected -> Runner ()
+runAction :: Action Selected -> Runner Bool
 runAction = \case
   Focus s -> focus s
   KeyPress c -> sendKey c
   Click s -> click s
-  Navigate (Path path) -> try (navigateTo (Text.unpack path))
+  Navigate (Path path) -> tryAction (True <$ navigateTo (Text.unpack path))
 
 runWebDriver :: WebDriverT IO a -> IO a
 runWebDriver ma =
@@ -269,13 +279,12 @@ setSessionId x st = st {_userState = (_userState st) {_sessionId = x}}
 findMaybe :: Selector -> Runner (Maybe ElementRef)
 findMaybe = fmap listToMaybe . findAll
 
-findSelected :: Selected -> Runner ElementRef
+findSelected :: Selected -> Runner (Maybe ElementRef)
 findSelected (Selected s i) = 
   findAll s >>= \case
     es 
-      | length es > i -> pure (es !! i)
-      | otherwise -> fail . Text.unpack . renderStrict . layoutPretty defaultLayoutOptions $
-                      "Cannot find" <+> prettySelected (Selected s i) <+> "in elements."
+      | length es > i -> pure (Just (es !! i))
+      | otherwise -> pure Nothing
 
 findAll :: Selector -> Runner [ElementRef]
 findAll (Selector s) = lift (findElements CssSelector (Text.unpack s))
@@ -349,3 +358,6 @@ clearLocalStorage = pure ()
   lift . void $
     executeScript "window.localStorage.clear()" []
     -}
+
+renderString :: Doc AnsiStyle -> String
+renderString = Text.unpack . renderStrict . layoutPretty defaultLayoutOptions

@@ -77,7 +77,7 @@ todoMvcSpec =
           (1, [Click ".todoapp button"])
         ]
           ,
-      property = Always (correctNumberItemsLeft /\ unchecked === 0)
+      property = Always correctNumberItemsLeft
     }
 
 unchecked :: Eff '[Query] Int
@@ -93,7 +93,7 @@ correctNumberItemsLeft =
   ((,) <$> unchecked <*> numberItemsLeft) |- isCorrect
   where
     isCorrect (n, t)
-      | n > 0 = Nothing == t-- Just (Text.pack (show n)) == t
+      | n > 0 = Just (Text.pack (show n)) == t
       | otherwise = t == Just mempty || t == Nothing
 
 buttonIsEnabled :: Formula

@@ -22,6 +22,7 @@ import qualified Control.Monad.Freer as Eff
 import Control.Monad.Freer (Eff)
 import Control.Monad.Freer.Writer (Writer, runWriter, tell)
 import Control.Monad.IO.Class (MonadIO (liftIO))
+import Control.Monad.Morph (MFunctor (hoist))
 import Control.Monad.State (StateT (runStateT))
 import Control.Monad.Trans.Class (MonadTrans)
 import Control.Monad.Trans.Class (MonadTrans (lift))
@@ -52,7 +53,6 @@ import WTP.Result
 import WTP.Specification
 import WTP.Trace
 import Web.Api.WebDriver hiding (Action, Selector, assertFailure, hPutStrLn, runIsolated)
-import Control.Monad.Morph (MFunctor(hoist))
 
 type Runner = StateT StdGen (WebDriverTT IdentityT IO)
 
@@ -157,8 +157,13 @@ genActions spec maxNum = do
           Just genValidAction -> do
             next <- lift (liftWebDriverTT (lift (QuickCheck.generate genValidAction)))
             runAction next >>= \case
-              False -> logInfoWD . renderString $ "Action considered valid but did not run successfully" <+> prettyAction next
-              True -> pure ()
+              ActionFailed err ->
+                logInfoWD . renderString $
+                  "Action" <+> prettyAction next <+> "considered valid but did not run successfully:" <+> pretty err
+              ActionImpossible ->
+                logInfoWD . renderString $
+                  "Action" <+> prettyAction next <+> "considered impossible to run."
+              ActionSuccess -> pure ()
             go (acc <> [next])
           Nothing -> pure acc
       | otherwise = pure acc
@@ -176,40 +181,38 @@ runActions spec actions = do
   pure (Trace (initial : rest))
   where
     queries = NNF.withQueries runQuery (property spec)
-    runActionAndObserve action =
-      runAction action >>= \case
-        True -> do
-          s <- observe
-          pure [TraceAction () action, s]
-        False -> pure [TraceFailedAction () action]
+    runActionAndObserve action = do
+      result <- runAction action
+      s <- observe
+      pure [TraceAction () action result, s]
     observe = do
       values <- Eff.runM queries
       let (queriedElements, elementStates) =
             bimap groupUniqueIntoMap groupUniqueIntoMap (partitionEithers (concat values))
       pure (TraceState () (ObservedState {queriedElements, elementStates}))
 
-tryAction :: WebDriverT IO Bool -> Runner Bool
-tryAction action = lift (action `catchError` (const (pure False)))
+tryAction :: WebDriverT IO ActionResult -> Runner ActionResult
+tryAction action = lift (action `catchError` (pure . ActionFailed . Text.pack . show))
 
-click :: Selected -> Runner Bool
+click :: Selected -> Runner ActionResult
 click = findSelected >=> \case
-  Just e -> tryAction (True <$ (elementClick e))
-  Nothing -> pure False
+  Just e -> tryAction (ActionSuccess <$ (elementClick e))
+  Nothing -> pure ActionImpossible
 
-sendKey :: Char -> Runner Bool
-sendKey c = tryAction (True <$ (getActiveElement >>= elementSendKeys [c]))
+sendKey :: Char -> Runner ActionResult
+sendKey c = tryAction (ActionSuccess <$ (getActiveElement >>= elementSendKeys [c]))
 
-focus :: Selected -> Runner Bool
+focus :: Selected -> Runner ActionResult
 focus = findSelected >=> \case
-  Just e -> tryAction (True <$ (elementSendKeys "" e))
-  Nothing -> pure False
+  Just e -> tryAction (ActionSuccess <$ (elementSendKeys "" e))
+  Nothing -> pure ActionImpossible
 
-runAction :: Action Selected -> Runner Bool
+runAction :: Action Selected -> Runner ActionResult
 runAction = \case
   Focus s -> focus s
   KeyPress c -> sendKey c
   Click s -> click s
-  Navigate (Path path) -> tryAction (True <$ navigateTo (Text.unpack path))
+  Navigate (Path path) -> tryAction (ActionSuccess <$ navigateTo (Text.unpack path))
 
 runWebDriver :: WebDriverT IO a -> IO a
 runWebDriver ma =
@@ -233,8 +236,8 @@ inNewPrivateWindow = hoist (runIsolated (reconfigure headlessFirefoxCapabilities
         { _firefoxOptions = (_firefoxOptions c)
             <&> \o ->
               o
-                { _firefoxArgs = Just ["-headless", "-private"]
-                , _firefoxPrefs = Just (HashMap.singleton "Dom.storage.enabled" (JSON.Bool False))
+                { _firefoxArgs = Just ["-headless", "-private"],
+                  _firefoxPrefs = Just (HashMap.singleton "Dom.storage.enabled" (JSON.Bool False))
                 }
         }
 
@@ -277,9 +280,9 @@ findMaybe :: Selector -> Runner (Maybe ElementRef)
 findMaybe = fmap listToMaybe . findAll
 
 findSelected :: Selected -> Runner (Maybe ElementRef)
-findSelected (Selected s i) = 
+findSelected (Selected s i) =
   findAll s >>= \case
-    es 
+    es
       | length es > i -> pure (Just (es !! i))
       | otherwise -> pure Nothing
 

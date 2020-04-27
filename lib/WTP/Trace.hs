@@ -1,5 +1,5 @@
-{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -20,6 +20,7 @@ module WTP.Trace
     ObservedState (..),
     assertQuery,
     Trace (..),
+    ActionResult (..),
     TraceElement (..),
     traceElements,
     observedStates,
@@ -45,16 +46,17 @@ import Data.Hashable (Hashable)
 import qualified Data.List as List
 import Data.Maybe (fromJust, fromMaybe)
 import Data.Ord (comparing)
+import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
-import Data.Text.Prettyprint.Doc.Symbols.Unicode (bullet)
 import Data.Text.Prettyprint.Doc.Render.Terminal
+import Data.Text.Prettyprint.Doc.Symbols.Unicode (bullet)
 import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
 import Type.Reflection
 import WTP.Assertion
 import WTP.Query
 import WTP.Result
-import WTP.Specification (Selected(..), Action (..), Path (..))
+import WTP.Specification (Action (..), Path (..), Selected (..))
 import Prelude hiding (Bool (..), not)
 
 data ElementStateValue where
@@ -115,10 +117,12 @@ traceElements = position @1
 
 observedStates :: Monoid r => Getting r (Trace ann) ObservedState
 observedStates = traceElements . traverse . _Ctor @"TraceState" . position @2
-          
+
+data ActionResult = ActionSuccess | ActionFailed Text | ActionImpossible
+  deriving (Show, Generic)
+
 data TraceElement ann
-  = TraceAction ann (Action Selected)
-  | TraceFailedAction ann (Action Selected)
+  = TraceAction ann (Action Selected) ActionResult
   | TraceState ann ObservedState
   -- TODO: `TraceEvent` when queried DOM nodes change
   deriving (Show, Generic)
@@ -132,9 +136,9 @@ annotateStutteringSteps :: Trace a -> Trace TraceElementEffect
 annotateStutteringSteps (Trace els) = Trace (go els mempty)
   where
     -- TODO: Not tail-recursive, might need optimization
-    go (TraceAction _ action : TraceState _ newState : rest) lastState =
+    go (TraceAction _ action ActionSuccess : TraceState _ newState : rest) lastState =
       let ann' = if newState == lastState then Stutter else NoStutter
-      in (TraceAction ann' action : TraceState ann' newState : go rest newState)
+       in (TraceAction ann' action ActionSuccess : TraceState ann' newState : go rest newState)
     go (el : rest) lastState = (el & ann .~ NoStutter) : go rest lastState
     go [] _ = []
 
@@ -145,27 +149,28 @@ prettyAction = \case
   KeyPress key -> "key press" <+> pretty (show key)
   Navigate (Path path) -> "navigate to" <+> pretty path
 
-prettySelected :: Selected  -> Doc AnsiStyle
+prettySelected :: Selected -> Doc AnsiStyle
 prettySelected (Selected (Selector sel) i) = pretty sel <> brackets (pretty i)
 
 prettyActions :: [Action Selected] -> Doc AnsiStyle
-prettyActions actions = vsep (zipWith item [1..] actions)
-    where
-      item :: Int -> Action Selected -> Doc AnsiStyle
-      item i = \case
-        action ->  (pretty i <> "." <+> prettyAction action)
+prettyActions actions = vsep (zipWith item [1 ..] actions)
+  where
+    item :: Int -> Action Selected -> Doc AnsiStyle
+    item i = \case
+      action -> (pretty i <> "." <+> prettyAction action)
 
 prettyTrace :: Trace TraceElementEffect -> Doc AnsiStyle
-prettyTrace (Trace elements') = vsep (zipWith prettyElement [1..] elements')
-    where
-      prettyElement :: Int -> TraceElement TraceElementEffect -> Doc AnsiStyle
-      prettyElement i = \case
-        TraceFailedAction _ action -> annotate (color Red <> bold) (pretty i <> "." <+> prettyAction action)
-        TraceAction effect action -> annotate (effect `stutterColorOr` Yellow <> bold) (pretty i <> "." <+> prettyAction action)
-        TraceState effect state -> annotate (effect `stutterColorOr` Blue <> bold) (pretty i <> "." <+> "State") <> line <> indent 2 (prettyObservedState state)
-
-      Stutter `stutterColorOr` _ = colorDull Black
-      NoStutter `stutterColorOr` fallback = color fallback
+prettyTrace (Trace elements') = vsep (zipWith prettyElement [1 ..] elements')
+  where
+    prettyElement :: Int -> TraceElement TraceElementEffect -> Doc AnsiStyle
+    prettyElement i = \case
+      TraceAction effect action result ->
+        let annotation = case result of
+              ActionSuccess -> effect `stutterColorOr` Yellow <> bold
+         in annotate annotation (pretty i <> "." <+> prettyAction action)
+      TraceState effect state -> annotate (effect `stutterColorOr` Blue <> bold) (pretty i <> "." <+> "State") <> line <> indent 2 (prettyObservedState state)
+    Stutter `stutterColorOr` _ = colorDull Black
+    NoStutter `stutterColorOr` fallback = color fallback
 
 prettyObservedState :: ObservedState -> Doc AnsiStyle
 prettyObservedState state =

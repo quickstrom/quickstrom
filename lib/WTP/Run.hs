@@ -17,14 +17,17 @@ where
 import Control.Applicative ((<|>))
 import Control.Lens
 import Control.Monad ((>=>), void)
+import Control.Monad (filterM)
 import qualified Control.Monad.Freer as Eff
 import Control.Monad.Freer (Eff)
 import Control.Monad.Freer.Writer (Writer, runWriter, tell)
+import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.State (StateT (runStateT))
 import Control.Monad.Trans.Class (MonadTrans)
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import Control.Monad.Trans.Identity (IdentityT)
 import Control.Natural (type (~>))
+import qualified Data.Aeson as JSON
 import Data.Bifunctor (Bifunctor (bimap))
 import Data.Either (partitionEithers)
 import Data.Function ((&))
@@ -41,7 +44,7 @@ import Data.Text.Prettyprint.Doc.Render.Terminal
 import System.Random (StdGen, getStdGen)
 import qualified Test.QuickCheck as QuickCheck
 import qualified Test.Tasty as Tasty
-import Test.Tasty.HUnit (testCase, assertFailure)
+import Test.Tasty.HUnit (assertFailure, testCase)
 import qualified WTP.Formula.NNF as NNF
 import qualified WTP.Formula.Syntax as Syntax
 import WTP.Query
@@ -49,8 +52,7 @@ import WTP.Result
 import WTP.Specification
 import WTP.Trace
 import Web.Api.WebDriver hiding (Action, Selector, assertFailure, hPutStrLn, runIsolated)
-import Control.Monad.IO.Class (MonadIO(liftIO))
-import Control.Monad (filterM)
+import Control.Monad.Morph (MFunctor(hoist))
 
 type Runner = StateT StdGen (WebDriverTT IdentityT IO)
 
@@ -58,11 +60,11 @@ testSpecifications :: [(Text, Specification Syntax.Formula)] -> Tasty.TestTree
 testSpecifications specs =
   Tasty.testGroup "WTP specifications" [testCase (Text.unpack name) (test spec) | (name, spec) <- specs]
 
-data FailingTest = FailingTest { numShrinks :: Int, trace :: Trace () }
+data FailingTest = FailingTest {numShrinks :: Int, trace :: Trace ()}
 
 type TestResult = Either FailingTest ()
 
-data CheckResult = CheckSuccess | CheckFailure { failedAfter :: Int, failingTest :: FailingTest }
+data CheckResult = CheckSuccess | CheckFailure {failedAfter :: Int, failingTest :: FailingTest}
 
 test :: Specification Syntax.Formula -> IO ()
 test spec = do
@@ -70,7 +72,7 @@ test spec = do
   let numTests = 20
   let sizes = map (\n -> n * 100 `div` numTests) [1 .. numTests]
   logInfo ("Running " <> show numTests <> " tests...")
-  (result, _) <- runWD . flip runStateT stdGen $ runAll sizes 1
+  (result, _) <- runWebDriver . flip runStateT stdGen $ runAll sizes 1
   case result of
     CheckFailure {failedAfter, failingTest} -> do
       let t = renderStrict (layoutPretty defaultLayoutOptions (prettyTrace (annotateStutteringSteps (trace failingTest)) <> line))
@@ -79,9 +81,9 @@ test spec = do
     CheckSuccess -> logInfo ("Passed " <> show numTests <> " tests.")
   where
     runSingle size = do
-      actions <- genActions spec' size
+      actions <- inNewPrivateWindow (genActions spec' size)
       logInfoWD (Text.unpack (renderStrict (layoutPretty defaultLayoutOptions ("Running and verifying" <+> pretty (length actions) <+> "actions:" <> line <+> annotate (colorDull Black) (prettyActions actions)))))
-      (original, result) <- runAndVerify spec' actions
+      (original, result) <- inNewPrivateWindow (runAndVerify spec' actions)
       case result of
         Accepted -> pure (Right ())
         Rejected -> do
@@ -91,13 +93,12 @@ test spec = do
     runAll (size : sizes) (n :: Int) = do
       logInfoWD ("Running test " <> show n <> " with size: " <> show size)
       runSingle size >>= \case
-        Right{} -> runAll sizes (succ n)
+        Right {} -> runAll sizes (succ n)
         Left failingTest -> pure (CheckFailure n failingTest)
-    runWD = runWebDriver . runIsolated headlessFirefoxCapabilities
     spec' = spec & field @"property" %~ Syntax.toNNF
 
 shrinkFailing :: Specification NNF.Formula -> [Action Selected] -> Int -> Runner (Maybe TestResult)
-shrinkFailing spec original n 
+shrinkFailing spec original n
   | n < 100 = go (shrink original)
   | otherwise = pure Nothing
   where
@@ -105,7 +106,7 @@ shrinkFailing spec original n
       [] -> pure Nothing
       ([] : rest) -> go rest
       (actions : rest) ->
-        runAndVerify spec actions >>= \case
+        inNewPrivateWindow (runAndVerify spec actions) >>= \case
           (_, Accepted) -> go rest
           (trace, Rejected) -> (<|> Just (Left (FailingTest n trace))) <$> shrinkFailing spec actions (succ n)
     shrink = QuickCheck.shrinkList shrinkAction
@@ -120,15 +121,15 @@ runAndVerify spec actions = do
 shrinkAction :: Action sel -> [Action sel]
 shrinkAction = const []
 
-validActions :: [(Int, Action Selector)] -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
+validActions :: [(Int, ActionSequence Selector)] -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
 validActions actions = do
-  gens <- catMaybes <$> traverse tryGenActionWithFreq actions
+  gens <- concat <$> traverse tryGenActionWithFreq actions
   case gens of
     [] -> pure Nothing
     _ -> pure (Just (QuickCheck.frequency gens))
   where
-    tryGenActionWithFreq :: (Int, Action Selector) -> Runner (Maybe (Int, QuickCheck.Gen (Action Selected)))
-    tryGenActionWithFreq (i, a) = fmap (i,) <$> tryGenAction a
+    tryGenActionWithFreq :: (Int, ActionSequence Selector) -> Runner [(Int, QuickCheck.Gen (Action Selected))]
+    tryGenActionWithFreq (i, a) = fmap (i,) . catMaybes <$> traverse tryGenAction a
     tryGenAction :: Action Selector -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
     tryGenAction = \case
       KeyPress k -> pure (Just (pure (KeyPress k)))
@@ -137,7 +138,7 @@ validActions actions = do
       Click sel -> selectOne sel Click (lift . isElementEnabled)
     selectOne :: Selector -> (Selected -> Action Selected) -> (ElementRef -> Runner Bool) -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
     selectOne sel ctor isValid = do
-      validChoices <- filterM (isValid . snd) . zip [0..] =<< findAll sel
+      validChoices <- filterM (isValid . snd) . zip [0 ..] =<< findAll sel
       case validChoices of
         [] -> pure Nothing
         choices -> do
@@ -145,7 +146,9 @@ validActions actions = do
 
 genActions :: Specification NNF.Formula -> Int -> Runner [Action Selected]
 genActions spec maxNum = do
+  clearLocalStorage
   navigateToOrigin spec
+  clearLocalStorage
   go []
   where
     go acc
@@ -166,6 +169,7 @@ runActions :: Specification NNF.Formula -> [Action Selected] -> Runner (Trace ()
 runActions spec actions = do
   -- lift breakpointsOn
   navigateToOrigin spec
+  clearLocalStorage
   initial <- observe
   rest <- concat <$> traverse runActionAndObserve actions
   pure (Trace (initial : rest))
@@ -214,6 +218,19 @@ runWebDriver ma =
               }
         }
 
+inNewPrivateWindow :: Runner a -> Runner a
+inNewPrivateWindow = hoist (runIsolated (reconfigure headlessFirefoxCapabilities))
+  where
+    reconfigure c =
+      c
+        { _firefoxOptions = (_firefoxOptions c)
+            <&> \o ->
+              o
+                { _firefoxArgs = Just ["-headless", "-private"]
+                , _firefoxPrefs = Just (HashMap.singleton "Dom.storage.enabled" (JSON.Bool False))
+                }
+        }
+
 -- | Mostly the same as the non-exported definition in 'Web.Api.WebDriver.Endpoints'.
 runIsolated ::
   (Monad eff, Monad (t eff), MonadTrans t) =>
@@ -253,7 +270,12 @@ findMaybe :: Selector -> Runner (Maybe ElementRef)
 findMaybe = fmap listToMaybe . findAll
 
 findSelected :: Selected -> Runner ElementRef
-findSelected (Selected s i) = fmap (!! i) (findAll s)
+findSelected (Selected s i) = 
+  findAll s >>= \case
+    es 
+      | length es > i -> pure (es !! i)
+      | otherwise -> fail . Text.unpack . renderStrict . layoutPretty defaultLayoutOptions $
+                      "Cannot find" <+> prettySelected (Selected s i) <+> "in elements."
 
 findAll :: Selector -> Runner [ElementRef]
 findAll (Selector s) = lift (findElements CssSelector (Text.unpack s))
@@ -303,7 +325,7 @@ runQuery query' =
 
 logInfo :: MonadIO m => String -> m ()
 logInfo = liftIO . putStrLn
-      
+
 logInfoWD :: String -> Runner ()
 logInfoWD = lift . liftWebDriverTT . logInfo
 
@@ -320,3 +342,10 @@ myWait ms =
     )
 
 -}
+
+clearLocalStorage :: Runner ()
+clearLocalStorage = pure ()
+{-
+  lift . void $
+    executeScript "window.localStorage.clear()" []
+    -}

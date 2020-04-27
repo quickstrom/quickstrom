@@ -27,6 +27,7 @@ module WTP.Trace
     annotateStutteringSteps,
     prettyActions,
     prettyTrace,
+    prettySelected,
   )
 where
 

@@ -22,6 +22,7 @@ import WTP.Specification
 import Control.Lens ((^?), ix)
 import Data.Maybe (fromMaybe)
 import Control.Monad.Freer (Eff)
+import qualified Debug.Trace as Debug
 
 cwd :: FilePath
 cwd = unsafePerformIO getCurrentDirectory
@@ -41,7 +42,7 @@ buttonSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/button.html"),
       actions =
-        [(1,  Click "button")],
+        [(1,  [Click "button"])],
       property =
         Always buttonIsEnabled
           \/ buttonIsEnabled `Until` (".message" `hasText` "Boom!" ∧ Not buttonIsEnabled)
@@ -52,9 +53,10 @@ commentFormSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/comment-form.html"),
       actions =
-        [ (2, Click "input[type=submit]"),
-          (1, Focus "input[type=text]"),
-          (5, KeyPress 'a')
+        [ (1, [Click "input[type=submit]"]),
+          (1, [Focus "input[type=text]"]),
+          (1, [KeyPress 'a']),
+          (2, [Focus "input[type=text]", KeyPress 'a'])
         ]
           -- <> (KeyPress <$> ['\0' .. '\127'])
           ,
@@ -70,11 +72,9 @@ todoMvcSpec =
   Specification
     { origin = Path ("http://todomvc.com/examples/angularjs/"),
       actions =
-        [ (2, Focus ".todoapp .new-todo"),
-          (1, Click ".todoapp a"),
-          (1, Click ".todoapp button"),
-          (5, KeyPress 'a'),
-          (2, KeyPress '\13') -- enter key
+        [ (2, [Focus ".todoapp .new-todo", KeyPress 'a', KeyPress '\xe006']),
+          (1, [Click ".todoapp a"]),
+          (1, [Click ".todoapp button"])
         ]
           ,
       property = Always (correctNumberItemsLeft /\ unchecked === 0)

@@ -1,4 +1,6 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
@@ -32,6 +34,13 @@ withAtomic :: (a -> b) -> Negation a -> b
 withAtomic f (Neg a) = f a
 withAtomic f (Pos a) = f a
 
+
+data Quantified assertion where
+  Quantified :: (Element -> FormulaWith assertion) -> Quantified assertion
+
+instance Show assertion => Show (Quantified assertion) where 
+  show (Quantified f) = "Quantified " <> show (f (Element "_"))
+
 data FormulaWith assertion
   = True
   | False
@@ -40,8 +49,10 @@ data FormulaWith assertion
   | Until (FormulaWith assertion) (FormulaWith assertion)
   | Release (FormulaWith assertion) (FormulaWith assertion)
   | Next (FormulaWith assertion)
+  | ForAll Selector (Quantified assertion)
+  | Get Element 
   | Assert assertion
-  deriving (Eq, Show)
+  deriving (Show)
 
 type Formula = FormulaWith (Negation QueryAssertion)
 

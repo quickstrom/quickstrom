@@ -8,7 +8,6 @@ import qualified Data.Aeson as JSON
 import qualified Data.Bool as Bool
 import qualified Data.HashMap.Strict as HashMap
 import Data.Text (Text)
-import qualified Data.Tree as Tree
 import Test.Tasty.Hspec
 import qualified WTP.Formula.Minimal as Minimal
 import qualified WTP.Formula.NNF as NNF
@@ -18,7 +17,7 @@ import WTP.Result
 import qualified WTP.Trace as Trace
 import Prelude hiding (Bool (..), not)
 import Algebra.Lattice (fromBool)
-import Test.QuickCheck (withMaxSuccess, (===), forAll)
+import Test.QuickCheck hiding (Result, property)
 
 
 assertMem :: Eq a => a -> [a] -> Result
@@ -100,6 +99,7 @@ spec_verify = do
           s = ["a"]
       verifyNNF (toNNF f) s `shouldBe` Minimal.verify (simplify f) s
 
+prop_minimal_and_nnf_equivalent :: Property
 prop_minimal_and_nnf_equivalent = withMaxSuccess 1000 $ forAll ((,) <$> Gen.anySyntax <*> Gen.nonEmpty Gen.trace) $ \(syntax, s) -> do
   -- NNF
   let nnf = toNNF syntax

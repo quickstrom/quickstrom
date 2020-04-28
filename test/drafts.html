@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Drafts</title>
+  </head>
+  <body>
+    <ul class="drafts" style="list-style-type: none; padding: 0;">
+      <li class="draft"><label><input type="checkbox" class="selected" />Draft 1</label></li>
+      <li class="draft"><label><input type="checkbox" class="selected" />Draft 2</label></li>
+      <li class="draft"><label><input type="checkbox" class="selected" />Draft 3</label></li>
+      <li class="draft"><label><input type="checkbox" class="selected" />Draft 4</label></li>
+      <li class="draft"><label><input type="checkbox" class="selected" />Draft 5</label></li>
+    </ul>
+    <form name="delete-drafts">
+      <input type="button" name="delete" value="Delete" />
+      <p class="confirmation" style="display: none; color: red;">
+        Are you sure?
+        <input type="submit" name="confirm" value="Yes!" />
+      </p>
+    </form>
+  </body>
+  <script>
+    var drafts = document.querySelector(".drafts");
+    var form = document.querySelector("form[name='delete-drafts']");
+    var deleteButton = form.querySelector("input[name='delete']");
+    var confirmation = form.querySelector(".confirmation");
+
+    deleteButton.addEventListener("click", function (e) {
+      confirmation.style.display = "block";
+    });
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+
+      Array.from(drafts.querySelectorAll("li .selected:checked"))
+        .forEach(checkbox => {
+          checkbox.parentElement.remove();
+        });
+
+      confirmation.style.display = "none";
+    });
+  </script>
+</html>

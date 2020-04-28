@@ -26,7 +26,7 @@ spec_nnf =
            in it (show input <> " ⊢ " <> show formula <> " (" <> show nnf <> ")") $
                 verifyNNF nnf input `shouldBe` result
     describe "Next" $ do
-      let isLast = Not (Next True)
+      let isLast = Not (Next (And True True))
       testFormula isLast ["a"] Accepted
     describe "Always" $ do
       testFormula (Always True) ["a"] Accepted
@@ -43,10 +43,10 @@ spec_nnf =
       testFormula (Release False False) ["a"] Rejected
       testFormula (Release (Assert 'b') (Assert 'a')) ["a", "ab", "b"] Accepted
 
-prop_nnf_always = withMaxSuccess 1000 $ forAll ((,) <$> Gen.anySyntax <*> Gen.trace) $ \(p, trace) -> do
+prop_nnf_always = forAll ((,) <$> Gen.anySyntax <*> Gen.trace) $ \(p, trace) -> do
   verifyNNF (toNNF (Always p)) trace === verifyNNF (toNNF (False `Release` p)) trace
 
-prop_nnf_any_true = withMaxSuccess 1000 $ forAll ((,) <$> Gen.trueSyntax (pure 'a') <*> (map (List.nub . ("a" <>)) <$> Gen.nonEmpty Gen.trace)) $ \(p, trace) -> do
+prop_nnf_any_true = forAll ((,) <$> Gen.trueSyntax (pure 'a') <*> (map (List.nub . ("a" <>)) <$> Gen.nonEmpty Gen.trace)) $ \(p, trace) -> do
   let nnf = (toNNF p)
   Accepted === verifyNNF nnf trace
 

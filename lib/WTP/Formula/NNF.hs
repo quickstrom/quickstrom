@@ -26,7 +26,7 @@ import WTP.Result
 import Prelude hiding (False, True, not)
 
 data Negation a = Neg a | Pos a
-  deriving (Show, Functor, Foldable, Traversable)
+  deriving (Eq, Show, Functor, Foldable, Traversable)
 
 withAtomic :: (a -> b) -> Negation a -> b
 withAtomic f (Neg a) = f a
@@ -41,7 +41,7 @@ data FormulaWith assertion
   | Release (FormulaWith assertion) (FormulaWith assertion)
   | Next (FormulaWith assertion)
   | Assert assertion
-  deriving (Show)
+  deriving (Eq, Show)
 
 type Formula = FormulaWith (Negation QueryAssertion)
 
@@ -71,8 +71,8 @@ verifyWith assert = go
         case go p trace of
           Rejected -> go q trace /\ go (p `Release` q) (tail trace)
           Accepted -> go q trace
+    go (Next True) [_] = Rejected
     go (Next False) [_] = Accepted
-    go (Next _) [_] = Rejected
     go (Next p) trace = go p (tail trace)
     go (Assert a) (current : _) =
       case a of

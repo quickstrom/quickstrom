@@ -6,7 +6,7 @@ import WTP.Formula.Syntax
 import Prelude hiding (Bool (..))
 
 variable :: Gen Char
-variable = arbitraryASCIIChar
+variable = elements ['a'..'c']
 
 trace :: Gen [String]
 trace = listOf (listOf variable)
@@ -56,8 +56,7 @@ trueSyntax genVariable = sized syntax'
               Implies <$> subterm <*> subterm,
               Equivalent <$> subterm <*> subterm,
               Always <$> subterm,
-              Eventually <$> subterm,
-              Next <$> subterm
+              Eventually <$> subterm
             ]
 
 falseSyntax :: Gen Char -> Gen (FormulaWith Char)
@@ -76,6 +75,22 @@ falseSyntax genVariable = sized syntax'
               Or <$> subterm <*> subterm,
               Until <$> subterm <*> subterm,
               Always <$> subterm,
-              Eventually <$> subterm,
-              Next <$> subterm
+              Eventually <$> subterm
+            ]
+
+simpleConnectivesSyntax :: Gen (FormulaWith Char)
+simpleConnectivesSyntax = sized syntax'
+  where
+    syntax' :: Int -> Gen (FormulaWith Char)
+    syntax' 0 =
+      oneof
+        [ pure True,
+          pure False
+        ]
+    syntax' n =
+      let subterm = syntax' (n `div` 2)
+       in oneof
+            [ Not <$> subterm,
+              And <$> subterm <*> subterm,
+              Or <$> subterm <*> subterm
             ]

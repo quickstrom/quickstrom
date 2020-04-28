@@ -101,28 +101,34 @@ simplify = \case
 toNNF :: FormulaWith a -> NNF.FormulaWith (NNF.Negation a)
 toNNF = \case
   -- Reductions
-  And _ False -> NNF.False
-  And False _ -> NNF.False
-  And p True -> toNNF p
-  And True p -> toNNF p
-  Or _ True -> NNF.True
-  Or True _ -> NNF.True
-  Or p False -> toNNF p
-  Or False p -> toNNF p
+  And p q ->
+    case (toNNF p, toNNF q) of
+      (_, NNF.False) -> NNF.False
+      (NNF.False, _) -> NNF.False
+      (p', NNF.True) -> p'
+      (NNF.True, p') -> p'
+      (p', q') -> NNF.And p' q'
+  Or p q ->
+    case (toNNF p, toNNF q) of
+      (_, NNF.True) -> NNF.True
+      (NNF.True, _) -> NNF.True
+      (p', NNF.False) -> p'
+      (NNF.False, p') -> p'
+      (p', q') -> NNF.Or p' q'
   Not (Not p) -> toNNF p
   Next p -> NNF.Next (toNNF p)
   -- Negation propagation (https://en.wikipedia.org/wiki/Linear_temporal_logic#Negation_normal_form)
   Not True -> NNF.False
   Not False -> NNF.True
-  Not (p `Or` q) -> toNNF (Not p) `NNF.And` toNNF (Not q)
-  Not (p `And` q) -> toNNF (Not p) `NNF.Or` toNNF (Not q)
+  Not (p `Or` q) -> toNNF (Not p `And` Not q)
+  Not (p `And` q) -> toNNF (Not p `Or` Not q)
   Not (p `Implies` q) -> toNNF p `NNF.And` toNNF (Not q)
   Not (p `Equivalent` q) -> toNNF (p `Equivalent` Not q)
   Not (Until p q) -> toNNF (Not p) `NNF.Release` toNNF (Not q)
   Not (Release p q) -> toNNF (Not p) `NNF.Until` toNNF (Not q)
   Not (Eventually p) -> toNNF (Always (Not p))
   Not (Always p) -> toNNF (Eventually (Not p))
-  Not (Next p) -> toNNF (Next (Not p))
+  Not (Next p) -> NNF.Next (toNNF (Not p))
   Not (Assert assertion) -> NNF.Assert (NNF.Neg assertion)
   -- Derived operators (only present in syntax) are simplified
   Eventually p -> NNF.Until NNF.True (toNNF p)
@@ -132,8 +138,6 @@ toNNF = \case
   -- Language operators that are preserved
   True -> NNF.True
   False -> NNF.False
-  Or p q -> NNF.Or (toNNF p) (toNNF q)
-  And p q -> NNF.And (toNNF p) (toNNF q)
   Until p q -> NNF.Until (toNNF p) (toNNF q)
   Release p q -> NNF.Release (toNNF p) (toNNF q)
   Assert assertion -> NNF.Assert (NNF.Pos assertion)

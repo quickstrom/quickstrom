@@ -166,7 +166,9 @@ prettyTrace (Trace elements') = vsep (zipWith prettyElement [1 ..] elements')
     prettyElement i = \case
       TraceAction effect action result ->
         let annotation = case result of
-              ActionSuccess -> effect `stutterColorOr` Yellow <> bold
+              ActionSuccess -> effect `stutterColorOr` Blue <> bold
+              ActionFailed{} -> effect `stutterColorOr` Red <> bold
+              ActionImpossible -> color Yellow <> bold
          in annotate annotation (pretty i <> "." <+> prettyAction action)
       TraceState effect state -> annotate (effect `stutterColorOr` Blue <> bold) (pretty i <> "." <+> "State") <> line <> indent 2 (prettyObservedState state)
     Stutter `stutterColorOr` _ = colorDull Black

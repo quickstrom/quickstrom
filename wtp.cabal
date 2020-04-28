@@ -48,7 +48,7 @@ library
                     , WTP.Trace
   hs-source-dirs:     lib
   default-language:   Haskell2010
-  ghc-options:        -Wall
+  ghc-options:        -Wall -Werror=incomplete-patterns
 
 executable wtp
   import:             shared-deps
@@ -77,4 +77,4 @@ test-suite wtp-test
                     , tasty-discover
                     , tasty-hspec
                     , tasty-quickcheck
-  ghc-options:        -Werror
+  ghc-options:        -Wall

@@ -9,6 +9,7 @@ cradle:
   direct: 
     arguments:
       - -Wall
+      - -Werror=incomplete-patterns
       - -ilib
       - -itest
       - -iwtp

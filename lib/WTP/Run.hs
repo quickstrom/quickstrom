@@ -82,7 +82,7 @@ test spec = do
   where
     runSingle size = do
       actions <- inNewPrivateWindow (genActions spec' size)
-      logInfoWD (Text.unpack (renderStrict (layoutPretty defaultLayoutOptions ("Running and verifying" <+> pretty (length actions) <+> "actions:" <> line <+> annotate (colorDull Black) (prettyActions actions)))))
+      -- logInfoWD (Text.unpack (renderStrict (layoutPretty defaultLayoutOptions ("Running and verifying" <+> pretty (length actions) <+> "actions:" <> line <+> annotate (colorDull Black) (prettyActions actions)))))
       (original, result) <- inNewPrivateWindow (runAndVerify spec' actions)
       case result of
         Accepted -> pure (Right ())

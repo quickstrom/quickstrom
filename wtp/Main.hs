@@ -18,7 +18,6 @@ import Data.Maybe (fromMaybe)
 import qualified Data.Text as Text
 import Data.Text (Text)
 import qualified Data.Text.Read as Text
-import qualified Debug.Trace as Debug
 import System.Directory
 import System.IO.Unsafe (unsafePerformIO)
 import qualified Test.Tasty as Tasty
@@ -127,7 +126,7 @@ numberItemsLeft = do
   t <- traverse (get Text) =<< query ".todoapp .todo-count strong"
   pure (t >>= parse)
   where
-    parse = either (const Nothing) (Just . fromIntegral . fst) . Text.decimal
+    parse = either (const Nothing) (Just . fst) . Text.decimal
 
 correctNumberItemsLeft :: Formula
 correctNumberItemsLeft =

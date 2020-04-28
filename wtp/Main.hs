@@ -60,7 +60,7 @@ toggleSpec =
       property =
         let on = "button" `hasText` "Turn me off"
             off = "button" `hasText` "Turn me on"
-        in (on `Until` off) \/ (off `Until` on)
+        in Always (on `Until` off \/ off `Until` on)
     }
 
 foreverOr :: Formula -> Formula -> Formula

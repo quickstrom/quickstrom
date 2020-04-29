@@ -1,3 +1,14 @@
+---
+# Render this document using the following command":
+#
+#    pandoc -s wtp.md --pdf-engine=xelatex -o wtp.pdf
+#
+title: "Web Testing Platform"
+author: "Oskar Wickström"
+---
+
+...
+
 ## Deleting Drafts
 
 In this example, we have a list of drafts that can be deleted. The user
@@ -16,9 +27,10 @@ either cancel or confirm the deletion.
 
 These are the only two valid actions when in the $\textit{confirming}$ state.
 
-The following formula defines the /confirming/ state as the existence of
-an element $e$ returned by querying the current DOM for the CSS selector
-$\mathtt{confirm}$, that is visible and has the text content "Are you sure?".
+The following formula defines the $\textit{confirming}$ state as the
+existence of an element $e$ returned by querying the current DOM for the CSS
+selector $\mathtt{confirm}$, that is visible and has the text content "Are
+you sure?".
 
 \begin{equation}
 \mathit{confirming} = \exists e \in \mathit{query}(\mathtt{.confirm}) : \mathit{e}.\mathrm{visible} \wedge \mathit{e}.\mathrm{text} = \text{"Are you sure?"} \\
@@ -57,7 +69,7 @@ and that we're no longer $\mathit{confirming}$ in the next state.
 \end{equation}
 
 Finally, we can compose our building blocks to define the safety property. At
-all times ($\square$) when we're confirming the deletion of selected drafts,
+all times ($\square$), when we're confirming the deletion of selected drafts,
 we can either $\mathit{cancel}$ or $\mathit{confirm}$.
 
 \begin{equation}

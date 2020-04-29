@@ -1,12 +1,71 @@
-#+TITLE: Scratch
+#+TITLE: Testing Web Applications with Temporal Logic
+#+AUTHOR: Oskar Wickström
 #+STARTUP: latexpreview
 
-# This Scratch buffer (with org-mode enabled) is for notes you don’t
-# want to save.  If you want to create a file, visit that file with
-# C-x C-f, then enter the text in that file’s own buffer.
+* Deleting Drafts
 
+In this example, we have a list of drafts that can be deleted. We want
+to show that when drafts are selected for deletion and the user clicks
+"Delete", and the confirm dialog is shown, the deletion is either:
+
+1. /cancelled/, meaning that the same set of drafts are selected, but
+   the confirmation dialog is hidden, and no drafts are deleted
+2. /confirmed/, meaning that the set of selected drafts are deleted
+   from the drafts list and that the confirmation dialog is hidden
+
+The following formula defines the /confirming/ state as the existence
+of an element /e/ returned by querying the current DOM for the CSS
+selector ~.confirm~, that is visible and has the text content "Are you
+sure?".
+
+#+NAME: eqn:1
 \begin{equation}
-\forall x. x
+\mathit{confirming} = \exists e \in \operator{query}(\mathtt{.confirm}) : \mathit{e}.\mathrm{visible} \wedge \mathit{e}.\mathrm{text} = \text{"Are you sure?"} \\
 \end{equation}
 
-$$\forall x. x$$
+We also need a version of $\mathit{confirming}$ that instead refers to the next
+state. This is done using the primed querying operator $\mathit{query'}$.
+
+#+NAME: eqn:1
+\begin{equation}
+\mathit{confirmingNext} = \exists e \in \operator{query'}(\mathtt{.confirm}) : \mathit{e}.\mathrm{visible} \wedge \mathit{e}.\mathrm{text} = \text{"Are you sure?"} \\
+\end{equation}
+
+We can now define the $\mathit{cancel}$ action. It says that the set
+of drafts (or their checkboxes, rather) are the same in the current
+and next state, that the same checkboxes are checked, and that we're
+no longer $\mathit{confirming}$ in the next state.
+
+#+NAME: eqn:cancel
+\begin{equation}
+\begin{aligned}
+\mathit{cancel} =\ & \operator{query}(\mathtt{.checkbox}) = \operator{query'}(\mathtt{.checkbox}) \\
+  & \wedge \{c \in \operator{query}(\mathtt{.checkbox}) : \mathit{c}\operator{.checked} \} = \{c \in \operator{query'}(\mathtt{.checkbox}) : \mathit{c}\operator{.checked} \} \\
+  & \wedge \lnot \mathit{confirmingNext} \\
+\end{aligned}
+\end{equation}
+
+The $\mathit{confirm}$ action is the other possibility. It says that
+the resulting set of checkboxes is equal to the currently non-checked
+ones, and that we're no longer $\mathit{confirming}$ in the next
+state.
+
+#+NAME: eqn:confirmed
+\begin{equation}
+\begin{aligned}
+\mathit{confirm} =\ & \{c \in \operator{query}(\mathtt{.checkbox}) : \lnot \mathit{c}\operator{.checked} \} = \operator{query'}(\mathtt{.checkbox}) \\
+  & \wedge \lnot \mathit{confirmingNext} \\
+\end{aligned}
+\end{equation}
+
+#+NAME: eqn:safety
+\begin{equation}
+\square (\mathit{confirming} \implies \mathit{cancel} \vee \mathit{confirm})
+\end{equation}
+
+
+* Reading material
+
+- [ ] [[http://santos.cs.ksu.edu/esscass04/papers/patterns-survey.pdf][LTL patterns survey]]
+- [ ] [[https://lamport.azurewebsites.net/pubs/intro-to-tla.pdf][Intro to TLA]]
+- [ ] [[https://www.microsoft.com/en-us/research/uploads/prod/2016/12/Specifying-Concurrent-Systems-with-TLA.pdf][Specifiying Concurrent Systems with TLA+]]

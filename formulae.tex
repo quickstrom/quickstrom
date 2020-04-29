@@ -1,0 +1,96 @@
+% Created 2020-04-29 Wed 11:41
+% Intended LaTeX compiler: pdflatex
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{grffile}
+\usepackage{longtable}
+\usepackage{wrapfig}
+\usepackage{rotating}
+\usepackage[normalem]{ulem}
+\usepackage{amsmath}
+\usepackage{textcomp}
+\usepackage{amssymb}
+\usepackage{capt-of}
+\usepackage{hyperref}
+\author{Oskar Wickström}
+\date{\today}
+\title{Testing Web Applications with Temporal Logic}
+\hypersetup{
+ pdfauthor={Oskar Wickström},
+ pdftitle={Testing Web Applications with Temporal Logic},
+ pdfkeywords={},
+ pdfsubject={},
+ pdfcreator={Emacs 26.3 (Org mode 9.1.9)}, 
+ pdflang={English}}
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+
+\section{Deleting Drafts}
+\label{sec:org3bde0be}
+
+In this example, we have a list of drafts that can be deleted. We want
+to show that when drafts are selected for deletion and the user clicks
+"Delete", and the confirm dialog is shown, the deletion is either:
+
+\begin{enumerate}
+\item \emph{cancelled}, meaning that the same set of drafts are selected, but
+the confirmation dialog is hidden, and no drafts are deleted
+\item \emph{confirmed}, meaning that the set of selected drafts are deleted
+from the drafts list and that the confirmation dialog is hidden
+\end{enumerate}
+
+The following formula defines the \emph{confirming} state as the existence
+of an element \emph{e} returned by querying the current DOM for the CSS
+selector \texttt{.confirm}, that is visible and has the text content "Are you
+sure?".
+
+\begin{equation}
+\label{eq:org3444a13}
+\mathit{confirming} = \exists e \in \operator{query}(\mathtt{.confirm}) : \mathit{e}.\mathrm{visible} \wedge \mathit{e}.\mathrm{text} = \text{"Are you sure?"} \\
+\end{equation}
+
+We also need a version of \(\mathit{confirming}\) that instead refers to the next
+state. This is done using the primed querying operator \(\mathit{query'}\).
+
+\begin{equation}
+\label{eq:org7e7070d}
+\mathit{confirmingNext} = \exists e \in \operator{query'}(\mathtt{.confirm}) : \mathit{e}.\mathrm{visible} \wedge \mathit{e}.\mathrm{text} = \text{"Are you sure?"} \\
+\end{equation}
+
+\begin{equation}
+\label{eq:org2f66926}
+\begin{aligned}
+\mathit{cancel} =\ & \operator{query}(\mathtt{.checkbox}) = \operator{query'}(\mathtt{.checkbox}) \\
+  & \wedge \{c \in \operator{query}(\mathtt{.checkbox}) : \mathit{c}\operator{.checked} \} = \{c \in \operator{query'}(\mathtt{.checkbox}) : \mathit{c}\operator{.checked} \} \\
+  & \wedge \lnot \mathit{confirmingNext} \\
+\end{aligned}
+\end{equation}
+
+\begin{equation}
+\label{eq:orgafeed49}
+\begin{aligned}
+\mathit{confirm} =\ & \{c \in \operator{query}(\mathtt{.checkbox}) : \lnot \mathit{c}\operator{.checked} \} = \operator{query'}(\mathtt{.checkbox}) \\
+  & \wedge \lnot \mathit{confirmingNext} \\
+\end{aligned}
+\end{equation}
+
+\begin{equation}
+\label{eq:org06a2200}
+\square (\mathit{confirming} \implies \mathit{cancel} \vee \mathit{confirm})
+\end{equation}
+
+
+\section{Reading material}
+\label{sec:orgd1f45d9}
+
+\begin{itemize}
+\item[{$\square$}] \href{http://santos.cs.ksu.edu/esscass04/papers/patterns-survey.pdf}{LTL patterns survey}
+\item[{$\square$}] \href{https://lamport.azurewebsites.net/pubs/intro-to-tla.pdf}{Intro to TLA}
+\item[{$\square$}] \href{https://www.microsoft.com/en-us/research/uploads/prod/2016/12/Specifying-Concurrent-Systems-with-TLA.pdf}{Specifiying Concurrent Systems with TLA+}
+\end{itemize}
+\end{document}

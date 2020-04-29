@@ -63,8 +63,17 @@ toggleSpec =
         in Always (on `Until` off \/ off `Until` on)
     }
 
-foreverOr :: Formula -> Formula -> Formula
-p `foreverOr` q = p /\ (Always p \/ q)
+draftsSpec :: Specification Formula
+draftsSpec =
+  Specification
+    { origin = Path ("file://" <> Text.pack cwd <> "/test/drafts.html"),
+      actions =
+        [(1, [Click "button"])],
+      property =
+        let on = "button" `hasText` "Turn me off"
+            off = "button" `hasText` "Turn me on"
+        in Always (on `Until` off \/ off `Until` on)
+    }
 
 commentFormSpec :: Specification Formula
 commentFormSpec =

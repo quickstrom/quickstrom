@@ -1,0 +1,191 @@
+#+TITLE: Web Testing Platform
+#+AUTHOR: Oskar Wickström
+#+STARTUP: latexpreview
+...
+
+** Temporal Logic of Web Applications
+
+*TODO:* explain the temporal logic of web applications (TLWA),
+including:
+
+- Propositional logic atoms and connectives: $\mathit{true},
+  \mathit{false}, \lnot, \wedge, \vee$
+- First-order logic quantifiers: $\forall x : x, \exists x : x$
+- Web-specific operators: $=, \mathit{query}, \mathit{query'}, \mathit{.text}, \mathit{.attribute}, \mathit{.style}, \mathit{.visible}$
+
+** Example: Deleting Drafts
+   
+In this example, we have a list of drafts that can be deleted. The user
+selects one or more drafts, by checking the corresponding checkboxes,
+and clicks "Delete". A confirmation dialog is shown, and the user can
+either cancel or confirm the deletion.
+
+We want to show that when drafts are selected for deletion and the user
+has clicked "Delete", entering the $\textit{confirming}$ state, the
+deletion is either:
+
+1. /cancelled/, meaning that no drafts are deleted, the same set of
+   drafts are selected, and the confirmation dialog is hidden, or
+2. /confirmed/, meaning that the set of selected drafts are deleted from
+   the drafts list and that the confirmation dialog is hidden
+
+These are the only two valid actions when in the $\textit{confirming}$
+state.
+
+First, we'll use the TLWA to specify this system. It's a bit verbose
+and hard to decompose, but can accurately describe the valid state
+changes. In the next section, we'll use the $\circ$ (Next) operator
+from LTL instead. Let's get started!
+
+*** Using TLWA
+
+The following formula defines the $\textit{confirming}$ state as the
+existence of an element $e$ returned by querying the current DOM for the
+CSS selector $\mathtt{confirm}$, that is visible and has the text
+content "Are you sure?".
+
+\begin{equation}
+\mathit{confirming} = \exists e \in \mathit{query}(\mathtt{.confirm}) : \mathit{e}.\mathrm{visible} \wedge \mathit{e}.\mathrm{text} = \text{"Are you sure?"} \\
+\end{equation}
+
+We also need a version of $\mathit{confirming}$ that instead refers to
+the next state. This is done using the primed querying operator
+$\mathit{query'}$.
+
+\begin{equation}
+\mathit{confirmingNext} = \exists e \in \mathit{query'}(\mathtt{.confirm}) : \mathit{e}.\mathrm{visible} \wedge \mathit{e}.\mathrm{text} = \text{"Are you sure?"} \\
+\end{equation}
+
+We can now define the $\mathit{cancel}$ action. It says that the set of
+drafts (or their checkboxes, rather) are the same in the current and
+next state, that the same checkboxes are checked, and that we're no
+longer $\mathit{confirming}$ in the next state.
+
+\begin{equation}
+\begin{aligned}
+\mathit{cancel} =\ & \mathit{query}(\mathtt{.checkbox}) = \mathit{query'}(\mathtt{.checkbox}) \\
+  & \wedge \{c \in \mathit{query}(\mathtt{.checkbox}) : \mathit{c}\mathit{.checked} \} = \{c \in \mathit{query'}(\mathtt{.checkbox}) : \mathit{c}\mathit{.checked} \} \\
+  & \wedge \lnot \mathit{confirmingNext} \\
+\end{aligned}
+\end{equation}
+
+The $\mathit{confirm}$ action is the other possibility. It says that the
+resulting set of checkboxes is equal to the currently non-checked ones,
+and that we're no longer $\mathit{confirming}$ in the next state.
+
+\begin{equation}
+\begin{aligned}
+\mathit{confirm} =\ & \{c \in \mathit{query}(\mathtt{.checkbox}) : \lnot \mathit{c}\mathit{.checked} \} = \mathit{query'}(\mathtt{.checkbox}) \\
+  & \wedge \lnot \mathit{confirmingNext} \\
+\end{aligned}
+\end{equation}
+
+Finally, we can compose our building blocks to define the safety
+property. At all times ($\square$), when we're confirming the deletion
+of selected drafts, we can either $\mathit{cancel}$ or
+$\mathit{confirm}$.
+
+\begin{equation}
+\square (\mathit{confirming} \implies \mathit{cancel} \vee \mathit{confirm})
+\end{equation}
+
+That's it.
+
+*** Alternative: Using LTL's Next
+    
+Again, we're using the example of deleting drafts. But instead of
+using the concept of /actions/ borrowed from TLA, where one can talk
+about non-primed and primed variables, let's try using only the
+$\circ$ (Next) operator from linear temporal logic.
+
+The $\mathit{confirming}$ formula is exactly the same as before:
+
+\begin{equation}
+\mathit{confirming} = \exists e \in \mathit{query}(\mathtt{.confirm}) : \mathit{e}.\mathrm{visible} \wedge \mathit{e}.\mathrm{text} = \text{"Are you sure?"} \\
+\end{equation}
+
+But now, we can start breaking out reusable pieces of our queries. As
+we no longer have $\mathit{query}$ and $\mathit{query'}$, we don't
+need to otherwise duplicate the definitions in order to talk about the
+current and next state's queries. We instead use the $\circ$ operator
+and with our queries.
+
+The first query, $\mathit{all}$, gives us all checkboxes in the DOM.
+
+\begin{equation}
+\mathit{all} = \mathit{query}(\mathtt{.checkbox})
+\end{equation}
+
+Based on $\mathit{all}$, the $\mathit{checked}$ query is a set
+expression that filters out only the /checked/ elements.
+
+\begin{equation}
+\mathit{checked} = \{ c \in \mathit{all} : \mathit{c}\mathit{.checked} \}
+\end{equation}
+
+Conversely, $\mathit{unchecked}$ filters out only the /unchecked/
+elements.
+
+\begin{equation}
+\mathit{unchecked} = \{ c \in \mathit{all} : \lnot\mathit{c}\mathit{.checked} \}
+\end{equation}
+
+Next, we need to show that elements that are currently in the DOM are
+/preserved/, i.e. that they are still present in the DOM in the next
+state. This is where our approach breaks down a bit.
+
+We define the $\mathit{preserved}$ operator, asserting that all
+elements in the set $S$ are also present in $S$ in the next state. It
+does not, however, guarantee that no other elements are present in $S$
+in the next state.
+
+\begin{equation}
+\begin{aligned}
+\mathit{preserved}(S) =\ & \forall e \in S : \circ ( \exists e' \in S : e = e')
+\end{aligned}
+\end{equation}
+
+#+begin_quote
+*TODO:* Is it possible to do this sort of set equality
+when using the $\circ$ operator? I haven't figured out a way. Most LTL
+resources I've found talk about specific global variables, not about
+quantified sets of unknown values.
+#+end_quote
+
+Now that we have our queries and the operator for asserting that
+elements are preserved, we can formulate the $\mathit{cancel}$ action
+similarly as before:
+
+\begin{equation}
+\begin{aligned}
+\mathit{cancel} = & \mathit{preserved}(\mathit{checked}) \\
+  & \wedge \mathit{preserved}(\mathit{unchecked}) \\
+  & \wedge \circ\lnot\mathit{confirming} \\
+\end{aligned}
+\end{equation}
+
+The $\mathit{confirm}$ action is different. Here we say that all
+elements that are currently /checked/ must not be present in the next
+state.
+
+\begin{equation}
+\begin{aligned}
+\mathit{confirm} =\ & \forall e \in \mathit{checked} : \circ \lnot ( \exists e' \in \mathit{all} : e = e') \\
+  & \wedge \circ\lnot\mathit{confirming} \\
+\end{aligned}
+\end{equation}
+
+And as before, we define the safety property:
+
+\begin{equation}
+\square (\mathit{confirming} \implies \mathit{cancel} \vee \mathit{confirm})
+\end{equation}
+
+** Reading material
+
+- [[http://santos.cs.ksu.edu/esscass04/papers/patterns-survey.pdf][LTL
+  patterns survey]]
+- [[https://lamport.azurewebsites.net/pubs/intro-to-tla.pdf][Intro to
+  TLA]]
+- [[https://www.microsoft.com/en-us/research/uploads/prod/2016/12/Specifying-Concurrent-Systems-with-TLA.pdf][Specifiying
+  Concurrent Systems with TLA+]]

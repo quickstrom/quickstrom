@@ -3,4 +3,8 @@ dist-newstyle
 cabal.project.local
 *.o
 *.hi
+
+
 /ltximg
+/wtp.pdf
+/wtp.tex

@@ -1,3 +1,4 @@
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
@@ -18,7 +19,6 @@
 module WTP.Trace
   ( ElementStateValue (..),
     ObservedState (..),
-    assertQuery,
     Trace (..),
     ActionResult (..),
     TraceElement (..),
@@ -34,8 +34,6 @@ module WTP.Trace
 where
 
 import Control.Lens
-import Control.Monad.Freer
-import qualified Data.Aeson.Text as JSON
 import qualified Data.Bool as Bool
 import Data.Function ((&))
 import Data.Generics.Product (position)
@@ -44,7 +42,6 @@ import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Hashable (Hashable)
 import qualified Data.List as List
-import Data.Maybe (fromJust, fromMaybe)
 import Data.Ord (comparing)
 import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
@@ -53,24 +50,25 @@ import Data.Text.Prettyprint.Doc.Symbols.Unicode (bullet)
 import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
 import Type.Reflection
-import WTP.Assertion
-import WTP.Query
-import WTP.Result
+import WTP.Element
+import WTP.Formula.Logic
+import qualified WTP.Type as WTP
 import WTP.Specification (Action (..), Path (..), Selected (..))
 import Prelude hiding (Bool (..), not)
+import qualified Data.Set as Set
 
 data ElementStateValue where
-  ElementStateValue :: (Typeable a, Show a, Eq a) => ElementState a -> a -> ElementStateValue
+  ElementStateValue :: forall (a :: WTP.Type). Typeable a => ElementState a -> FValue a -> ElementStateValue
 
 deriving instance Show ElementStateValue
 
 instance Eq ElementStateValue where
-  ElementStateValue (s1 :: ElementState t1) (v1 :: t1) == ElementStateValue (s2 :: ElementState t2) (v2 :: t2) =
+  ElementStateValue (s1 :: ElementState t1) (v1 :: FValue t1) == ElementStateValue (s2 :: ElementState t2) (v2 :: FValue t2) =
     case eqTypeRep (typeRep @t1) (typeRep @t2) of
       Just HRefl -> s1 == s2 && v1 == v2
       Nothing -> Bool.False
 
-findElementState :: Typeable a => ElementState a -> [ElementStateValue] -> Maybe a
+findElementState :: Typeable a => ElementState a -> [ElementStateValue] -> Maybe (FValue a)
 findElementState _ [] = Nothing
 findElementState (state :: ElementState s1) (ElementStateValue (_ :: ElementState s2) value : rest) =
   case eqTypeRep (typeRep @s1) (typeRep @s2) of
@@ -90,24 +88,21 @@ instance Semigroup ObservedState where
 instance Monoid ObservedState where
   mempty = ObservedState mempty mempty
 
-runQueryInState :: ObservedState -> Eff '[Query] a -> a
+runQueryInState :: ObservedState -> Formula a -> Formula a
 runQueryInState ObservedState {queriedElements, elementStates} =
+  id
+  {-
   run
     . interpret
       ( \case
           Query selector -> case HashMap.lookup selector queriedElements of
             Just (a : _) -> pure (Just a)
             _ -> pure Nothing
-          QueryAll selector -> pure (fromMaybe [] (HashMap.lookup selector queriedElements))
           Get state element' ->
             let states = fromMaybe mempty (HashMap.lookup element' elementStates)
              in pure (fromJust (findElementState state states))
       )
-
-assertQuery :: QueryAssertion -> ObservedState -> Result
-assertQuery = \(QueryAssertion query' assertion) state ->
-  let result' = runQueryInState state query'
-   in runAssertion assertion result'
+      -}
 
 newtype Trace ann = Trace [TraceElement ann]
   deriving (Show, Generic)
@@ -141,6 +136,16 @@ annotateStutteringSteps (Trace els) = Trace (go els mempty)
        in (TraceAction ann' action ActionSuccess : TraceState ann' newState : go rest newState)
     go (el : rest) lastState = (el & ann .~ NoStutter) : go rest lastState
     go [] _ = []
+
+prettyValue :: FValue a -> Doc AnsiStyle
+prettyValue = \case
+  VTrue -> "true"
+  VFalse -> "false"
+  VString t -> pretty (show t)
+  VElement e -> "element" <+> parens (pretty e)
+  VSet vs -> encloseSep lbrace rbrace comma (map prettyValue (Set.toList vs))
+  VSeq vs -> encloseSep lparen rparen comma (map prettyValue vs)
+
 
 prettyAction :: Action Selected -> Doc AnsiStyle
 prettyAction = \case
@@ -207,11 +212,11 @@ prettyObservedState state =
         & HashMap.toList
         & List.sortBy (comparing fst)
         & map f
-    prettyElementStateValue :: ElementStateValue -> Doc ann
+    prettyElementStateValue :: ElementStateValue -> Doc AnsiStyle
     prettyElementStateValue = \case
-      (ElementStateValue (Attribute name) (Left b)) -> "attribute" <+> pretty name <> "=" <> if b then "true" else "false"
-      (ElementStateValue (Attribute name) (Right t)) -> "attribute" <+> pretty name <> "=" <> dquotes (pretty t)
-      (ElementStateValue (Property name) value) -> "property" <+> pretty name <+> "=" <+> pretty (JSON.encodeToLazyText value)
-      (ElementStateValue (CssValue name) value) -> "css" <+> braces (pretty name <> ":" <+> pretty value <> ";")
-      (ElementStateValue Text t) -> "text" <> "=" <> dquotes (pretty t)
-      (ElementStateValue Enabled b) -> if b then "enabled" else "disabled"
+      -- (ElementStateValue (Attribute name) (Left b)) -> "attribute" <+> pretty name <> "=" <> if b then "true" else "false"
+      (ElementStateValue (Attribute name) value) -> "attribute" <+> pretty name <> "=" <> prettyValue value
+      -- (ElementStateValue (Property name) value) -> "property" <+> pretty name <+> "=" <+> pretty (JSON.encodeToLazyText value)
+      (ElementStateValue (CssValue name) (VString t)) -> "css" <+> braces (pretty name <> ":" <+> pretty t <> ";")
+      (ElementStateValue Text value) -> "text" <> "=" <> prettyValue value
+      (ElementStateValue Enabled b) -> case b of VTrue -> "enabled"; VFalse -> "disabled"

@@ -9,7 +9,7 @@ module WTP.Specification where
 import Data.String (IsString)
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import WTP.Query
+import WTP.Element
 
 newtype Path = Path Text
   deriving (Show, IsString, Generic)

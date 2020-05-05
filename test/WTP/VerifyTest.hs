@@ -4,59 +4,46 @@
 
 module WTP.VerifyTest where
 
+import Algebra.Lattice (bottom, top, fromBool)
 import qualified Data.Aeson as JSON
-import qualified Data.Bool as Bool
 import qualified Data.HashMap.Strict as HashMap
 import Data.Text (Text)
 import Test.Tasty.Hspec
-import qualified WTP.Formula.Minimal as Minimal
-import qualified WTP.Formula.NNF as NNF
-import WTP.Formula.Syntax hiding ((===))
-import qualified WTP.Gen as Gen
+import WTP.Element
+import WTP.Formula.Syntax
 import WTP.Result
 import qualified WTP.Trace as Trace
-import Prelude hiding (Bool (..), not)
-import Algebra.Lattice (fromBool)
-import Test.QuickCheck hiding (Result, property)
-
+import WTP.Value
+import WTP.Verify
+import Prelude hiding (Bool (..), all, map, seq)
 
 assertMem :: Eq a => a -> [a] -> Result
 assertMem = (\c s -> fromBool (elem c s))
-
-verifyDOM :: Formula -> [Trace.ObservedState] -> Result
-verifyDOM f = NNF.verifyWith Trace.assertQuery (toNNF f)
-
-verifyNNF :: Eq a => NNF.FormulaWith (NNF.Negation a) -> [[a]] -> Result
-verifyNNF f = NNF.verifyWith assertMem f
 
 spec_verify :: Spec
 spec_verify = do
   describe "verify" $ do
     it "verifies with get and assertion" $ do
       let classList = JSON.toJSON ["foo", "bar" :: Text]
-      verifyDOM
-        ( (traverse (get (Property "classList")) =<< query "#some-element")
-            ≡ Just classList
-        )
+      verify
+        (_exists (query (map (property "classList") (all "#some-element"))) (\c -> c === json classList))
         [ Trace.ObservedState
             (HashMap.singleton "#some-element" [Element "a"])
             ( HashMap.singleton
                 (Element "a")
-                [Trace.ElementStateValue (Property "classList") classList]
+                [Trace.ElementStateValue (Property "classList") (VJson classList)]
             )
         ]
         `shouldBe` Accepted
     it "verifies with get and satisfy" $ do
-      verifyDOM
-        (queryAll "p" ⊢ ((== 2) . length))
+      verify
+        (query (all "p") ⊢ ((== 2) . length))
         [Trace.ObservedState (HashMap.singleton "p" [Element "a", Element "b"]) mempty]
         `shouldBe` Accepted
-    it "is True with (And True True)" $ do
-      verifyDOM (And True True) [Trace.ObservedState HashMap.empty mempty] `shouldBe` Accepted
-    it "is True with (Not False)" $ do
-      verifyDOM (Not False) [Trace.ObservedState HashMap.empty mempty] `shouldBe` Accepted
-    it "works with Until" $ do
-      verifyDOM (True `Until` True) [Trace.ObservedState mempty mempty, Trace.ObservedState mempty mempty] `shouldBe` Accepted
+    it "is top with (top /\\ top)" $ do
+      verify (top /\ top) [Trace.ObservedState HashMap.empty mempty] `shouldBe` Accepted
+    it "is top with (neg bottom)" $ do
+      verify (neg bottom) [Trace.ObservedState HashMap.empty mempty] `shouldBe` Accepted
     it "verifies button example" $ do
       let steps =
             [ Trace.ObservedState mempty mempty,
@@ -67,8 +54,8 @@ spec_verify = do
                     ]
                 )
                 ( HashMap.fromList
-                    [ (Element "7485ccda-3534-4f9d-9e0e-7bfccdf70abd", [Trace.ElementStateValue Enabled Bool.True]),
-                      (Element "f93eb8a0-3511-4a79-8cdf-eef9a8beb5b6", [Trace.ElementStateValue Text ""])
+                    [ (Element "7485ccda-3534-4f9d-9e0e-7bfccdf70abd", [Trace.ElementStateValue Enabled top]),
+                      (Element "f93eb8a0-3511-4a79-8cdf-eef9a8beb5b6", [Trace.ElementStateValue Text (VString "")])
                     ]
                 ),
               Trace.ObservedState
@@ -78,33 +65,14 @@ spec_verify = do
                     ]
                 )
                 ( HashMap.fromList
-                    [ (Element "7485ccda-3534-4f9d-9e0e-7bfccdf70abd", [Trace.ElementStateValue Enabled Bool.False]),
-                      (Element "f93eb8a0-3511-4a79-8cdf-eef9a8beb5b6", [Trace.ElementStateValue Text "Boom!"])
+                    [ (Element "7485ccda-3534-4f9d-9e0e-7bfccdf70abd", [Trace.ElementStateValue Enabled top]),
+                      (Element "f93eb8a0-3511-4a79-8cdf-eef9a8beb5b6", [Trace.ElementStateValue Text (VString "Boom!")])
                     ]
                 )
             ]
-      let buttonIsEnabled enabled = do
-            (traverse (get Enabled) =<< query "button") ≡ Just enabled
-          messageIs message =
-            (traverse (get Text) =<< query ".message") ≡ Just message
-          property =
-            Eventually
-              ( buttonIsEnabled Bool.True
-                  `Until` (messageIs "Boom!" ∧ buttonIsEnabled Bool.False)
-              )
-      verifyDOM property steps `shouldBe` Accepted
-  describe "NNF and Minimal equivalence" $ do
-    it "works for Always True" $ do
-      let f = Always True
-          s = ["a"]
-      verifyNNF (toNNF f) s `shouldBe` Minimal.verify (simplify f) s
-
-prop_minimal_and_nnf_equivalent :: Property
-prop_minimal_and_nnf_equivalent = withMaxSuccess 1000 $ forAll ((,) <$> Gen.anySyntax <*> Gen.nonEmpty Gen.trace) $ \(syntax, s) -> do
-  -- NNF
-  let nnf = toNNF syntax
-  let r1 = verifyNNF nnf s
-  -- Minimal
-  let minimal = simplify syntax
-  let r2 = Minimal.verifyWith assertMem minimal s
-  r1 === r2
+      let buttonIsEnabled = query (enabled (one "button"))
+          messageIs message = query (text (one ".message")) === message
+          prop =
+            buttonIsEnabled
+              \/ always (messageIs "Boom!" /\ buttonIsEnabled)
+      verify prop steps `shouldBe` Accepted

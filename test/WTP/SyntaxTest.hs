@@ -2,7 +2,6 @@
 module WTP.SyntaxTest where
 
 import WTP.Formula.Syntax hiding ((===))
-import qualified WTP.Formula.NNF as NNF
 import qualified WTP.Gen as Gen
 import Prelude hiding (Bool (..), not)
 import Test.QuickCheck ((.||.), (===), forAll, listOf, withMaxSuccess)

@@ -2,54 +2,34 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 
-module WTP.NNFTest where
+module WTP.LogicTest where
 
 import Algebra.Lattice
-import qualified Data.List as List
-import Test.QuickCheck ((===), forAll, listOf, withMaxSuccess)
+import Test.QuickCheck ((===), forAll, listOf)
 import Test.Tasty.Hspec
-import qualified WTP.Formula.NNF as NNF
+import qualified WTP.Formula.Logic as Logic
 import WTP.Formula.Syntax hiding ((===))
 import qualified WTP.Gen as Gen
 import WTP.Result
+import WTP.Verify
 import Prelude hiding (Bool (..), not)
-
-verifyNNF :: NNF.FormulaWith (NNF.Negation Char) -> [String] -> Result
-verifyNNF f = NNF.verifyWith (\c s -> fromBool (c `elem` s)) f
 
 spec_nnf :: Spec
 spec_nnf =
-  describe "NNF" $ do
+  describe "Logic" $ do
     let testFormula formula input result =
-          let nnf = (toNNF formula)
-           in it (show input <> " ⊢ " <> show formula <> " (" <> show nnf <> ")") $
-                verifyNNF nnf input `shouldBe` result
-    describe "Next" $ do
-      let isLast = Not (Next (And True True))
-      testFormula isLast ["a"] Accepted
+          let f = (Logic.simplify formula)
+           in it (show input <> " ⊢ " <> show formula <> " (" <> show f <> ")") $
+                verify f input `shouldBe` result
     describe "Always" $ do
-      testFormula (Always True) ["a"] Accepted
-      testFormula (Always True) [] Rejected
-    describe "Until" $ do
-      testFormula (Until (Assert 'a') (Assert 'b')) ["a", "b", "c"] Accepted
-      testFormula (Until (Assert 'a') (Assert 'b')) ["a", "b"] Accepted
-    describe "Release" $ do
-      testFormula (Release False True) [] Rejected
-      testFormula (Release True True) [] Rejected
-      testFormula (Release True False) ["a"] Rejected
-      testFormula (Release True True) ["a"] Accepted
-      testFormula (Release False True) ["a"] Accepted
-      testFormula (Release False False) ["a"] Rejected
-      testFormula (Release (Assert 'b') (Assert 'a')) ["a", "ab", "b"] Accepted
+      testFormula (always top) [mempty] Accepted
+      testFormula (always top) [] Rejected
 
-prop_nnf_always = forAll ((,) <$> Gen.anySyntax <*> Gen.trace) $ \(p, trace) -> do
-  verifyNNF (toNNF (Always p)) trace === verifyNNF (toNNF (False `Release` p)) trace
+prop_logic_always = forAll ((,) <$> Gen.trueSyntax <*> Gen.trace) $ \(p, trace) -> do
+  verify (Logic.simplify (always p)) trace === Accepted
 
-prop_nnf_any_true = forAll ((,) <$> Gen.trueSyntax (pure 'a') <*> (map (List.nub . ("a" <>)) <$> Gen.nonEmpty Gen.trace)) $ \(p, trace) -> do
-  let nnf = (toNNF p)
-  Accepted === verifyNNF nnf trace
-
-prop_nnf_any_false = forAll ((,) <$> Gen.falseSyntax Gen.variable <*> Gen.nonEmpty (listOf (pure []))) $ \(p, trace) -> do
-    let nnf = (toNNF p)
-    Rejected === verifyNNF nnf trace
+prop_logic_any_false = forAll ((,) <$> Gen.falseSyntax <*> Gen.nonEmpty (listOf (pure mempty))) $ \(p, trace) -> do
+    let p' = (Logic.simplify p)
+    Rejected === verify p' trace

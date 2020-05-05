@@ -23,10 +23,7 @@ newtype Element = Element {ref :: Text}
 
 data ElementState (a :: WTP.Type) where
   Attribute :: Text -> ElementState 'WTP.String
-  {- TODO: Enable this once JSON interaction is figured out
-
-        Property :: Text -> ElementState JSON.Value
-  -}
+  Property :: Text -> ElementState 'WTP.Json
   CssValue :: Text -> ElementState 'WTP.String
   Text :: ElementState 'WTP.String
   Enabled :: ElementState 'WTP.Bool

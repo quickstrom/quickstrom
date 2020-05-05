@@ -1,84 +1,59 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE LambdaCase #-}
 
 module WTP.Formula.Logic where
 
-import Data.Set (Set)
 import Data.Text (Text)
 import WTP.Element
-import WTP.Result
+import WTP.Value
 import qualified WTP.Type as WTP
 import Prelude hiding (False, True, not)
 import Algebra.Lattice (Lattice(..), BoundedMeetSemiLattice(..), BoundedJoinSemiLattice(..))
 import Algebra.Heyting (Heyting(..))
+import Data.String (IsString(..))
+import qualified Data.Text as Text
+import Data.Typeable (Typeable)
+import qualified Data.Aeson as JSON
 
-data Negation a = Neg a | Pos a
-  deriving (Eq, Show, Functor, Foldable, Traversable)
+data Literal t where
+  LTrue :: Literal 'WTP.Bool
+  LFalse :: Literal 'WTP.Bool
+  LString :: Text -> Literal 'WTP.String
+  LJson :: JSON.Value -> Literal 'WTP.Json
 
-withAtomic :: (a -> b) -> Negation a -> b
-withAtomic f (Neg a) = f a
-withAtomic f (Pos a) = f a
+deriving instance Eq (Literal t)
+deriving instance Show (Literal t)
 
-data FValue (t :: WTP.Type) where
-  VTrue :: FValue 'WTP.Bool
-  VFalse :: FValue 'WTP.Bool
-  VString :: Text -> FValue 'WTP.String
-  VElement :: Element -> FValue 'WTP.Element
-  VSet :: Set (FValue a) -> FValue ('WTP.Set a)
-  VSeq :: [FValue a] -> FValue ('WTP.Seq a)
-
-instance Lattice (FValue 'WTP.Bool) where
-  VTrue /\ p = p
-  p /\ VTrue = p
-  VFalse /\ _ = VFalse
-  _ /\ VFalse = VFalse
-
-  VFalse \/ p = p
-  p \/ VFalse = p
-  _ \/ _ = p
-
-instance BoundedJoinSemiLattice (FValue 'WTP.Bool) where
-  bottom = VFalse
-
-instance BoundedMeetSemiLattice (FValue 'WTP.Bool) where
-  top = VTrue
-
-instance Heyting (FValue 'WTP.Bool) where
-  VFalse ==> _ = VTrue
-  VTrue ==> q = q
-
-deriving instance Show (FValue t)
-
-deriving instance Eq (FValue t)
+data Query t where
+  QueryOne :: Selector -> Query 'WTP.Element
+  QueryAll :: Selector -> Query ('WTP.Seq 'WTP.Element)
+  Get :: ElementState a -> Query 'WTP.Element -> Query a
+  Map :: (Query a -> Query b) -> Query ('WTP.Seq a) -> Query ('WTP.Seq b)
 
 data Formula t where
-  Literal :: FValue a -> Formula a
+  Literal :: Literal a -> Formula a
+  Set :: [Formula a] -> Formula ('WTP.Set a)
+  Seq :: [Formula a] -> Formula ('WTP.Seq a)
   Not :: Formula 'WTP.Bool -> Formula 'WTP.Bool
   And :: Formula 'WTP.Bool -> Formula 'WTP.Bool -> Formula 'WTP.Bool
   Or :: Formula 'WTP.Bool -> Formula 'WTP.Bool -> Formula 'WTP.Bool
   Always :: Formula 'WTP.Bool -> Formula 'WTP.Bool
+  Query :: Typeable a => Query a -> Formula a
+  Equals :: (a ~ b, Typeable a, Typeable b) => Formula a -> Formula b -> Formula 'WTP.Bool
   -- ForAll :: Formula (Set a) -> (FValue a -> Formula Bool) -> Formula Bool
-  Get :: ElementState a -> Formula 'WTP.Element -> Formula a
-  Equals :: a ~ b => Formula a -> Formula b -> Formula 'WTP.Bool
-  Query :: Selector -> Formula ('WTP.Seq 'WTP.Element)
 
-deriving instance Show (Formula t)
+  Apply :: (FValue a -> FValue b) -> Formula a -> Formula b
+
+instance IsString (Formula 'WTP.String) where
+  fromString = Literal . LString . Text.pack
 
 type Proposition = Formula 'WTP.Bool
 
@@ -87,10 +62,10 @@ instance Lattice Proposition where
   (\/) = Or
 
 instance BoundedJoinSemiLattice Proposition where
-  bottom = Literal VFalse
+  bottom = Literal LFalse
 
 instance BoundedMeetSemiLattice Proposition where
-  top = Literal VTrue
+  top = Literal LTrue
 
 instance Heyting Proposition where
   p ==> q = Not p `Or` q
@@ -99,45 +74,32 @@ simplify :: Formula a -> Formula a
 simplify = \case
   And p q ->
     case (simplify p, simplify q) of
-      (_, Literal VFalse) -> Literal VFalse
-      (Literal VFalse, _) -> Literal VFalse
-      (p', Literal VTrue) -> p'
-      (Literal VTrue, p') -> p'
+      (_, Literal LFalse) -> Literal LFalse
+      (Literal LFalse, _) -> Literal LFalse
+      (p', Literal LTrue) -> p'
+      (Literal LTrue, p') -> p'
       (p', q') -> And p' q'
   Or p q ->
     case (simplify p, simplify q) of
-      (_, Literal VTrue) -> Literal VTrue
-      (Literal VTrue, _) -> Literal VTrue
-      (p', Literal VFalse) -> p'
-      (Literal VFalse, p') -> p'
+      (_, Literal LTrue) -> Literal LTrue
+      (Literal LTrue, _) -> Literal LTrue
+      (p', Literal LFalse) -> p'
+      (Literal LFalse, p') -> p'
       (p', q') -> Or p' q'
-  Not (Literal VFalse) -> Literal VTrue
-  Not (Literal VTrue) -> Literal VFalse
+  Not (Literal LFalse) -> Literal LTrue
+  Not (Literal LTrue) -> Literal LFalse
   Not (Not p) -> simplify p
   p -> p
 
-eval :: Formula a -> [step] -> FValue a
-eval f steps = case f of
-  Literal v -> v
-  Not p -> neg (eval p steps)
-  Literal v -> v
-  Literal v -> v
-  Literal v -> v
-
-verify :: Formula 'WTP.Bool -> [step] -> Result
-verify _ _ = Accepted
-{-
-go
-  where
-    go _ [] = Rejected
-    go True _ = Accepted
-    go False _ = Rejected
-    go (p `Or` q) trace = go p trace \/ go q trace
-    go (p `And` q) trace = go p trace /\ go q trace
-    go (Always p) trace = go p trace /\ go p (tail trace)
-    go (Equals f1 f2) (current : _) =
-      case a of
-        Pos a' -> assert a' current
-        Neg a' -> neg (assert a' current)
-
--}
+withQueries :: Monad m => (forall a. Typeable a => Query a -> m b) -> Formula c -> m [b]                                                                  
+withQueries f = \case
+  Literal{} -> pure []
+  Set ps -> concat <$> traverse (withQueries f) ps
+  Seq ps -> concat <$> traverse (withQueries f) ps
+  Not p -> withQueries f p
+  And p q -> (<>) <$> withQueries f p <*> withQueries f q
+  Or p q -> (<>) <$> withQueries f p <*> withQueries f q
+  Always p -> withQueries f p
+  Equals p q -> (<>) <$> withQueries f p <*> withQueries f q
+  Query query -> pure <$> f query
+  Apply _ p -> withQueries f p

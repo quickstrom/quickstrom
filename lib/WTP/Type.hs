@@ -5,5 +5,6 @@ data Type
   = Bool 
   | String
   | Element
+  | Json
   | Set Type
   | Seq Type

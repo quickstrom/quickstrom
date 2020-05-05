@@ -1,4 +1,3 @@
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
@@ -6,6 +5,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
@@ -18,6 +18,7 @@
 
 module WTP.Trace
   ( ElementStateValue (..),
+    findElementState,
     ObservedState (..),
     Trace (..),
     ActionResult (..),
@@ -43,6 +44,7 @@ import qualified Data.HashMap.Strict as HashMap
 import Data.Hashable (Hashable)
 import qualified Data.List as List
 import Data.Ord (comparing)
+import qualified Data.Set as Set
 import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
@@ -51,11 +53,10 @@ import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
 import Type.Reflection
 import WTP.Element
-import WTP.Formula.Logic
-import qualified WTP.Type as WTP
+import WTP.Value
 import WTP.Specification (Action (..), Path (..), Selected (..))
+import qualified WTP.Type as WTP
 import Prelude hiding (Bool (..), not)
-import qualified Data.Set as Set
 
 data ElementStateValue where
   ElementStateValue :: forall (a :: WTP.Type). Typeable a => ElementState a -> FValue a -> ElementStateValue
@@ -87,22 +88,6 @@ instance Semigroup ObservedState where
 
 instance Monoid ObservedState where
   mempty = ObservedState mempty mempty
-
-runQueryInState :: ObservedState -> Formula a -> Formula a
-runQueryInState ObservedState {queriedElements, elementStates} =
-  id
-  {-
-  run
-    . interpret
-      ( \case
-          Query selector -> case HashMap.lookup selector queriedElements of
-            Just (a : _) -> pure (Just a)
-            _ -> pure Nothing
-          Get state element' ->
-            let states = fromMaybe mempty (HashMap.lookup element' elementStates)
-             in pure (fromJust (findElementState state states))
-      )
-      -}
 
 newtype Trace ann = Trace [TraceElement ann]
   deriving (Show, Generic)
@@ -145,7 +130,7 @@ prettyValue = \case
   VElement e -> "element" <+> parens (pretty e)
   VSet vs -> encloseSep lbrace rbrace comma (map prettyValue (Set.toList vs))
   VSeq vs -> encloseSep lparen rparen comma (map prettyValue vs)
-
+  VJson json -> pretty (show json)
 
 prettyAction :: Action Selected -> Doc AnsiStyle
 prettyAction = \case
@@ -172,7 +157,7 @@ prettyTrace (Trace elements') = vsep (zipWith prettyElement [1 ..] elements')
       TraceAction effect action result ->
         let annotation = case result of
               ActionSuccess -> effect `stutterColorOr` Blue <> bold
-              ActionFailed{} -> effect `stutterColorOr` Red <> bold
+              ActionFailed {} -> effect `stutterColorOr` Red <> bold
               ActionImpossible -> color Yellow <> bold
          in annotate annotation (pretty i <> "." <+> prettyAction action)
       TraceState effect state -> annotate (effect `stutterColorOr` Blue <> bold) (pretty i <> "." <+> "State") <> line <> indent 2 (prettyObservedState state)
@@ -216,6 +201,7 @@ prettyObservedState state =
     prettyElementStateValue = \case
       -- (ElementStateValue (Attribute name) (Left b)) -> "attribute" <+> pretty name <> "=" <> if b then "true" else "false"
       (ElementStateValue (Attribute name) value) -> "attribute" <+> pretty name <> "=" <> prettyValue value
+      (ElementStateValue (Property name) value) -> "property" <+> pretty name <> "=" <> prettyValue value
       -- (ElementStateValue (Property name) value) -> "property" <+> pretty name <+> "=" <+> pretty (JSON.encodeToLazyText value)
       (ElementStateValue (CssValue name) (VString t)) -> "css" <+> braces (pretty name <> ":" <+> pretty t <> ";")
       (ElementStateValue Text value) -> "text" <> "=" <> prettyValue value

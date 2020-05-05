@@ -18,16 +18,12 @@ import Control.Applicative ((<|>))
 import Control.Lens
 import Control.Monad ((>=>))
 import Control.Monad (filterM)
-import qualified Control.Monad.Freer as Eff
-import Control.Monad.Freer (Eff)
-import Control.Monad.Freer.Writer (Writer, runWriter, tell)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Morph (MFunctor (hoist))
 import Control.Monad.State (StateT (runStateT))
 import Control.Monad.Trans.Class (MonadTrans)
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import Control.Monad.Trans.Identity (IdentityT)
-import Control.Natural (type (~>))
 import qualified Data.Aeson as JSON
 import Data.Bifunctor (Bifunctor (bimap))
 import Data.Either (partitionEithers)
@@ -37,7 +33,7 @@ import qualified Data.HashMap.Strict as HashMap
 import Data.HashMap.Strict (HashMap)
 import Data.Hashable (Hashable)
 import Data.List (nub)
-import Data.Maybe (catMaybes, fromMaybe, listToMaybe)
+import Data.Maybe (listToMaybe, catMaybes, fromMaybe)
 import qualified Data.Text as Text
 import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
@@ -46,17 +42,21 @@ import System.Random (StdGen, getStdGen)
 import qualified Test.QuickCheck as QuickCheck
 import qualified Test.Tasty as Tasty
 import Test.Tasty.HUnit (assertFailure, testCase)
-import qualified WTP.Formula.NNF as NNF
-import qualified WTP.Formula.Syntax as Syntax
-import WTP.Query
+import qualified WTP.Formula.Logic as Logic
 import WTP.Result
+import WTP.Value
 import WTP.Specification
 import WTP.Trace
+import WTP.Element
+import WTP.Verify
 import Web.Api.WebDriver hiding (Action, Selector, assertFailure, hPutStrLn, runIsolated)
+import Control.Monad.Writer (tell, runWriterT, WriterT)
+import Algebra.Lattice (fromBool)
+import Data.Typeable (Typeable)
 
 type Runner = StateT StdGen (WebDriverTT IdentityT IO)
 
-testSpecifications :: [(Text, Specification Syntax.Formula)] -> Tasty.TestTree
+testSpecifications :: [(Text, Specification Logic.Proposition)] -> Tasty.TestTree
 testSpecifications specs =
   Tasty.testGroup "WTP specifications" [testCase (Text.unpack name) (test spec) | (name, spec) <- specs]
 
@@ -66,7 +66,7 @@ type TestResult = Either FailingTest ()
 
 data CheckResult = CheckSuccess | CheckFailure {failedAfter :: Int, failingTest :: FailingTest}
 
-test :: Specification Syntax.Formula -> IO ()
+test :: Specification Logic.Proposition -> IO ()
 test spec = do
   stdGen <- getStdGen
   let numTests = 20
@@ -95,9 +95,9 @@ test spec = do
       runSingle size >>= \case
         Right {} -> runAll sizes (succ n)
         Left failingTest -> pure (CheckFailure n failingTest)
-    spec' = spec & field @"property" %~ Syntax.toNNF
+    spec' = spec & field @"property" %~ Logic.simplify
 
-shrinkFailing :: Specification NNF.Formula -> [Action Selected] -> Int -> Runner (Maybe TestResult)
+shrinkFailing :: Specification Logic.Proposition -> [Action Selected] -> Int -> Runner (Maybe TestResult)
 shrinkFailing spec original n
   | n <= 100 = do
     logInfoWD . renderString $ "Shrink #" <> pretty n <> "..."
@@ -113,11 +113,10 @@ shrinkFailing spec original n
           (trace, Rejected) -> (<|> Just (Left (FailingTest n trace))) <$> shrinkFailing spec actions (succ n)
     shrink = QuickCheck.shrinkList shrinkAction
 
-runAndVerify :: Specification NNF.Formula -> [Action Selected] -> Runner (Trace (), Result)
+runAndVerify :: Specification Logic.Proposition -> [Action Selected] -> Runner (Trace (), Result)
 runAndVerify spec actions = do
-  let verify trace = NNF.verifyWith assertQuery (property spec) (trace ^.. observedStates)
   trace <- runActions spec actions
-  pure (trace, verify trace)
+  pure (trace, verify (property spec) (trace ^.. observedStates))
 
 -- TODO?
 shrinkAction :: Action sel -> [Action sel]
@@ -146,7 +145,7 @@ validActions actions = do
         choices -> do
           pure (Just (ctor . Selected sel <$> QuickCheck.elements (map fst choices)))
 
-genActions :: Specification NNF.Formula -> Int -> Runner [Action Selected]
+genActions :: Specification Logic.Proposition -> Int -> Runner [Action Selected]
 genActions spec maxNum = do
   navigateToOrigin spec
   go []
@@ -172,7 +171,7 @@ navigateToOrigin :: Specification formula -> Runner ()
 navigateToOrigin spec = case origin spec of
   Path path -> lift (navigateTo (Text.unpack path))
 
-runActions :: Specification NNF.Formula -> [Action Selected] -> Runner (Trace ())
+runActions :: Specification Logic.Proposition -> [Action Selected] -> Runner (Trace ())
 runActions spec actions = do
   -- lift breakpointsOn
   navigateToOrigin spec
@@ -180,13 +179,13 @@ runActions spec actions = do
   rest <- concat <$> traverse runActionAndObserve actions
   pure (Trace (initial : rest))
   where
-    queries = NNF.withQueries runQuery (property spec)
+    queries = Logic.withQueries runQuery (property spec)
     runActionAndObserve action = do
       result <- runAction action
       s <- observe
       pure [TraceAction () action result, s]
     observe = do
-      values <- Eff.runM queries
+      values <- queries
       let (queriedElements, elementStates) =
             bimap groupUniqueIntoMap groupUniqueIntoMap (partitionEithers (concat values))
       pure (TraceState () (ObservedState {queriedElements, elementStates}))
@@ -276,9 +275,6 @@ setSessionId ::
   S WDState
 setSessionId x st = st {_userState = (_userState st) {_sessionId = x}}
 
-findMaybe :: Selector -> Runner (Maybe ElementRef)
-findMaybe = fmap listToMaybe . findAll
-
 findSelected :: Selected -> Runner (Maybe ElementRef)
 findSelected (Selected s i) =
   findAll s >>= \case
@@ -288,6 +284,9 @@ findSelected (Selected s i) =
 
 findAll :: Selector -> Runner [ElementRef]
 findAll (Selector s) = lift (findElements CssSelector (Text.unpack s))
+
+findMaybe :: Selector -> Runner (Maybe ElementRef)
+findMaybe = fmap listToMaybe . findAll
 
 toRef :: Element -> ElementRef
 toRef (Element ref) = ElementRef (Text.unpack ref)
@@ -302,34 +301,36 @@ type QueriedElement = (Selector, Element)
 
 type QueriedElementState = (Element, ElementStateValue)
 
-runQuery :: Eff '[Query] a -> Eff '[Runner] [Either QueriedElement QueriedElementState]
+runQuery :: Typeable a => Logic.Query a -> Runner [Either QueriedElement QueriedElementState]
 runQuery query' =
   fmap snd
-    $ runWriter
-    $ Eff.reinterpret2 go query'
+    $ runWriterT
+    $ go query'
   where
-    go :: Query ~> Eff '[Writer [Either (Selector, Element) (Element, ElementStateValue)], Runner]
+    go :: Typeable a => Logic.Query a -> WriterT [Either (Selector, Element) (Element, ElementStateValue)] Runner (FValue a)
     go =
       ( \case
-          Query selector -> do
-            el <- fmap fromRef <$> Eff.sendM (findMaybe selector)
+          Logic.QueryOne selector -> do
+            el <- fmap fromRef <$> lift (findMaybe selector)
             case el of
               Just el' -> tell [Left (selector, el') :: Either QueriedElement QueriedElementState]
               Nothing -> pure ()
-            pure el
-          QueryAll selector -> do
-            els <- fmap fromRef <$> Eff.sendM (findAll selector)
+            pure (VElement el)
+          Logic.QueryAll selector -> do
+            els <- fmap fromRef <$> lift (findAll selector)
             tell ((Left . (selector,) <$> els) :: [Either QueriedElement QueriedElementState])
-            pure els
-          Get state el -> do
-            value <- Eff.sendM $ case state of
-              Attribute name -> fmap Text.pack <$> lift (getElementAttribute (Text.unpack name) (toRef el))
-              Property name -> lift (getElementProperty (Text.unpack name) (toRef el))
-              CssValue name -> Text.pack <$> lift (getElementCssValue (Text.unpack name) (toRef el))
-              Text -> Text.pack <$> lift (getElementText (toRef el))
-              Enabled -> lift (isElementEnabled (toRef el))
-            tell [Right (el, ElementStateValue state value) :: Either QueriedElement QueriedElementState]
-            pure value
+            pure (VSeq (map VElement els))
+          Logic.Get state sub ->
+            go sub >>= \case
+              VElement el -> do
+                value <- lift $ case state of
+                  Attribute name -> (VString . either (const name) Text.pack) <$> lift (getElementAttribute (Text.unpack name) (toRef el))
+                  Property name -> VJson <$> lift (getElementProperty (Text.unpack name) (toRef el))
+                  CssValue name -> VString . Text.pack <$> lift (getElementCssValue (Text.unpack name) (toRef el))
+                  Text -> VString . Text.pack <$> lift (getElementText (toRef el))
+                  Enabled -> fromBool <$> lift (isElementEnabled (toRef el))
+                tell [Right (el, ElementStateValue state value) :: Either QueriedElement QueriedElementState]
+                pure value
       )
 
 logInfo :: MonadIO m => String -> m ()

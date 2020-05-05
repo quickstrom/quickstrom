@@ -1,96 +1,106 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 module WTP.Gen where
 
-import qualified Data.Bool as Bool
-import Test.QuickCheck
-import WTP.Formula.Syntax
+import Algebra.Lattice (BoundedMeetSemiLattice (top), bottom)
+import qualified Data.Text as Text
+import Data.Text (Text)
+import Test.QuickCheck hiding ((===), (==>))
+import WTP.Element
+import WTP.Formula.Syntax hiding (map)
+import WTP.Trace
+import qualified WTP.Type as WTP
 import Prelude hiding (Bool (..))
+import Data.String (IsString(fromString))
 
-variable :: Gen Char
-variable = elements ['a'..'c']
+selector :: Gen Selector
+selector = elements (map (Selector . Text.singleton) ['a' .. 'c'])
 
-trace :: Gen [String]
-trace = listOf (listOf variable)
+stringValues :: Gen Text
+stringValues = elements ["s1", "s2", "s3"]
+
+observedState :: Gen ObservedState
+observedState = ObservedState <$> pure mempty <*> pure mempty -- TODO
+
+trace :: Gen [ObservedState]
+trace = listOf observedState
 
 nonEmpty :: Gen [a] -> Gen [a]
 nonEmpty = flip suchThat (Prelude.not . null)
 
-anySyntax :: Gen (FormulaWith Char)
+stringFormula :: Gen (Formula 'WTP.String)
+stringFormula = fromString . Text.unpack <$> stringValues
+
+anySyntax :: Gen (Formula 'WTP.Bool)
 anySyntax = sized syntax'
   where
-    syntax' :: Int -> Gen (FormulaWith Char)
+    syntax' :: Int -> Gen (Formula 'WTP.Bool)
     syntax' 0 =
       oneof
-        [ pure True,
-          pure False,
-          Assert <$> variable
+        [ pure top,
+          pure bottom
         ]
     syntax' n =
       let subterm = syntax' (n `div` 2)
        in oneof
-            [ Not <$> subterm,
-              And <$> subterm <*> subterm,
-              Or <$> subterm <*> subterm,
-              Until <$> subterm <*> subterm,
-              Implies <$> subterm <*> subterm,
-              Equivalent <$> subterm <*> subterm,
-              Always <$> subterm,
-              Eventually <$> subterm,
-              Next <$> subterm
+            [ neg <$> subterm,
+              (/\) <$> subterm <*> subterm,
+              (\/) <$> subterm <*> subterm,
+              (==>) <$> subterm <*> subterm,
+              (<=>) <$> subterm <*> subterm,
+              (===) <$> subterm <*> subterm,
+              (===) <$> stringFormula <*> stringFormula,
+              always <$> subterm
             ]
 
-trueSyntax :: Gen Char -> Gen (FormulaWith Char)
-trueSyntax genVariable = sized syntax'
+trueSyntax :: Gen (Formula 'WTP.Bool)
+trueSyntax = sized syntax'
   where
-    syntax' :: Int -> Gen (FormulaWith Char)
+    syntax' :: Int -> Gen (Formula 'WTP.Bool)
     syntax' 0 =
       oneof
-        [ pure True,
-          Assert <$> genVariable
+        [ pure top
         ]
     syntax' n =
       let subterm = syntax' (n `div` 2)
        in oneof
-            [ And <$> subterm <*> subterm,
-              Or <$> subterm <*> subterm,
-              Until <$> subterm <*> subterm,
-              Implies <$> subterm <*> subterm,
-              Equivalent <$> subterm <*> subterm,
-              Always <$> subterm,
-              Eventually <$> subterm
+            [ (/\) <$> subterm <*> subterm,
+              (\/) <$> subterm <*> subterm,
+              (==>) <$> subterm <*> subterm,
+              (<=>) <$> subterm <*> subterm,
+              always <$> subterm
             ]
 
-falseSyntax :: Gen Char -> Gen (FormulaWith Char)
-falseSyntax genVariable = sized syntax'
+falseSyntax :: Gen (Formula 'WTP.Bool)
+falseSyntax = sized syntax'
   where
-    syntax' :: Int -> Gen (FormulaWith Char)
+    syntax' :: Int -> Gen (Formula 'WTP.Bool)
     syntax' 0 =
-      oneof
-        [ pure False,
-          Assert <$> genVariable
-        ]
+      oneof [ pure bottom ]
     syntax' n =
       let subterm = syntax' (n `div` 2)
        in oneof
-            [ And <$> subterm <*> subterm,
-              Or <$> subterm <*> subterm,
-              Until <$> subterm <*> subterm,
-              Always <$> subterm,
-              Eventually <$> subterm
+            [ (/\) <$> subterm <*> subterm,
+              (\/) <$> subterm <*> subterm,
+              (==>) <$> subterm <*> subterm,
+              (<=>) <$> subterm <*> subterm,
+              always <$> subterm
             ]
 
-simpleConnectivesSyntax :: Gen (FormulaWith Char)
+simpleConnectivesSyntax :: Gen (Formula 'WTP.Bool)
 simpleConnectivesSyntax = sized syntax'
   where
-    syntax' :: Int -> Gen (FormulaWith Char)
+    syntax' :: Int -> Gen (Formula 'WTP.Bool)
     syntax' 0 =
       oneof
-        [ pure True,
-          pure False
+        [ pure top,
+          pure bottom
         ]
     syntax' n =
       let subterm = syntax' (n `div` 2)
        in oneof
-            [ Not <$> subterm,
-              And <$> subterm <*> subterm,
-              Or <$> subterm <*> subterm
+            [ neg <$> subterm,
+              (/\) <$> subterm <*> subterm,
+              (\/) <$> subterm <*> subterm
             ]

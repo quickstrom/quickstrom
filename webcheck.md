@@ -123,10 +123,11 @@ sequences, and sets.
         true.
 -   Finally, user operators are defined at the top level:
     
-    `p(x1, x2, ..., xN) = q`
-    : defines the operator `p`, with arguments `x1`, `x2`, and so on,
-      to equal `q`. An operator with no arguments can be defined
-      without parentheses as `p = q`.
+    `o(x1, x2, ..., xN) = p`
+    : defines the operator `o`, with arguments `x1`, `x2`, and so on,
+      to equal `p`. An operator with no arguments can be defined
+      without parentheses as `o = p`. Operators cannot be self-recursive or
+      mutually recursive.
 
 # Example: Deleting Drafts
 

@@ -1,30 +1,35 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ExplicitNamespaces #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 
 module WTP.Formula.Logic where
 
-import Data.Text (Text)
-import WTP.Element
-import Prelude hiding (False, True, not)
-import Algebra.Lattice (Lattice(..), BoundedMeetSemiLattice(..), BoundedJoinSemiLattice(..))
-import Algebra.Heyting (Heyting(..))
-import Data.String (IsString(..))
-import qualified Data.Text as Text
-import Data.Typeable (Typeable)
+import Algebra.Heyting (Heyting (..))
+import Algebra.Lattice (BoundedJoinSemiLattice (..), BoundedMeetSemiLattice (..), Lattice (..))
+import Control.Monad.Freer (Eff, reinterpret, run, runM, sendM, type (~>))
+import Control.Monad.Freer.State (State, modify, put, runState)
+import Control.Monad.Freer.Writer (Writer, runWriter, tell)
 import qualified Data.Aeson as JSON
 import Data.HashSet (HashSet)
 import Data.Hashable (Hashable)
-import Control.Monad.Freer (Eff)
+import Data.String (IsString (..))
+import Data.Text (Text)
+import qualified Data.Text as Text
+import Data.Typeable (Typeable)
+import WTP.Element
+import Prelude hiding (False, True, not)
 
 data Literal t where
   LTrue :: Literal Bool
@@ -34,6 +39,7 @@ data Literal t where
   LJson :: JSON.Value -> Literal JSON.Value
 
 deriving instance Eq (Literal t)
+
 deriving instance Show (Literal t)
 
 type IsValue a = (Eq a, Show a, Typeable a)
@@ -45,12 +51,32 @@ data QueryF t where
 newtype Query a = Query (Eff '[QueryF] a)
   deriving (Functor, Applicative, Monad)
 
+instance Show (Query a) where
+  show q = Text.unpack ("[" <> Text.intercalate ", " (renderQuery q) <> "]")
+
+renderQuery :: Query a -> [Text]
+renderQuery (Query eff) = snd (run (runWriter (reinterpret go eff)))
+  where
+    go :: QueryF ~> Eff '[Writer [Text]]
+    go = \case
+      Get state (Element ref') -> do
+        tell ["Get (" <> Text.pack (show state) <> ") (" <> ref' <> ")"]
+        pure $ case state of
+          Property _ -> JSON.Null
+          Attribute _ -> mempty
+          CssValue _ -> mempty
+          Text -> mempty
+          Enabled -> bottom
+      QueryAll (Selector selector) -> do
+        tell ["QueryAll " <> selector]
+        pure []
+
 type Set = HashSet
 
 data Formula t where
   Literal :: Literal a -> Formula a
   Set :: (IsValue a, Hashable a) => [Formula a] -> Formula (Set a)
-  Seq :: [Formula a] -> Formula [a]
+  Seq :: IsValue a => [Formula a] -> Formula [a]
   Not :: Formula Bool -> Formula Bool
   And :: Formula Bool -> Formula Bool -> Formula Bool
   Or :: Formula Bool -> Formula Bool -> Formula Bool
@@ -61,6 +87,19 @@ data Formula t where
 
   MapFormula :: (a -> b) -> Formula a -> Formula b
 
+instance Show (Formula a) where
+  show = \case
+    Literal l -> show l
+    Set ps -> show ps
+    Seq ps -> show ps
+    Not p -> "(Not " <> show p <> ")"
+    And p q -> "(And " <> show p <> " " <> show q <> ")"
+    Or p q -> "(Or " <> show p <> " " <> show q <> ")"
+    Always p -> "(Always " <> show p <> ")"
+    BindQuery q -> "(BindQuery " <> show q <> ")"
+    Equals p q -> "(Equals " <> show p <> " " <> show q <> ")"
+    MapFormula _ p -> "(MapFormula _ " <> show p <> ")"
+
 instance Functor Formula where
   fmap = MapFormula
 
@@ -70,7 +109,9 @@ instance IsString (Formula Text) where
 type Proposition = Formula Bool
 
 instance Lattice Proposition where
+
   (/\) = And
+
   (\/) = Or
 
 instance BoundedJoinSemiLattice Proposition where
@@ -81,6 +122,7 @@ instance BoundedMeetSemiLattice Proposition where
 
 instance Heyting Proposition where
   p ==> q = Not p `Or` q
+  neg = Not
 
 simplify :: Formula a -> Formula a
 simplify = \case
@@ -98,14 +140,16 @@ simplify = \case
       (p', Literal LFalse) -> p'
       (Literal LFalse, p') -> p'
       (p', q') -> Or p' q'
-  Not (Literal LFalse) -> Literal LTrue
-  Not (Literal LTrue) -> Literal LFalse
-  Not (Not p) -> simplify p
+  Not p ->
+    case simplify p of
+      Literal LFalse -> Literal LTrue
+      Literal LTrue -> Literal LFalse
+      p' -> Not p'
   p -> p
 
-withQueries :: (Monad m, IsValue b) => (forall q. IsValue q => Query q -> m b) -> Formula a -> m [b]                                                                  
+withQueries :: (Monad m, IsValue b) => (forall q. IsValue q => Query q -> m b) -> Formula a -> m [b]
 withQueries f = \case
-  Literal{} -> pure []
+  Literal {} -> pure []
   Set ps -> concat <$> traverse (withQueries f) ps
   Seq ps -> concat <$> traverse (withQueries f) ps
   Not p -> withQueries f p

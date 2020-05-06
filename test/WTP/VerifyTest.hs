@@ -7,6 +7,7 @@ module WTP.VerifyTest where
 import Algebra.Lattice (bottom, top)
 import qualified Data.Aeson as JSON
 import qualified Data.HashMap.Strict as HashMap
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Test.Tasty.Hspec
 import WTP.Element
@@ -15,17 +16,17 @@ import WTP.Result
 import qualified WTP.Trace as Trace
 import WTP.Verify
 import Prelude hiding (Bool (..), all, map, seq)
-import Data.Maybe (fromMaybe)
 
+verify' :: Proposition -> [Trace.ObservedState] -> Result
+verify' = flip verify
 
-spec_verify' :: Spec
-spec_verify' = do
-  let verify' = flip verify
-  describe "verify'" $ do
+spec_verify :: Spec
+spec_verify = do
+  describe "verify" $ do
     it "verifies with get and assertion" $ do
       let classList = JSON.toJSON ["foo", "bar" :: Text]
       verify'
-        (_exists (query (qtraverse (property "classList") (all "#some-element"))) (\c -> c === json classList))
+        ((query (fromMaybe (JSON.Array mempty) <$> (traverse (property "classList") =<< one "#some-element"))) === json classList)
         [ Trace.ObservedState
             (HashMap.singleton "#some-element" [Element "a"])
             ( HashMap.singleton
@@ -45,8 +46,7 @@ spec_verify' = do
       verify' (neg bottom) [Trace.ObservedState HashMap.empty mempty] `shouldBe` Accepted
     it "verifies button example" $ do
       let steps =
-            [ Trace.ObservedState mempty mempty,
-              Trace.ObservedState
+            [ Trace.ObservedState
                 ( HashMap.fromList
                     [ (Selector ".message", [Element "f93eb8a0-3511-4a79-8cdf-eef9a8beb5b6"]),
                       (Selector "button", [Element "7485ccda-3534-4f9d-9e0e-7bfccdf70abd"])
@@ -64,14 +64,14 @@ spec_verify' = do
                     ]
                 )
                 ( HashMap.fromList
-                    [ (Element "7485ccda-3534-4f9d-9e0e-7bfccdf70abd", [Trace.ElementStateValue Enabled top]),
+                    [ (Element "7485ccda-3534-4f9d-9e0e-7bfccdf70abd", [Trace.ElementStateValue Enabled bottom]),
                       (Element "f93eb8a0-3511-4a79-8cdf-eef9a8beb5b6", [Trace.ElementStateValue Text "Boom!"])
                     ]
                 )
             ]
-      let buttonIsEnabled = fromMaybe bottom <$> query (qtraverse enabled (one "button"))
-          messageIs message = query (qtraverse text (one ".message")) === (Just <$> message)
+      let buttonIsEnabled = fromMaybe bottom <$> query (traverse enabled =<< one "button")
+          messageIs message = query (traverse text =<< one ".message") === (Just <$> message)
           prop =
-            buttonIsEnabled
-              \/ always (messageIs "Boom!" /\ buttonIsEnabled)
+            -- TODO: define actions using primed queries
+            always (buttonIsEnabled \/ (messageIs "Boom!" /\ neg buttonIsEnabled))
       verify' prop steps `shouldBe` Accepted

@@ -47,7 +47,8 @@ buttonSpec =
       actions =
         [(1, [Click "button"])],
       proposition =
-        always (buttonIsEnabled \/ (".message" `hasText` "Boom!" /\ neg buttonIsEnabled))
+        always (buttonIsEnabled \/ neg buttonIsEnabled)
+        -- always (buttonIsEnabled \/ (".message" `hasText` "Boom!" /\ neg buttonIsEnabled))
           -- buttonIsEnabled `until` (".message" `hasText` "Boom!" /\ neg buttonIsEnabled)
     }
 

@@ -24,6 +24,7 @@ import WTP.Trace
 import Control.Monad.Freer (sendM, reinterpret, Eff, runM, type (~>))
 
 eval :: [ObservedState] -> Formula a -> Maybe a
+eval [] (Always _) = Just True
 eval [] _ = Nothing
 eval steps@(current : rest) f = case f of
   Literal LTrue -> pure top
@@ -36,9 +37,7 @@ eval steps@(current : rest) f = case f of
   Not p -> neg <$> eval steps p
   p `And` q -> (/\) <$> eval steps p <*> eval steps q
   p `Or` q -> (\/) <$> eval steps p <*> eval steps q
-  Always p
-    | null steps -> pure True
-    | otherwise -> (/\) <$> eval steps p <*> eval rest (Always p)
+  Always p -> (/\) <$> eval steps p <*> eval rest (Always p)
   Equals p q -> do
     p' <- eval steps p
     q' <- eval steps q
@@ -60,8 +59,4 @@ evalQuery current (Query eff) = runM (reinterpret go eff)
           _ -> pure mempty
 
 verify :: [ObservedState] -> Proposition -> Result
-verify trace formula =
-  case eval trace formula of
-    Just True -> Accepted
-    Just False -> Rejected
-    Nothing -> Rejected
+verify trace formula = fromBool (fromMaybe top (eval trace formula))

@@ -8,9 +8,8 @@ import qualified Data.Text as Text
 import Data.Text (Text)
 import Test.QuickCheck hiding ((===), (==>))
 import WTP.Element
-import WTP.Formula.Syntax hiding (map)
+import WTP.Formula.Syntax
 import WTP.Trace
-import qualified WTP.Type as WTP
 import Prelude hiding (Bool (..))
 import Data.String (IsString(fromString))
 
@@ -29,13 +28,13 @@ trace = listOf observedState
 nonEmpty :: Gen [a] -> Gen [a]
 nonEmpty = flip suchThat (Prelude.not . null)
 
-stringFormula :: Gen (Formula 'WTP.String)
+stringFormula :: Gen (Formula Text)
 stringFormula = fromString . Text.unpack <$> stringValues
 
-anySyntax :: Gen (Formula 'WTP.Bool)
+anySyntax :: Gen Proposition
 anySyntax = sized syntax'
   where
-    syntax' :: Int -> Gen (Formula 'WTP.Bool)
+    syntax' :: Int -> Gen Proposition
     syntax' 0 =
       oneof
         [ pure top,
@@ -54,10 +53,10 @@ anySyntax = sized syntax'
               always <$> subterm
             ]
 
-trueSyntax :: Gen (Formula 'WTP.Bool)
+trueSyntax :: Gen Proposition
 trueSyntax = sized syntax'
   where
-    syntax' :: Int -> Gen (Formula 'WTP.Bool)
+    syntax' :: Int -> Gen Proposition
     syntax' 0 =
       oneof
         [ pure top
@@ -72,10 +71,10 @@ trueSyntax = sized syntax'
               always <$> subterm
             ]
 
-falseSyntax :: Gen (Formula 'WTP.Bool)
+falseSyntax :: Gen Proposition
 falseSyntax = sized syntax'
   where
-    syntax' :: Int -> Gen (Formula 'WTP.Bool)
+    syntax' :: Int -> Gen Proposition
     syntax' 0 =
       oneof [ pure bottom ]
     syntax' n =
@@ -83,15 +82,13 @@ falseSyntax = sized syntax'
        in oneof
             [ (/\) <$> subterm <*> subterm,
               (\/) <$> subterm <*> subterm,
-              (==>) <$> subterm <*> subterm,
-              (<=>) <$> subterm <*> subterm,
               always <$> subterm
             ]
 
-simpleConnectivesSyntax :: Gen (Formula 'WTP.Bool)
+simpleConnectivesSyntax :: Gen Proposition
 simpleConnectivesSyntax = sized syntax'
   where
-    syntax' :: Int -> Gen (Formula 'WTP.Bool)
+    syntax' :: Int -> Gen Proposition
     syntax' 0 =
       oneof
         [ pure top,

@@ -1,11 +1,14 @@
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module WTP.SyntaxTest where
 
-import WTP.Formula.Syntax hiding ((===))
+import WTP.Formula.Syntax hiding ((===), property)
+import WTP.Formula.Logic
 import qualified WTP.Gen as Gen
-import Prelude hiding (Bool (..), not)
-import Test.QuickCheck ((.||.), (===), forAll, listOf, withMaxSuccess)
+import Test.QuickCheck ((.||.), (===), forAll, listOf, withMaxSuccess, counterexample, property)
 
 prop_simple_connectives_reduce = forAll Gen.simpleConnectivesSyntax $ \s -> do
-    let nnf = toNNF s
-    nnf === NNF.True .||. nnf === NNF.False 
+    case simplify s of
+        Literal LTrue -> property True
+        Literal LFalse -> property True
+        s' -> counterexample (show s') (property False)

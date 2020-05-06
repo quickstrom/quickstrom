@@ -66,7 +66,7 @@ test-suite wtp-test
   main-is:            Main.hs
   hs-source-dirs:     test
   other-modules:      WTP.Gen
-                    , WTP.NNFTest
+                    , WTP.LogicTest
                     , WTP.SyntaxTest
                     , WTP.VerifyTest
   build-depends:      base

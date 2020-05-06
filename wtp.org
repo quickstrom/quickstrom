@@ -1,13 +1,14 @@
 #+TITLE: WebCheck
 #+AUTHOR: Oskar Wickström
 #+STARTUP: latexpreview
+#+LATEX_CMD: xelatex
 #+LATEX_HEADER_EXTRA:\usepackage{libertine}
 #+LATEX_HEADER_EXTRA:\usepackage{inconsolata}
 
 * Introduction
 
 This is a design document for my web testing platform, tentatively
-named $\hbox{WebCheck}$. It describes the motivation and design of a temporal
+named /WebCheck/. It describes the motivation and design of a temporal
 logic used to specify the behavior of web applications. Further, it
 describes the design of tools used to check that web applications
 satisfy such specifications.
@@ -15,9 +16,20 @@ satisfy such specifications.
 * Temporal Logic of Web Applications
 
 In WebCheck, the behavior of a web application is specified using the
-/temporal logic of web applications/ (TLWA).  It's a first-order
+Temporal Logic of Web Applications (TLWA).  It's a first-order
 temporal logic, heavily inspired by TLA+ and LTL, most notably adding
-web-specific operators. Let's have a look at what if offers!
+web-specific operators.
+
+Like in TLA+, specifications in TLWA are based on state machines. A
+/behavior/ is a sequence of states. A /step/ is a tuple of two
+successive states in a behavior. A specification describes valid
+/behaviors/ of a web application in terms of valid states and
+transitions between states.
+
+In TLWA, a syntactic form is called a /formula/, and every formula
+evalutes to a /value/. A /proposition/ is a boolean formula, evaluating
+to either true or false. Formulae can also evaluate to text, numbers,
+sequences, and sets.
 
 ** Syntax
 
@@ -30,9 +42,9 @@ web-specific operators. Let's have a look at what if offers!
     - ~p \/ q~ :: is the logical OR, also known as /logical disjunction/, of ~p~ and ~q~.
 - From first-order logic, we have the universal and existential
   quantifiers:
-    - ~forall x in S : p~ :: is true if for all ~x~ in the set ~S~ the
+    - ~forall x in S: p~ :: is true if for all ~x~ in the set ~S~ the
          proposition ~p~ holds (universal quantification).
-    - ~exists x in S : p~ :: is true if for at least one ~x~ in the
+    - ~exists x in S: p~ :: is true if for at least one ~x~ in the
          set ~S~ the proposition ~p~ holds (existential
          quantification).
 - The temporal operators affects the temporal mode of a proposition:
@@ -55,7 +67,7 @@ web-specific operators. Let's have a look at what if offers!
        comma-separated forms (~x1~, ~x2~, and so on).
   - ~[x1, x2, ..., xN]~ :: defines a sequence containing values
        of the comma-separated forms (~x1~, ~x2~, and so on).
-  - ~{x in S : y}~ :: defines a set including each ~x~ in the set ~S~ where ~y~ is true.
+  - ~{x in S: y}~ :: defines a set including each ~x~ in the set ~S~ where ~y~ is true.
 
 ** Example: Deleting Drafts
    

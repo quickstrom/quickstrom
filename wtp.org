@@ -4,6 +4,7 @@
 #+LATEX_CMD: xelatex
 #+LATEX_HEADER_EXTRA:\usepackage{libertine}
 #+LATEX_HEADER_EXTRA:\usepackage{inconsolata}
+#+LATEX_HEADER_EXTRA:\usepackage{listings}
 
 * Introduction
 
@@ -90,14 +91,14 @@ These are the only two valid actions when in the /confirming/ state.
 *** A Specification using TLWA
 
 The following formula defines the ~confirming~ state as the existence
-of an element `e` returned by querying the current DOM for the CSS
+of an element ~e~ returned by querying the current DOM for the CSS
 selector `.confirm`, that is visible and has the text content "Are you
 sure?".
 
-#+BEGIN_SRC
+#+BEGIN_SRC python
 confirming == 
   exists e in query(".confirm"):
-    e.visible \/ e.text = "Are you sure?"
+    e.visible or e.text = "Are you sure?"
 #+END_SRC
 
 We also need the checkbox elements in the DOM:

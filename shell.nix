@@ -10,6 +10,12 @@ let
   ghcide = (import (builtins.fetchTarball
     "https://github.com/cachix/ghcide-nix/tarball/master") { }).${"ghcide-${compiler}"};
 
+  fonts = with pkgs; [
+    libre-baskerville
+    iosevka
+    opensans-ttf
+  ];
+
   wtp = pkgs.haskell.lib.justStaticExecutables (pkgs.haskell.lib.dontHaddock
     (haskellPackages.callCabal2nix "wtp" ./. {
     }));
@@ -28,5 +34,8 @@ in haskellPackages.shellFor {
     chromium
     chromedriver
   ]);
+  FONTCONFIG_FILE = pkgs.makeFontsConf {
+    fontDirectories = fonts;
+  };
 }
 

@@ -5,6 +5,6 @@ cabal.project.local
 *.hi
 
 
-/ltximg
-/wtp.pdf
-/wtp.tex
+/webcheck.pdf
+/webcheck.tex
+/webcheck.html

@@ -1,17 +1,56 @@
-#+TITLE: Web Testing Platform
+#+TITLE: WebCheck
 #+AUTHOR: Oskar Wickström
 #+STARTUP: latexpreview
-...
+#+LATEX_HEADER_EXTRA:\usepackage{libertine}
 
-** Temporal Logic of Web Applications
+* Introduction
 
-*TODO:* explain the temporal logic of web applications (TLWA),
-including:
+This is a design document for my web testing platform, tentatively
+named $\hbox{WebCheck}$. It describes the motivation and design of a temporal
+logic used to specify the behavior of web applications. Further, it
+describes the design of tools used to check that web applications
+satisfy such specifications.
 
-- Propositional logic atoms and connectives: $\mathit{true},
-  \mathit{false}, \lnot, \wedge, \vee$
-- First-order logic quantifiers: $\forall x : x, \exists x : x$
-- Web-specific operators: $=, \mathit{query}, \mathit{query'}, \mathit{.text}, \mathit{.attribute}, \mathit{.style}, \mathit{.visible}$
+* Temporal Logic of Web Applications
+
+In WebCheck, the behavior of a web application is specified using the
+/temporal logic of web applications/ (TLWA).  It's a first-order
+temporal logic, heavily inspired by TLA+ and LTL, most notably adding
+web-specific operators. Let's have a look at what if offers!
+
+** Syntax
+
+- From propositional logic we have the atoms and the logical
+  connectives:
+    - $\mathit{true}$ :: A proposition that is true.
+    - $\mathit{false}$ :: A proposition that is false.
+    - $\lnot$ :: The unary operator /not/.
+    - $\wedge$ :: The binary /and/ operator, also known as /logical conjunction/.
+    - $\vee$ :: The binary /or/ operator, also known as /logical disjunction/.
+- From first-order logic, we have the universal and existential
+  quantifiers:
+    - $\forall x : p$ :: Universal quantification, or /for all/.
+    - $\exists x : p$ :: Existential quantification, or /there exists/.
+- The temporal operators affects the temporal mode of a proposition:
+    - $\mathit{next}\ p$ :: In the next state, the proposition $p$ must hold.
+    - $\mathit{always}\ p$ :: In all future states, including the current
+        state, the proposition $p$ must hold.
+- The web-specific operators allows for querying the DOM and the state
+  of DOM elements:
+    - $\mathit{query}(\mathit{selector})$ :: All elements in the DOM
+         matching a CSS selector.
+    - $\mathit{.text}$ :: Text content of an element.
+    - $\mathit{.attributes}(\mathit{name})$ :: Value of an element's attribute named $\mathit{name}$.
+    - $\mathit{.styles}(\mathit{name})$ :: Computed CSS value of an element's style named $\mathit{name}$.
+    - $\mathit{.visible}$ :: Is an element visible?
+- Sets and sequences are defined using literals, and set
+  comprehensions allow filtering sequences and sets into
+  new sets:
+  - $\{x_1, x_2, ..., x_n\}$ :: defines a set containing values of the
+       comma-separated forms ($x_1$, $x_2$, and so on)
+  - $[x_1, x_2, ..., x_n]$ :: defines a sequence containing values
+       of the comma-separated forms ($x_1$, $x_2$, and so on)
+  - $\{x \in S : y\}$ :: defines a set including each $x$ in the set $S$ where $y$ is true
 
 ** Example: Deleting Drafts
    
@@ -32,12 +71,7 @@ deletion is either:
 These are the only two valid actions when in the $\textit{confirming}$
 state.
 
-First, we'll use the TLWA to specify this system. It's a bit verbose
-and hard to decompose, but can accurately describe the valid state
-changes. In the next section, we'll use the $\circ$ (Next) operator
-from LTL instead. Let's get started!
-
-*** Using TLWA
+*** A Specification using TLWA
 
 The following formula defines the $\textit{confirming}$ state as the
 existence of an element $e$ returned by querying the current DOM for the
@@ -45,27 +79,25 @@ CSS selector $\mathtt{confirm}$, that is visible and has the text
 content "Are you sure?".
 
 \begin{equation}
-\mathit{confirming} = \exists e \in \mathit{query}(\mathtt{.confirm}) : \mathit{e}.\mathrm{visible} \wedge \mathit{e}.\mathrm{text} = \text{"Are you sure?"} \\
+\mathit{confirming} = \exists e \in \mathit{query}(\text{".confirm"}) : \mathit{e}.\mathrm{visible} \wedge \mathit{e}.\mathrm{text} = \text{"Are you sure?"} \\
 \end{equation}
 
-We also need a version of $\mathit{confirming}$ that instead refers to
-the next state. This is done using the primed querying operator
-$\mathit{query'}$.
+We also need the checkbox elements in the DOM:
 
 \begin{equation}
-\mathit{confirmingNext} = \exists e \in \mathit{query'}(\mathtt{.confirm}) : \mathit{e}.\mathrm{visible} \wedge \mathit{e}.\mathrm{text} = \text{"Are you sure?"} \\
+\mathit{checkboxes} = \mathit{query}(\text{".checkbox"})
 \end{equation}
 
-We can now define the $\mathit{cancel}$ action. It says that the set of
-drafts (or their checkboxes, rather) are the same in the current and
-next state, that the same checkboxes are checked, and that we're no
-longer $\mathit{confirming}$ in the next state.
+We can now define the $\mathit{cancel}$ action. It says that the set
+of drafts (or their checkboxes, rather) are the same in the current
+and next state, that the same checkboxes are checked, and that we're
+no longer $\mathit{confirming}$ in the next state.
 
 \begin{equation}
 \begin{aligned}
-\mathit{cancel} =\ & \mathit{query}(\mathtt{.checkbox}) = \mathit{query'}(\mathtt{.checkbox}) \\
-  & \wedge \{c \in \mathit{query}(\mathtt{.checkbox}) : \mathit{c}\mathit{.checked} \} = \{c \in \mathit{query'}(\mathtt{.checkbox}) : \mathit{c}\mathit{.checked} \} \\
-  & \wedge \lnot \mathit{confirmingNext} \\
+\mathit{cancel} =\ & \mathit{checkboxes} = \mathit{next}(\mathit{checkboxes}) \\
+  & \wedge \{c \in \mathit{checkboxes} : \mathit{c}\mathit{.checked} \} = \mathit{next}(\{c \in \mathit{checkboxes} : \mathit{c}\mathit{.checked} \}) \\
+  & \wedge \mathit{next}(\lnot \mathit{confirming}) \\
 \end{aligned}
 \end{equation}
 
@@ -75,113 +107,24 @@ and that we're no longer $\mathit{confirming}$ in the next state.
 
 \begin{equation}
 \begin{aligned}
-\mathit{confirm} =\ & \{c \in \mathit{query}(\mathtt{.checkbox}) : \lnot \mathit{c}\mathit{.checked} \} = \mathit{query'}(\mathtt{.checkbox}) \\
-  & \wedge \lnot \mathit{confirmingNext} \\
+\mathit{confirm} =\ & \{c \in \mathit{checkboxes} : \lnot \mathit{c}\mathit{.checked} \} = \mathit{next}(\mathit{checkboxes}) \\
+  & \wedge \mathit{next}(\lnot \mathit{confirming}) \\
 \end{aligned}
 \end{equation}
 
 Finally, we can compose our building blocks to define the safety
-property. At all times ($\square$), when we're confirming the deletion
-of selected drafts, we can either $\mathit{cancel}$ or
+property. At all times ($\mathit{always}$), when we're confirming the
+deletion of selected drafts, we can either $\mathit{cancel}$ or
 $\mathit{confirm}$.
 
 \begin{equation}
-\square (\mathit{confirming} \implies \mathit{cancel} \vee \mathit{confirm})
+\mathit{always} (\mathit{confirming} \implies \mathit{cancel} \vee \mathit{confirm})
 \end{equation}
 
-That's it.
+That's it. We've now specified the safety property of the draft deletion
+functionality using TLWA.
 
-*** Alternative: Using LTL's Next
-    
-Again, we're using the example of deleting drafts. But instead of
-using the concept of /actions/ borrowed from TLA, where one can talk
-about non-primed and primed variables, let's try using only the
-$\circ$ (Next) operator from linear temporal logic.
-
-The $\mathit{confirming}$ formula is exactly the same as before:
-
-\begin{equation}
-\mathit{confirming} = \exists e \in \mathit{query}(\mathtt{.confirm}) : \mathit{e}.\mathrm{visible} \wedge \mathit{e}.\mathrm{text} = \text{"Are you sure?"} \\
-\end{equation}
-
-But now, we can start breaking out reusable pieces of our queries. As
-we no longer have $\mathit{query}$ and $\mathit{query'}$, we don't
-need to otherwise duplicate the definitions in order to talk about the
-current and next state's queries. We instead use the $\circ$ operator
-and with our queries.
-
-The first query, $\mathit{all}$, gives us all checkboxes in the DOM.
-
-\begin{equation}
-\mathit{all} = \mathit{query}(\mathtt{.checkbox})
-\end{equation}
-
-Based on $\mathit{all}$, the $\mathit{checked}$ query is a set
-expression that filters out only the /checked/ elements.
-
-\begin{equation}
-\mathit{checked} = \{ c \in \mathit{all} : \mathit{c}\mathit{.checked} \}
-\end{equation}
-
-Conversely, $\mathit{unchecked}$ filters out only the /unchecked/
-elements.
-
-\begin{equation}
-\mathit{unchecked} = \{ c \in \mathit{all} : \lnot\mathit{c}\mathit{.checked} \}
-\end{equation}
-
-Next, we need to show that elements that are currently in the DOM are
-/preserved/, i.e. that they are still present in the DOM in the next
-state. This is where our approach breaks down a bit.
-
-We define the $\mathit{preserved}$ operator, asserting that all
-elements in the set $S$ are also present in $S$ in the next state. It
-does not, however, guarantee that no other elements are present in $S$
-in the next state.
-
-\begin{equation}
-\begin{aligned}
-\mathit{preserved}(S) =\ & \forall e \in S : \circ ( \exists e' \in S : e = e')
-\end{aligned}
-\end{equation}
-
-#+begin_quote
-*TODO:* Is it possible to do this sort of set equality
-when using the $\circ$ operator? I haven't figured out a way. Most LTL
-resources I've found talk about specific global variables, not about
-quantified sets of unknown values.
-#+end_quote
-
-Now that we have our queries and the operator for asserting that
-elements are preserved, we can formulate the $\mathit{cancel}$ action
-similarly as before:
-
-\begin{equation}
-\begin{aligned}
-\mathit{cancel} = & \mathit{preserved}(\mathit{checked}) \\
-  & \wedge \mathit{preserved}(\mathit{unchecked}) \\
-  & \wedge \circ\lnot\mathit{confirming} \\
-\end{aligned}
-\end{equation}
-
-The $\mathit{confirm}$ action is different. Here we say that all
-elements that are currently /checked/ must not be present in the next
-state.
-
-\begin{equation}
-\begin{aligned}
-\mathit{confirm} =\ & \forall e \in \mathit{checked} : \circ \lnot ( \exists e' \in \mathit{all} : e = e') \\
-  & \wedge \circ\lnot\mathit{confirming} \\
-\end{aligned}
-\end{equation}
-
-And as before, we define the safety property:
-
-\begin{equation}
-\square (\mathit{confirming} \implies \mathit{cancel} \vee \mathit{confirm})
-\end{equation}
-
-** Reading material
+* Reading material
 
 - [[http://santos.cs.ksu.edu/esscass04/papers/patterns-survey.pdf][LTL
   patterns survey]]

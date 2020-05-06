@@ -2,6 +2,7 @@
 #+AUTHOR: Oskar Wickström
 #+STARTUP: latexpreview
 #+LATEX_HEADER_EXTRA:\usepackage{libertine}
+#+LATEX_HEADER_EXTRA:\usepackage{inconsolata}
 
 * Introduction
 
@@ -22,35 +23,39 @@ web-specific operators. Let's have a look at what if offers!
 
 - From propositional logic we have the atoms and the logical
   connectives:
-    - $\mathit{true}$ :: A proposition that is true.
-    - $\mathit{false}$ :: A proposition that is false.
-    - $\lnot$ :: The unary operator /not/.
-    - $\wedge$ :: The binary /and/ operator, also known as /logical conjunction/.
-    - $\vee$ :: The binary /or/ operator, also known as /logical disjunction/.
+    - ~true~ :: is a proposition that is true.
+    - ~false~ :: is a proposition that is false.
+    - ~not(p)~ :: negates the proposition ~p~.
+    - ~p /\ q~ :: is the logical AND, also known as /logical conjunction/, of ~p~ and ~q~.
+    - ~p \/ q~ :: is the logical OR, also known as /logical disjunction/, of ~p~ and ~q~.
 - From first-order logic, we have the universal and existential
   quantifiers:
-    - $\forall x : p$ :: Universal quantification, or /for all/.
-    - $\exists x : p$ :: Existential quantification, or /there exists/.
+    - ~forall x in S : p~ :: is true if for all ~x~ in the set ~S~ the
+         proposition ~p~ holds (universal quantification).
+    - ~exists x in S : p~ :: is true if for at least one ~x~ in the
+         set ~S~ the proposition ~p~ holds (existential
+         quantification).
 - The temporal operators affects the temporal mode of a proposition:
-    - $\mathit{next}\ p$ :: In the next state, the proposition $p$ must hold.
-    - $\mathit{always}\ p$ :: In all future states, including the current
-        state, the proposition $p$ must hold.
+    - ~next(p)~ :: evalutes to the value of the formula ~p~ in the
+                   /next/ state. This operator cannot be nested, e.g. ~next(next(...))~.
+    - ~always(p)~ :: is true if the proposition $p$ is true in all
+         future states, including the current state.
 - The web-specific operators allows for querying the DOM and the state
   of DOM elements:
-    - $\mathit{query}(\mathit{selector})$ :: All elements in the DOM
+    - ~query(selector)~ :: is the sequence of all elements in the DOM
          matching a CSS selector.
-    - $\mathit{.text}$ :: Text content of an element.
-    - $\mathit{.attributes}(\mathit{name})$ :: Value of an element's attribute named $\mathit{name}$.
-    - $\mathit{.styles}(\mathit{name})$ :: Computed CSS value of an element's style named $\mathit{name}$.
-    - $\mathit{.visible}$ :: Is an element visible?
+    - ~element.text~  :: is the text content of an element.
+    - ~element.attributes(name)~ :: is the value of an element's attribute named ~name~.
+    - ~element.style(name)~ :: is the computed CSS value named ~name~ of an element.
+    - ~element.visible~ :: is true if element is visible.
 - Sets and sequences are defined using literals, and set
   comprehensions allow filtering sequences and sets into
   new sets:
-  - $\{x_1, x_2, ..., x_n\}$ :: defines a set containing values of the
-       comma-separated forms ($x_1$, $x_2$, and so on)
-  - $[x_1, x_2, ..., x_n]$ :: defines a sequence containing values
-       of the comma-separated forms ($x_1$, $x_2$, and so on)
-  - $\{x \in S : y\}$ :: defines a set including each $x$ in the set $S$ where $y$ is true
+  - ~{x1, x2, ..., xN}~ :: defines a set containing values of the
+       comma-separated forms (~x1~, ~x2~, and so on).
+  - ~[x1, x2, ..., xN]~ :: defines a sequence containing values
+       of the comma-separated forms (~x1~, ~x2~, and so on).
+  - ~{x in S : y}~ :: defines a set including each ~x~ in the set ~S~ where ~y~ is true.
 
 ** Example: Deleting Drafts
    
@@ -59,8 +64,8 @@ selects one or more drafts, by checking the corresponding checkboxes,
 and clicks "Delete". A confirmation dialog is shown, and the user can
 either cancel or confirm the deletion.
 
-We want to show that when drafts are selected for deletion and the user
-has clicked "Delete", entering the $\textit{confirming}$ state, the
+We want to show that when drafts are selected for deletion and the
+user has clicked "Delete", entering the /confirming/ state, the
 deletion is either:
 
 1. /cancelled/, meaning that no drafts are deleted, the same set of
@@ -68,58 +73,64 @@ deletion is either:
 2. /confirmed/, meaning that the set of selected drafts are deleted from
    the drafts list and that the confirmation dialog is hidden
 
-These are the only two valid actions when in the $\textit{confirming}$
-state.
+These are the only two valid actions when in the /confirming/ state.
 
 *** A Specification using TLWA
 
-The following formula defines the $\textit{confirming}$ state as the
-existence of an element $e$ returned by querying the current DOM for the
-CSS selector $\mathtt{confirm}$, that is visible and has the text
-content "Are you sure?".
+The following formula defines the ~confirming~ state as the existence
+of an element `e` returned by querying the current DOM for the CSS
+selector `.confirm`, that is visible and has the text content "Are you
+sure?".
 
-\begin{equation}
-\mathit{confirming} = \exists e \in \mathit{query}(\text{".confirm"}) : \mathit{e}.\mathrm{visible} \wedge \mathit{e}.\mathrm{text} = \text{"Are you sure?"} \\
-\end{equation}
+#+BEGIN_SRC
+confirming == 
+  exists e in query(".confirm"):
+    e.visible \/ e.text = "Are you sure?"
+#+END_SRC
 
 We also need the checkbox elements in the DOM:
 
-\begin{equation}
-\mathit{checkboxes} = \mathit{query}(\text{".checkbox"})
-\end{equation}
+#+BEGIN_SRC
+checkboxes == query(".drafts input[type=checkbox]")
+#+END_SRC
 
-We can now define the $\mathit{cancel}$ action. It says that the set
-of drafts (or their checkboxes, rather) are the same in the current
-and next state, that the same checkboxes are checked, and that we're
-no longer $\mathit{confirming}$ in the next state.
+And the checked and unchecked subsets of checkboxes:
 
-\begin{equation}
-\begin{aligned}
-\mathit{cancel} =\ & \mathit{checkboxes} = \mathit{next}(\mathit{checkboxes}) \\
-  & \wedge \{c \in \mathit{checkboxes} : \mathit{c}\mathit{.checked} \} = \mathit{next}(\{c \in \mathit{checkboxes} : \mathit{c}\mathit{.checked} \}) \\
-  & \wedge \mathit{next}(\lnot \mathit{confirming}) \\
-\end{aligned}
-\end{equation}
+#+BEGIN_SRC
+checked == { c in checkboxes : c.property("checked") }
 
-The $\mathit{confirm}$ action is the other possibility. It says that the
-resulting set of checkboxes is equal to the currently non-checked ones,
-and that we're no longer $\mathit{confirming}$ in the next state.
+unchecked == { c in checkboxes : not(c.property("checked")) }
+#+END_SRC
 
-\begin{equation}
-\begin{aligned}
-\mathit{confirm} =\ & \{c \in \mathit{checkboxes} : \lnot \mathit{c}\mathit{.checked} \} = \mathit{next}(\mathit{checkboxes}) \\
-  & \wedge \mathit{next}(\lnot \mathit{confirming}) \\
-\end{aligned}
-\end{equation}
+We can now define the ~cancel~ action. It says that the set of drafts
+(or their checkboxes, rather) are the same in the current and next
+state, that the same checkboxes are checked, and that we're no longer
+confirming in the next state.
+
+#+BEGIN_SRC
+cancel == 
+  checkboxes = next(checkboxes)
+  /\ checked = next(checked)
+  /\ next(not(confirming))
+#+END_SRC
+
+The ~confirm~ action is the other possibility. It says that the
+resulting set of checkboxes is equal to the currently non-checked
+ones, and that we're no longer confirming in the next state.
+
+#+BEGIN_SRC
+confirm == 
+  /\ unchecked = next(checkboxes)
+  /\ next(not(confirming))
+#+END_SRC
 
 Finally, we can compose our building blocks to define the safety
-property. At all times ($\mathit{always}$), when we're confirming the
-deletion of selected drafts, we can either $\mathit{cancel}$ or
-$\mathit{confirm}$.
+property. At all times (~always~), when we're confirming the deletion
+of selected drafts, we can either cancel or confirm.
 
-\begin{equation}
-\mathit{always} (\mathit{confirming} \implies \mathit{cancel} \vee \mathit{confirm})
-\end{equation}
+#+BEGIN_SRC
+always(confirming => cancel \/ confirm)
+#+END_SRC
 
 That's it. We've now specified the safety property of the draft deletion
 functionality using TLWA.

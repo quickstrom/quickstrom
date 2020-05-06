@@ -26,6 +26,6 @@ data Specification formula
   = Specification
       { origin :: Path,
         actions :: [(Int, ActionSequence Selector)],
-        property :: formula
+        proposition :: formula
       }
   deriving (Show, Generic)

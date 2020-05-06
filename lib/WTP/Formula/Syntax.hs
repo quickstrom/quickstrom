@@ -14,9 +14,15 @@
 module WTP.Formula.Syntax
   ( Literal,
     Formula,
+    Query,
     Proposition,
+    Element,
+    Selector,
     Lattice (..),
     Heyting (..),
+    top,
+    bottom,
+    num,
     json,
     always,
     seq,
@@ -28,60 +34,60 @@ module WTP.Formula.Syntax
     enabled,
     all,
     one,
-    map,
     query,
     (===),
   )
 where
 
-import Data.Text (Text)
-import Prelude hiding (seq, all, map)
 import Algebra.Heyting
 import Algebra.Lattice
+import qualified Data.Aeson as JSON
+import Data.Maybe (listToMaybe)
+import Data.Text (Text)
 import WTP.Element
 import WTP.Formula.Logic
-import qualified WTP.Type as WTP
-import Data.Typeable (Typeable)
-import qualified Data.Aeson as JSON
+import Prelude hiding (all, map, seq)
+import Data.Hashable (Hashable)
+import Control.Monad.Freer (send)
 
-json :: JSON.Value -> Formula 'WTP.Json
+num :: (Eq n, Show n, Num n) => n -> Formula n
+num = Literal . LNum
+
+json :: JSON.Value -> Formula JSON.Value
 json = Literal . LJson
 
-seq :: [Formula a] -> Formula ('WTP.Seq a)
+seq :: IsValue a => [Formula a] -> Formula [a]
 seq = Seq
 
-set :: [Formula a] -> Formula ('WTP.Set a)
+set :: (IsValue a, Hashable a) => [Formula a] -> Formula (Set a)
 set = Set
 
-always :: Formula 'WTP.Bool -> Formula 'WTP.Bool
+always :: Proposition -> Proposition
 always = Always
 
-attribute :: Text -> Query 'WTP.Element -> Query 'WTP.String
-attribute t = Get (Attribute t)
+attribute :: Text -> Element -> Query Text
+attribute t = Query . send . Get (Attribute t)
 
-property :: Text -> Query 'WTP.Element -> Query 'WTP.Json
-property t = Get (Property t)
+property :: Text -> Element -> Query JSON.Value
+property t = Query . send . Get (Property t)
 
-cssValue :: Text -> Query 'WTP.Element -> Query 'WTP.String
-cssValue t = Get (CssValue t)
+cssValue :: Text -> Element -> Query Text
+cssValue t = Query . send . Get (CssValue t)
 
-text :: Query 'WTP.Element -> Query 'WTP.String
-text = Get Text
+text :: Element -> Query Text
+text = Query . send . Get Text
 
-enabled :: Query 'WTP.Element -> Query 'WTP.Bool
-enabled = Get Enabled
+enabled :: Element -> Query Bool
+enabled = Query . send . Get Enabled
 
-all :: Selector -> Query ('WTP.Seq 'WTP.Element)
-all = QueryAll
+all :: Selector -> Query [Element]
+all = Query . send . QueryAll
 
-one :: Selector -> Query 'WTP.Element
-one = QueryOne
+one :: Selector -> Query (Maybe Element)
+one = fmap listToMaybe . all
 
-map :: (Query a -> Query b) -> Query ('WTP.Seq a)-> Query ('WTP.Seq b)
-map = Map
+query :: IsValue a => Query a -> Formula a
+query = BindQuery
 
-query :: Typeable a => Query a -> Formula a
-query = Query
-
-(===) :: Typeable a => Formula a -> Formula a -> Proposition
+(===) :: IsValue a => Formula a -> Formula a -> Proposition
 (===) = Equals

@@ -16,17 +16,17 @@ import Data.Text.Prettyprint.Doc
 import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
 import Type.Reflection
-import qualified WTP.Type as WTP
+import qualified Data.Aeson as JSON
 
 newtype Element = Element {ref :: Text}
   deriving (Eq, Ord, Show, Hashable, Pretty)
 
-data ElementState (a :: WTP.Type) where
-  Attribute :: Text -> ElementState 'WTP.String
-  Property :: Text -> ElementState 'WTP.Json
-  CssValue :: Text -> ElementState 'WTP.String
-  Text :: ElementState 'WTP.String
-  Enabled :: ElementState 'WTP.Bool
+data ElementState a where
+  Attribute :: Text -> ElementState Text
+  Property :: Text -> ElementState JSON.Value
+  CssValue :: Text -> ElementState Text
+  Text :: ElementState Text
+  Enabled :: ElementState Bool
 
 deriving instance Eq (ElementState a)
 

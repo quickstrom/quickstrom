@@ -44,7 +44,7 @@ library
                     , WTP.Run
                     , WTP.Specification
                     , WTP.Trace
-                    , WTP.Type
+                    , WTP.Verify
   hs-source-dirs:     lib
   default-language:   Haskell2010
   ghc-options:        -Wall -Werror=incomplete-patterns

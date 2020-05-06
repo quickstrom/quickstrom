@@ -1,3 +1,5 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE KindSignatures #-}
@@ -13,8 +15,6 @@ module WTP.Formula.Logic where
 
 import Data.Text (Text)
 import WTP.Element
-import WTP.Value
-import qualified WTP.Type as WTP
 import Prelude hiding (False, True, not)
 import Algebra.Lattice (Lattice(..), BoundedMeetSemiLattice(..), BoundedJoinSemiLattice(..))
 import Algebra.Heyting (Heyting(..))
@@ -22,40 +22,52 @@ import Data.String (IsString(..))
 import qualified Data.Text as Text
 import Data.Typeable (Typeable)
 import qualified Data.Aeson as JSON
+import Data.HashSet (HashSet)
+import Data.Hashable (Hashable)
+import Control.Monad.Freer (Eff)
 
 data Literal t where
-  LTrue :: Literal 'WTP.Bool
-  LFalse :: Literal 'WTP.Bool
-  LString :: Text -> Literal 'WTP.String
-  LJson :: JSON.Value -> Literal 'WTP.Json
+  LTrue :: Literal Bool
+  LFalse :: Literal Bool
+  LNum :: (Eq n, Show n, Num n) => n -> Literal n
+  LString :: Text -> Literal Text
+  LJson :: JSON.Value -> Literal JSON.Value
 
 deriving instance Eq (Literal t)
 deriving instance Show (Literal t)
 
-data Query t where
-  QueryOne :: Selector -> Query 'WTP.Element
-  QueryAll :: Selector -> Query ('WTP.Seq 'WTP.Element)
-  Get :: ElementState a -> Query 'WTP.Element -> Query a
-  Map :: (Query a -> Query b) -> Query ('WTP.Seq a) -> Query ('WTP.Seq b)
+type IsValue a = (Eq a, Show a, Typeable a)
+
+data QueryF t where
+  QueryAll :: Selector -> QueryF [Element]
+  Get :: IsValue a => ElementState a -> Element -> QueryF a
+
+newtype Query a = Query (Eff '[QueryF] a)
+  deriving (Functor, Applicative, Monad)
+
+type Set = HashSet
 
 data Formula t where
   Literal :: Literal a -> Formula a
-  Set :: [Formula a] -> Formula ('WTP.Set a)
-  Seq :: [Formula a] -> Formula ('WTP.Seq a)
-  Not :: Formula 'WTP.Bool -> Formula 'WTP.Bool
-  And :: Formula 'WTP.Bool -> Formula 'WTP.Bool -> Formula 'WTP.Bool
-  Or :: Formula 'WTP.Bool -> Formula 'WTP.Bool -> Formula 'WTP.Bool
-  Always :: Formula 'WTP.Bool -> Formula 'WTP.Bool
-  Query :: Typeable a => Query a -> Formula a
-  Equals :: (a ~ b, Typeable a, Typeable b) => Formula a -> Formula b -> Formula 'WTP.Bool
+  Set :: (IsValue a, Hashable a) => [Formula a] -> Formula (Set a)
+  Seq :: [Formula a] -> Formula [a]
+  Not :: Formula Bool -> Formula Bool
+  And :: Formula Bool -> Formula Bool -> Formula Bool
+  Or :: Formula Bool -> Formula Bool -> Formula Bool
+  Always :: Formula Bool -> Formula Bool
+  BindQuery :: IsValue a => Query a -> Formula a
+  Equals :: (a ~ b, IsValue a, IsValue b) => Formula a -> Formula b -> Formula Bool
   -- ForAll :: Formula (Set a) -> (FValue a -> Formula Bool) -> Formula Bool
 
-  Apply :: (FValue a -> FValue b) -> Formula a -> Formula b
+  MapFormula :: (a -> b) -> Formula a -> Formula b
 
-instance IsString (Formula 'WTP.String) where
+instance Functor Formula where
+  fmap = MapFormula
+
+instance IsString (Formula Text) where
   fromString = Literal . LString . Text.pack
 
-type Proposition = Formula 'WTP.Bool
+type Proposition = Formula Bool
 
 instance Lattice Proposition where
   (/\) = And
@@ -91,7 +103,7 @@ simplify = \case
   Not (Not p) -> simplify p
   p -> p
 
-withQueries :: Monad m => (forall a. Typeable a => Query a -> m b) -> Formula c -> m [b]                                                                  
+withQueries :: (Monad m, IsValue b) => (forall q. IsValue q => Query q -> m b) -> Formula a -> m [b]                                                                  
 withQueries f = \case
   Literal{} -> pure []
   Set ps -> concat <$> traverse (withQueries f) ps
@@ -101,5 +113,5 @@ withQueries f = \case
   Or p q -> (<>) <$> withQueries f p <*> withQueries f q
   Always p -> withQueries f p
   Equals p q -> (<>) <$> withQueries f p <*> withQueries f q
-  Query query -> pure <$> f query
-  Apply _ p -> withQueries f p
+  BindQuery query -> pure <$> f query
+  MapFormula _ p -> withQueries f p

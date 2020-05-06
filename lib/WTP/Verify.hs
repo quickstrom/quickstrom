@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -12,58 +14,54 @@ module WTP.Verify
 where
 
 import Algebra.Heyting (Heyting (..))
-import Algebra.Lattice (Lattice (..), fromBool)
+import Algebra.Lattice (Lattice (..), bottom, fromBool, top)
 import qualified Data.HashMap.Strict as HashMap
+import qualified Data.HashSet as HashSet
 import Data.Maybe (fromMaybe)
-import qualified Data.Set as Set
-import Data.Typeable (Typeable)
 import WTP.Formula.Logic
 import WTP.Result
 import WTP.Trace
-import qualified WTP.Type as WTP
-import WTP.Value
+import Control.Monad.Freer (sendM, reinterpret, Eff, runM, type (~>))
 
-eval :: Typeable a => Formula a -> [ObservedState] -> Maybe (FValue a)
-eval formula = go formula
-  where
-    go :: Typeable a => Formula a -> [ObservedState] -> Maybe (FValue a)
-    go _ [] = Nothing
-    go f steps@(current : rest) = case f of
-      Literal LTrue -> pure VTrue
-      Literal LFalse -> pure VFalse
-      Literal (LString t) -> pure (VString t)
-      Literal (LJson j) -> pure (VJson j)
-      Set ps -> VSet . Set.fromList <$> traverse (flip go steps) ps
-      Not p -> neg <$> go p steps
-      p `And` q -> (/\) <$> go p steps <*> go q steps
-      p `Or` q -> (\/) <$> go p steps <*> go q steps
-      Always p
-        | null steps -> pure VTrue
-        | otherwise -> (/\) <$> go p steps <*> go (Always p) rest
-      Equals p q -> do
-        p' <- go p steps
-        q' <- go q steps
-        pure (fromBool (p' == q'))
-      Query query -> evalQuery current query
+eval :: [ObservedState] -> Formula a -> Maybe a
+eval [] _ = Nothing
+eval steps@(current : rest) f = case f of
+  Literal LTrue -> pure top
+  Literal LFalse -> pure bottom
+  Literal (LNum n) -> pure n
+  Literal (LString t) -> pure t
+  Literal (LJson j) -> pure j
+  Set ps -> HashSet.fromList <$> traverse (eval steps) ps
+  Seq ps -> traverse (eval steps) ps
+  Not p -> neg <$> eval steps p
+  p `And` q -> (/\) <$> eval steps p <*> eval steps q
+  p `Or` q -> (\/) <$> eval steps p <*> eval steps q
+  Always p
+    | null steps -> pure True
+    | otherwise -> (/\) <$> eval steps p <*> eval rest (Always p)
+  Equals p q -> do
+    p' <- eval steps p
+    q' <- eval steps q
+    pure (fromBool (p' == q'))
+  BindQuery query -> evalQuery current query
+  MapFormula fn sub -> fn <$> eval steps sub
 
-evalQuery :: Typeable a => ObservedState -> Query a -> Maybe (FValue a)
-evalQuery current = go
+evalQuery :: ObservedState -> Query a -> Maybe a
+evalQuery current (Query eff) = runM (reinterpret go eff)
   where
-    go :: Typeable a => Query a -> Maybe (FValue a)
+    go :: QueryF ~> Eff '[Maybe]
     go = \case
-      Get state sub ->
-        go sub >>= \case
-          VElement el ->
-            let states = fromMaybe mempty (HashMap.lookup el (elementStates current))
-             in findElementState state states
+      Get state el -> do
+        let states = fromMaybe mempty (HashMap.lookup el (elementStates current))
+         in sendM (findElementState state states)
       QueryAll selector ->
         case HashMap.lookup selector (queriedElements current) of
-          Just es -> pure (VSeq (map VElement es))
-          _ -> pure (VSeq [])
+          Just es -> pure es
+          _ -> pure mempty
 
-verify :: Formula 'WTP.Bool -> [ObservedState] -> Result
-verify formula trace =
-  case eval formula trace of
-    Just VTrue -> Accepted
-    Just VFalse -> Rejected
+verify :: [ObservedState] -> Proposition -> Result
+verify trace formula =
+  case eval trace formula of
+    Just True -> Accepted
+    Just False -> Rejected
     Nothing -> Rejected

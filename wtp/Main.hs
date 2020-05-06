@@ -8,12 +8,12 @@
 
 module Main where
 
-import Prelude hiding (last, Bool(..))
+import Prelude hiding (last, Bool(..), all)
 import Control.Lens ((^?), ix)
-import Control.Monad.Freer (Eff)
 import Data.Aeson as JSON
 import qualified Data.Bool as Bool
 import Data.Function ((&))
+import Data.Functor ((<&>))
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as Text
 import Data.Text (Text)
@@ -40,42 +40,41 @@ main =
       ]
 
 -- Simple example: a button that can be clicked, which then shows a message
-buttonSpec :: Specification Formula
+buttonSpec :: Specification Proposition
 buttonSpec =
   Specification
-    { origin = Path ("file://" <> Text.pack cwd <> "/test/toggle.html"),
+    { origin = Path ("file://" <> Text.pack cwd <> "/test/button.html"),
       actions =
         [(1, [Click "button"])],
-      property =
-        Always buttonIsEnabled
-          \/ buttonIsEnabled `Until` (".message" `hasText` "Boom!" ∧ Not buttonIsEnabled)
+      proposition =
+        always (buttonIsEnabled \/ (".message" `hasText` "Boom!" /\ neg buttonIsEnabled))
+          -- buttonIsEnabled `until` (".message" `hasText` "Boom!" /\ neg buttonIsEnabled)
     }
 
-toggleSpec :: Specification Formula
+toggleSpec :: Specification Proposition
 toggleSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/toggle.html"),
       actions =
         [(1, [Click "button"])],
-      property =
+      proposition =
         let on = "button" `hasText` "Turn me off"
             off = "button" `hasText` "Turn me on"
-        in Always (on `Until` off \/ off `Until` on)
+        in always (on \/ off) -- TODO: primed versions to define actions
+        -- Used to be:
+        -- always (on `until` off \/ off `until` on)
     }
 
-draftsSpec :: Specification Formula
+draftsSpec :: Specification Proposition
 draftsSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/drafts.html"),
       actions =
-        [(1, [Click "button"])],
-      property =
-        let on = "button" `hasText` "Turn me off"
-            off = "button" `hasText` "Turn me on"
-        in Always (on `Until` off \/ off `Until` on)
+        [(1, [Click "button"])], 
+      proposition = top
     }
 
-commentFormSpec :: Specification Formula
+commentFormSpec :: Specification Proposition
 commentFormSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/comment-form.html"),
@@ -87,14 +86,15 @@ commentFormSpec =
         ],
       -- <> (KeyPress <$> ['\0' .. '\127'])
 
-      property =
-        let commentPosted = isVisible ".comment-display" ∧ commentIsValid ∧ Not (isVisible "form")
-            invalidComment = Not (isVisible ".comment-display") /\ isVisible "form"
-         in Always (isVisible "form")
-              \/ isVisible "form" `Until` (commentPosted \/ invalidComment)
+      proposition =
+        let commentPosted = isVisible ".comment-display" /\ commentIsValid /\ neg (isVisible "form")
+            invalidComment = neg (isVisible ".comment-display") /\ isVisible "form"
+         in always (isVisible "form")
+              \/ always (isVisible "form" \/ (commentPosted \/ invalidComment))
+              -- isVisible "form" `until` (commentPosted \/ invalidComment)
     }
 
-todoMvcSpec :: Specification Formula
+todoMvcSpec :: Specification Proposition
 todoMvcSpec =
   Specification
     { origin = Path ("http://todomvc.com/examples/angularjs/"),
@@ -103,60 +103,61 @@ todoMvcSpec =
           (1, [Click ".todoapp .filters a"]),
           (1, [Click ".todoapp button"])
         ],
-      property = isEmpty `Until` (Always (isEmpty \/ filterActive \/ filterCompleted \/ filterAll))
+      proposition = isEmpty \/ (always (isEmpty \/ filterActive \/ filterCompleted \/ filterAll))
     }
     where
-      isEmpty = currentFilter === Nothing
-      filterActive = currentFilter === Just Active /\ correctNumberItemsLeft
-      filterCompleted = currentFilter === Just Completed
-      filterAll = currentFilter === Just All
+      filterIs f = query ((== f) <$> currentFilter) /\ correctNumberItemsLeft
+      isEmpty = filterIs Nothing
+      filterActive = filterIs (Just Active)
+      filterCompleted = filterIs (Just Completed)
+      filterAll = filterIs (Just All)
 
 data Filter = All | Active | Completed
   deriving (Eq, Read, Show)
 
-currentFilter :: Eff '[Query] (Maybe Filter)
-currentFilter = (>>= (readMaybe . Text.unpack)) <$> (traverse (get Text) =<< query ".todoapp .filters .selected")
+currentFilter :: Query (Maybe Filter)
+currentFilter = (>>= (readMaybe . Text.unpack)) <$> (traverse text =<< one ".todoapp .filters .selected")
 
-numberChecked :: Eff '[Query] Int
+numberChecked :: Query Int
 numberChecked = do
   boxes <- todoCheckboxes
-  length . filter (== JSON.Bool Bool.True) <$> traverse (get (Property "checked")) boxes
+  length . filter (== JSON.Bool Bool.True) <$> traverse (property "checked") boxes
 
-numberUnchecked :: Eff '[Query] Int
+numberUnchecked :: Query Int
 numberUnchecked = do
   boxes <- todoCheckboxes
-  length . filter (/= JSON.Bool Bool.True) <$> traverse (get (Property "checked")) boxes
+  length . filter (/= JSON.Bool Bool.True) <$> traverse (property "checked") boxes
 
-todoCheckboxes :: Eff '[Query] [Element]
-todoCheckboxes = queryAll ".todoapp .todo-list input[type=checkbox]"
+todoCheckboxes :: Query [Element]
+todoCheckboxes = all ".todoapp .todo-list input[type=checkbox]"
 
-numberItemsLeft :: Eff '[Query] (Maybe Int)
+numberItemsLeft :: Query (Maybe Int)
 numberItemsLeft = do
-  t <- traverse (get Text) =<< query ".todoapp .todo-count strong"
+  t <- traverse text =<< one ".todoapp .todo-count strong"
   pure (t >>= parse)
   where
     parse = either (const Nothing) (Just . fst) . Text.decimal
 
-correctNumberItemsLeft :: Formula
+correctNumberItemsLeft :: Proposition
 correctNumberItemsLeft =
-  ((,) <$> numberUnchecked <*> numberItemsLeft) |- isCorrect
+  query (isCorrect <$> numberUnchecked <*> numberItemsLeft)
   where
-    isCorrect (n, t)
+    isCorrect n t
       | n > 0 = Just n == t
       | otherwise = t == Nothing
 
-buttonIsEnabled :: Formula
-buttonIsEnabled = (traverse (get Enabled) =<< query "button") ≡ Just Bool.True
+buttonIsEnabled :: Proposition
+buttonIsEnabled = fromMaybe bottom <$> query (traverse enabled =<< one "button")
 
-hasText :: Selector -> Text -> Formula
+hasText :: Selector -> Text -> Proposition
 hasText sel message =
-  (traverse (get Text) =<< query sel) ≡ Just message
+  (== Just message) <$> query (traverse text =<< one sel)
 
-isVisible :: Selector -> Formula
-isVisible sel = Not ((traverse (get (CssValue "display")) =<< query sel) ≡ Just "none")
+isVisible :: Selector -> Proposition
+isVisible sel = neg ((== Just "none") <$> query (traverse (cssValue "display") =<< one sel))
 
-commentIsValid :: Formula
-commentIsValid = (traverse (get Text) =<< query ".comment") ⊢ \case
+commentIsValid :: Proposition
+commentIsValid = query (traverse text =<< one ".comment") <&> \case
   Just t ->
     t
       & Text.splitOn ": "

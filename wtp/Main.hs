@@ -8,7 +8,7 @@
 
 module Main where
 
-import Control.Lens ((^?), ix)
+import Control.Lens ((^?), ix, lastOf)
 import Data.Aeson as JSON
 import qualified Data.Bool as Bool
 import Data.Function ((&))
@@ -17,7 +17,6 @@ import Data.Maybe (fromMaybe)
 import qualified Data.Text as Text
 import Data.Text (Text)
 import qualified Data.Text.Read as Text
-import qualified Debug.Trace as Debug
 import System.Directory
 import System.IO.Unsafe (unsafePerformIO)
 import qualified Test.Tasty as Tasty
@@ -25,7 +24,7 @@ import Text.Read (readMaybe)
 import qualified WTP.Run as WTP
 import WTP.Specification
 import WTP.Syntax
-import Prelude hiding (Bool (..), all, last)
+import Prelude hiding (Bool (..), all, init)
 
 cwd :: FilePath
 cwd = unsafePerformIO getCurrentDirectory
@@ -103,15 +102,22 @@ todoMvcSpec =
           (1, [Click ".todoapp .filters a"]),
           (1, [Click ".todoapp button"])
         ],
-      -- TODO(LOL): rewrite as a state machine
-      proposition = isEmpty \/ (always (isEmpty \/ filterActive \/ filterCompleted \/ filterAll))
+      proposition =
+        let filterIs f = query ((== f) <$> currentFilter)
+            items = query (all ".todo-list li")
+            isEmpty = filterIs Nothing /\ (null <$> items)
+            lastItemText = lastOf traverse <$> query (traverse text =<< all ".todo-list li label")
+            init = isEmpty
+            pendingText = inputValue ".new-todo"
+            enterBlank = pendingText === next pendingText -- TODO: stutter invariance!
+            enterText = neg (pendingText === next pendingText)
+            addNew =
+              pendingText === next lastItemText
+                /\ next (filterIs (Just All))
+                /\ next ((== Just "") <$> pendingText)
+         in init /\ (always (enterBlank \/ enterText \/ addNew))
     }
   where
-    filterIs f = query ((== f) <$> currentFilter) /\ correctNumberItemsLeft
-    isEmpty = filterIs Nothing
-    filterActive = filterIs (Just Active)
-    filterCompleted = filterIs (Just Completed)
-    filterAll = filterIs (Just All)
 
 data Filter = All | Active | Completed
   deriving (Eq, Read, Show)
@@ -153,6 +159,16 @@ buttonIsEnabled = fromMaybe bottom <$> query (traverse enabled =<< one "button")
 hasText :: Selector -> Text -> Proposition
 hasText sel message =
   (== Just message) <$> query (traverse text =<< one sel)
+
+inputValue :: Selector -> Formula (Maybe Text)
+inputValue sel =
+  query (traverse (property "value") =<< one sel)
+    <&> fmap fromJSON
+    <&> ( >>=
+            \case
+              JSON.Success a -> Just a
+              JSON.Error {} -> Nothing
+        )
 
 isVisible :: Selector -> Proposition
 isVisible sel = (== Just "block") <$> query (traverse (cssValue "display") =<< one sel)

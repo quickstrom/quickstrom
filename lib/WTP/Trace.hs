@@ -25,6 +25,7 @@ module WTP.Trace
     TraceElement (..),
     traceElements,
     observedStates,
+    nonStutterStates,
     TraceElementEffect,
     annotateStutteringSteps,
     prettyAction,
@@ -41,7 +42,6 @@ import Data.Generics.Product (position)
 import Data.Generics.Sum (_Ctor)
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
-import Data.Hashable (Hashable)
 import qualified Data.List as List
 import Data.Ord (comparing)
 import Data.Text (Text)
@@ -90,11 +90,14 @@ instance Monoid ObservedState where
 newtype Trace ann = Trace [TraceElement ann]
   deriving (Show, Generic)
 
-traceElements :: Monoid r => Getting r (Trace ann) [TraceElement ann]
+traceElements :: Getting r (Trace ann) [TraceElement ann]
 traceElements = position @1
 
 observedStates :: Monoid r => Getting r (Trace ann) ObservedState
 observedStates = traceElements . traverse . _Ctor @"TraceState" . position @2
+
+nonStutterStates :: Monoid r => Getting r (Trace TraceElementEffect) ObservedState
+nonStutterStates = traceElements . traverse . _Ctor @"TraceState" . filtered ((== NoStutter).fst) . position @2
 
 data ActionResult = ActionSuccess | ActionFailed Text | ActionImpossible
   deriving (Show, Generic)
@@ -109,6 +112,7 @@ ann :: Lens (TraceElement ann) (TraceElement ann2) ann ann2
 ann = position @1
 
 data TraceElementEffect = Stutter | NoStutter
+  deriving (Show, Eq)
 
 annotateStutteringSteps :: Trace a -> Trace TraceElementEffect
 annotateStutteringSteps (Trace els) = Trace (go els mempty)
@@ -179,7 +183,7 @@ prettyObservedState state =
         )
     ]
   where
-    withValues :: (Ord k, Eq k, Hashable k) => (ObservedState -> HashMap k v) -> ((k, v) -> s) -> [s]
+    withValues :: (Ord k) => (ObservedState -> HashMap k v) -> ((k, v) -> s) -> [s]
     withValues field f =
       field state
         & HashMap.toList

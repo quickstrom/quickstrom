@@ -58,7 +58,7 @@ testSpecifications :: [(Text, Specification Proposition)] -> Tasty.TestTree
 testSpecifications specs =
   Tasty.testGroup "WTP specifications" [testCase (Text.unpack name) (test spec) | (name, spec) <- specs]
 
-data FailingTest = FailingTest {numShrinks :: Int, trace :: Trace ()}
+data FailingTest = FailingTest {numShrinks :: Int, trace :: Trace TraceElementEffect}
 
 type TestResult = Either FailingTest ()
 
@@ -111,10 +111,10 @@ shrinkFailing spec original n
           (trace, Rejected) -> (<|> Just (Left (FailingTest n trace))) <$> shrinkFailing spec actions (succ n)
     shrink = QuickCheck.shrinkList shrinkAction
 
-runAndVerify :: Specification Proposition -> [Action Selected] -> Runner (Trace (), Result)
+runAndVerify :: Specification Proposition -> [Action Selected] -> Runner (Trace TraceElementEffect, Result)
 runAndVerify spec actions = do
-  trace <- runActions spec actions
-  pure (trace, verify (trace ^.. observedStates) (proposition spec))
+  trace <- annotateStutteringSteps <$> runActions spec actions
+  pure (trace, verify (trace ^.. nonStutterStates) (proposition spec))
 
 -- TODO?
 shrinkAction :: Action sel -> [Action sel]
@@ -134,7 +134,7 @@ validActions actions = do
       KeyPress k -> pure (Just (pure (KeyPress k)))
       Navigate p -> pure (Just (pure (Navigate p)))
       Focus sel -> selectOne sel Focus (fmap not . isElementSelected)
-      Click sel -> selectOne sel Click (isElementEnabled)
+      Click sel -> selectOne sel Click isElementVisible
     selectOne :: Selector -> (Selected -> Action Selected) -> (ElementRef -> WD Bool) -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
     selectOne sel ctor isValid = do
       found <- (findAll sel)
@@ -324,6 +324,15 @@ runQuery (Query query') =
             tell [Right (el, ElementStateValue state value) :: Either QueriedElement QueriedElementState]
             pure value
       )
+
+isElementVisible :: ElementRef -> WD Bool
+isElementVisible el = do
+  enabled <- isElementEnabled el
+  offsetParent <- getElementProperty "offsetParent" el
+  d <- getElementCssValue "display" el
+  v <- getElementCssValue "visibility" el
+  o <- getElementCssValue "opacity" el
+  pure (enabled && offsetParent /= JSON.Null && d /= "none" && v /= "hidden" && o /= "0")
 
 logInfo :: MonadIO m => String -> m ()
 logInfo = liftIO . putStrLn

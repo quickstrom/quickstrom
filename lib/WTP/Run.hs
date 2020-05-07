@@ -120,32 +120,34 @@ runAndVerify spec actions = do
 shrinkAction :: Action sel -> [Action sel]
 shrinkAction = const []
 
-validActions :: [(Int, ActionSequence Selector)] -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
+validActions :: [(Int, Action Selector)] -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
 validActions actions = do
-  gens <- concat <$> traverse tryGenActionWithFreq actions
+  gens <- catMaybes <$> traverse tryGenActionWithFreq actions
   case gens of
     [] -> pure Nothing
     _ -> pure (Just (QuickCheck.frequency gens))
   where
-    tryGenActionWithFreq :: (Int, ActionSequence Selector) -> Runner [(Int, QuickCheck.Gen (Action Selected))]
-    tryGenActionWithFreq (i, a) = fmap (i,) . catMaybes <$> traverse tryGenAction a
+    tryGenActionWithFreq :: (Int, Action Selector) -> Runner (Maybe (Int, QuickCheck.Gen (Action Selected)))
+    tryGenActionWithFreq (i, a) = fmap (i,) <$> tryGenAction a
     tryGenAction :: Action Selector -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
     tryGenAction = \case
       KeyPress k -> pure (Just (pure (KeyPress k)))
       Navigate p -> pure (Just (pure (Navigate p)))
-      Focus sel -> selectOne sel Focus (fmap not . isElementSelected)
+      Focus sel -> selectOne sel Focus isNotActive
       Click sel -> selectOne sel Click isElementVisible
     selectOne :: Selector -> (Selected -> Action Selected) -> (ElementRef -> WD Bool) -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
     selectOne sel ctor isValid = do
       found <- (findAll sel)
       validChoices <-
-        ( filterM (isValid . snd) (zip [0 ..] found)
-            `catchError` (const (pure mempty))
+        ( filterM
+            (\(_, e) -> isValid e `catchError` (const (pure False)))
+            (zip [0 ..] found)
           )
       case validChoices of
         [] -> pure Nothing
         choices -> do
           pure (Just (ctor . Selected sel <$> QuickCheck.elements (map fst choices)))
+    isNotActive = (\e -> ((/= e) <$> getActiveElement) `catchError` (const (pure True)))
 
 genActions :: Specification Proposition -> Int -> Runner [Action Selected]
 genActions spec maxNum = do

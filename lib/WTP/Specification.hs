@@ -20,12 +20,10 @@ data Selected = Selected Selector Int
 data Action sel = Focus sel | KeyPress Char | Click sel | Navigate Path
   deriving (Show, Generic)
 
-type ActionSequence sel = [Action sel]
-
 data Specification formula
   = Specification
       { origin :: Path,
-        actions :: [(Int, ActionSequence Selector)],
+        actions :: [(Int, Action Selector)],
         proposition :: formula
       }
   deriving (Show, Generic)

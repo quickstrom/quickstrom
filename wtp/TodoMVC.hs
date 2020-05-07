@@ -20,11 +20,12 @@ spec =
   Specification
     { origin = Path ("http://todomvc.com/examples/angularjs/"),
       actions =
-        [ (5, [Focus ".todoapp .new-todo", KeyPress 'a', KeyPress '\xe006']), -- full sequence of creating a new item
-          (4, [Focus ".todoapp .new-todo"]),
-          (4, [KeyPress 'a']),
-          (4, [Click ".todoapp .filters a"]),
-          (1, [Click ".todoapp .destroy"])
+        [ -- (5, [Focus ".todoapp .new-todo", KeyPress 'a', KeyPress '\xe006']), -- full sequence of creating a new item
+          (2, Focus ".todoapp .new-todo"),
+          (2, KeyPress 'a'),
+          (2, KeyPress '\xe006'),
+          (2, Click ".todoapp .filters a"),
+          (1, Click ".todoapp .destroy")
         ],
       proposition = init /\ (always (enterBlank \/ enterText \/ addNew \/ changeFilter))
     }
@@ -39,8 +40,8 @@ spec =
         /\ filterIs (Just All) ==> (numItems >= next numItems)
         /\ pendingText === next pendingText
     addNew =
-      (Just <$> pendingText) === next lastItemText
-        /\ next (pendingText === "")
+      pendingText === next lastItemText
+        /\ next ((== Nothing) <$> pendingText)
 
 data Filter = All | Active | Completed
   deriving (Eq, Read, Show)
@@ -68,5 +69,5 @@ lastItemText = lastOf traverse <$> itemTexts
 numItems :: Formula Int
 numItems = lengthOf traverse <$> items
 
-pendingText :: Formula Text
-pendingText = fromMaybe mempty <$> inputValue ".new-todo"
+pendingText :: Formula (Maybe Text)
+pendingText = inputValue ".new-todo"

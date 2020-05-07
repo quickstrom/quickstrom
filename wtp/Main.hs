@@ -41,7 +41,7 @@ buttonSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/button.html"),
       actions =
-        [(1, [Click "button"])],
+        [(1, Click "button")],
       proposition =
         let click = buttonIsEnabled /\ next (".message" `hasText` "Boom!" /\ neg buttonIsEnabled)
          in buttonIsEnabled /\ always click
@@ -52,7 +52,7 @@ toggleSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/toggle.html"),
       actions =
-        [(1, [Click "button"])],
+        [(1, Click "button")],
       proposition =
         let on = "button" `hasText` "Turn me off"
             off = "button" `hasText` "Turn me on"
@@ -66,7 +66,7 @@ draftsSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/drafts.html"),
       actions =
-        [(1, [Click "button"])],
+        [(1, Click "button")],
       proposition = top
     }
 
@@ -75,10 +75,10 @@ commentFormSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/comment-form.html"),
       actions =
-        [ (1, [Click "input[type=submit]"]),
-          (1, [Focus "input[type=text]"]),
-          (1, [KeyPress 'a']),
-          (2, [Focus "input[type=text]", KeyPress 'a'])
+        [ (1, Click "input[type=submit]"),
+          (1, Focus "input[type=text]"),
+          (1, KeyPress 'a'),
+          (2, Focus "input[type=text]")
         ],
       -- <> (KeyPress <$> ['\0' .. '\127'])
 

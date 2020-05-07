@@ -24,6 +24,7 @@ module WTP.Syntax
     bottom,
     num,
     json,
+    next,
     always,
     seq,
     set,
@@ -62,6 +63,9 @@ seq = Seq
 
 set :: (IsValue a, Hashable a) => [Formula a] -> Formula (Set a)
 set = Set
+
+next :: Formula a -> Formula a
+next = Next
 
 always :: Proposition -> Proposition
 always = Always

@@ -1,11 +1,11 @@
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE TypeOperators #-}
 
 module WTP.Verify
   ( eval,
@@ -15,6 +15,8 @@ where
 
 import Algebra.Heyting (Heyting (..))
 import Algebra.Lattice (Lattice (..), bottom, fromBool, top)
+import Control.Applicative (Alternative (..))
+import Control.Monad.Freer (Eff, reinterpret, runM, sendM, type (~>))
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.HashSet as HashSet
 import Data.Maybe (fromMaybe)
@@ -22,10 +24,8 @@ import WTP.Formula
 import WTP.Query
 import WTP.Result
 import WTP.Trace
-import Control.Monad.Freer (sendM, reinterpret, Eff, runM, type (~>))
 
 eval :: [ObservedState] -> Formula a -> Maybe a
-eval [] (Always _) = Just True
 eval [] _ = Nothing
 eval steps@(current : rest) f = case f of
   Literal LTrue -> pure top
@@ -36,9 +36,16 @@ eval steps@(current : rest) f = case f of
   Set ps -> HashSet.fromList <$> traverse (eval steps) ps
   Seq ps -> traverse (eval steps) ps
   Not p -> neg <$> eval steps p
-  p `And` q -> (/\) <$> eval steps p <*> eval steps q
-  p `Or` q -> (\/) <$> eval steps p <*> eval steps q
-  Always p -> (/\) <$> eval steps p <*> eval rest (Always p)
+  p `And` q ->
+    case (eval steps p, eval steps q) of
+      (Just a, Just b) -> pure (a /\ b)
+      _ -> Nothing
+  p `Or` q ->
+    case eval steps p of
+      Just True -> pure True
+      _ -> eval steps q
+  Next p -> eval rest p
+  Always p -> (/\) <$> eval steps p <*> (eval rest (Always p) <|> Just True)
   Equals p q -> do
     p' <- eval steps p
     q' <- eval steps q
@@ -60,4 +67,4 @@ evalQuery current (Query eff) = runM (reinterpret go eff)
           _ -> pure mempty
 
 verify :: [ObservedState] -> Proposition -> Result
-verify trace formula = fromBool (fromMaybe top (eval trace formula))
+verify trace formula = fromBool (fromMaybe bottom (eval trace formula))

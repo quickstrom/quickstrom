@@ -50,6 +50,7 @@ data Formula t where
   Not :: Formula Bool -> Formula Bool
   And :: Formula Bool -> Formula Bool -> Formula Bool
   Or :: Formula Bool -> Formula Bool -> Formula Bool
+  Next :: Formula a -> Formula a
   Always :: Formula Bool -> Formula Bool
   BindQuery :: IsValue a => Query a -> Formula a
   Equals :: (a ~ b, IsValue a, IsValue b) => Formula a -> Formula b -> Formula Bool
@@ -65,6 +66,7 @@ instance Show (Formula a) where
     Not p -> "(Not " <> show p <> ")"
     And p q -> "(And " <> show p <> " " <> show q <> ")"
     Or p q -> "(Or " <> show p <> " " <> show q <> ")"
+    Next p -> "(Next " <> show p <> ")"
     Always p -> "(Always " <> show p <> ")"
     BindQuery q -> "(BindQuery " <> show q <> ")"
     Equals p q -> "(Equals " <> show p <> " " <> show q <> ")"
@@ -125,6 +127,7 @@ withQueries f = \case
   Not p -> withQueries f p
   And p q -> (<>) <$> withQueries f p <*> withQueries f q
   Or p q -> (<>) <$> withQueries f p <*> withQueries f q
+  Next p -> withQueries f p
   Always p -> withQueries f p
   Equals p q -> (<>) <$> withQueries f p <*> withQueries f q
   BindQuery query -> pure <$> f query

@@ -8,7 +8,6 @@
 
 module Main where
 
-import Prelude hiding (last, Bool(..), all)
 import Control.Lens ((^?), ix)
 import Data.Aeson as JSON
 import qualified Data.Bool as Bool
@@ -18,13 +17,15 @@ import Data.Maybe (fromMaybe)
 import qualified Data.Text as Text
 import Data.Text (Text)
 import qualified Data.Text.Read as Text
+import qualified Debug.Trace as Debug
 import System.Directory
 import System.IO.Unsafe (unsafePerformIO)
 import qualified Test.Tasty as Tasty
-import WTP.Syntax
+import Text.Read (readMaybe)
 import qualified WTP.Run as WTP
 import WTP.Specification
-import Text.Read (readMaybe)
+import WTP.Syntax
+import Prelude hiding (Bool (..), all, last)
 
 cwd :: FilePath
 cwd = unsafePerformIO getCurrentDirectory
@@ -47,9 +48,8 @@ buttonSpec =
       actions =
         [(1, [Click "button"])],
       proposition =
-        always (buttonIsEnabled \/ neg buttonIsEnabled)
-        -- always (buttonIsEnabled \/ (".message" `hasText` "Boom!" /\ neg buttonIsEnabled))
-          -- buttonIsEnabled `until` (".message" `hasText` "Boom!" /\ neg buttonIsEnabled)
+        let click = buttonIsEnabled /\ next (".message" `hasText` "Boom!" /\ neg buttonIsEnabled)
+         in buttonIsEnabled /\ always click
     }
 
 toggleSpec :: Specification Proposition
@@ -61,9 +61,9 @@ toggleSpec =
       proposition =
         let on = "button" `hasText` "Turn me off"
             off = "button" `hasText` "Turn me on"
-        in always (on \/ off) -- TODO: primed versions to define actions
-        -- Used to be:
-        -- always (on `until` off \/ off `until` on)
+            turnOn = off /\ next on
+            turnOff = on /\ next off
+         in off /\ always (turnOn \/ turnOff)
     }
 
 draftsSpec :: Specification Proposition
@@ -71,7 +71,7 @@ draftsSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/drafts.html"),
       actions =
-        [(1, [Click "button"])], 
+        [(1, [Click "button"])],
       proposition = top
     }
 
@@ -90,9 +90,8 @@ commentFormSpec =
       proposition =
         let commentPosted = isVisible ".comment-display" /\ commentIsValid /\ neg (isVisible "form")
             invalidComment = neg (isVisible ".comment-display") /\ isVisible "form"
-         in always (isVisible "form")
-              \/ always (isVisible "form" \/ (commentPosted \/ invalidComment))
-              -- isVisible "form" `until` (commentPosted \/ invalidComment)
+            postComment = isVisible "form" /\ next (commentPosted \/ invalidComment)
+         in isVisible "form" /\ always postComment
     }
 
 todoMvcSpec :: Specification Proposition
@@ -104,14 +103,15 @@ todoMvcSpec =
           (1, [Click ".todoapp .filters a"]),
           (1, [Click ".todoapp button"])
         ],
+      -- TODO(LOL): rewrite as a state machine
       proposition = isEmpty \/ (always (isEmpty \/ filterActive \/ filterCompleted \/ filterAll))
     }
-    where
-      filterIs f = query ((== f) <$> currentFilter) /\ correctNumberItemsLeft
-      isEmpty = filterIs Nothing
-      filterActive = filterIs (Just Active)
-      filterCompleted = filterIs (Just Completed)
-      filterAll = filterIs (Just All)
+  where
+    filterIs f = query ((== f) <$> currentFilter) /\ correctNumberItemsLeft
+    isEmpty = filterIs Nothing
+    filterActive = filterIs (Just Active)
+    filterCompleted = filterIs (Just Completed)
+    filterAll = filterIs (Just All)
 
 data Filter = All | Active | Completed
   deriving (Eq, Read, Show)
@@ -155,7 +155,7 @@ hasText sel message =
   (== Just message) <$> query (traverse text =<< one sel)
 
 isVisible :: Selector -> Proposition
-isVisible sel = neg ((== Just "none") <$> query (traverse (cssValue "display") =<< one sel))
+isVisible sel = (== Just "block") <$> query (traverse (cssValue "display") =<< one sel)
 
 commentIsValid :: Proposition
 commentIsValid = query (traverse text =<< one ".comment") <&> \case

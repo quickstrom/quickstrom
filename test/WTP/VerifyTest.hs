@@ -11,7 +11,7 @@ import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Test.Tasty.Hspec
 import WTP.Element
-import WTP.Formula.Syntax
+import WTP.Syntax
 import WTP.Result
 import qualified WTP.Trace as Trace
 import WTP.Verify

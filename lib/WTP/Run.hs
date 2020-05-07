@@ -18,7 +18,7 @@ import Control.Applicative ((<|>))
 import Control.Lens
 import Control.Monad ((>=>))
 import Control.Monad (filterM)
-import Control.Monad.Freer (Eff, reinterpret2, runM, sendM, translate, type (~>))
+import Control.Monad.Freer (Eff, reinterpret2, runM, sendM, type (~>))
 import Control.Monad.Freer.Writer (Writer, runWriter, tell)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Class (MonadTrans)
@@ -38,12 +38,12 @@ import qualified Data.Text as Text
 import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
-import Data.Typeable (Typeable)
 import qualified Test.QuickCheck as QuickCheck
 import qualified Test.Tasty as Tasty
 import Test.Tasty.HUnit (assertFailure, testCase)
 import WTP.Element
-import qualified WTP.Formula.Logic as Logic
+import WTP.Formula
+import WTP.Query
 import WTP.Result
 import WTP.Specification
 import WTP.Trace
@@ -54,7 +54,7 @@ type WD = WebDriverTT IdentityT IO
 
 type Runner = WD -- Eff '[WD]
 
-testSpecifications :: [(Text, Specification Logic.Proposition)] -> Tasty.TestTree
+testSpecifications :: [(Text, Specification Proposition)] -> Tasty.TestTree
 testSpecifications specs =
   Tasty.testGroup "WTP specifications" [testCase (Text.unpack name) (test spec) | (name, spec) <- specs]
 
@@ -64,7 +64,7 @@ type TestResult = Either FailingTest ()
 
 data CheckResult = CheckSuccess | CheckFailure {failedAfter :: Int, failingTest :: FailingTest}
 
-test :: Specification Logic.Proposition -> IO ()
+test :: Specification Proposition -> IO ()
 test spec = do
   -- stdGen <- getStdGen
   let numTests = 20
@@ -93,9 +93,9 @@ test spec = do
       runSingle size >>= \case
         Right {} -> runAll sizes (succ n)
         Left failingTest -> pure (CheckFailure n failingTest)
-    spec' = spec & field @"proposition" %~ Logic.simplify
+    spec' = spec & field @"proposition" %~ simplify
 
-shrinkFailing :: Specification Logic.Proposition -> [Action Selected] -> Int -> Runner (Maybe TestResult)
+shrinkFailing :: Specification Proposition -> [Action Selected] -> Int -> Runner (Maybe TestResult)
 shrinkFailing spec original n
   | n <= 100 = do
     logInfoWD . renderString $ "Shrink #" <> pretty n <> "..."
@@ -111,7 +111,7 @@ shrinkFailing spec original n
           (trace, Rejected) -> (<|> Just (Left (FailingTest n trace))) <$> shrinkFailing spec actions (succ n)
     shrink = QuickCheck.shrinkList shrinkAction
 
-runAndVerify :: Specification Logic.Proposition -> [Action Selected] -> Runner (Trace (), Result)
+runAndVerify :: Specification Proposition -> [Action Selected] -> Runner (Trace (), Result)
 runAndVerify spec actions = do
   trace <- runActions spec actions
   pure (trace, verify (trace ^.. observedStates) (proposition spec))
@@ -139,16 +139,15 @@ validActions actions = do
     selectOne sel ctor isValid = do
       found <- (findAll sel)
       validChoices <-
-        
-          ( filterM (isValid . snd) (zip [0 ..] found)
-              `catchError` (const (pure mempty))
+        ( filterM (isValid . snd) (zip [0 ..] found)
+            `catchError` (const (pure mempty))
           )
       case validChoices of
         [] -> pure Nothing
         choices -> do
           pure (Just (ctor . Selected sel <$> QuickCheck.elements (map fst choices)))
 
-genActions :: Specification Logic.Proposition -> Int -> Runner [Action Selected]
+genActions :: Specification Proposition -> Int -> Runner [Action Selected]
 genActions spec maxNum = do
   navigateToOrigin spec
   go []
@@ -174,7 +173,7 @@ navigateToOrigin :: Specification formula -> Runner ()
 navigateToOrigin spec = case origin spec of
   Path path -> (navigateTo (Text.unpack path))
 
-runActions :: Specification Logic.Proposition -> [Action Selected] -> Runner (Trace ())
+runActions :: Specification Proposition -> [Action Selected] -> Runner (Trace ())
 runActions spec actions = do
   -- lift breakpointsOn
   navigateToOrigin spec
@@ -182,7 +181,7 @@ runActions spec actions = do
   rest <- concat <$> traverse runActionAndObserve actions
   pure (Trace (initial : rest))
   where
-    queries = Logic.withQueries runQuery (proposition spec)
+    queries = withQueries runQuery (proposition spec)
     runActionAndObserve action = do
       result <- (runAction action)
       s <- observe
@@ -301,21 +300,21 @@ type QueriedElement = (Selector, Element)
 
 type QueriedElementState = (Element, ElementStateValue)
 
-runQuery :: (Eq a, Show a, Typeable a) => Logic.Query a -> Runner [Either QueriedElement QueriedElementState]
-runQuery (Logic.Query query') =
+runQuery :: Query a -> Runner [Either QueriedElement QueriedElementState]
+runQuery (Query query') =
   fmap snd
     $ runM
     $ runWriter
     $ reinterpret2 go query'
   where
-    go :: Logic.QueryF ~> Eff '[Writer [Either (Selector, Element) (Element, ElementStateValue)], WebDriverTT IdentityT IO]
+    go :: QueryF ~> Eff '[Writer [Either (Selector, Element) (Element, ElementStateValue)], WebDriverTT IdentityT IO]
     go =
       ( \case
-          Logic.QueryAll selector -> do
+          QueryAll selector -> do
             els <- fmap fromRef <$> sendM (findAll selector)
             tell ((Left . (selector,) <$> els) :: [Either QueriedElement QueriedElementState])
             pure els
-          Logic.Get state el -> do
+          Get state el -> do
             value <- sendM $ case state of
               Attribute name -> (either (const name) Text.pack) <$> (getElementAttribute (Text.unpack name) (toRef el))
               Property name -> (getElementProperty (Text.unpack name) (toRef el))

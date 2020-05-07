@@ -14,13 +14,10 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
-module WTP.Formula.Logic where
+module WTP.Formula where
 
 import Algebra.Heyting (Heyting (..))
 import Algebra.Lattice (BoundedJoinSemiLattice (..), BoundedMeetSemiLattice (..), Lattice (..))
-import Control.Monad.Freer (Eff, reinterpret, run, runM, sendM, type (~>))
-import Control.Monad.Freer.State (State, modify, put, runState)
-import Control.Monad.Freer.Writer (Writer, runWriter, tell)
 import qualified Data.Aeson as JSON
 import Data.HashSet (HashSet)
 import Data.Hashable (Hashable)
@@ -28,7 +25,7 @@ import Data.String (IsString (..))
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Typeable (Typeable)
-import WTP.Element
+import WTP.Query
 import Prelude hiding (False, True, not)
 
 data Literal t where
@@ -43,33 +40,6 @@ deriving instance Eq (Literal t)
 deriving instance Show (Literal t)
 
 type IsValue a = (Eq a, Show a, Typeable a)
-
-data QueryF t where
-  QueryAll :: Selector -> QueryF [Element]
-  Get :: IsValue a => ElementState a -> Element -> QueryF a
-
-newtype Query a = Query (Eff '[QueryF] a)
-  deriving (Functor, Applicative, Monad)
-
-instance Show (Query a) where
-  show q = Text.unpack ("[" <> Text.intercalate ", " (renderQuery q) <> "]")
-
-renderQuery :: Query a -> [Text]
-renderQuery (Query eff) = snd (run (runWriter (reinterpret go eff)))
-  where
-    go :: QueryF ~> Eff '[Writer [Text]]
-    go = \case
-      Get state (Element ref') -> do
-        tell ["Get (" <> Text.pack (show state) <> ") (" <> ref' <> ")"]
-        pure $ case state of
-          Property _ -> JSON.Null
-          Attribute _ -> mempty
-          CssValue _ -> mempty
-          Text -> mempty
-          Enabled -> bottom
-      QueryAll (Selector selector) -> do
-        tell ["QueryAll " <> selector]
-        pure []
 
 type Set = HashSet
 

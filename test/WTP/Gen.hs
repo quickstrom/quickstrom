@@ -8,7 +8,7 @@ import qualified Data.Text as Text
 import Data.Text (Text)
 import Test.QuickCheck hiding ((===), (==>))
 import WTP.Element
-import WTP.Formula.Syntax
+import WTP.Syntax
 import WTP.Trace
 import Prelude hiding (Bool (..))
 import Data.String (IsString(fromString))

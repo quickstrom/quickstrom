@@ -9,8 +9,8 @@ module WTP.LogicTest where
 import Algebra.Lattice
 import Test.QuickCheck ((===), forAll, listOf)
 import Test.Tasty.Hspec
-import qualified WTP.Formula.Logic as Logic
-import WTP.Formula.Syntax hiding ((===))
+import WTP.Formula
+import WTP.Syntax hiding ((===))
 import qualified WTP.Gen as Gen
 import WTP.Result
 import WTP.Verify
@@ -20,7 +20,7 @@ spec_logic :: Spec
 spec_logic =
   describe "Logic" $ do
     let testFormula formula input result =
-          let f = (Logic.simplify formula)
+          let f = (simplify formula)
            in it (show input <> " ⊢ " <> show formula <> " (" <> show f <> ")") $
                 verify input f `shouldBe` result
     describe "Always" $ do
@@ -28,8 +28,8 @@ spec_logic =
       testFormula (always top) [] Accepted
 
 prop_logic_always = forAll ((,) <$> Gen.trueSyntax <*> Gen.trace) $ \(p, trace) -> do
-  verify trace (Logic.simplify (always p)) === Accepted
+  verify trace (simplify (always p)) === Accepted
 
 prop_logic_any_false = forAll ((,) <$> Gen.falseSyntax <*> Gen.nonEmpty (listOf (pure mempty))) $ \(p, trace) -> do
-  let p' = (Logic.simplify p)
+  let p' = simplify p
   Rejected === verify trace p'

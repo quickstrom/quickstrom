@@ -32,14 +32,16 @@ common shared-deps
                     , text
                     , transformers
                     , unordered-containers
+
                     , vector
                     , webdriver-w3c
 
 library
   import:             shared-deps
   exposed-modules:    WTP.Element
-                    , WTP.Formula.Logic
-                    , WTP.Formula.Syntax
+                    , WTP.Formula
+                    , WTP.Syntax
+                    , WTP.Query
                     , WTP.Result
                     , WTP.Run
                     , WTP.Specification
@@ -47,7 +49,7 @@ library
                     , WTP.Verify
   hs-source-dirs:     lib
   default-language:   Haskell2010
-  ghc-options:        -Wall -Werror=incomplete-patterns
+  ghc-options:        -Wall -Werror=incomplete-patterns -Wredundant-constraints
 
 executable wtp
   import:             shared-deps

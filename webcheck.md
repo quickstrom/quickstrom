@@ -126,8 +126,8 @@ sequences, and sets.
     `o(x1, x2, ..., xN) = p`
     : defines the operator `o`, with arguments `x1`, `x2`, and so on,
       to equal `p`. An operator with no arguments can be defined
-      without parentheses as `o = p`. Operators cannot be self-recursive or
-      mutually recursive.
+      without parentheses as `o = p`. Operators cannot be
+      self-recursive or mutually recursive.
 
 # Example: Deleting Drafts
 

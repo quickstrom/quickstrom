@@ -11,7 +11,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
-module WTP.Formula.Syntax
+module WTP.Syntax
   ( Literal,
     Formula,
     Query,
@@ -41,14 +41,15 @@ where
 
 import Algebra.Heyting
 import Algebra.Lattice
+import Control.Monad.Freer (send)
 import qualified Data.Aeson as JSON
+import Data.Hashable (Hashable)
 import Data.Maybe (listToMaybe)
 import Data.Text (Text)
 import WTP.Element
-import WTP.Formula.Logic
+import WTP.Formula
+import WTP.Query
 import Prelude hiding (all, map, seq)
-import Data.Hashable (Hashable)
-import Control.Monad.Freer (send)
 
 num :: (Eq n, Show n, Num n) => n -> Formula n
 num = Literal . LNum

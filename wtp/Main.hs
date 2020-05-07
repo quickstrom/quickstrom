@@ -21,7 +21,7 @@ import qualified Data.Text.Read as Text
 import System.Directory
 import System.IO.Unsafe (unsafePerformIO)
 import qualified Test.Tasty as Tasty
-import WTP.Formula.Syntax
+import WTP.Syntax
 import qualified WTP.Run as WTP
 import WTP.Specification
 import Text.Read (readMaybe)

@@ -18,7 +18,8 @@ import Algebra.Lattice (Lattice (..), bottom, fromBool, top)
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.HashSet as HashSet
 import Data.Maybe (fromMaybe)
-import WTP.Formula.Logic
+import WTP.Formula
+import WTP.Query
 import WTP.Result
 import WTP.Trace
 import Control.Monad.Freer (sendM, reinterpret, Eff, runM, type (~>))

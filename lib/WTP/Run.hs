@@ -188,6 +188,7 @@ runActions :: Specification Proposition -> [Action Selected] -> Runner (Trace ()
 runActions spec actions = do
   -- lift breakpointsOn
   navigateToOrigin spec
+  awaitElement (readyWhen spec)
   initial <- observe
   rest <- concat <$> traverse runActionAndObserve actions
   pure (Trace (initial : rest))

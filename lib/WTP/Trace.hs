@@ -159,29 +159,12 @@ prettyTrace (Trace elements') = vsep (zipWith prettyElement [1 ..] elements')
 prettyObservedState :: ObservedState -> Doc AnsiStyle
 prettyObservedState state =
   vsep
-    [ annotate bold "Queried elements:",
-      indent
-        2
-        ( vsep
-            ( withValues
-                queriedElements
-                ( \(sel, el) ->
-                    bullet <+> align (pretty sel <> line <> indent 2 (vsep (map pretty el)))
-                )
-            )
-        ),
-      annotate bold "Element states:",
-      indent
-        2
-        ( vsep
-            ( withValues
-                elementStates
-                ( \(el, states) ->
-                    bullet <+> align (pretty el <> line <> indent 2 (vsep (map prettyElementStateValue states)))
-                )
-            )
+    ( withValues
+        queriedElements
+        ( \(sel, el) ->
+            bullet <+> align (pretty sel <> line <> indent 2 (vsep (map prettyElementState el)))
         )
-    ]
+    )
   where
     withValues :: (Ord k) => (ObservedState -> HashMap k v) -> ((k, v) -> s) -> [s]
     withValues field f =
@@ -189,10 +172,13 @@ prettyObservedState state =
         & HashMap.toList
         & List.sortBy (comparing fst)
         & map f
+    prettyElementState :: Element -> Doc AnsiStyle
+    prettyElementState el =
+      pretty el <> line <> indent 2 (vsep (map prettyElementStateValue (HashMap.lookupDefault mempty el (elementStates state))))
     prettyElementStateValue :: ElementStateValue -> Doc AnsiStyle
     prettyElementStateValue = \case
       (ElementStateValue (Attribute name) value) -> "attribute" <+> pretty name <> "=" <> pretty (show value)
-      (ElementStateValue (Property name) value) -> "property" <+> pretty name <+> "=" <+> pretty (JSON.encodeToLazyText value)
+      (ElementStateValue (Property name) value) -> "property" <+> pretty name <> "=" <> pretty (JSON.encodeToLazyText value)
       (ElementStateValue (CssValue name) t) -> "css" <+> braces (pretty name <> ":" <+> pretty t <> ";")
       (ElementStateValue Text value) -> "text" <> "=" <> pretty (show value)
       (ElementStateValue Enabled b) -> if b then "enabled" else "disabled"

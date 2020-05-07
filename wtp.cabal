@@ -54,6 +54,8 @@ library
 executable wtp
   import:             shared-deps
   main-is:            Main.hs
+  other-modules:      Helpers
+                    , TodoMVC
   build-depends:      base >= 4.12
                     , dhall
                     , directory

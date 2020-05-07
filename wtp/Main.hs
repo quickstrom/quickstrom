@@ -8,20 +8,15 @@
 
 module Main where
 
-import qualified Data.Ord as Ord
-import Control.Lens ((^?), ix, lastOf, lengthOf)
-import Data.Aeson as JSON
-import qualified Data.Bool as Bool
+import Helpers
+import qualified TodoMVC
+import Control.Lens ((^?), ix)
 import Data.Function ((&))
-import Data.Functor ((<&>))
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as Text
-import Data.Text (Text)
-import qualified Data.Text.Read as Text
 import System.Directory
 import System.IO.Unsafe (unsafePerformIO)
 import qualified Test.Tasty as Tasty
-import Text.Read (readMaybe)
 import qualified WTP.Run as WTP
 import WTP.Specification
 import WTP.Syntax
@@ -37,7 +32,7 @@ main =
       [ ("button", buttonSpec),
         ("toggle", toggleSpec),
         ("comment form", commentFormSpec),
-        ("TodoMVC AngularJS", todoMvcSpec)
+        ("TodoMVC AngularJS", TodoMVC.spec)
       ]
 
 -- Simple example: a button that can be clicked, which then shows a message
@@ -94,91 +89,9 @@ commentFormSpec =
          in isVisible "form" /\ always postComment
     }
 
-todoMvcSpec :: Specification Proposition
-todoMvcSpec =
-  Specification
-    { origin = Path ("http://todomvc.com/examples/angularjs/"),
-      actions =
-        [ (2, [Focus ".todoapp .new-todo", KeyPress 'a', KeyPress '\xe006']),
-          (1, [Click ".todoapp .filters a"]),
-          (1, [Click ".todoapp button"])
-        ],
-      proposition = init /\ (always (enterBlank \/ enterText \/ addNew \/ changeFilter))
-    }
-  where
-    -- state helpers:
-    filterIs f = (== f) <$> currentFilter
-    items = query (all ".todo-list li")
-    isEmpty = filterIs Nothing /\ (null <$> items)
-    lastItemText = lastOf traverse <$> query (traverse text =<< all ".todo-list li label")
-    numItems = lengthOf traverse <$> items
-    -- actions:
-    init = isEmpty
-    pendingText = inputValue ".new-todo"
-    -- TODO: stutter invariance not working, this shouldn't be needed!
-    enterBlank = pendingText === next pendingText
-    enterText = neg (pendingText === next pendingText)
-    changeFilter =
-      neg (currentFilter === next currentFilter)
-        /\ filterIs (Just All) ==> (numItems < next numItems)
-    addNew =
-      pendingText === next lastItemText
-        /\ next (filterIs (Just All))
-        /\ next ((== Just "") <$> pendingText)
-
-data Filter = All | Active | Completed
-  deriving (Eq, Read, Show)
-
-currentFilter :: Formula (Maybe Filter)
-currentFilter = query ((>>= (readMaybe . Text.unpack)) <$> (traverse text =<< one ".todoapp .filters .selected"))
-
-numberChecked :: Query Int
-numberChecked = do
-  boxes <- todoCheckboxes
-  length . filter (== JSON.Bool Bool.True) <$> traverse (property "checked") boxes
-
-numberUnchecked :: Query Int
-numberUnchecked = do
-  boxes <- todoCheckboxes
-  length . filter (/= JSON.Bool Bool.True) <$> traverse (property "checked") boxes
-
-todoCheckboxes :: Query [Element]
-todoCheckboxes = all ".todoapp .todo-list input[type=checkbox]"
-
-numberItemsLeft :: Query (Maybe Int)
-numberItemsLeft = do
-  t <- traverse text =<< one ".todoapp .todo-count strong"
-  pure (t >>= parse)
-  where
-    parse = either (const Nothing) (Just . fst) . Text.decimal
-
-correctNumberItemsLeft :: Proposition
-correctNumberItemsLeft =
-  query (isCorrect <$> numberUnchecked <*> numberItemsLeft)
-  where
-    isCorrect n t
-      | n Ord.> 0 = Just n == t
-      | otherwise = t == Nothing
-
 buttonIsEnabled :: Proposition
 buttonIsEnabled = fromMaybe bottom <$> query (traverse enabled =<< one "button")
 
-hasText :: Selector -> Text -> Proposition
-hasText sel message =
-  (== Just message) <$> query (traverse text =<< one sel)
-
-inputValue :: Selector -> Formula (Maybe Text)
-inputValue sel =
-  query (traverse (property "value") =<< one sel)
-    <&> fmap fromJSON
-    <&> ( >>=
-            \case
-              JSON.Success a -> Just a
-              JSON.Error {} -> Nothing
-        )
-
-isVisible :: Selector -> Proposition
-isVisible sel = (== Just "block") <$> query (traverse (cssValue "display") =<< one sel)
 
 commentIsValid :: Proposition
 commentIsValid = (commentLength <$> query (traverse text =<< one ".comment")) >= num 3

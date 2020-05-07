@@ -16,7 +16,7 @@ where
 
 import Control.Applicative ((<|>))
 import Control.Lens
-import Control.Monad ((>=>))
+import Control.Monad ((>=>), void)
 import Control.Monad (filterM)
 import Control.Monad.Freer (Eff, reinterpret2, runM, sendM, type (~>))
 import Control.Monad.Freer.Writer (Writer, runWriter, tell)
@@ -131,13 +131,20 @@ validActions actions = do
     tryGenActionWithFreq (i, a) = fmap (i,) <$> tryGenAction a
     tryGenAction :: Action Selector -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
     tryGenAction = \case
-      KeyPress k -> pure (Just (pure (KeyPress k)))
+      KeyPress k ->
+        activeElement >>= \case
+          Just el ->
+            getElementTagName el >>= \case
+              name
+                | name `elem` ["input", "textarea"] -> pure (Just (pure (KeyPress k)))
+                | otherwise -> pure Nothing
+          Nothing -> pure Nothing
       Navigate p -> pure (Just (pure (Navigate p)))
       Focus sel -> selectOne sel Focus isNotActive
       Click sel -> selectOne sel Click isElementVisible
     selectOne :: Selector -> (Selected -> Action Selected) -> (ElementRef -> WD Bool) -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
     selectOne sel ctor isValid = do
-      found <- (findAll sel)
+      found <- findAll sel
       validChoices <-
         ( filterM
             (\(_, e) -> isValid e `catchError` (const (pure False)))
@@ -147,11 +154,13 @@ validActions actions = do
         [] -> pure Nothing
         choices -> do
           pure (Just (ctor . Selected sel <$> QuickCheck.elements (map fst choices)))
-    isNotActive = (\e -> ((/= e) <$> getActiveElement) `catchError` (const (pure True)))
+    isNotActive e = (/= Just e) <$> activeElement
+    activeElement = (Just <$> getActiveElement) `catchError` const (pure Nothing)
 
 genActions :: Specification Proposition -> Int -> Runner [Action Selected]
 genActions spec maxNum = do
   navigateToOrigin spec
+  awaitElement (readyWhen spec)
   go []
   where
     go acc
@@ -342,19 +351,18 @@ logInfo = liftIO . putStrLn
 logInfoWD :: String -> Runner ()
 logInfoWD = liftWebDriverTT . logInfo
 
-{-
-myWait :: Int -> WebDriverT IO ()
-myWait ms =
+awaitElement :: Selector -> WebDriverT IO ()
+awaitElement (Selector sel) =
   void
     ( executeAsyncScript
-        " var ms = arguments[0]; \
+        " var sel = arguments[0]; \
         \ var done = arguments[1]; \
-        \ setTimeout(done, ms) \
+        \ var timer = setInterval(function () { \
+        \   if (document.querySelector(sel)) { clearInterval(timer); done(); } \
+        \ }, 100); \
         \"
-        [JSON.toJSON ms]
+        [JSON.toJSON sel]
     )
-
--}
 
 renderString :: Doc AnsiStyle -> String
 renderString = Text.unpack . renderStrict . layoutPretty defaultLayoutOptions

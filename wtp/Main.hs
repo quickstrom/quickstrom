@@ -40,6 +40,7 @@ buttonSpec :: Specification Proposition
 buttonSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/button.html"),
+      readyWhen = "button",
       actions =
         [(1, Click "button")],
       proposition =
@@ -51,6 +52,7 @@ toggleSpec :: Specification Proposition
 toggleSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/toggle.html"),
+      readyWhen = "button",
       actions =
         [(1, Click "button")],
       proposition =
@@ -65,6 +67,7 @@ draftsSpec :: Specification Proposition
 draftsSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/drafts.html"),
+      readyWhen = "button",
       actions =
         [(1, Click "button")],
       proposition = top
@@ -74,6 +77,7 @@ commentFormSpec :: Specification Proposition
 commentFormSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/comment-form.html"),
+      readyWhen = "form",
       actions =
         [ (1, Click "input[type=submit]"),
           (1, Focus "input[type=text]"),

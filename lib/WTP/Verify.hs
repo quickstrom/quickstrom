@@ -26,6 +26,7 @@ import WTP.Result
 import WTP.Trace
 
 eval :: [ObservedState] -> Formula a -> Maybe a
+eval [] (Always _) = Just True
 eval [] _ = Nothing
 eval steps@(current : rest) f = case f of
   Literal LTrue -> pure top
@@ -45,7 +46,7 @@ eval steps@(current : rest) f = case f of
       Just True -> pure True
       _ -> eval steps q
   Next p -> eval rest p
-  Always p -> (/\) <$> eval steps p <*> (eval rest (Always p) <|> Just True)
+  Always p -> (/\) <$> (eval steps p <|> Just True) <*> (eval rest (Always p))
   Equals p q -> do
     p' <- eval steps p
     q' <- eval steps q

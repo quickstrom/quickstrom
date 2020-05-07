@@ -23,6 +23,7 @@ data Action sel = Focus sel | KeyPress Char | Click sel | Navigate Path
 data Specification formula
   = Specification
       { origin :: Path,
+        readyWhen :: Selector,
         actions :: [(Int, Action Selector)],
         proposition :: formula
       }

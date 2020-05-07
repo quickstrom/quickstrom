@@ -6,7 +6,6 @@ module TodoMVC
 where
 
 import Control.Lens (lastOf, lengthOf)
-import Data.Maybe (fromMaybe)
 import qualified Data.Text as Text
 import Data.Text (Text)
 import Helpers
@@ -19,22 +18,22 @@ spec :: Specification Proposition
 spec =
   Specification
     { origin = Path ("http://todomvc.com/examples/angularjs/"),
+      readyWhen = ".todoapp",
       actions =
         [ -- (5, [Focus ".todoapp .new-todo", KeyPress 'a', KeyPress '\xe006']), -- full sequence of creating a new item
-          (2, Focus ".todoapp .new-todo"),
           (2, KeyPress 'a'),
           (2, KeyPress '\xe006'),
+          (2, Focus ".todoapp .new-todo"),
           (2, Click ".todoapp .filters a"),
           (1, Click ".todoapp .destroy")
         ],
-      proposition = init /\ (always (enterBlank \/ enterText \/ addNew \/ changeFilter))
+      proposition = init /\ (always (enterText \/ addNew \/ changeFilter))
     }
   where
     init = isEmpty
-    enterBlank =
-      pendingText === next pendingText
-        /\ itemTexts === next itemTexts -- TODO: stutter invariance not working, this shouldn't be needed!
-    enterText = neg (pendingText === next pendingText)
+    enterText =
+      neg (pendingText === next pendingText)
+        /\ itemTexts === next itemTexts
     changeFilter =
       neg (currentFilter === next currentFilter)
         /\ filterIs (Just All) ==> (numItems >= next numItems)
@@ -49,7 +48,7 @@ data Filter = All | Active | Completed
 -- * State helpers:
 
 isEmpty :: Proposition
-isEmpty = filterIs Nothing /\ (null <$> items)
+isEmpty = filterIs Nothing /\ (null <$> items) /\ ((== Just "") <$> pendingText)
 
 currentFilter :: Formula (Maybe Filter)
 currentFilter = query ((>>= (readMaybe . Text.unpack)) <$> (traverse text =<< one ".todoapp .filters .selected"))

@@ -157,7 +157,7 @@ sure?\".
 ``` {.python}
 confirming = 
   exists e in query(".confirm"):
-    e.visible or e.text == "Are you sure?"
+    e.visible and e.text == "Are you sure?"
 ```
 
 We also need the checkbox elements in the DOM:

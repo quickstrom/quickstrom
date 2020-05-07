@@ -43,6 +43,12 @@ type IsValue a = (Eq a, Show a, Typeable a)
 
 type Set = HashSet
 
+data Comparison
+  = LessThan
+  | LessThanEqual
+  | GreaterThan
+  | GreaterThanEqual
+
 data Formula t where
   Literal :: Literal a -> Formula a
   Set :: (IsValue a, Hashable a) => [Formula a] -> Formula (Set a)
@@ -54,6 +60,7 @@ data Formula t where
   Always :: Formula Bool -> Formula Bool
   BindQuery :: IsValue a => Query a -> Formula a
   Equals :: (a ~ b, IsValue a, IsValue b) => Formula a -> Formula b -> Formula Bool
+  Compare :: Ord a => Comparison -> Formula a -> Formula a -> Formula Bool
   -- ForAll :: Formula (Set a) -> (FValue a -> Formula Bool) -> Formula Bool
 
   MapFormula :: (a -> b) -> Formula a -> Formula b
@@ -70,6 +77,13 @@ instance Show (Formula a) where
     Always p -> "(Always " <> show p <> ")"
     BindQuery q -> "(BindQuery " <> show q <> ")"
     Equals p q -> "(Equals " <> show p <> " " <> show q <> ")"
+    Compare comp p q ->
+      let op = case comp of
+            LessThan -> "<"
+            LessThanEqual -> "<="
+            GreaterThan -> ">"
+            GreaterThanEqual -> ">="
+       in "(" <> show p <> " " <> op <> " " <> show q <> ")"
     MapFormula _ p -> "(MapFormula _ " <> show p <> ")"
 
 instance Functor Formula where
@@ -130,5 +144,6 @@ withQueries f = \case
   Next p -> withQueries f p
   Always p -> withQueries f p
   Equals p q -> (<>) <$> withQueries f p <*> withQueries f q
+  Compare _ p q -> (<>) <$> withQueries f p <*> withQueries f q
   BindQuery query -> pure <$> f query
   MapFormula _ p -> withQueries f p

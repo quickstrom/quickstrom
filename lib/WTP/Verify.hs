@@ -50,6 +50,15 @@ eval steps@(current : rest) f = case f of
     p' <- eval steps p
     q' <- eval steps q
     pure (fromBool (p' == q'))
+  Compare comparison p q -> do
+    let op = case comparison of
+                LessThan -> (<)
+                LessThanEqual -> (<=)
+                GreaterThan -> (>)
+                GreaterThanEqual -> (>=)
+    p' <- eval steps p
+    q' <- eval steps q
+    pure (fromBool (p' `op` q'))
   BindQuery query -> evalQuery current query
   MapFormula fn sub -> fn <$> eval steps sub
 

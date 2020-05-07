@@ -37,6 +37,10 @@ module WTP.Syntax
     one,
     query,
     (===),
+    (<),
+    (<=),
+    (>),
+    (>=),
   )
 where
 
@@ -50,7 +54,7 @@ import Data.Text (Text)
 import WTP.Element
 import WTP.Formula
 import WTP.Query
-import Prelude hiding (all, map, seq)
+import Prelude ((.), Bool, Eq, Maybe, Num, Ord, Show, fmap)
 
 num :: (Eq n, Show n, Num n) => n -> Formula n
 num = Literal . LNum
@@ -96,3 +100,9 @@ query = BindQuery
 
 (===) :: IsValue a => Formula a -> Formula a -> Proposition
 (===) = Equals
+
+(<), (<=), (>), (>=) :: Ord a => Formula a -> Formula a -> Proposition
+(<) = Compare LessThan
+(<=) = Compare LessThanEqual
+(>) = Compare GreaterThan
+(>=) = Compare GreaterThanEqual

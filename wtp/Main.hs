@@ -32,7 +32,8 @@ main =
       [ ("button", buttonSpec),
         ("toggle", toggleSpec),
         ("comment form", commentFormSpec),
-        ("TodoMVC AngularJS", TodoMVC.spec)
+        ("TodoMVC AngularJS", TodoMVC.spec "angularjs"),
+        ("TodoMVC Backbone.js", TodoMVC.spec "backbone")
       ]
 
 -- Simple example: a button that can be clicked, which then shows a message

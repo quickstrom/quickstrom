@@ -14,10 +14,10 @@ import WTP.Specification
 import WTP.Syntax
 import Prelude hiding ((<), (<=), (>), (>=), all, init)
 
-spec :: Specification Proposition
-spec =
+spec :: Text -> Specification Proposition
+spec name =
   Specification
-    { origin = Path ("http://todomvc.com/examples/angularjs/"),
+    { origin = Path ("http://todomvc.com/examples/" <> name <> "/"),
       readyWhen = ".todoapp",
       actions =
         [ -- (5, [Focus ".todoapp .new-todo", KeyPress 'a', KeyPress '\xe006']), -- full sequence of creating a new item

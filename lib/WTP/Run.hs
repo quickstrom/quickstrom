@@ -67,7 +67,7 @@ data CheckResult = CheckSuccess | CheckFailure {failedAfter :: Int, failingTest 
 test :: Specification Proposition -> IO ()
 test spec = do
   -- stdGen <- getStdGen
-  let numTests = 20
+  let numTests = 10
   let sizes = map (\n -> n * 100 `div` numTests) [1 .. numTests]
   logInfo ("Running " <> show numTests <> " tests...")
   result <- runWebDriver (runAll sizes 1)

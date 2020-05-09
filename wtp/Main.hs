@@ -33,6 +33,8 @@ main =
         ("toggle", toggleSpec),
         ("comment form", commentFormSpec),
         ("TodoMVC AngularJS", TodoMVC.spec "angularjs"),
+        ("TodoMVC React", TodoMVC.spec "react"),
+        ("TodoMVC Vue.js", TodoMVC.spec "vue"),
         ("TodoMVC Backbone.js", TodoMVC.spec "backbone")
       ]
 

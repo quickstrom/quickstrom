@@ -37,6 +37,7 @@ module WTP.Syntax
     one,
     query,
     (===),
+    (/==),
     (<),
     (<=),
     (>),
@@ -98,8 +99,13 @@ one = fmap listToMaybe . all
 query :: IsValue a => Query a -> Formula a
 query = BindQuery
 
+infixl 7 ===, /==
+
 (===) :: IsValue a => Formula a -> Formula a -> Proposition
 (===) = Equals
+
+(/==) :: IsValue a => Formula a -> Formula a -> Proposition
+a /== b = neg (a === b)
 
 (<), (<=), (>), (>=) :: Ord a => Formula a -> Formula a -> Proposition
 (<) = Compare LessThan

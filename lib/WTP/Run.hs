@@ -1,9 +1,11 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
@@ -18,7 +20,8 @@ import Control.Applicative ((<|>))
 import Control.Lens
 import Control.Monad ((>=>), void)
 import Control.Monad (filterM)
-import Control.Monad.Freer (Eff, reinterpret2, runM, sendM, type (~>))
+import Control.Monad.Freer (Eff, LastMember, Member, reinterpret3, runM, sendM, type (~>))
+import Control.Monad.Freer.State (State, evalState, get, put)
 import Control.Monad.Freer.Writer (Writer, runWriter, tell)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Class (MonadTrans)
@@ -38,6 +41,8 @@ import qualified Data.Text as Text
 import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
+import Data.Typeable (cast)
+import GHC.Generics (Generic)
 import qualified Test.QuickCheck as QuickCheck
 import qualified Test.Tasty as Tasty
 import Test.Tasty.HUnit (assertFailure, testCase)
@@ -193,13 +198,15 @@ runActions spec actions = do
   rest <- concat <$> traverse runActionAndObserve actions
   pure (Trace (initial : rest))
   where
-    queries = withQueries runQuery (proposition spec)
     runActionAndObserve action = do
       result <- (runAction action)
       s <- observe
       pure [TraceAction () action result, s]
     observe = do
-      values <- queries
+      values <-
+        withQueries runQuery (proposition spec)
+          & evalState RunQueryState {cachedElements = mempty, cachedElementStates = mempty}
+          & runM
       let (queriedElements, elementStates) =
             bimap groupUniqueIntoMap groupUniqueIntoMap (partitionEithers (concat values))
       pure (TraceState () (ObservedState {queriedElements, elementStates}))
@@ -250,7 +257,8 @@ inNewPrivateWindow = (runIsolated (reconfigure headlessFirefoxCapabilities))
             <&> \o ->
               o
                 { _firefoxArgs = Just ["-headless", "-private"],
-                  _firefoxPrefs = Just (HashMap.singleton "Dom.storage.enabled" (JSON.Bool False))
+                  _firefoxPrefs = Just (HashMap.singleton "Dom.storage.enabled" (JSON.Bool False)),
+                  _firefoxLog = Just (FirefoxLog (Just LogWarn))
                 }
         }
 
@@ -312,30 +320,61 @@ type QueriedElement = (Selector, Element)
 
 type QueriedElementState = (Element, ElementStateValue)
 
-runQuery :: Query a -> Runner [Either QueriedElement QueriedElementState]
+type QueriedValue = Either QueriedElement QueriedElementState
+
+data RunQueryState
+  = RunQueryState
+      { cachedElements :: HashMap Selector [Element],
+        cachedElementStates :: HashMap (Element, SomeElementState) ElementStateValue
+      }
+  deriving (Generic)
+
+runQuery :: Query a -> Eff '[State RunQueryState, WD] [Either QueriedElement QueriedElementState]
 runQuery (Query query') =
   fmap snd
-    $ runM
     $ runWriter
-    $ reinterpret2 go query'
+    $ reinterpret3 go query'
   where
-    go :: QueryF ~> Eff '[Writer [Either (Selector, Element) (Element, ElementStateValue)], WebDriverTT IdentityT IO]
+    go :: QueryF ~> Eff '[Writer [QueriedValue], State RunQueryState, WD]
     go =
       ( \case
-          QueryAll selector -> do
-            els <- fmap fromRef <$> sendM (findAll selector)
-            tell ((Left . (selector,) <$> els) :: [Either QueriedElement QueriedElementState])
-            pure els
+          QueryAll selector ->
+            useCachedOrInsert selector (field @"cachedElements") id pure $ do
+              els <- fmap fromRef <$> sendM (findAll selector)
+              tell ((Left . (selector,) <$> els) :: [QueriedValue])
+              pure els
           Get state el -> do
-            value <- sendM $ case state of
-              Attribute name -> (either (const name) Text.pack) <$> (getElementAttribute (Text.unpack name) (toRef el))
-              Property name -> (getElementProperty (Text.unpack name) (toRef el))
-              CssValue name -> Text.pack <$> (getElementCssValue (Text.unpack name) (toRef el))
-              Text -> Text.pack <$> (getElementText (toRef el))
-              Enabled -> (isElementEnabled (toRef el))
-            tell [Right (el, ElementStateValue state value) :: Either QueriedElement QueriedElementState]
-            pure value
+            useCachedOrInsert (el, SomeElementState state) (field @"cachedElementStates") (ElementStateValue state) (\(ElementStateValue _ x) -> cast x) $ do
+              value <- sendM $ case state of
+                Attribute name -> (either (const name) Text.pack) <$> (getElementAttribute (Text.unpack name) (toRef el))
+                Property name -> (getElementProperty (Text.unpack name) (toRef el))
+                CssValue name -> Text.pack <$> (getElementCssValue (Text.unpack name) (toRef el))
+                Text -> Text.pack <$> (getElementText (toRef el))
+                Enabled -> (isElementEnabled (toRef el))
+              tell [Right (el, ElementStateValue state value) :: QueriedValue]
+              pure value
       )
+    useCachedOrInsert ::
+      ( Eq k,
+        Hashable k,
+        Show k,
+        Member (State RunQueryState) effs,
+        LastMember WD effs
+      ) =>
+      k ->
+      (Lens' RunQueryState (HashMap k a)) ->
+      (b -> a) ->
+      (a -> Maybe b) ->
+      Eff effs b ->
+      Eff effs b
+    useCachedOrInsert key cached toValue fromValue query = do
+      s <- get
+      case s ^. cached . at key >>= fromValue of
+        Just x -> pure x
+        Nothing -> do
+          x <- query
+          put (s & cached . at key ?~ toValue x)
+          pure x
 
 isElementVisible :: ElementRef -> WD Bool
 isElementVisible el = do

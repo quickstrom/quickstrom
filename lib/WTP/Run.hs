@@ -23,6 +23,7 @@ import Control.Lens
 import Control.Monad ((>=>), void)
 import Control.Monad (filterM)
 import Control.Monad.Freer (Eff, Member, reinterpret3, runM, sendM, type (~>))
+import Pipes
 import Control.Monad.Freer.State (State, evalState, get, put)
 import Control.Monad.Freer.Writer (Writer, runWriter, tell)
 import Control.Monad.IO.Class (MonadIO (liftIO))
@@ -60,13 +61,11 @@ import WTP.Trace
 import WTP.Verify
 import Web.Api.WebDriver hiding (Action, Selector, assertFailure, hPutStrLn, runIsolated)
 
-type WD = WebDriverTT IdentityT IO
-
-type Runner = WD -- Eff '[WD]
+type Runner = WebDriverTT IdentityT IO
 
 testSpecifications :: [(Text, Specification Proposition)] -> Tasty.TestTree
 testSpecifications specs =
-  Tasty.testGroup "WTP specifications" [testCase (Text.unpack name) (test spec) | (name, spec) <- specs]
+  Tasty.testGroup "WTP specifications" [testCase (Text.unpack name) (check spec) | (name, spec) <- specs]
 
 data FailingTest = FailingTest {numShrinks :: Int, trace :: Trace TraceElementEffect}
 
@@ -74,13 +73,13 @@ type TestResult = Either FailingTest ()
 
 data CheckResult = CheckSuccess | CheckFailure {failedAfter :: Int, failingTest :: FailingTest}
 
-test :: Specification Proposition -> IO ()
-test spec = do
+check :: Specification Proposition -> IO ()
+check spec = do
   -- stdGen <- getStdGen
   let numTests = 10
   let sizes = map (\n -> n * 100 `div` numTests) [1 .. numTests]
   logInfo ("Running " <> show numTests <> " tests...")
-  result <- runWebDriver (breakpointsOn >> runAll sizes 1)
+  result <- runWebDriver (breakpointsOn >> runAll spec' sizes 1)
   case result of
     CheckFailure {failedAfter, failingTest} -> do
       logInfo . renderString $
@@ -88,22 +87,33 @@ test spec = do
       assertFailure ("Failed after " <> show failedAfter <> " tests and " <> show (numShrinks failingTest) <> " shrinks.")
     CheckSuccess -> logInfo ("Passed " <> show numTests <> " tests.")
   where
-    runSingle size = do
-      actions <- inNewPrivateWindow (genActions spec' size)
-      logInfoWD (Text.unpack (renderStrict (layoutPretty defaultLayoutOptions ("Running and verifying" <+> pretty (length actions) <+> "actions:" <> line <+> annotate (colorDull Black) (prettyActions actions)))))
-      (original, result) <- inNewPrivateWindow (runAndVerify spec' actions)
-      case result of
-        Accepted -> pure (Right ())
-        Rejected -> do
-          logInfoWD "Test failed. Shrinking..."
-          fromMaybe (Left (FailingTest 0 original)) <$> shrinkFailing spec' actions 1
-    runAll [] _ = pure CheckSuccess
-    runAll (size : sizes) (n :: Int) = do
-      logInfoWD ("Running test " <> show n <> " with size: " <> show size)
-      runSingle size >>= \case
-        Right {} -> runAll sizes (succ n)
-        Left failingTest -> pure (CheckFailure n failingTest)
     spec' = spec & field @"proposition" %~ simplify
+
+runSingle :: Specification Proposition -> Int -> Runner (Either FailingTest ())
+runSingle spec' size = do
+  actions <- inNewPrivateWindow (genActions spec' size)
+  (original, result) <- inNewPrivateWindow (runAndVerify spec' actions)
+  case result of
+    Accepted -> pure (Right ())
+    Rejected -> do
+        logInfoWD "Test failed. Shrinking..."
+        fromMaybe (Left (FailingTest 0 original)) <$> shrinkFailing spec' actions 1
+
+runAll :: Specification Proposition -> [Int] -> Int -> Runner CheckResult
+runAll _ [] _ = pure CheckSuccess
+runAll spec' (size : sizes) (n :: Int) = do
+  logInfoWD ("Running test " <> show n <> " with size: " <> show size)
+  runSingle spec' size >>= \case
+    Right {} -> runAll spec' sizes (succ n)
+    Left failingTest -> pure (CheckFailure n failingTest)
+
+{-
+generateAndVerify :: Specification Proposition -> Runner ([Action Selected], Trace TraceElementEffect, Result)
+generateAndVerify spec = do
+  -- trace <- annotateStutteringSteps <$> runActions spec actions
+  (actions, trace) <- _
+  pure (actions, trace, verify (trace ^.. nonStutterStates) (proposition spec))
+-}
 
 shrinkFailing :: Specification Proposition -> [Action Selected] -> Int -> Runner (Maybe TestResult)
 shrinkFailing spec original n
@@ -153,7 +163,7 @@ validActions actions = do
       Navigate p -> pure (Just (pure (Navigate p)))
       Focus sel -> selectOne sel Focus (isNotActive . toRef)
       Click sel -> selectOne sel Click isElementVisible
-    selectOne :: Selector -> (Selected -> Action Selected) -> (Element -> WD Bool) -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
+    selectOne :: Selector -> (Selected -> Action Selected) -> (Element -> Runner Bool) -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
     selectOne sel ctor isValid = do
       found <- findAll sel
       validChoices <-
@@ -219,30 +229,30 @@ runActions spec actions = do
             bimap groupUniqueIntoMap groupUniqueIntoMap (partitionEithers (concat values))
       pure (TraceState () (ObservedState {queriedElements, elementStates}))
 
-tryAction :: WD ActionResult -> WD ActionResult
+tryAction :: Runner ActionResult -> Runner ActionResult
 tryAction action = action `catchError` (pure . ActionFailed . Text.pack . show)
 
-click :: Selected -> WD ActionResult
+click :: Selected -> Runner ActionResult
 click = findSelected >=> \case
   Just e -> tryAction (ActionSuccess <$ (elementClick (toRef e)))
   Nothing -> pure ActionImpossible
 
-sendKey :: Char -> WD ActionResult
+sendKey :: Char -> Runner ActionResult
 sendKey c = tryAction (ActionSuccess <$ (getActiveElement >>= elementSendKeys [c]))
 
-focus :: Selected -> WD ActionResult
+focus :: Selected -> Runner ActionResult
 focus = findSelected >=> \case
   Just e -> tryAction (ActionSuccess <$ (elementSendKeys "" (toRef e)))
   Nothing -> pure ActionImpossible
 
-runAction :: Action Selected -> WD ActionResult
+runAction :: Action Selected -> Runner ActionResult
 runAction = \case
   Focus s -> focus s
   KeyPress c -> sendKey c
   Click s -> click s
   Navigate (Path path) -> tryAction (ActionSuccess <$ navigateTo (Text.unpack path))
 
-runWebDriver :: WD a -> IO a
+runWebDriver :: Runner a -> IO a
 runWebDriver ma = do
   mgr <- Http.newManager defaultManagerSettings
   let httpOptions :: Wreq.Options
@@ -309,14 +319,14 @@ setSessionId ::
   S WDState
 setSessionId x st = st {_userState = (_userState st) {_sessionId = x}}
 
-findSelected :: Selected -> WD (Maybe Element)
+findSelected :: Selected -> Runner (Maybe Element)
 findSelected (Selected s i) =
   findAll s >>= \case
     es
       | length es > i -> pure (Just (es !! i))
       | otherwise -> pure Nothing
 
-findAll :: Selector -> WD [Element]
+findAll :: Selector -> Runner [Element]
 findAll (Selector s) = map fromRef <$> findElements CssSelector (Text.unpack s)
 
 toRef :: Element -> ElementRef
@@ -341,13 +351,13 @@ data RunQueryState
       }
   deriving (Generic)
 
-runQuery :: Query a -> Eff '[State RunQueryState, WD] [Either QueriedElement QueriedElementState]
+runQuery :: Query a -> Eff '[State RunQueryState, Runner] [Either QueriedElement QueriedElementState]
 runQuery (Query query') =
   fmap snd
     $ runWriter
     $ reinterpret3 go query'
   where
-    go :: QueryF ~> Eff '[Writer [QueriedValue], State RunQueryState, WD]
+    go :: QueryF ~> Eff '[Writer [QueriedValue], State RunQueryState, Runner]
     go =
       ( \case
           QueryAll selector ->
@@ -392,7 +402,7 @@ logInfo = liftIO . putStrLn
 logInfoWD :: String -> Runner ()
 logInfoWD = liftWebDriverTT . logInfo
 
-isElementVisible :: Element -> WD Bool
+isElementVisible :: Element -> Runner Bool
 isElementVisible el = do
   r <- (== JSON.Bool True) <$> executeScript "return window.wtp.isElementVisible(arguments[0])" [JSON.toJSON el]
   logInfoWD (show el <> " visible: " <> show r)

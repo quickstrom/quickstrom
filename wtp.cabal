@@ -24,6 +24,7 @@ common shared-deps
                     , monad-loops
                     , mtl
                     , natural-transformation
+                    , pipes
                     , prettyprinter
                     , prettyprinter-ansi-terminal
                     , QuickCheck

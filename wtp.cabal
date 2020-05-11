@@ -11,10 +11,13 @@ extra-source-files:   CHANGELOG.md
 common shared-deps
   build-depends:      base ^>= 4.12
                     , aeson
+                    , bytestring
                     , containers
                     , freer-simple
-                    , hashable
+                    , file-embed
                     , generic-lens
+                    , hashable
+                    , http-client
                     , lattices
                     , lens
                     , mmorph
@@ -29,12 +32,13 @@ common shared-deps
                     , tasty
                     , tasty-hunit
                     , tasty-quickcheck
+                    , template-haskell
                     , text
                     , transformers
                     , unordered-containers
-
                     , vector
                     , webdriver-w3c
+                    , wreq
 
 library
   import:             shared-deps
@@ -45,6 +49,7 @@ library
                     , WTP.Result
                     , WTP.Run
                     , WTP.Specification
+                    , WTP.TH
                     , WTP.Trace
                     , WTP.Verify
   hs-source-dirs:     lib

@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -7,6 +8,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
@@ -20,7 +22,7 @@ import Control.Applicative ((<|>))
 import Control.Lens
 import Control.Monad ((>=>), void)
 import Control.Monad (filterM)
-import Control.Monad.Freer (Eff, LastMember, Member, reinterpret3, runM, sendM, type (~>))
+import Control.Monad.Freer (Eff, Member, reinterpret3, runM, sendM, type (~>))
 import Control.Monad.Freer.State (State, evalState, get, put)
 import Control.Monad.Freer.Writer (Writer, runWriter, tell)
 import Control.Monad.IO.Class (MonadIO (liftIO))
@@ -43,6 +45,8 @@ import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
 import Data.Typeable (cast)
 import GHC.Generics (Generic)
+import Network.HTTP.Client as Http
+import qualified Network.Wreq as Wreq
 import qualified Test.QuickCheck as QuickCheck
 import qualified Test.Tasty as Tasty
 import Test.Tasty.HUnit (assertFailure, testCase)
@@ -51,6 +55,7 @@ import WTP.Formula
 import WTP.Query
 import WTP.Result
 import WTP.Specification
+import WTP.TH (embedStringFile')
 import WTP.Trace
 import WTP.Verify
 import Web.Api.WebDriver hiding (Action, Selector, assertFailure, hPutStrLn, runIsolated)
@@ -75,7 +80,7 @@ test spec = do
   let numTests = 10
   let sizes = map (\n -> n * 100 `div` numTests) [1 .. numTests]
   logInfo ("Running " <> show numTests <> " tests...")
-  result <- runWebDriver (runAll sizes 1)
+  result <- runWebDriver (breakpointsOn >> runAll sizes 1)
   case result of
     CheckFailure {failedAfter, failingTest} -> do
       logInfo . renderString $
@@ -116,6 +121,7 @@ shrinkFailing spec original n
           (trace, Rejected) -> (<|> Just (Left (FailingTest n trace))) <$> shrinkFailing spec actions (succ n)
     shrink = QuickCheck.shrinkList shrinkAction
 
+{-# SCC runAndVerify "runAndVerify" #-}
 runAndVerify :: Specification Proposition -> [Action Selected] -> Runner (Trace TraceElementEffect, Result)
 runAndVerify spec actions = do
   trace <- annotateStutteringSteps <$> runActions spec actions
@@ -145,9 +151,9 @@ validActions actions = do
                 | otherwise -> pure Nothing
           Nothing -> pure Nothing
       Navigate p -> pure (Just (pure (Navigate p)))
-      Focus sel -> selectOne sel Focus isNotActive
+      Focus sel -> selectOne sel Focus (isNotActive . toRef)
       Click sel -> selectOne sel Click isElementVisible
-    selectOne :: Selector -> (Selected -> Action Selected) -> (ElementRef -> WD Bool) -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
+    selectOne :: Selector -> (Selected -> Action Selected) -> (Element -> WD Bool) -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
     selectOne sel ctor isValid = do
       found <- findAll sel
       validChoices <-
@@ -162,9 +168,11 @@ validActions actions = do
     isNotActive e = (/= Just e) <$> activeElement
     activeElement = (Just <$> getActiveElement) `catchError` const (pure Nothing)
 
+{-# SCC genActions "genActions" #-}
 genActions :: Specification Proposition -> Int -> Runner [Action Selected]
 genActions spec maxNum = do
   navigateToOrigin spec
+  initializeScript
   awaitElement (readyWhen spec)
   go []
   where
@@ -191,8 +199,8 @@ navigateToOrigin spec = case origin spec of
 
 runActions :: Specification Proposition -> [Action Selected] -> Runner (Trace ())
 runActions spec actions = do
-  -- lift breakpointsOn
   navigateToOrigin spec
+  initializeScript
   awaitElement (readyWhen spec)
   initial <- observe
   rest <- concat <$> traverse runActionAndObserve actions
@@ -216,7 +224,7 @@ tryAction action = action `catchError` (pure . ActionFailed . Text.pack . show)
 
 click :: Selected -> WD ActionResult
 click = findSelected >=> \case
-  Just e -> tryAction (ActionSuccess <$ (elementClick e))
+  Just e -> tryAction (ActionSuccess <$ (elementClick (toRef e)))
   Nothing -> pure ActionImpossible
 
 sendKey :: Char -> WD ActionResult
@@ -224,7 +232,7 @@ sendKey c = tryAction (ActionSuccess <$ (getActiveElement >>= elementSendKeys [c
 
 focus :: Selected -> WD ActionResult
 focus = findSelected >=> \case
-  Just e -> tryAction (ActionSuccess <$ (elementSendKeys "" e))
+  Just e -> tryAction (ActionSuccess <$ (elementSendKeys "" (toRef e)))
   Nothing -> pure ActionImpossible
 
 runAction :: Action Selected -> WD ActionResult
@@ -235,28 +243,32 @@ runAction = \case
   Navigate (Path path) -> tryAction (ActionSuccess <$ navigateTo (Text.unpack path))
 
 runWebDriver :: WD a -> IO a
-runWebDriver ma =
-  execWebDriverT (reconfigure defaultWebDriverConfig) ma >>= \case
+runWebDriver ma = do
+  mgr <- Http.newManager defaultManagerSettings
+  let httpOptions :: Wreq.Options
+      httpOptions = Wreq.defaults & Wreq.manager .~ Right mgr
+  execWebDriverT (reconfigure defaultWebDriverConfig httpOptions) ma >>= \case
     (Right x, _, _) -> pure x
     (Left err, _, _) -> fail (show err)
   where
-    reconfigure c =
+    reconfigure c httpOptions =
       c
         { _environment =
             (_environment c)
               { _logEntryPrinter = \_ _ -> Nothing
-              }
+              },
+          _initialState = defaultWebDriverState {_httpOptions = httpOptions}
         }
 
 inNewPrivateWindow :: Runner ~> Runner
-inNewPrivateWindow = (runIsolated (reconfigure headlessFirefoxCapabilities))
+inNewPrivateWindow = runIsolated (reconfigure headlessFirefoxCapabilities)
   where
     reconfigure c =
       c
         { _firefoxOptions = (_firefoxOptions c)
             <&> \o ->
               o
-                { _firefoxArgs = Just ["-headless", "-private"],
+                { _firefoxArgs = Just [ "-headless", "-private"],
                   _firefoxPrefs = Just (HashMap.singleton "Dom.storage.enabled" (JSON.Bool False)),
                   _firefoxLog = Just (FirefoxLog (Just LogWarn))
                 }
@@ -268,7 +280,7 @@ runIsolated ::
   Capabilities ->
   WebDriverTT t eff a ->
   WebDriverTT t eff a
-runIsolated caps theSession = cleanupOnError $ do
+runIsolated caps theSession = cleanupOnError do
   sid <- newSession caps
   modifyState (setSessionId (Just sid))
   a <- theSession
@@ -297,15 +309,15 @@ setSessionId ::
   S WDState
 setSessionId x st = st {_userState = (_userState st) {_sessionId = x}}
 
-findSelected :: Selected -> WD (Maybe ElementRef)
+findSelected :: Selected -> WD (Maybe Element)
 findSelected (Selected s i) =
   findAll s >>= \case
     es
       | length es > i -> pure (Just (es !! i))
       | otherwise -> pure Nothing
 
-findAll :: Selector -> WD [ElementRef]
-findAll (Selector s) = findElements CssSelector (Text.unpack s)
+findAll :: Selector -> WD [Element]
+findAll (Selector s) = map fromRef <$> findElements CssSelector (Text.unpack s)
 
 toRef :: Element -> ElementRef
 toRef (Element ref) = ElementRef (Text.unpack ref)
@@ -339,12 +351,12 @@ runQuery (Query query') =
     go =
       ( \case
           QueryAll selector ->
-            useCachedOrInsert selector (field @"cachedElements") id pure $ do
-              els <- fmap fromRef <$> sendM (findAll selector)
+            useCachedOrInsert selector (field @"cachedElements") id pure do
+              els <- sendM (findAll selector)
               tell ((Left . (selector,) <$> els) :: [QueriedValue])
               pure els
           Get state el -> do
-            useCachedOrInsert (el, SomeElementState state) (field @"cachedElementStates") (ElementStateValue state) (\(ElementStateValue _ x) -> cast x) $ do
+            useCachedOrInsert (el, SomeElementState state) (field @"cachedElementStates") (ElementStateValue state) (\(ElementStateValue _ x) -> cast x) do
               value <- sendM $ case state of
                 Attribute name -> (either (const name) Text.pack) <$> (getElementAttribute (Text.unpack name) (toRef el))
                 Property name -> (getElementProperty (Text.unpack name) (toRef el))
@@ -357,9 +369,7 @@ runQuery (Query query') =
     useCachedOrInsert ::
       ( Eq k,
         Hashable k,
-        Show k,
-        Member (State RunQueryState) effs,
-        LastMember WD effs
+        Member (State RunQueryState) effs
       ) =>
       k ->
       (Lens' RunQueryState (HashMap k a)) ->
@@ -376,33 +386,28 @@ runQuery (Query query') =
           put (s & cached . at key ?~ toValue x)
           pure x
 
-isElementVisible :: ElementRef -> WD Bool
-isElementVisible el = do
-  enabled <- isElementEnabled el
-  offsetParent <- getElementProperty "offsetParent" el
-  d <- getElementCssValue "display" el
-  v <- getElementCssValue "visibility" el
-  o <- getElementCssValue "opacity" el
-  pure (enabled && offsetParent /= JSON.Null && d /= "none" && v /= "hidden" && o /= "0")
-
 logInfo :: MonadIO m => String -> m ()
 logInfo = liftIO . putStrLn
 
 logInfoWD :: String -> Runner ()
 logInfoWD = liftWebDriverTT . logInfo
 
+isElementVisible :: Element -> WD Bool
+isElementVisible el = do
+  r <- (== JSON.Bool True) <$> executeScript "return window.wtp.isElementVisible(arguments[0])" [JSON.toJSON el]
+  logInfoWD (show el <> " visible: " <> show r)
+  pure r
+
 awaitElement :: Selector -> WebDriverT IO ()
 awaitElement (Selector sel) =
-  void
-    ( executeAsyncScript
-        " var sel = arguments[0]; \
-        \ var done = arguments[1]; \
-        \ var timer = setInterval(function () { \
-        \   if (document.querySelector(sel)) { clearInterval(timer); done(); } \
-        \ }, 100); \
-        \"
-        [JSON.toJSON sel]
-    )
+  void (executeAsyncScript "window.wtp.awaitElement(arguments[0], arguments[1])" [JSON.toJSON sel])
 
 renderString :: Doc AnsiStyle -> String
 renderString = Text.unpack . renderStrict . layoutPretty defaultLayoutOptions
+
+wtpJs :: Script
+wtpJs = $(embedStringFile' "lib/wtp.js")
+
+initializeScript :: Runner ()
+initializeScript =
+  void (executeScript wtpJs [])

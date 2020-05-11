@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -21,6 +22,9 @@ import Type.Reflection
 
 newtype Element = Element {ref :: Text}
   deriving (Eq, Ord, Show, Hashable, Pretty)
+
+instance JSON.ToJSON Element where
+  toJSON (Element e) = JSON.object ["element-6066-11e4-a52e-4f735466cecf" JSON..= e]
 
 data ElementState a where
   Attribute :: Text -> ElementState Text

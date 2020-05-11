@@ -29,6 +29,7 @@ in haskellPackages.shellFor {
     ghcide
     cabal-install
     haskellPackages.ormolu
+    haskellPackages.ghc-prof-flamegraph
     firefox
     geckodriver
     chromium

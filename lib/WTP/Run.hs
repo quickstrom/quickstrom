@@ -18,9 +18,8 @@ module WTP.Run
   )
 where
 
-import Control.Applicative ((<|>))
 import Control.Lens hiding (each)
-import Control.Monad ((>=>), forever, void)
+import Control.Monad ((>=>), forever, void, when)
 import Control.Monad (filterM)
 import Control.Monad.Freer (Eff, Member, reinterpret3, runM, sendM, type (~>))
 import Control.Monad.Freer.State (State, evalState, get, put)
@@ -44,11 +43,12 @@ import qualified Data.Text as Text
 import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
+import Data.Tree
 import Data.Typeable (cast)
 import GHC.Generics (Generic)
 import Network.HTTP.Client as Http
 import qualified Network.Wreq as Wreq
-import Pipes ((>->), (>~), Consumer, Effect, Pipe, Producer, X)
+import Pipes ((>->), Consumer, Effect, Pipe, Producer)
 import qualified Pipes
 import qualified Pipes.Prelude as Pipes
 import qualified Test.QuickCheck as QuickCheck
@@ -71,9 +71,7 @@ testSpecifications specs =
   Tasty.testGroup "WTP specifications" [testCase (Text.unpack name) (check spec) | (name, spec) <- specs]
 
 data FailingTest = FailingTest {numShrinks :: Int, trace :: Trace TraceElementEffect}
-  deriving (Show)
-
-type TestResult = Either FailingTest ()
+  deriving (Show, Generic)
 
 data CheckResult = CheckSuccess | CheckFailure {failedAfter :: Int, failingTest :: FailingTest}
   deriving (Show)
@@ -88,7 +86,7 @@ check spec = do
     CheckFailure {failedAfter, failingTest} -> do
       logInfo . renderString $
         prettyTrace (annotateStutteringSteps (trace failingTest)) <> line
-      assertFailure ("Failed after " <> show failedAfter <> " tests and " <> show (numShrinks failingTest) <> " shrinks.")
+      assertFailure ("Failed after " <> show failedAfter <> " tests and " <> show (numShrinks failingTest) <> " levels of shrinking.")
     CheckSuccess -> logInfo ("Passed " <> show numTests <> " tests.")
   where
     spec' = spec & field @"proposition" %~ simplify
@@ -96,17 +94,42 @@ check spec = do
 elementsToTrace :: Producer (TraceElement ()) Runner () -> Runner (Trace ())
 elementsToTrace = fmap Trace . Pipes.toListM
 
+minBy :: (Monad m, Ord b) => (a -> b) -> Producer a m () -> m (Maybe a)
+minBy f = Pipes.fold step Nothing id
+  where
+    step x a = Just $ case x of
+      Nothing -> a
+      Just a' ->
+        case f a `compare` f a' of
+          EQ -> a
+          LT -> a
+          GT -> a'
+
+select :: Monad m => (a -> Maybe b) -> Pipe a b m ()
+select f = forever do
+  x <- Pipes.await
+  maybe (pure ()) Pipes.yield (f x)
+
 runSingle :: Specification Proposition -> Int -> Runner (Either FailingTest ())
 runSingle spec size = do
-  trace <- annotateStutteringSteps <$> inNewPrivateWindow do
-    beforeRun spec
-    elementsToTrace (genActions' spec >-> Pipes.take size >-> runActions' spec)
-  let result = verify (trace ^.. nonStutterStates) (proposition spec)
+  result <- runAndVerifyIsolated (genActions' spec >-> Pipes.take size) 0
   case result of
-    Accepted -> pure (Right ())
-    Rejected -> do
+    Right () -> pure (Right ())
+    f@(Left (FailingTest _ trace)) -> do
       logInfoWD "Test failed. Shrinking..."
-      fromMaybe (Left (FailingTest 0 trace)) <$> shrinkFailing spec (trace ^.. traceActions) 1
+      let shrinks = shrinkForest (QuickCheck.shrinkList shrinkAction) (trace ^.. traceActions)
+      shrunk <- minBy (lengthOf (field @"trace" . traceElements)) (traverseShrinks runShrink shrinks >-> select (preview _Left) >-> Pipes.take 10)
+      pure (fromMaybe f (Left <$> shrunk))
+  where
+    runAndVerifyIsolated producer n = do
+      trace <- annotateStutteringSteps <$> inNewPrivateWindow do
+        beforeRun spec
+        elementsToTrace (producer >-> runActions' spec)
+      case verify (trace ^.. nonStutterStates) (proposition spec) of
+        Accepted -> pure (Right ())
+        Rejected -> pure (Left (FailingTest n trace))
+    runShrink (Shrink n actions) =
+      runAndVerifyIsolated (Pipes.each actions) n
 
 runAll :: Int -> Specification Proposition -> Effect Runner CheckResult
 runAll numTests spec' = (allTests $> CheckSuccess) >-> firstFailure
@@ -136,7 +159,6 @@ beforeRun spec = do
   awaitElement (readyWhen spec)
 
 {-# SCC genActions' "genActions'" #-}
-
 genActions' :: Specification Proposition -> Producer (Action Selected) Runner ()
 genActions' spec = forever do
   lift (validActions (actions spec)) >>= \case
@@ -145,7 +167,6 @@ genActions' spec = forever do
     Nothing -> pure ()
 
 {-# SCC runActions' "runActions'" #-}
-
 runActions' :: Specification Proposition -> Pipe (Action Selected) (TraceElement ()) Runner ()
 runActions' spec = do
   Pipes.yield =<< lift observe
@@ -164,27 +185,24 @@ runActions' spec = do
             bimap groupUniqueIntoMap groupUniqueIntoMap (partitionEithers (concat values))
       pure (TraceState () (ObservedState {queriedElements, elementStates}))
 
-shrinkFailing :: Specification Proposition -> [Action Selected] -> Int -> Runner (Maybe TestResult)
-shrinkFailing spec original n
-  | n <= 100 = do
-    logInfoWD . renderString $ "Shrink #" <> pretty n <> "..."
-    go (shrink original)
-  | otherwise = pure Nothing
+data Shrink a = Shrink Int a
+
+shrinkForest :: (a -> [a]) -> a -> Forest (Shrink a)
+shrinkForest shrink = go 1
+  where
+    go n = map (\x -> Node (Shrink n x) (go (succ n) x)) . shrink
+
+traverseShrinks :: Monad m => ((Shrink a) -> m (Either e ())) -> Forest (Shrink a) -> Producer (Either e ()) m ()
+traverseShrinks test = go
   where
     go = \case
-      [] -> pure Nothing
-      ([] : rest) -> go rest
-      (actions : rest) ->
-        inNewPrivateWindow (runAndVerify spec actions) >>= \case
-          (_, Accepted) -> go rest
-          (trace, Rejected) -> (<|> Just (Left (FailingTest n trace))) <$> shrinkFailing spec actions (succ n)
-    shrink = QuickCheck.shrinkList shrinkAction
-
-{-# SCC runAndVerify "runAndVerify" #-}
-runAndVerify :: Specification Proposition -> [Action Selected] -> Runner (Trace TraceElementEffect, Result)
-runAndVerify spec actions = do
-  trace <- annotateStutteringSteps <$> runActions spec actions
-  pure (trace, verify (trace ^.. nonStutterStates) (proposition spec))
+      [] -> pure ()
+      Node x xs : rest -> do
+        r <- lift (test x)
+        Pipes.yield r
+        when (isn't _Right r) do
+          go xs
+        go rest
 
 -- TODO?
 shrinkAction :: Action sel -> [Action sel]
@@ -230,28 +248,6 @@ validActions actions = do
 navigateToOrigin :: Specification formula -> Runner ()
 navigateToOrigin spec = case origin spec of
   Path path -> (navigateTo (Text.unpack path))
-
-runActions :: Specification Proposition -> [Action Selected] -> Runner (Trace ())
-runActions spec actions = do
-  navigateToOrigin spec
-  initializeScript
-  awaitElement (readyWhen spec)
-  initial <- observe
-  rest <- concat <$> traverse runActionAndObserve actions
-  pure (Trace (initial : rest))
-  where
-    runActionAndObserve action = do
-      result <- (runAction action)
-      s <- observe
-      pure [TraceAction () action result, s]
-    observe = do
-      values <-
-        withQueries runQuery (proposition spec)
-          & evalState RunQueryState {cachedElements = mempty, cachedElementStates = mempty}
-          & runM
-      let (queriedElements, elementStates) =
-            bimap groupUniqueIntoMap groupUniqueIntoMap (partitionEithers (concat values))
-      pure (TraceState () (ObservedState {queriedElements, elementStates}))
 
 tryAction :: Runner ActionResult -> Runner ActionResult
 tryAction action = action `catchError` (pure . ActionFailed . Text.pack . show)

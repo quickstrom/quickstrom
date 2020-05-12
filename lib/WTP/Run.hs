@@ -19,11 +19,10 @@ module WTP.Run
 where
 
 import Control.Applicative ((<|>))
-import Control.Lens
+import Control.Lens hiding (each)
 import Control.Monad ((>=>), void)
 import Control.Monad (filterM)
 import Control.Monad.Freer (Eff, Member, reinterpret3, runM, sendM, type (~>))
-import Pipes
 import Control.Monad.Freer.State (State, evalState, get, put)
 import Control.Monad.Freer.Writer (Writer, runWriter, tell)
 import Control.Monad.IO.Class (MonadIO (liftIO))
@@ -34,6 +33,7 @@ import qualified Data.Aeson as JSON
 import Data.Bifunctor (Bifunctor (bimap))
 import Data.Either (partitionEithers)
 import Data.Function ((&))
+import Data.Functor (($>))
 import Data.Generics.Product (field)
 import qualified Data.HashMap.Strict as HashMap
 import Data.HashMap.Strict (HashMap)
@@ -48,6 +48,9 @@ import Data.Typeable (cast)
 import GHC.Generics (Generic)
 import Network.HTTP.Client as Http
 import qualified Network.Wreq as Wreq
+import Pipes ((>->), (>~), Consumer, Effect, Pipe, Producer, X)
+import qualified Pipes
+import qualified Pipes.Prelude as Pipes
 import qualified Test.QuickCheck as QuickCheck
 import qualified Test.Tasty as Tasty
 import Test.Tasty.HUnit (assertFailure, testCase)
@@ -68,18 +71,19 @@ testSpecifications specs =
   Tasty.testGroup "WTP specifications" [testCase (Text.unpack name) (check spec) | (name, spec) <- specs]
 
 data FailingTest = FailingTest {numShrinks :: Int, trace :: Trace TraceElementEffect}
+  deriving (Show)
 
 type TestResult = Either FailingTest ()
 
 data CheckResult = CheckSuccess | CheckFailure {failedAfter :: Int, failingTest :: FailingTest}
+  deriving (Show)
 
 check :: Specification Proposition -> IO ()
 check spec = do
   -- stdGen <- getStdGen
   let numTests = 10
-  let sizes = map (\n -> n * 100 `div` numTests) [1 .. numTests]
   logInfo ("Running " <> show numTests <> " tests...")
-  result <- runWebDriver (breakpointsOn >> runAll spec' sizes 1)
+  result <- runWebDriver (Pipes.runEffect (runAll numTests spec'))
   case result of
     CheckFailure {failedAfter, failingTest} -> do
       logInfo . renderString $
@@ -96,16 +100,29 @@ runSingle spec' size = do
   case result of
     Accepted -> pure (Right ())
     Rejected -> do
-        logInfoWD "Test failed. Shrinking..."
-        fromMaybe (Left (FailingTest 0 original)) <$> shrinkFailing spec' actions 1
+      logInfoWD "Test failed. Shrinking..."
+      fromMaybe (Left (FailingTest 0 original)) <$> shrinkFailing spec' actions 1
 
-runAll :: Specification Proposition -> [Int] -> Int -> Runner CheckResult
-runAll _ [] _ = pure CheckSuccess
-runAll spec' (size : sizes) (n :: Int) = do
-  logInfoWD ("Running test " <> show n <> " with size: " <> show size)
-  runSingle spec' size >>= \case
-    Right {} -> runAll spec' sizes (succ n)
-    Left failingTest -> pure (CheckFailure n failingTest)
+runAll :: Int -> Specification Proposition -> Effect Runner CheckResult
+runAll numTests spec' = (allTests $> CheckSuccess) >-> firstFailure
+  where
+    runSingle' :: Int -> Producer (Either FailingTest ()) Runner ()
+    runSingle' size = do
+      lift (logInfoWD ("Running test with size: " <> show size))
+      Pipes.yield =<< lift (runSingle spec' size)
+    allTests :: Producer (Either FailingTest (), Int) Runner ()
+    allTests = Pipes.for (sizes numTests) runSingle' `Pipes.zip` Pipes.each [1 ..]
+
+-- pure CheckSuccess
+
+firstFailure :: Functor m => Consumer (Either FailingTest (), Int) m CheckResult
+firstFailure =
+  Pipes.await >>= \case
+    (Right {}, _) -> firstFailure
+    (Left failingTest, n) -> pure (CheckFailure n failingTest)
+
+sizes :: Functor m => Int -> Producer Int m ()
+sizes numSizes = Pipes.each (map (\n -> (n * 100 `div` numSizes)) [1 .. numSizes])
 
 {-
 generateAndVerify :: Specification Proposition -> Runner ([Action Selected], Trace TraceElementEffect, Result)
@@ -278,7 +295,7 @@ inNewPrivateWindow = runIsolated (reconfigure headlessFirefoxCapabilities)
         { _firefoxOptions = (_firefoxOptions c)
             <&> \o ->
               o
-                { _firefoxArgs = Just [ "-headless", "-private"],
+                { _firefoxArgs = Just ["-headless", "-private"],
                   _firefoxPrefs = Just (HashMap.singleton "Dom.storage.enabled" (JSON.Bool False)),
                   _firefoxLog = Just (FirefoxLog (Just LogWarn))
                 }

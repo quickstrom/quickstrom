@@ -20,7 +20,7 @@ where
 
 import Control.Applicative ((<|>))
 import Control.Lens hiding (each)
-import Control.Monad ((>=>), void)
+import Control.Monad ((>=>), forever, void)
 import Control.Monad (filterM)
 import Control.Monad.Freer (Eff, Member, reinterpret3, runM, sendM, type (~>))
 import Control.Monad.Freer.State (State, evalState, get, put)
@@ -93,15 +93,20 @@ check spec = do
   where
     spec' = spec & field @"proposition" %~ simplify
 
+elementsToTrace :: Producer (TraceElement ()) Runner () -> Runner (Trace ())
+elementsToTrace = fmap Trace . Pipes.toListM
+
 runSingle :: Specification Proposition -> Int -> Runner (Either FailingTest ())
-runSingle spec' size = do
-  actions <- inNewPrivateWindow (genActions spec' size)
-  (original, result) <- inNewPrivateWindow (runAndVerify spec' actions)
+runSingle spec size = do
+  trace <- annotateStutteringSteps <$> inNewPrivateWindow do
+    beforeRun spec
+    elementsToTrace (genActions' spec >-> Pipes.take size >-> runActions' spec)
+  let result = verify (trace ^.. nonStutterStates) (proposition spec)
   case result of
     Accepted -> pure (Right ())
     Rejected -> do
       logInfoWD "Test failed. Shrinking..."
-      fromMaybe (Left (FailingTest 0 original)) <$> shrinkFailing spec' actions 1
+      fromMaybe (Left (FailingTest 0 trace)) <$> shrinkFailing spec (trace ^.. traceActions) 1
 
 runAll :: Int -> Specification Proposition -> Effect Runner CheckResult
 runAll numTests spec' = (allTests $> CheckSuccess) >-> firstFailure
@@ -124,13 +129,40 @@ firstFailure =
 sizes :: Functor m => Int -> Producer Int m ()
 sizes numSizes = Pipes.each (map (\n -> (n * 100 `div` numSizes)) [1 .. numSizes])
 
-{-
-generateAndVerify :: Specification Proposition -> Runner ([Action Selected], Trace TraceElementEffect, Result)
-generateAndVerify spec = do
-  -- trace <- annotateStutteringSteps <$> runActions spec actions
-  (actions, trace) <- _
-  pure (actions, trace, verify (trace ^.. nonStutterStates) (proposition spec))
--}
+beforeRun :: Specification Proposition -> Runner ()
+beforeRun spec = do
+  navigateToOrigin spec
+  initializeScript
+  awaitElement (readyWhen spec)
+
+{-# SCC genActions' "genActions'" #-}
+
+genActions' :: Specification Proposition -> Producer (Action Selected) Runner ()
+genActions' spec = forever do
+  lift (validActions (actions spec)) >>= \case
+    Just genValidAction -> do
+      Pipes.yield =<< lift (liftWebDriverTT (lift (QuickCheck.generate genValidAction)))
+    Nothing -> pure ()
+
+{-# SCC runActions' "runActions'" #-}
+
+runActions' :: Specification Proposition -> Pipe (Action Selected) (TraceElement ()) Runner ()
+runActions' spec = do
+  Pipes.yield =<< lift observe
+  forever do
+    action <- Pipes.await
+    result <- lift (runAction action)
+    Pipes.yield (TraceAction () action result)
+    Pipes.yield =<< lift observe
+  where
+    observe = do
+      values <-
+        withQueries runQuery (proposition spec)
+          & evalState RunQueryState {cachedElements = mempty, cachedElementStates = mempty}
+          & runM
+      let (queriedElements, elementStates) =
+            bimap groupUniqueIntoMap groupUniqueIntoMap (partitionEithers (concat values))
+      pure (TraceState () (ObservedState {queriedElements, elementStates}))
 
 shrinkFailing :: Specification Proposition -> [Action Selected] -> Int -> Runner (Maybe TestResult)
 shrinkFailing spec original n
@@ -194,31 +226,6 @@ validActions actions = do
           pure (Just (ctor . Selected sel <$> QuickCheck.elements (map fst choices)))
     isNotActive e = (/= Just e) <$> activeElement
     activeElement = (Just <$> getActiveElement) `catchError` const (pure Nothing)
-
-{-# SCC genActions "genActions" #-}
-genActions :: Specification Proposition -> Int -> Runner [Action Selected]
-genActions spec maxNum = do
-  navigateToOrigin spec
-  initializeScript
-  awaitElement (readyWhen spec)
-  go []
-  where
-    go acc
-      | length acc < maxNum = do
-        validActions (actions spec) >>= \case
-          Just genValidAction -> do
-            next <- (liftWebDriverTT (lift (QuickCheck.generate genValidAction)))
-            (runAction next) >>= \case
-              ActionFailed err ->
-                logInfoWD . renderString $
-                  "Action" <+> prettyAction next <+> "considered valid but did not run successfully:" <+> pretty err
-              ActionImpossible ->
-                logInfoWD . renderString $
-                  "Action" <+> prettyAction next <+> "considered impossible to run."
-              ActionSuccess -> pure ()
-            go (acc <> [next])
-          Nothing -> pure acc
-      | otherwise = pure acc
 
 navigateToOrigin :: Specification formula -> Runner ()
 navigateToOrigin spec = case origin spec of
@@ -420,10 +427,8 @@ logInfoWD :: String -> Runner ()
 logInfoWD = liftWebDriverTT . logInfo
 
 isElementVisible :: Element -> Runner Bool
-isElementVisible el = do
-  r <- (== JSON.Bool True) <$> executeScript "return window.wtp.isElementVisible(arguments[0])" [JSON.toJSON el]
-  logInfoWD (show el <> " visible: " <> show r)
-  pure r
+isElementVisible el =
+  (== JSON.Bool True) <$> executeScript "return window.wtp.isElementVisible(arguments[0])" [JSON.toJSON el]
 
 awaitElement :: Selector -> WebDriverT IO ()
 awaitElement (Selector sel) =

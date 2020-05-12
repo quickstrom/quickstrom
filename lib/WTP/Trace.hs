@@ -25,6 +25,7 @@ module WTP.Trace
     TraceElement (..),
     traceElements,
     observedStates,
+    traceActions,
     nonStutterStates,
     TraceElementEffect,
     annotateStutteringSteps,
@@ -95,6 +96,9 @@ traceElements = position @1
 
 observedStates :: Monoid r => Getting r (Trace ann) ObservedState
 observedStates = traceElements . traverse . _Ctor @"TraceState" . position @2
+
+traceActions :: Monoid r => Getting r (Trace ann) (Action Selected)
+traceActions = traceElements . traverse . _Ctor @"TraceAction" . position @2
 
 nonStutterStates :: Monoid r => Getting r (Trace TraceElementEffect) ObservedState
 nonStutterStates = traceElements . traverse . _Ctor @"TraceState" . filtered ((== NoStutter).fst) . position @2

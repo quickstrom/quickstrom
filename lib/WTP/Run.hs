@@ -141,8 +141,6 @@ runAll numTests spec' = (allTests $> CheckSuccess) >-> firstFailure
     allTests :: Producer (Either FailingTest (), Int) Runner ()
     allTests = Pipes.for (sizes numTests) runSingle' `Pipes.zip` Pipes.each [1 ..]
 
--- pure CheckSuccess
-
 firstFailure :: Functor m => Consumer (Either FailingTest (), Int) m CheckResult
 firstFailure =
   Pipes.await >>= \case

@@ -21,13 +21,12 @@ where
 import Control.Lens hiding (each)
 import Control.Monad ((>=>), forever, void, when)
 import Control.Monad (filterM)
-import Control.Monad.Freer (Eff, Member, runM, sendM, type (~>))
-import Control.Monad.Freer.State (State, evalState, get, put)
-import Control.Monad.Freer.Writer (Writer, runWriter, tell)
 import Control.Monad.IO.Class (MonadIO (liftIO))
+import Control.Monad.State
 import Control.Monad.Trans.Class (MonadTrans)
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import Control.Monad.Trans.Identity (IdentityT)
+import Control.Monad.Writer
 import qualified Data.Aeson as JSON
 import Data.Bifunctor (Bifunctor (bimap))
 import Data.Either (partitionEithers)
@@ -177,8 +176,7 @@ runActions' spec = do
     observe = do
       values <-
         withQueries runQuery (proposition spec)
-          & evalState RunQueryState {cachedElements = mempty, cachedElementStates = mempty}
-          & runM
+          & flip evalStateT RunQueryState {cachedElements = mempty, cachedElementStates = mempty}
       let (queriedElements, elementStates) =
             bimap groupUniqueIntoMap groupUniqueIntoMap (partitionEithers (concat values))
       pure (TraceState () (ObservedState {queriedElements, elementStates}))
@@ -288,7 +286,7 @@ runWebDriver ma = do
           _initialState = defaultWebDriverState {_httpOptions = httpOptions}
         }
 
-inNewPrivateWindow :: Runner ~> Runner
+inNewPrivateWindow :: Runner a -> Runner a
 inNewPrivateWindow = runIsolated (reconfigure headlessFirefoxCapabilities)
   where
     reconfigure c =
@@ -369,43 +367,40 @@ data RunQueryState
       }
   deriving (Generic)
 
-runQuery :: Query a -> Eff '[State RunQueryState, Runner] [Either QueriedElement QueriedElementState]
-runQuery query' =
-  fmap snd
-    $ runWriter
-    $ go query'
+runQuery :: Query a -> StateT RunQueryState Runner [Either QueriedElement QueriedElementState]
+runQuery = fmap snd . runWriterT . go
   where
-    go :: Query a -> Eff '[Writer [QueriedValue], State RunQueryState, Runner] [a]
+    go :: Query a -> WriterT [QueriedValue] (StateT RunQueryState Runner) [a]
     go =
       ( \case
           ByCss selector ->
             useCachedOrInsert selector (field @"cachedElements") id pure do
-              els <- sendM (findAll selector)
+              els <- lift (lift (findAll selector))
               tell ((Left . (selector,) <$> els) :: [QueriedValue])
               pure els
-          Get state sub ->
+          Get state' sub ->
             go sub >>= mapM \el -> do
-              useCachedOrInsert (el, SomeElementState state) (field @"cachedElementStates") (ElementStateValue state) (\(ElementStateValue _ x) -> cast x) do
-                value <- sendM $ case state of
+              useCachedOrInsert (el, SomeElementState state') (field @"cachedElementStates") (ElementStateValue state') (\(ElementStateValue _ x) -> cast x) do
+                value <- lift . lift $ case state' of
                   Attribute name -> (either (const name) Text.pack) <$> (getElementAttribute (Text.unpack name) (toRef el))
                   Property name -> (getElementProperty (Text.unpack name) (toRef el))
                   CssValue name -> Text.pack <$> (getElementCssValue (Text.unpack name) (toRef el))
                   Text -> Text.pack <$> (getElementText (toRef el))
                   Enabled -> (isElementEnabled (toRef el))
-                tell [Right (el, ElementStateValue state value) :: QueriedValue]
+                tell [Right (el, ElementStateValue state' value) :: QueriedValue]
                 pure value
       )
     useCachedOrInsert ::
       ( Eq k,
         Hashable k,
-        Member (State RunQueryState) effs
+        MonadState RunQueryState m
       ) =>
       k ->
       (Lens' RunQueryState (HashMap k a)) ->
       (b -> a) ->
       (a -> Maybe b) ->
-      Eff effs b ->
-      Eff effs b
+      m b ->
+      m b
     useCachedOrInsert key cached toValue fromValue query = do
       s <- get
       case s ^. cached . at key >>= fromValue of

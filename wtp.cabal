@@ -13,7 +13,6 @@ common shared-deps
                     , aeson
                     , bytestring
                     , containers
-                    , freer-simple
                     , file-embed
                     , generic-lens
                     , hashable

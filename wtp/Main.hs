@@ -97,11 +97,11 @@ commentFormSpec =
     }
 
 buttonIsEnabled :: Proposition
-buttonIsEnabled = fromMaybe bottom <$> query (traverse enabled =<< one "button")
+buttonIsEnabled = fromMaybe bottom <$> queryOne (enabled (byCss "button"))
 
 
 commentIsValid :: Proposition
-commentIsValid = (commentLength <$> query (traverse text =<< one ".comment")) >= num 3
+commentIsValid = (commentLength <$> queryOne (text (byCss ".comment"))) >= num 3
   where
     commentLength = \case
       Just t ->

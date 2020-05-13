@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE GADTs #-}
@@ -16,7 +17,6 @@ where
 import Algebra.Heyting (Heyting (..))
 import Algebra.Lattice (Lattice (..), bottom, fromBool, top)
 import Control.Applicative (Alternative (..))
-import Control.Monad.Freer (Eff, reinterpret, runM, sendM, type (~>))
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.HashSet as HashSet
 import Data.Maybe (fromMaybe)
@@ -53,25 +53,26 @@ eval steps@(current : rest) f = case f of
     pure (fromBool (p' == q'))
   Compare comparison p q -> do
     let op = case comparison of
-                LessThan -> (<)
-                LessThanEqual -> (<=)
-                GreaterThan -> (>)
-                GreaterThanEqual -> (>=)
+          LessThan -> (<)
+          LessThanEqual -> (<=)
+          GreaterThan -> (>)
+          GreaterThanEqual -> (>=)
     p' <- eval steps p
     q' <- eval steps q
     pure (fromBool (p' `op` q'))
   BindQuery query -> evalQuery current query
   MapFormula fn sub -> fn <$> eval steps sub
 
-evalQuery :: ObservedState -> Query a -> Maybe a
-evalQuery current (Query eff) = runM (reinterpret go eff)
+evalQuery :: ObservedState -> Query a -> Maybe [a]
+evalQuery current query = go query
   where
-    go :: QueryF ~> Eff '[Maybe]
+    go :: Query a -> Maybe [a]
     go = \case
-      Get state el -> do
-        let states = fromMaybe mempty (HashMap.lookup el (elementStates current))
-         in sendM (findElementState state states)
-      QueryAll selector ->
+      Get state sub ->
+        go sub >>= mapM \el ->
+          let states = fromMaybe mempty (HashMap.lookup el (elementStates current))
+           in findElementState state states
+      ByCss selector ->
         case HashMap.lookup selector (queriedElements current) of
           Just es -> pure es
           _ -> pure mempty

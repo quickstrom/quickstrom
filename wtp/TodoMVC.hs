@@ -7,6 +7,7 @@ where
 
 import Control.Lens (lastOf, lengthOf)
 import Data.Aeson as JSON
+import Data.Functor ((<&>))
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as Text
 import Data.Text (Text)
@@ -27,7 +28,7 @@ spec name =
           (2, KeyPress '\xe006'),
           (2, Focus ".todoapp .new-todo"),
           (2, Click ".todoapp .filters a"),
-          (1, Click ".todoapp label[for=toggle-all]"),
+          (1, Click ".todoapp label[for=toggle-byCss]"),
           (1, Click ".todoapp .destroy")
         ],
       proposition = init /\ (always (enterText \/ addNew \/ changeFilter \/ toggleAll))
@@ -73,16 +74,16 @@ isEmpty :: Proposition
 isEmpty = filterIs Nothing /\ (null <$> items) /\ ((== Just "") <$> pendingText)
 
 currentFilter :: Formula (Maybe Filter)
-currentFilter = query ((>>= (readMaybe . Text.unpack)) <$> (traverse text =<< one ".todoapp .filters .selected"))
+currentFilter = (>>= (readMaybe . Text.unpack)) <$> queryOne (text (byCss ".todoapp .filters .selected"))
 
 filterIs :: Maybe Filter -> Proposition
 filterIs f = (== f) <$> currentFilter
 
 items :: Formula [Element]
-items = query (all ".todo-list li")
+items = queryAll (byCss ".todo-list li")
 
 itemTexts :: Formula [Text]
-itemTexts = query (traverse text =<< all ".todo-list li label")
+itemTexts = queryAll (text (byCss ".todo-list li label"))
 
 lastItemText :: Formula (Maybe Text)
 lastItemText = lastOf traverse <$> itemTexts
@@ -91,7 +92,7 @@ numItems :: Formula Int
 numItems = lengthOf traverse <$> items
 
 checked :: Formula [Bool]
-checked = (map (== JSON.Bool top)) <$> query (traverse (property "checked") =<< all ".todo-list li label")
+checked = (map (== JSON.Bool top)) <$> queryAll (property "checked" (byCss ".todo-list li label"))
 
 numUnchecked :: Formula Int
 numUnchecked = length . filter neg <$> checked
@@ -103,8 +104,8 @@ pendingText :: Formula (Maybe Text)
 pendingText = inputValue ".new-todo"
 
 numItemsLeft :: Formula Int
-numItemsLeft = query $ do
-  t <- traverse text =<< one ".todoapp .todo-count strong"
-  pure (fromMaybe 0 (t >>= parse))
+numItemsLeft =
+  queryOne (text (byCss ".todoapp .todo-count strong"))
+    <&> \t -> fromMaybe 0 (t >>= parse)
   where
     parse = either (const Nothing) (Just . fst) . Text.decimal

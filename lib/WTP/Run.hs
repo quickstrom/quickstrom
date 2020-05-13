@@ -21,7 +21,7 @@ where
 import Control.Lens hiding (each)
 import Control.Monad ((>=>), forever, void, when)
 import Control.Monad (filterM)
-import Control.Monad.Freer (Eff, Member, reinterpret3, runM, sendM, type (~>))
+import Control.Monad.Freer (Eff, Member, runM, sendM, type (~>))
 import Control.Monad.Freer.State (State, evalState, get, put)
 import Control.Monad.Freer.Writer (Writer, runWriter, tell)
 import Control.Monad.IO.Class (MonadIO (liftIO))
@@ -370,29 +370,30 @@ data RunQueryState
   deriving (Generic)
 
 runQuery :: Query a -> Eff '[State RunQueryState, Runner] [Either QueriedElement QueriedElementState]
-runQuery (Query query') =
+runQuery query' =
   fmap snd
     $ runWriter
-    $ reinterpret3 go query'
+    $ go query'
   where
-    go :: QueryF ~> Eff '[Writer [QueriedValue], State RunQueryState, Runner]
+    go :: Query a -> Eff '[Writer [QueriedValue], State RunQueryState, Runner] [a]
     go =
       ( \case
-          QueryAll selector ->
+          ByCss selector ->
             useCachedOrInsert selector (field @"cachedElements") id pure do
               els <- sendM (findAll selector)
               tell ((Left . (selector,) <$> els) :: [QueriedValue])
               pure els
-          Get state el -> do
-            useCachedOrInsert (el, SomeElementState state) (field @"cachedElementStates") (ElementStateValue state) (\(ElementStateValue _ x) -> cast x) do
-              value <- sendM $ case state of
-                Attribute name -> (either (const name) Text.pack) <$> (getElementAttribute (Text.unpack name) (toRef el))
-                Property name -> (getElementProperty (Text.unpack name) (toRef el))
-                CssValue name -> Text.pack <$> (getElementCssValue (Text.unpack name) (toRef el))
-                Text -> Text.pack <$> (getElementText (toRef el))
-                Enabled -> (isElementEnabled (toRef el))
-              tell [Right (el, ElementStateValue state value) :: QueriedValue]
-              pure value
+          Get state sub ->
+            go sub >>= mapM \el -> do
+              useCachedOrInsert (el, SomeElementState state) (field @"cachedElementStates") (ElementStateValue state) (\(ElementStateValue _ x) -> cast x) do
+                value <- sendM $ case state of
+                  Attribute name -> (either (const name) Text.pack) <$> (getElementAttribute (Text.unpack name) (toRef el))
+                  Property name -> (getElementProperty (Text.unpack name) (toRef el))
+                  CssValue name -> Text.pack <$> (getElementCssValue (Text.unpack name) (toRef el))
+                  Text -> Text.pack <$> (getElementText (toRef el))
+                  Enabled -> (isElementEnabled (toRef el))
+                tell [Right (el, ElementStateValue state value) :: QueriedValue]
+                pure value
       )
     useCachedOrInsert ::
       ( Eq k,

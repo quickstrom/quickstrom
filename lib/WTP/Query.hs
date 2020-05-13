@@ -14,19 +14,13 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
--- | 
 module WTP.Query where
 
 import WTP.Element
 import Data.Typeable (Typeable)
-import Control.Monad.Freer (Eff)
 
-data QueryF t where
-  QueryAll :: Selector -> QueryF [Element]
-  Get :: (Eq a, Show a, Typeable a) => ElementState a -> Element -> QueryF a
+data Query t where
+  ByCss :: Selector -> Query Element
+  Get :: (Eq a, Show a, Typeable a) => ElementState a -> Query Element -> Query a
 
-newtype Query a = Query (Eff '[QueryF] a)
-  deriving (Functor, Applicative, Monad)
-
-instance Show (Query a) where
-  show _ = "Query{}"
+deriving instance Show (Query a)

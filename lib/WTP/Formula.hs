@@ -58,7 +58,7 @@ data Formula t where
   Or :: Formula Bool -> Formula Bool -> Formula Bool
   Next :: Formula a -> Formula a
   Always :: Formula Bool -> Formula Bool
-  BindQuery :: IsValue a => Query a -> Formula a
+  BindQuery :: IsValue a => Query a -> Formula [a]
   Equals :: (a ~ b, IsValue a, IsValue b) => Formula a -> Formula b -> Formula Bool
   Compare :: Ord a => Comparison -> Formula a -> Formula a -> Formula Bool
   -- ForAll :: Formula (Set a) -> (FValue a -> Formula Bool) -> Formula Bool

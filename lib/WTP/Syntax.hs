@@ -33,9 +33,9 @@ module WTP.Syntax
     cssValue,
     text,
     enabled,
-    all,
-    one,
-    query,
+    byCss,
+    queryAll,
+    queryOne,
     (===),
     (/==),
     (<),
@@ -47,15 +47,14 @@ where
 
 import Algebra.Heyting
 import Algebra.Lattice
-import Control.Monad.Freer (send)
 import qualified Data.Aeson as JSON
 import Data.Hashable (Hashable)
-import Data.Maybe (listToMaybe)
+import Data.Maybe (Maybe, listToMaybe)
 import Data.Text (Text)
 import WTP.Element
 import WTP.Formula
 import WTP.Query
-import Prelude ((.), Bool, Eq, Maybe, Num, Ord, Show, fmap)
+import Prelude ((.), Bool, Eq, Num, Ord, Show, fmap)
 
 num :: (Eq n, Show n, Num n) => n -> Formula n
 num = Literal . LNum
@@ -75,29 +74,29 @@ next = Next
 always :: Proposition -> Proposition
 always = Always
 
-attribute :: Text -> Element -> Query Text
-attribute t = Query . send . Get (Attribute t)
+attribute :: Text -> Query Element -> Query Text
+attribute t = Get (Attribute t)
 
-property :: Text -> Element -> Query JSON.Value
-property t = Query . send . Get (Property t)
+property :: Text -> Query Element -> Query JSON.Value
+property t = Get (Property t)
 
-cssValue :: Text -> Element -> Query Text
-cssValue t = Query . send . Get (CssValue t)
+cssValue :: Text -> Query Element -> Query Text
+cssValue t = Get (CssValue t)
 
-text :: Element -> Query Text
-text = Query . send . Get Text
+text :: Query Element -> Query Text
+text = Get Text
 
-enabled :: Element -> Query Bool
-enabled = Query . send . Get Enabled
+enabled :: Query Element -> Query Bool
+enabled = Get Enabled
 
-all :: Selector -> Query [Element]
-all = Query . send . QueryAll
+byCss :: Selector -> Query Element
+byCss = ByCss
 
-one :: Selector -> Query (Maybe Element)
-one = fmap listToMaybe . all
+queryAll :: IsValue a => Query a -> Formula [a]
+queryAll = BindQuery
 
-query :: IsValue a => Query a -> Formula a
-query = BindQuery
+queryOne :: IsValue a => Query a -> Formula (Maybe a)
+queryOne = fmap listToMaybe . queryAll
 
 infixl 7 ===, /==
 

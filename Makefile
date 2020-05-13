@@ -1,3 +1,6 @@
+PANDOC_OPTS=-V"date=$(shell date --iso)" \
+						--highlight-style=kate \
+						--toc
 
 all: webcheck.html webcheck.pdf
 
@@ -6,15 +9,13 @@ clean:
 
 %.pdf: %.md
 	pandoc \
-		-V"date=$(shell date --iso)" \
+		$(PANDOC_OPTS) \
 		--pdf-engine=xelatex \
-		--highlight-style=kate \
 		$< \
 		-o $@
 
 %.html: %.md
 	pandoc -s \
-		-V"date=$(shell date --iso)" \
-		--highlight-style=kate \
+		$(PANDOC_OPTS) \
 		$< \
 		-o $@

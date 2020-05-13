@@ -17,6 +17,49 @@ used to specify the behavior of web applications. Further, it describes
 the design of tools used to check that web applications satisfy such
 specifications.
 
+## How It Works
+
+In WebCheck, a tester writes _specifications_ for web
+applications. When _checking_ a specification, the following happens:
+
+1. WebCheck navigates to the _origin page_ of the web application, and
+   waits for the _ready_ condition, that a specified element is
+   present in the DOM.
+1. It generates a random sequence of actions to simulate user
+   interaction. Many types of actions can be generated, e.g. clicks,
+   key presses, focus changes, reloads, navigations.
+1. Before each new action is picked, the DOM state is checked to find
+   only the actions that are possible to take. For instance, you cannot
+   click buttons that are not visible. From that subset, WebCheck picks
+   the next action to take.
+1. After each action has been taken, WebCheck queries and records the
+   state of relevant DOM elements. The sequence of observed states is
+   called a _behavior_.
+1. The specification defines a proposition, a logical formula that
+   evaluates to _true_ or _false_, which is used to determine if the
+   behavior is _accepted_ or _rejected_.
+1. When a rejected behavior is found, WebCheck _shrinks_ the sequence
+   of actions to the _smallest_, _still failing_, sequence of
+   actions. The tester is presented with a minimal failing test case.
+
+You might say "This is just property-based testing!" and "I can do
+this with state machine testing!" You'd be right, similar tests could
+be written using a state machine model, WebDriver, and property-based
+testing.
+
+With WebCheck, however, you don't have to write a model that fully
+specifies the behavior of your system! Instead, you describe the most
+important state transitions and leave the rest unspecified. You can
+gradually adopt WebCheck and improve your specifications over time.
+
+Furthermore, in problem domains where there's _essential complexity_,
+models tend to become as complex. It's often hard to find a naive
+implementation for your model, when your modelling a business system
+with a myriad of arbitrary rules.
+
+Now, how do you write specifications and propositions? Let's have a
+look at the _Temporal Logic of Web Applications_.
+
 # Temporal Logic of Web Applications
 
 In WebCheck, the behavior of a web application is specified using the

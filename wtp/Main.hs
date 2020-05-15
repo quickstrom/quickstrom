@@ -8,19 +8,19 @@
 
 module Main where
 
-import Helpers
-import qualified TodoMVC
 import Control.Lens ((^?), ix)
 import Data.Function ((&))
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as Text
+import Helpers
 import System.Directory
 import System.IO.Unsafe (unsafePerformIO)
 import qualified Test.Tasty as Tasty
+import qualified TodoMVC
 import qualified WTP.Run as WTP
 import WTP.Specification
 import WTP.Syntax
-import Prelude hiding ((<), (>), (<=), (>=), all, init)
+import Prelude hiding ((<), (<=), (>), (>=), all, init)
 
 cwd :: FilePath
 cwd = unsafePerformIO getCurrentDirectory
@@ -30,6 +30,7 @@ main =
   Tasty.defaultMain $
     WTP.testSpecifications
       [ ("button", buttonSpec),
+        ("ajax", ajaxSpec),
         ("toggle", toggleSpec),
         ("comment form", commentFormSpec),
         ("TodoMVC AngularJS", TodoMVC.spec "angularjs"),
@@ -49,6 +50,23 @@ buttonSpec =
       proposition =
         let click = buttonIsEnabled /\ next (".message" `hasText` "Boom!" /\ neg buttonIsEnabled)
          in buttonIsEnabled /\ always click
+    }
+
+ajaxSpec :: Specification Proposition
+ajaxSpec =
+  Specification
+    { origin = Path ("file://" <> Text.pack cwd <> "/test/ajax.html"),
+      readyWhen = "button",
+      actions =
+        [(1, Click "button")],
+      proposition =
+        let launch =
+              buttonIsEnabled
+                /\ next (".message" `hasText` "Missiles launched." /\ neg buttonIsEnabled)
+            impact =
+              (".message" `hasText` "Missiles launched." /\ neg buttonIsEnabled)
+                /\ next (".message" `hasText` "Boom!" /\ neg buttonIsEnabled)
+         in buttonIsEnabled /\ always (launch \/ impact)
     }
 
 toggleSpec :: Specification Proposition
@@ -98,7 +116,6 @@ commentFormSpec =
 
 buttonIsEnabled :: Proposition
 buttonIsEnabled = fromMaybe bottom <$> queryOne (enabled (byCss "button"))
-
 
 commentIsValid :: Proposition
 commentIsValid = (commentLength <$> queryOne (text (byCss ".comment"))) >= num 3

@@ -34,6 +34,10 @@ in haskellPackages.shellFor {
     geckodriver
     chromium
     chromedriver
+    nodejs
+    nodePackages.typescript
+    nodePackages.browserify
+    entr
   ]);
   FONTCONFIG_FILE = pkgs.makeFontsConf {
     fontDirectories = fonts;

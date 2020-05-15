@@ -134,6 +134,7 @@ prettyAction = \case
   Focus sel -> "focus" <+> prettySelected sel
   KeyPress key -> "key press" <+> pretty (show key)
   Navigate (Path path) -> "navigate to" <+> pretty path
+  Wait (min', max') -> "wait" <+> pretty min' <> "ms-" <> pretty max' <> "ms"
 
 prettySelected :: Selected -> Doc AnsiStyle
 prettySelected (Selected (Selector sel) i) = pretty sel <> brackets (pretty i)

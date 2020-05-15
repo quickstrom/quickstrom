@@ -18,10 +18,12 @@ module WTP.Run
   )
 where
 
+import Control.Concurrent (threadDelay)
 import Control.Lens hiding (each)
 import Control.Monad ((>=>), forever, void, when)
 import Control.Monad (filterM)
 import Control.Monad.IO.Class (MonadIO (liftIO))
+import Control.Monad.Loops (andM)
 import Control.Monad.State
 import Control.Monad.Trans.Class (MonadTrans)
 import Control.Monad.Trans.Class (MonadTrans (lift))
@@ -84,7 +86,7 @@ check spec = do
   case result of
     CheckFailure {failedAfter, failingTest} -> do
       logInfo . renderString $
-        prettyTrace (annotateStutteringSteps (trace failingTest)) <> line
+        prettyTrace (trace failingTest) <> line
       assertFailure ("Failed after " <> show failedAfter <> " tests and " <> show (numShrinks failingTest) <> " levels of shrinking.")
     CheckSuccess -> logInfo ("Passed " <> show numTests <> " tests.")
   where
@@ -158,10 +160,8 @@ beforeRun spec = do
 {-# SCC genActions' "genActions'" #-}
 genActions' :: Specification Proposition -> Producer (Action Selected) Runner ()
 genActions' spec = forever do
-  lift (validActions (actions spec)) >>= \case
-    Just genValidAction -> do
-      Pipes.yield =<< lift (liftWebDriverTT (lift (QuickCheck.generate genValidAction)))
-    Nothing -> pure ()
+  genValidAction <- lift (validActions (actions spec))
+  Pipes.yield =<< lift (liftWebDriverTT (lift (QuickCheck.generate genValidAction)))
 
 {-# SCC runActions' "runActions'" #-}
 runActions' :: Specification Proposition -> Pipe (Action Selected) (TraceElement ()) Runner ()
@@ -200,16 +200,19 @@ traverseShrinks test = go
           go xs
         go rest
 
--- TODO?
 shrinkAction :: Action sel -> [Action sel]
-shrinkAction = const []
+shrinkAction = \case
+  Wait range -> Wait <$> QuickCheck.shrink range
+  _ -> [] -- TODO?
 
-validActions :: [(Int, Action Selector)] -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
+validActions :: [(Int, Action Selector)] -> Runner (QuickCheck.Gen (Action Selected))
 validActions actions = do
   gens <- catMaybes <$> traverse tryGenActionWithFreq actions
   case gens of
-    [] -> pure Nothing
-    _ -> pure (Just (QuickCheck.frequency gens))
+    [] -> do
+      logInfoWD "No actions applicable. Falling back to generating a waiting action."
+      pure (genWait (10, 1000))
+    _ -> pure (QuickCheck.frequency gens)
   where
     tryGenActionWithFreq :: (Int, Action Selector) -> Runner (Maybe (Int, QuickCheck.Gen (Action Selected)))
     tryGenActionWithFreq (i, a) = fmap (i,) <$> tryGenAction a
@@ -225,7 +228,8 @@ validActions actions = do
           Nothing -> pure Nothing
       Navigate p -> pure (Just (pure (Navigate p)))
       Focus sel -> selectOne sel Focus (isNotActive . toRef)
-      Click sel -> selectOne sel Click isElementVisible
+      Click sel -> selectOne sel Click isClickable
+      Wait range -> pure (Just (genWait range))
     selectOne :: Selector -> (Selected -> Action Selected) -> (Element -> Runner Bool) -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
     selectOne sel ctor isValid = do
       found <- findAll sel
@@ -240,6 +244,11 @@ validActions actions = do
           pure (Just (ctor . Selected sel <$> QuickCheck.elements (map fst choices)))
     isNotActive e = (/= Just e) <$> activeElement
     activeElement = (Just <$> getActiveElement) `catchError` const (pure Nothing)
+    genWait (min', max') = do
+      n <- QuickCheck.choose (min', max')
+      pure (Wait (n, n))
+    isClickable e =
+      andM [isElementEnabled (toRef e), isElementVisible e]
 
 navigateToOrigin :: Specification formula -> Runner ()
 navigateToOrigin spec = case origin spec of
@@ -267,6 +276,7 @@ runAction = \case
   KeyPress c -> sendKey c
   Click s -> click s
   Navigate (Path path) -> tryAction (ActionSuccess <$ navigateTo (Text.unpack path))
+  Wait (_, max') -> ActionSuccess <$ liftWebDriverTT (liftIO (threadDelay max')) -- Selected should be a single wait time, not a tuple
 
 runWebDriver :: Runner a -> IO a
 runWebDriver ma = do

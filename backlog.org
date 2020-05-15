@@ -1,9 +1,9 @@
 #+TITLE: WebCheck Backlog
 
-- Backlog [1/5]
+- Backlog [2/5]
   - [X] Stream-based runner
-  - [ ] Applicative queries
-  - [ ] Web GUI
-  - [ ] MutationObserved for observing states
+  - [X] Applicative queries
   - [ ] Examples using AJAX
+  - [ ] MutationObserved for observing states
+  - [ ] Web GUI
 

@@ -4,7 +4,9 @@ cabal.project.local
 *.o
 *.hi
 
-
 /webcheck.pdf
 /webcheck.tex
 /webcheck.html
+
+tsconfig.tsbuildinfo
+/target

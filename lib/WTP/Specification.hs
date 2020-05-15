@@ -17,7 +17,7 @@ newtype Path = Path Text
 data Selected = Selected Selector Int
   deriving (Show, Generic)
 
-data Action sel = Focus sel | KeyPress Char | Click sel | Navigate Path
+data Action sel = Focus sel | KeyPress Char | Click sel | Navigate Path | Wait (Int, Int)
   deriving (Show, Generic)
 
 data Specification formula

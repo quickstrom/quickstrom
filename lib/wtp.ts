@@ -1,74 +1,91 @@
 // QUERIES
 
-type Selector = string
+type Selector = string;
 
-type ElementQuery = { tag: 'element', selector: Selector }
+type ElementQuery = { tag: "element"; selector: Selector };
 
-type StateQuery
-    = { tag: 'attribute', name: string }
-    | { tag: 'property', name: string }
-    | { tag: 'cssValue', name: string }
-    | { tag: 'text' }
-    | { tag: 'enabled' }
+type AttributeQuery = { tag: "attribute"; name: string };
+type PropertyQuery = { tag: "property"; name: string };
+type CssValueQuery = { tag: "cssValue"; name: string };
+type TextQuery = { tag: "text" };
+type EnabledQuery = { tag: "enabled" };
 
-type ElementStateQuery = { tag: 'elementState', elementQuery: ElementQuery, stateQuery: StateQuery }
+type StateQuery =
+    | AttributeQuery
+    | PropertyQuery
+    | CssValueQuery
+    | TextQuery
+    | EnabledQuery;
 
-type Query
-    = ElementQuery
-    | ElementStateQuery
+type ElementStateQuery = {
+    tag: "elementState";
+    elementQuery: ElementQuery;
+    stateQuery: StateQuery;
+};
+
+type Query = ElementQuery | ElementStateQuery;
 
 function selectorInQuery(query: Query): Selector {
     switch (query.tag) {
-        case 'element':
+        case "element":
             return query.selector;
-        case 'elementState':
+        case "elementState":
             return query.elementQuery.selector;
     }
 }
 
 function runQuery(query: Query): Array<any> {
-    function runStateQuery(element: Element, stateQuery: StateQuery): any {
+    function runStateQuery(
+        element: Element,
+        stateQuery: StateQuery
+    ): any {
         switch (stateQuery.tag) {
-            case 'attribute':
+            case "attribute":
                 return element.attributes.getNamedItem(stateQuery.name);
-            case 'property':
+            case "property":
                 // @ts-ignore
                 return element[stateQuery.name];
-            case 'cssValue':
-                return window.getComputedStyle(element).getPropertyValue(stateQuery.name);
-            case 'text':
+            case "cssValue":
+                return window
+                    .getComputedStyle(element)
+                    .getPropertyValue(stateQuery.name);
+            case "text":
                 return element.textContent;
-            case 'enabled':
-                return (element instanceof HTMLButtonElement || element instanceof HTMLInputElement)
-                    && !element.disabled;
+            case "enabled":
+                return (
+                    (element instanceof HTMLButtonElement ||
+                        element instanceof HTMLInputElement) &&
+                    !element.disabled
+                );
         }
     }
     switch (query.tag) {
-        case 'element':
+        case "element":
             return Array.prototype.slice.call(document.querySelectorAll(query.selector));
-        case 'elementState':
-            return runQuery(query.elementQuery)
-                .map(element => runStateQuery(element, query.stateQuery));
+        case "elementState":
+            return runQuery(query.elementQuery).map((element) =>
+                runStateQuery(element, query.stateQuery)
+            );
     }
 }
 
 // FRONTEND LANGUAGE
 
 function byCss(selector: Selector): ElementQuery {
-    return { tag: 'element', selector };
+    return { tag: "element", selector };
 }
 
 function text(elementQuery: ElementQuery): ElementStateQuery {
-    return { tag: 'elementState', stateQuery: { tag: 'text' }, elementQuery };
+    return { tag: "elementState", stateQuery: { tag: "text" }, elementQuery };
 }
 
 function enabled(elementQuery: ElementQuery): ElementStateQuery {
-    return { tag: 'elementState', stateQuery: { tag: 'enabled' }, elementQuery };
+    return { tag: "elementState", stateQuery: { tag: "enabled" }, elementQuery };
 }
 
 // OBSERVATION
 
-export function observeQuery(query: Query) {
+export function observeQuery<Q extends Query>(query: Q) {
     const selector = selectorInQuery(query);
 
     const result = runQuery(query);
@@ -82,32 +99,42 @@ export function observeQuery(query: Query) {
     }
 
     new MutationObserver((mutations, _observer) => {
-        mutations.forEach(mutation => {
+        mutations.forEach((mutation) => {
             recordMatching(mutation.target as Element);
-            mutation.addedNodes.forEach((node, _key, _parent) => recordMatching(node as Element));
+            mutation.addedNodes.forEach((node, _key, _parent) =>
+                recordMatching(node as Element)
+            );
+            mutation.removedNodes.forEach((node, _key, _parent) =>
+                recordMatching(node as Element)
+            );
         });
     }).observe(document, { childList: true, subtree: true, attributes: true });
 }
 
 // DEMO
 
-observeQuery(enabled(byCss("button")));
+const q1 = enabled(byCss("button"));
+const r1: Array<string> = runQuery(q1);
+observeQuery(q1);
 observeQuery(text(byCss(".message")));
 
 // OLD STUFF
 
 export function awaitElement(sel: string, done: () => void) {
     var timer = setInterval(function() {
-        if (document.querySelector(sel)) { clearInterval(timer); done(); }
+        if (document.querySelector(sel)) {
+            clearInterval(timer);
+            done();
+        }
     }, 100);
 }
 
 export function isElementVisible(el: HTMLElement): boolean {
     const cs = window.getComputedStyle(el);
     return (
-        cs.getPropertyValue('display') !== 'none'
-        && cs.getPropertyValue('visibility') !== "hidden"
-        && cs.getPropertyValue('opacity') !== "0"
-        && el.offsetParent !== null
+        cs.getPropertyValue("display") !== "none" &&
+        cs.getPropertyValue("visibility") !== "hidden" &&
+        cs.getPropertyValue("opacity") !== "0" &&
+        el.offsetParent !== null
     );
 }

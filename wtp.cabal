@@ -29,6 +29,7 @@ common shared-deps
                     , QuickCheck
                     , QuickCheck-GenT
                     , random
+                    , scientific
                     , tasty
                     , tasty-hunit
                     , tasty-quickcheck
@@ -42,13 +43,15 @@ common shared-deps
 
 library
   import:             shared-deps
-  exposed-modules:    WTP.Element
-                    , WTP.Formula
-                    , WTP.Syntax
-                    , WTP.Query
+  exposed-modules:    WTP.Core.ElementState
+                    , WTP.Core.Formula
+                    , WTP.Core.Query
+                    , WTP.Core.Value
+                    , WTP.Element
                     , WTP.Result
                     , WTP.Run
                     , WTP.Specification
+                    , WTP.Syntax
                     , WTP.TH
                     , WTP.Trace
                     , WTP.Verify

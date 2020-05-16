@@ -113,9 +113,7 @@ export function observeQuery<Q extends Query>(query: Q) {
 
 // DEMO
 
-const q1 = enabled(byCss("button"));
-const r1: Array<string> = runQuery(q1);
-observeQuery(q1);
+observeQuery(enabled(byCss("button")));
 observeQuery(text(byCss(".message")));
 
 // OLD STUFF

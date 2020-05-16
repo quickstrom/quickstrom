@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExplicitNamespaces #-}
@@ -14,43 +15,40 @@ module WTP.Verify
   )
 where
 
+import Control.Lens ((%~), (^?))
 import Algebra.Heyting (Heyting (..))
-import Algebra.Lattice (Lattice (..), bottom, fromBool, top)
+import Algebra.Lattice (bottom, fromBool)
+import Prelude
 import Control.Applicative (Alternative (..))
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.HashSet as HashSet
-import Data.Maybe (fromMaybe)
-import WTP.Formula
-import WTP.Query
+import Data.Generics.Sum (_Ctor)
+import Data.Maybe (listToMaybe, fromMaybe)
+import WTP.Core.Formula
+import WTP.Core.Query
+import WTP.Core.Value
 import WTP.Result
 import WTP.Trace
 
-eval :: [ObservedState] -> Formula a -> Maybe a
-eval [] (Always _) = Just True
+eval :: [ObservedState] -> Formula -> Maybe Value
+eval [] (Always _) = Just (VBoolean True)
 eval [] _ = Nothing
 eval steps@(current : rest) f = case f of
-  Literal LTrue -> pure top
-  Literal LFalse -> pure bottom
-  Literal (LNum n) -> pure n
-  Literal (LString t) -> pure t
-  Literal (LJson j) -> pure j
-  Set ps -> HashSet.fromList <$> traverse (eval steps) ps
-  Seq ps -> traverse (eval steps) ps
-  Not p -> neg <$> eval steps p
-  p `And` q ->
-    case (eval steps p, eval steps q) of
-      (Just a, Just b) -> pure (a /\ b)
-      _ -> Nothing
+  Literal v -> pure v
+  Set ps -> VSet . HashSet.fromList <$> traverse (eval steps) ps
+  Seq ps -> VSeq <$> traverse (eval steps) ps
+  Not p -> ((_Ctor @"VBoolean") %~ neg) <$> eval steps p 
+  p `And` q -> eval steps p `vand` eval steps q
   p `Or` q ->
     case eval steps p of
-      Just True -> pure True
+      Just (VBoolean True) -> pure (VBoolean True)
       _ -> eval steps q
   Next p -> eval rest p
-  Always p -> (/\) <$> (eval steps p <|> Just True) <*> (eval rest (Always p))
+  Always p -> (eval steps p <|> Just (VBoolean True)) `vand` (eval rest (Always p))
   Equals p q -> do
     p' <- eval steps p
     q' <- eval steps q
-    pure (fromBool (p' == q'))
+    pure (VBoolean (p' == q'))
   Compare comparison p q -> do
     let op = case comparison of
           LessThan -> (<)
@@ -59,23 +57,34 @@ eval steps@(current : rest) f = case f of
           GreaterThanEqual -> (>=)
     p' <- eval steps p
     q' <- eval steps q
-    pure (fromBool (p' `op` q'))
-  BindQuery query -> evalQuery current query
-  MapFormula fn sub -> fn <$> eval steps sub
+    VBoolean . (`op` EQ) <$> (p' `compareWith` q')
+  QueryAll query -> VSeq <$> evalQuery current query
+  QueryOne query -> evalQuery current query >>= listToMaybe
+  -- MapFormula fn sub -> fn <$> eval steps sub
 
-evalQuery :: ObservedState -> Query a -> Maybe [a]
+valueToBool :: Value -> Maybe Bool
+valueToBool = (^? _Ctor @"VBoolean")
+
+vand :: Maybe Value -> Maybe Value -> Maybe Value
+vand v1 v2 = do
+  v1 >>= valueToBool >>= \case
+    True -> v2
+    False -> pure (VBoolean False)
+
+evalQuery :: ObservedState -> Query -> Maybe [Value]
 evalQuery current query = go query
   where
-    go :: Query a -> Maybe [a]
+    go :: Query -> Maybe [Value]
     go = \case
       Get state sub ->
-        go sub >>= mapM \el ->
+        go sub >>= mapM \v -> do
+          el <- v ^? _Ctor @"VElement"
           let states = fromMaybe mempty (HashMap.lookup el (elementStates current))
            in findElementState state states
       ByCss selector ->
         case HashMap.lookup selector (queriedElements current) of
-          Just es -> pure es
+          Just es -> pure (map VElement es)
           _ -> pure mempty
 
-verify :: [ObservedState] -> Proposition -> Result
-verify trace formula = fromBool (fromMaybe bottom (eval trace formula))
+verify :: [ObservedState] -> Formula -> Result
+verify trace formula = fromBool (fromMaybe bottom (valueToBool =<< eval trace formula))

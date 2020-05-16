@@ -56,8 +56,11 @@ import qualified Test.QuickCheck as QuickCheck
 import qualified Test.Tasty as Tasty
 import Test.Tasty.HUnit (assertFailure, testCase)
 import WTP.Element
-import WTP.Formula
-import WTP.Query
+import qualified WTP.Core.Formula as Core
+import qualified WTP.Core.ElementState as Core
+import qualified WTP.Core.Query as Core
+import qualified WTP.Syntax.Formula as Syntax
+import qualified WTP.Syntax.Query as Syntax
 import WTP.Result
 import WTP.Specification
 import WTP.TH (embedStringFile')
@@ -67,7 +70,7 @@ import Web.Api.WebDriver hiding (Action, Selector, assertFailure, hPutStrLn, run
 
 type Runner = WebDriverTT IdentityT IO
 
-testSpecifications :: [(Text, Specification Proposition)] -> Tasty.TestTree
+testSpecifications :: [(Text, Specification Syntax.Proposition)] -> Tasty.TestTree
 testSpecifications specs =
   Tasty.testGroup "WTP specifications" [testCase (Text.unpack name) (check spec) | (name, spec) <- specs]
 
@@ -77,7 +80,7 @@ data FailingTest = FailingTest {numShrinks :: Int, trace :: Trace TraceElementEf
 data CheckResult = CheckSuccess | CheckFailure {failedAfter :: Int, failingTest :: FailingTest}
   deriving (Show)
 
-check :: Specification Proposition -> IO ()
+check :: Specification Syntax.Proposition -> IO ()
 check spec = do
   -- stdGen <- getStdGen
   let numTests = 10
@@ -111,7 +114,7 @@ select f = forever do
   x <- Pipes.await
   maybe (pure ()) Pipes.yield (f x)
 
-runSingle :: Specification Proposition -> Int -> Runner (Either FailingTest ())
+runSingle :: Specification Core.Formula -> Int -> Runner (Either FailingTest ())
 runSingle spec size = do
   result <- runAndVerifyIsolated (genActions' spec >-> Pipes.take size) 0
   case result of
@@ -132,7 +135,7 @@ runSingle spec size = do
     runShrink (Shrink n actions) =
       runAndVerifyIsolated (Pipes.each actions) n
 
-runAll :: Int -> Specification Proposition -> Effect Runner CheckResult
+runAll :: Int -> Specification Core.Formula -> Effect Runner CheckResult
 runAll numTests spec' = (allTests $> CheckSuccess) >-> firstFailure
   where
     runSingle' :: Int -> Producer (Either FailingTest ()) Runner ()
@@ -151,20 +154,20 @@ firstFailure =
 sizes :: Functor m => Int -> Producer Int m ()
 sizes numSizes = Pipes.each (map (\n -> (n * 100 `div` numSizes)) [1 .. numSizes])
 
-beforeRun :: Specification Proposition -> Runner ()
+beforeRun :: Specification Core.Formula -> Runner ()
 beforeRun spec = do
   navigateToOrigin spec
   initializeScript
   awaitElement (readyWhen spec)
 
 {-# SCC genActions' "genActions'" #-}
-genActions' :: Specification Proposition -> Producer (Action Selected) Runner ()
+genActions' :: Specification Core.Formula -> Producer (Action Selected) Runner ()
 genActions' spec = forever do
   genValidAction <- lift (validActions (actions spec))
   Pipes.yield =<< lift (liftWebDriverTT (lift (QuickCheck.generate genValidAction)))
 
 {-# SCC runActions' "runActions'" #-}
-runActions' :: Specification Proposition -> Pipe (Action Selected) (TraceElement ()) Runner ()
+runActions' :: Specification Core.Formula -> Pipe (Action Selected) (TraceElement ()) Runner ()
 runActions' spec = do
   Pipes.yield =<< lift observe
   forever do
@@ -373,30 +376,30 @@ type QueriedValue = Either QueriedElement QueriedElementState
 data RunQueryState
   = RunQueryState
       { cachedElements :: HashMap Selector [Element],
-        cachedElementStates :: HashMap (Element, SomeElementState) ElementStateValue
+        cachedElementStates :: HashMap (Element, Core.ElementState) ElementStateValue
       }
   deriving (Generic)
 
-runQuery :: Query a -> StateT RunQueryState Runner [Either QueriedElement QueriedElementState]
+runQuery :: Core.Query -> StateT RunQueryState Runner [Either QueriedElement QueriedElementState]
 runQuery = fmap snd . runWriterT . go
   where
-    go :: Query a -> WriterT [QueriedValue] (StateT RunQueryState Runner) [a]
+    go :: Core.Query -> WriterT [QueriedValue] (StateT RunQueryState Runner) [a]
     go =
       ( \case
-          ByCss selector ->
+          Core.ByCss selector ->
             useCachedOrInsert selector (field @"cachedElements") id pure do
               els <- lift (lift (findAll selector))
               tell ((Left . (selector,) <$> els) :: [QueriedValue])
               pure els
-          Get state' sub ->
+          Core.Get state' sub ->
             go sub >>= mapM \el -> do
               useCachedOrInsert (el, SomeElementState state') (field @"cachedElementStates") (ElementStateValue state') (\(ElementStateValue _ x) -> cast x) do
                 value <- lift . lift $ case state' of
-                  Attribute name -> (either (const name) Text.pack) <$> (getElementAttribute (Text.unpack name) (toRef el))
-                  Property name -> (getElementProperty (Text.unpack name) (toRef el))
-                  CssValue name -> Text.pack <$> (getElementCssValue (Text.unpack name) (toRef el))
-                  Text -> Text.pack <$> (getElementText (toRef el))
-                  Enabled -> (isElementEnabled (toRef el))
+                  Core.Attribute name -> (either (const name) Text.pack) <$> (getElementAttribute (Text.unpack name) (toRef el))
+                  Core.Property name -> (getElementProperty (Text.unpack name) (toRef el))
+                  Core.CssValue name -> Text.pack <$> (getElementCssValue (Text.unpack name) (toRef el))
+                  Core.Text -> Text.pack <$> (getElementText (toRef el))
+                  Core.Enabled -> (isElementEnabled (toRef el))
                 tell [Right (el, ElementStateValue state' value) :: QueriedValue]
                 pure value
       )

@@ -9,7 +9,7 @@ module WTP.LogicTest where
 import Algebra.Lattice
 import Test.QuickCheck ((===), forAll, listOf)
 import Test.Tasty.Hspec
-import WTP.Formula
+import WTP.Syntax.Formula
 import WTP.Syntax hiding ((===))
 import qualified WTP.Gen as Gen
 import WTP.Result

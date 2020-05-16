@@ -49,12 +49,12 @@ import Algebra.Heyting
 import Algebra.Lattice
 import qualified Data.Aeson as JSON
 import Data.Hashable (Hashable)
-import Data.Maybe (Maybe, listToMaybe)
+import Data.Maybe (Maybe)
 import Data.Text (Text)
 import WTP.Element
-import WTP.Formula
-import WTP.Query
-import Prelude ((.), Bool, Eq, Num, Ord, Show, fmap)
+import WTP.Syntax.Formula
+import WTP.Syntax.Query
+import Prelude ((.), Bool, Eq, Num, Ord, Show)
 
 num :: (Eq n, Show n, Num n) => n -> Formula n
 num = Literal . LNum
@@ -93,10 +93,10 @@ byCss :: Selector -> Query Element
 byCss = ByCss
 
 queryAll :: IsValue a => Query a -> Formula [a]
-queryAll = BindQuery
+queryAll = QueryAll
 
 queryOne :: IsValue a => Query a -> Formula (Maybe a)
-queryOne = fmap listToMaybe . queryAll
+queryOne = QueryOne
 
 infixl 7 ===, /==
 

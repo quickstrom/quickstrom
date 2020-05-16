@@ -37,43 +37,34 @@ module WTP.Trace
 where
 
 import Control.Lens
-import qualified Data.Bool as Bool
 import Data.Function ((&))
 import Data.Generics.Product (position)
 import Data.Generics.Sum (_Ctor)
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
+import qualified Data.HashSet as HashSet
 import qualified Data.List as List
 import Data.Ord (comparing)
 import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
 import Data.Text.Prettyprint.Doc.Symbols.Unicode (bullet)
-import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
-import Type.Reflection
 import WTP.Element
 import WTP.Specification (Action (..), Path (..), Selected (..))
+import WTP.Core.Value
+import WTP.Core.ElementState
 import Prelude hiding (Bool (..), not)
-import qualified Data.Aeson.Text as JSON
 
-data ElementStateValue where
-  ElementStateValue :: forall a. (Show a, Typeable a, Eq a) => ElementState a -> a -> ElementStateValue
+data ElementStateValue = ElementStateValue ElementState Value
+  deriving (Show, Eq)
 
-deriving instance Show ElementStateValue
-
-instance Eq ElementStateValue where
-  ElementStateValue (s1 :: ElementState t1) (v1 :: t1) == ElementStateValue (s2 :: ElementState t2) (v2 :: t2) =
-    case eqTypeRep (typeRep @t1) (typeRep @t2) of
-      Just HRefl -> s1 == s2 && v1 == v2
-      Nothing -> Bool.False
-
-findElementState :: Typeable a => ElementState a -> [ElementStateValue] -> Maybe a
+findElementState :: ElementState -> [ElementStateValue] -> Maybe Value
 findElementState _ [] = Nothing
-findElementState (state :: ElementState s1) (ElementStateValue (_ :: ElementState s2) value : rest) =
-  case eqTypeRep (typeRep @s1) (typeRep @s2) of
-    Just HRefl -> Just value
-    Nothing -> findElementState state rest
+findElementState s1 (ElementStateValue s2 value : rest) =
+  if s1 == s2
+    then Just value
+    else findElementState s1 rest
 
 data ObservedState
   = ObservedState
@@ -101,7 +92,7 @@ traceActions :: Monoid r => Getting r (Trace ann) (Action Selected)
 traceActions = traceElements . traverse . _Ctor @"TraceAction" . position @2
 
 nonStutterStates :: Monoid r => Getting r (Trace TraceElementEffect) ObservedState
-nonStutterStates = traceElements . traverse . _Ctor @"TraceState" . filtered ((== NoStutter).fst) . position @2
+nonStutterStates = traceElements . traverse . _Ctor @"TraceState" . filtered ((== NoStutter) . fst) . position @2
 
 data ActionResult = ActionSuccess | ActionFailed Text | ActionImpossible
   deriving (Show, Generic)
@@ -182,8 +173,16 @@ prettyObservedState state =
       pretty el <> line <> indent 2 (vsep (map prettyElementStateValue (HashMap.lookupDefault mempty el (elementStates state))))
     prettyElementStateValue :: ElementStateValue -> Doc AnsiStyle
     prettyElementStateValue = \case
-      (ElementStateValue (Attribute name) value) -> "attribute" <+> pretty name <> "=" <> pretty (show value)
-      (ElementStateValue (Property name) value) -> "property" <+> pretty name <> "=" <> pretty (JSON.encodeToLazyText value)
-      (ElementStateValue (CssValue name) t) -> "css" <+> braces (pretty name <> ":" <+> pretty t <> ";")
+      (ElementStateValue (Attribute name) value) -> "attribute" <+> pretty name <> "=" <> prettyValue value
+      (ElementStateValue (Property name) value) -> "property" <+> pretty name <> "=" <> prettyValue value
+      (ElementStateValue (CssValue name) t) -> "css" <+> braces (pretty name <> ":" <+> prettyValue t <> ";")
       (ElementStateValue Text value) -> "text" <> "=" <> pretty (show value)
-      (ElementStateValue Enabled b) -> if b then "enabled" else "disabled"
+      (ElementStateValue Enabled value) -> "enabled" <> "=" <> prettyValue value
+    prettyValue = \case
+      VText t -> pretty (show t)
+      VNumber n -> pretty (show n)
+      VBoolean b -> pretty b
+      VString t -> pretty (show t)
+      VElement el -> pretty el
+      VSeq xs -> list (map prettyValue xs)
+      VSet xs -> encloseSep "{" "}" "," (map prettyValue (HashSet.toList xs))

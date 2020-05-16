@@ -16,7 +16,9 @@
         setTimeout(function () {
             button.disabled = true;
         }, 100);
-        message.innerText = "Missiles launched.";
+        if (message.innerText === "") {
+          message.innerText = "Missiles launched.";
+        }
         setTimeout(function () {
             message.innerText = "Boom!";
         }, Math.random() * 500 + 750); // 1s +/- 250ms

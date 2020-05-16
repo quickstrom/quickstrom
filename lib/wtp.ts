@@ -1,3 +1,5 @@
+import * as deepEqual from "deep-equal";
+
 // ESSENTIALS
 
 function toArray<T, A extends { [index: number]: T }>(xs: A): T[] {
@@ -214,8 +216,25 @@ function mergeStates(states: ObservedState[]): ObservedState {
   return s;
 }
 
+function isStateEqual(map1: ObservedState, map2: ObservedState): boolean {
+    var testVal;
+    if (map1.size !== map2.size) {
+        return false;
+    }
+    for (var [key, val] of map1) {
+        testVal = map2.get(key);
+        console.error(testVal, val, testVal === val);
+        // in cases of an undefined value, make sure the key
+        // actually exists on the object so there are no false positives
+        if (testVal !== val || (testVal === undefined && !map2.get(key))) {
+            return false;
+        }
+    }
+    return true;
+}
+
 function logObservedState(label: string, s: ObservedState) {
-  console.log(label);
+  console.info(label);
   s.forEach((values, query) => {
     console.log(" *", renderQuery(query));
     values.forEach(value => console.log("   -", value));
@@ -228,7 +247,7 @@ function observeInitialStates(queries: Query[]): ObservedState {
     return m;
 }
 
-async function observeQuery<Q extends Query>(query: Q): Promise<ObservedState> {
+async function observeNextStateForQuery<Q extends Query>(query: Q): Promise<ObservedState> {
   const selector = selectorInQuery(query);
 
   function queryMatching(node: Node): Optional<Value> {
@@ -259,10 +278,10 @@ async function observeQuery<Q extends Query>(query: Q): Promise<ObservedState> {
   });
 }
 
-async function observeQueries<Q extends Query>(
+async function observeNextState<Q extends Query>(
   queries: Q[]
 ): Promise<ObservedState> {
-  const allStates = await Promise.all(queries.map(observeQuery));
+  const allStates = await Promise.all(queries.map(observeNextStateForQuery));
   return mergeStates(allStates);
 }
 
@@ -274,11 +293,15 @@ const actions = [click("button")];
 async function runNext(n: number, acc: ObservedState) {
   if (n > 0) {
     const selected = selectNextAction(actions);
-    const sp = observeQueries(queries);
+    const sp = observeNextState(queries);
     await runAction(selected);
     const newState = await sp;
     const merged = mergeStates([acc, newState]);
-    logObservedState("Update:", merged);
+    if(isStateEqual(acc, merged)) {
+        console.warn("Stutter...");
+    } else {
+        logObservedState("Update:", merged);
+    }
     runNext(n - 1, merged);
   }
 }

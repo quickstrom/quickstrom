@@ -37,6 +37,7 @@ in haskellPackages.shellFor {
     nodejs
     nodePackages.typescript
     nodePackages.browserify
+    nodePackages.deep-equal
     entr
   ]);
   FONTCONFIG_FILE = pkgs.makeFontsConf {

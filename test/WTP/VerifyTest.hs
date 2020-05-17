@@ -25,7 +25,7 @@ spec_verify = do
   it "verifies with get and assertion" $ do
     let classList = JSON.toJSON ["foo", "bar" :: Text]
     verify'
-      ((query (fromMaybe (JSON.Array mempty) <$> (traverse (property "classList") =<< one "#some-element"))) === json classList)
+      ((fromMaybe (JSON.Array mempty) <$> (queryOne ((property "classList" (byCss "#some-element"))))) === json classList)
       [ Trace.ObservedState
           (HashMap.singleton "#some-element" [Element "a"])
           ( HashMap.singleton
@@ -36,7 +36,7 @@ spec_verify = do
       `shouldBe` Accepted
   it "verifies with get and satisfy" $ do
     verify'
-      ((length <$> query (all "p")) === num 2)
+      ((length <$> queryAll (byCss "p")) === num 2)
       [Trace.ObservedState (HashMap.singleton "p" [Element "a", Element "b"]) mempty]
       `shouldBe` Accepted
   it "is top with (top /\\ top)" $ do
@@ -72,8 +72,8 @@ spec_verify = do
                   ]
               )
           ]
-    let buttonIsEnabled = fromMaybe bottom <$> query (traverse enabled =<< one "button")
-        messageIs message = query (traverse text =<< one ".message") === (Just <$> message)
+    let buttonIsEnabled = fromMaybe bottom <$> queryOne (enabled (byCss "button"))
+        messageIs message = queryOne (text (byCss ".message")) === (Just <$> message)
         prop =
           -- TODO: define actions using primed queries
           always (buttonIsEnabled \/ (messageIs "Boom!" /\ neg buttonIsEnabled))

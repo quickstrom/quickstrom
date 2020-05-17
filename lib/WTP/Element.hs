@@ -11,7 +11,7 @@
 
 module WTP.Element where
 
-import qualified Data.Aeson as JSON
+import           Data.Aeson as JSON
 import Data.Hashable (Hashable (..))
 import Data.String (IsString)
 import Data.Text (Text)
@@ -44,6 +44,14 @@ instance Hashable (ElementState a) where
     CssValue t -> s `hashWithSalt` (2 :: Int) `hashWithSalt` t
     Text -> s `hashWithSalt` (3 :: Int)
     Enabled -> s `hashWithSalt` (4 :: Int)
+
+instance JSON.ToJSON (ElementState a) where
+  toJSON = \case
+    Attribute name -> JSON.object ["tag" .= ("attribute" :: Text), "name" .= name]
+    Property name -> JSON.object ["tag" .= ("property" :: Text), "name" .= name]
+    CssValue name -> JSON.object ["tag" .= ("cssValue" :: Text), "name" .= name]
+    Text -> JSON.object ["tag" .= ("text" :: Text)]
+    Enabled -> JSON.object ["tag" .= ("enabled" :: Text)]
 
 data SomeElementState where
   SomeElementState :: (Typeable a, Eq a, Show a) => ElementState a -> SomeElementState

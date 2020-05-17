@@ -34,8 +34,8 @@ data ElementState a where
   Enabled :: ElementState Bool
 
 deriving instance Eq (ElementState a)
-
 deriving instance Show (ElementState a)
+deriving instance Ord (ElementState a)
 
 instance Hashable (ElementState a) where
   hashWithSalt s = \case

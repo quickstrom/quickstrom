@@ -6,6 +6,8 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
 module WTP.Verify
@@ -19,7 +21,10 @@ import Algebra.Lattice (Lattice (..), bottom, fromBool, top)
 import Control.Applicative (Alternative (..))
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.HashSet as HashSet
+import Data.Hashable (Hashable)
 import Data.Maybe (fromMaybe)
+import Data.Typeable (Typeable)
+import Type.Reflection
 import WTP.Formula
 import WTP.Query
 import WTP.Result
@@ -63,19 +68,9 @@ eval steps@(current : rest) f = case f of
   BindQuery query -> evalQuery current query
   MapFormula fn sub -> fn <$> eval steps sub
 
-evalQuery :: ObservedState -> Query a -> Maybe [a]
-evalQuery current query = go query
-  where
-    go :: Query a -> Maybe [a]
-    go = \case
-      Get state sub ->
-        go sub >>= mapM \el ->
-          let states = fromMaybe mempty (HashMap.lookup el (elementStates current))
-           in findElementState state states
-      ByCss selector ->
-        case HashMap.lookup selector (queriedElements current) of
-          Just es -> pure es
-          _ -> pure mempty
+evalQuery :: (Show a, Eq a, Hashable a, Typeable a) => ObservedState -> Query a -> Maybe [a]
+evalQuery (ObservedState current) (query :: Query a) =
+  traverse (castValue (typeRep @a)) =<< HashMap.lookup (SomeQuery query) current
 
 verify :: [ObservedState] -> Proposition -> Result
 verify trace formula = fromBool (fromMaybe bottom (eval trace formula))

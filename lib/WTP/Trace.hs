@@ -8,16 +8,15 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module WTP.Trace
-  ( ElementStateValue (..),
+  ( SomeValue (..),
+    castValue,
     findElementState,
     ObservedState (..),
     Trace (..),
@@ -53,40 +52,42 @@ import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
 import Type.Reflection
 import WTP.Element
+import WTP.Query
 import WTP.Specification (Action (..), Path (..), Selected (..))
 import Prelude hiding (Bool (..), not)
-import qualified Data.Aeson.Text as JSON
 
-data ElementStateValue where
-  ElementStateValue :: forall a. (Show a, Typeable a, Eq a) => ElementState a -> a -> ElementStateValue
+data SomeValue where
+  SomeValue :: forall a. (Show a, Typeable a, Eq a) => a -> SomeValue
 
-deriving instance Show ElementStateValue
+deriving instance Show SomeValue
 
-instance Eq ElementStateValue where
-  ElementStateValue (s1 :: ElementState t1) (v1 :: t1) == ElementStateValue (s2 :: ElementState t2) (v2 :: t2) =
+instance Eq SomeValue where
+  SomeValue (v1 :: t1) == SomeValue (v2 :: t2) =
     case eqTypeRep (typeRep @t1) (typeRep @t2) of
-      Just HRefl -> s1 == s2 && v1 == v2
+      Just HRefl -> v1 == v2
       Nothing -> Bool.False
 
-findElementState :: Typeable a => ElementState a -> [ElementStateValue] -> Maybe a
+castValue :: TypeRep a -> SomeValue -> Maybe a
+castValue rep (SomeValue  (v :: t)) =
+  case eqTypeRep (typeRep @t) rep of
+    Just HRefl -> Just v
+    Nothing -> Nothing
+
+findElementState :: Typeable a => ElementState a -> [SomeValue] -> Maybe a
 findElementState _ [] = Nothing
-findElementState (state :: ElementState s1) (ElementStateValue (_ :: ElementState s2) value : rest) =
+findElementState (state :: ElementState s1) (SomeValue (value :: s2) : rest) =
   case eqTypeRep (typeRep @s1) (typeRep @s2) of
     Just HRefl -> Just value
     Nothing -> findElementState state rest
 
-data ObservedState
-  = ObservedState
-      { queriedElements :: HashMap Selector [Element],
-        elementStates :: HashMap Element [ElementStateValue]
-      }
+newtype ObservedState = ObservedState (HashMap SomeQuery [SomeValue])
   deriving (Show, Eq, Generic)
 
 instance Semigroup ObservedState where
-  ObservedState q1 s1 <> ObservedState q2 s2 = ObservedState (q1 <> q2) (s1 <> s2)
+  ObservedState s1 <> ObservedState s2 = ObservedState (s1 <> s2)
 
 instance Monoid ObservedState where
-  mempty = ObservedState mempty mempty
+  mempty = ObservedState mempty 
 
 newtype Trace ann = Trace [TraceElement ann]
   deriving (Show, Generic)
@@ -162,28 +163,23 @@ prettyTrace (Trace elements') = vsep (zipWith prettyElement [1 ..] elements')
     NoStutter `stutterColorOr` fallback = color fallback
 
 prettyObservedState :: ObservedState -> Doc AnsiStyle
-prettyObservedState state =
+prettyObservedState (ObservedState state) =
   vsep
     ( withValues
-        queriedElements
-        ( \(sel, el) ->
-            bullet <+> align (pretty sel <> line <> indent 2 (vsep (map prettyElementState el)))
+        ( \(SomeQuery query, values) ->
+            bullet <+> align (prettyQuery query <> line <> indent 2 (vsep (map prettySomeValue values)))
         )
     )
   where
-    withValues :: (Ord k) => (ObservedState -> HashMap k v) -> ((k, v) -> s) -> [s]
-    withValues field f =
-      field state
+    withValues :: ((SomeQuery, [SomeValue]) -> s) -> [s]
+    withValues f =
+      state
         & HashMap.toList
         & List.sortBy (comparing fst)
         & map f
-    prettyElementState :: Element -> Doc AnsiStyle
-    prettyElementState el =
-      pretty el <> line <> indent 2 (vsep (map prettyElementStateValue (HashMap.lookupDefault mempty el (elementStates state))))
-    prettyElementStateValue :: ElementStateValue -> Doc AnsiStyle
-    prettyElementStateValue = \case
-      (ElementStateValue (Attribute name) value) -> "attribute" <+> pretty name <> "=" <> pretty (show value)
-      (ElementStateValue (Property name) value) -> "property" <+> pretty name <> "=" <> pretty (JSON.encodeToLazyText value)
-      (ElementStateValue (CssValue name) t) -> "css" <+> braces (pretty name <> ":" <+> pretty t <> ";")
-      (ElementStateValue Text value) -> "text" <> "=" <> pretty (show value)
-      (ElementStateValue Enabled b) -> if b then "enabled" else "disabled"
+
+    prettyQuery :: Query a -> Doc AnsiStyle
+    prettyQuery = \case
+      _ -> mempty
+    prettySomeValue :: SomeValue -> Doc AnsiStyle
+    prettySomeValue (SomeValue value) = pretty (show value)

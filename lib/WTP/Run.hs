@@ -28,17 +28,13 @@ import Control.Monad.State
 import Control.Monad.Trans.Class (MonadTrans)
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import Control.Monad.Trans.Identity (IdentityT)
-import Control.Monad.Writer
 import qualified Data.Aeson as JSON
-import Data.Bifunctor (Bifunctor (bimap))
-import Data.Either (partitionEithers)
 import Data.Function ((&))
 import Data.Functor (($>))
 import Data.Generics.Product (field)
 import qualified Data.HashMap.Strict as HashMap
 import Data.HashMap.Strict (HashMap)
 import Data.Hashable (Hashable)
-import Data.List (nub)
 import Data.Maybe (catMaybes, fromMaybe)
 import qualified Data.Text as Text
 import Data.Text (Text)
@@ -64,6 +60,7 @@ import WTP.TH (embedStringFile')
 import WTP.Trace
 import WTP.Verify
 import Web.Api.WebDriver hiding (Action, Selector, assertFailure, hPutStrLn, runIsolated)
+import Data.Maybe (mapMaybe)
 
 type Runner = WebDriverTT IdentityT IO
 
@@ -174,12 +171,10 @@ runActions' spec = do
     Pipes.yield =<< lift observe
   where
     observe = do
-      values <-
+      st <-
         withQueries runQuery (proposition spec)
-          & flip evalStateT RunQueryState {cachedElements = mempty, cachedElementStates = mempty}
-      let (queriedElements, elementStates) =
-            bimap groupUniqueIntoMap groupUniqueIntoMap (partitionEithers (concat values))
-      pure (TraceState () (ObservedState {queriedElements, elementStates}))
+          & flip execStateT RunQueryState {cachedQueries = mempty}
+      pure (TraceState () (ObservedState (cachedQueries st)))
 
 data Shrink a = Shrink Int a
 
@@ -361,64 +356,39 @@ toRef (Element ref) = ElementRef (Text.unpack ref)
 fromRef :: ElementRef -> Element
 fromRef (ElementRef ref) = Element (Text.pack ref)
 
-groupUniqueIntoMap :: (Eq a, Hashable a, Eq b) => [(a, b)] -> HashMap a [b]
-groupUniqueIntoMap = HashMap.map nub . HashMap.fromListWith (++) . map (\(k, v) -> (k, [v]))
-
-type QueriedElement = (Selector, Element)
-
-type QueriedElementState = (Element, ElementStateValue)
-
-type QueriedValue = Either QueriedElement QueriedElementState
-
 data RunQueryState
   = RunQueryState
-      { cachedElements :: HashMap Selector [Element],
-        cachedElementStates :: HashMap (Element, SomeElementState) ElementStateValue
+      { cachedQueries :: HashMap SomeQuery [SomeValue]
       }
   deriving (Generic)
 
-runQuery :: Query a -> StateT RunQueryState Runner [Either QueriedElement QueriedElementState]
-runQuery = fmap snd . runWriterT . go
+runQuery :: (IsValue a, Hashable a) => Query a -> StateT RunQueryState Runner ()
+runQuery = void . run
   where
-    go :: Query a -> WriterT [QueriedValue] (StateT RunQueryState Runner) [a]
-    go =
-      ( \case
-          ByCss selector ->
-            useCachedOrInsert selector (field @"cachedElements") id pure do
-              els <- lift (lift (findAll selector))
-              tell ((Left . (selector,) <$> els) :: [QueriedValue])
-              pure els
-          Get state' sub ->
-            go sub >>= mapM \el -> do
-              useCachedOrInsert (el, SomeElementState state') (field @"cachedElementStates") (ElementStateValue state') (\(ElementStateValue _ x) -> cast x) do
-                value <- lift . lift $ case state' of
-                  Attribute name -> (either (const name) Text.pack) <$> (getElementAttribute (Text.unpack name) (toRef el))
-                  Property name -> (getElementProperty (Text.unpack name) (toRef el))
-                  CssValue name -> Text.pack <$> (getElementCssValue (Text.unpack name) (toRef el))
-                  Text -> Text.pack <$> (getElementText (toRef el))
-                  Enabled -> (isElementEnabled (toRef el))
-                tell [Right (el, ElementStateValue state' value) :: QueriedValue]
-                pure value
-      )
-    useCachedOrInsert ::
-      ( Eq k,
-        Hashable k,
-        MonadState RunQueryState m
-      ) =>
-      k ->
-      (Lens' RunQueryState (HashMap k a)) ->
-      (b -> a) ->
-      (a -> Maybe b) ->
-      m b ->
-      m b
-    useCachedOrInsert key cached toValue fromValue query = do
-      s <- get
-      case s ^. cached . at key >>= fromValue of
-        Just x -> pure x
+    run :: (IsValue a, Hashable a) => Query a -> StateT RunQueryState Runner [a]
+    run query = do
+      RunQueryState s <- get
+      case s ^. at (SomeQuery query) of
+        Just xs -> pure (mapMaybe cast xs)
         Nothing -> do
-          x <- query
-          put (s & cached . at key ?~ toValue x)
-          pure x
+          xs <- runUncached query
+          put (RunQueryState (s & at (SomeQuery query) ?~ map SomeValue xs))
+          pure xs
+    runUncached :: Query a -> StateT RunQueryState Runner [a]
+    runUncached = \case
+      ByCss selector -> do
+        els <- lift (findAll selector)
+        pure els
+      Get state' sub ->
+        runUncached sub >>= mapM \el -> do
+          value <- lift $ case state' of
+            Attribute name -> (either (const name) Text.pack) <$> (getElementAttribute (Text.unpack name) (toRef el))
+            Property name -> (getElementProperty (Text.unpack name) (toRef el))
+            CssValue name -> Text.pack <$> (getElementCssValue (Text.unpack name) (toRef el))
+            Text -> Text.pack <$> (getElementText (toRef el))
+            Enabled -> (isElementEnabled (toRef el))
+          pure value
+      
 
 logInfo :: MonadIO m => String -> m ()
 logInfo = liftIO . putStrLn

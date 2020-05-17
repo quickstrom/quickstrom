@@ -92,10 +92,10 @@ enabled = Get Enabled
 byCss :: Selector -> Query Element
 byCss = ByCss
 
-queryAll :: IsValue a => Query a -> Formula [a]
+queryAll :: (IsValue a, Hashable a) => Query a -> Formula [a]
 queryAll = BindQuery
 
-queryOne :: IsValue a => Query a -> Formula (Maybe a)
+queryOne :: (IsValue a, Hashable a) => Query a -> Formula (Maybe a)
 queryOne = fmap listToMaybe . queryAll
 
 infixl 7 ===, /==

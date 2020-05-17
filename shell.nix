@@ -25,15 +25,14 @@ in haskellPackages.shellFor {
   packages = p: [wtp];
   buildInputs = (with pkgs;
   [
-    ghcid
+    # ghcid
     ghcide
     cabal-install
     haskellPackages.ormolu
-    haskellPackages.ghc-prof-flamegraph
     firefox
     geckodriver
-    chromium
-    chromedriver
+    # chromium
+    # chromedriver
     nodejs
     nodePackages.typescript
     nodePackages.browserify

@@ -62,7 +62,6 @@ executable wtp
   other-modules:      Helpers
                     , TodoMVC
   build-depends:      base >= 4.12
-                    , dhall
                     , directory
                     , wtp
   hs-source-dirs:     wtp
@@ -80,7 +79,6 @@ test-suite wtp-test
                     , WTP.VerifyTest
   build-depends:      base
                     , wtp
-                    , simple-ltl
                     , tasty
                     , tasty-discover
                     , tasty-hspec

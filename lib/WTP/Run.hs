@@ -438,7 +438,7 @@ renderString :: Doc AnsiStyle -> String
 renderString = Text.unpack . renderStrict . layoutPretty defaultLayoutOptions
 
 wtpJs :: Script
-wtpJs = $(embedStringFile' "target/wtp-ts.js")
+wtpJs = $(embedStringFile' "target/index.js")
 
 initializeScript :: Runner ()
 initializeScript =

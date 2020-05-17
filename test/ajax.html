@@ -3,25 +3,32 @@
   <head>
     <meta charset="UTF-8"/>
     <title>AJAX Test</title>
-    <script src="../target/wtp-ts.js"></script>
+    <script src="../target/index.js"></script>
   </head>
   <body>
-    <button>Launch the missiles</button>
+    <button name="launch">Launch the missiles</button>
     <p class="message"></p>
   </body>
   <script>
     var button = document.querySelector("button");
     var message = document.querySelector(".message");
+    function launchMissiles() {
+        return new Promise((resolve, reject) => {
+            setTimeout(() => {
+                Math.random() < 0.5 ? resolve() : reject();
+            }, (Math.random() * 250) + 750);
+        });
+    }
     button.addEventListener("click", function () {
-        setTimeout(function () {
+        //setTimeout(function () {
             button.disabled = true;
-        }, 100);
-        if (message.innerText === "") {
-          message.innerText = "Missiles launched.";
-        }
-        setTimeout(function () {
+        //}, 100);
+        message.innerText = "Missiles launched.";
+        launchMissiles().then(() => {
             message.innerText = "Boom!";
-        }, Math.random() * 500 + 750); // 1s +/- 250ms
+        }).catch(() => {
+            message.innerText = "Missiles did not hit target.";
+        });
     });
   </script>
   <script>

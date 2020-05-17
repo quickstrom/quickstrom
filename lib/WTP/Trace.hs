@@ -68,7 +68,7 @@ instance Eq SomeValue where
       Nothing -> Bool.False
 
 castValue :: TypeRep a -> SomeValue -> Maybe a
-castValue rep (SomeValue  (v :: t)) =
+castValue rep (SomeValue (v :: t)) =
   case eqTypeRep (typeRep @t) rep of
     Just HRefl -> Just v
     Nothing -> Nothing
@@ -87,7 +87,7 @@ instance Semigroup ObservedState where
   ObservedState s1 <> ObservedState s2 = ObservedState (s1 <> s2)
 
 instance Monoid ObservedState where
-  mempty = ObservedState mempty 
+  mempty = ObservedState mempty
 
 newtype Trace ann = Trace [TraceElement ann]
   deriving (Show, Generic)
@@ -102,7 +102,7 @@ traceActions :: Monoid r => Getting r (Trace ann) (Action Selected)
 traceActions = traceElements . traverse . _Ctor @"TraceAction" . position @2
 
 nonStutterStates :: Monoid r => Getting r (Trace TraceElementEffect) ObservedState
-nonStutterStates = traceElements . traverse . _Ctor @"TraceState" . filtered ((== NoStutter).fst) . position @2
+nonStutterStates = traceElements . traverse . _Ctor @"TraceState" . filtered ((== NoStutter) . fst) . position @2
 
 data ActionResult = ActionSuccess | ActionFailed Text | ActionImpossible
   deriving (Show, Generic)
@@ -177,9 +177,17 @@ prettyObservedState (ObservedState state) =
         & HashMap.toList
         & List.sortBy (comparing fst)
         & map f
-
     prettyQuery :: Query a -> Doc AnsiStyle
     prettyQuery = \case
-      _ -> mempty
+      ByCss (Selector selector) -> "byCss" <+> pretty (show selector)
+      Get state' sub -> prettyState state' <+> parens (prettyQuery sub)
     prettySomeValue :: SomeValue -> Doc AnsiStyle
-    prettySomeValue (SomeValue value) = pretty (show value)
+    prettySomeValue (SomeValue value) = "-" <+> pretty (show value)
+
+prettyState :: ElementState a -> Doc AnsiStyle
+prettyState = \case
+  Attribute n -> "attribute" <+> pretty (show n)
+  Property n -> "property" <+> pretty (show n)
+  CssValue n -> "cssValue" <+> pretty (show n)
+  Text -> "text"
+  Enabled -> "enabled"

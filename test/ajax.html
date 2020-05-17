@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8"/>
     <title>AJAX Test</title>
-    <script async src="../target/index.js"></script>
+    <script src="../target/wtp-ts.js"></script>
   </head>
   <body>
     <button>Launch the missiles</button>
@@ -22,6 +22,17 @@
         setTimeout(function () {
             message.innerText = "Boom!";
         }, Math.random() * 500 + 750); // 1s +/- 250ms
+    });
+  </script>
+  <script>
+    wtp.check({
+      queries: [
+        wtp.enabled(wtp.byCss("button[name=launch]")),
+        wtp.text(wtp.byCss(".message")),
+      ],
+      actions: [wtp.click("button")],
+      maxActions: 10,
+      actionTimeout: 500,
     });
   </script>
 </html>

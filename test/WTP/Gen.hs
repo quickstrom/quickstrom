@@ -20,7 +20,7 @@ stringValues :: Gen Text
 stringValues = elements ["s1", "s2", "s3"]
 
 observedState :: Gen ObservedState
-observedState = ObservedState <$> pure mempty <*> pure mempty -- TODO
+observedState = ObservedState <$> pure mempty
 
 trace :: Gen [ObservedState]
 trace = listOf observedState

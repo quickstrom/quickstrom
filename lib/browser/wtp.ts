@@ -1,4 +1,4 @@
-import { NonEmptyArray, Optional, isNonEmpty, isNotNull, deepEqual, toArray } from "./essentials";
+import { NonEmptyArray, Optional, isNonEmpty, isNotNull, deepEqual, toArray, uuidv4 } from "./essentials";
 
 // QUERIES
 
@@ -101,20 +101,16 @@ function renderQuery(query: Query): string {
 
 type ClickAction<T> = { tag: "click"; target: T };
 
-type WaitAction<T> = { tag: "wait"; duration: T };
-
 type SelectedElement = { selector: Selector; index: number };
 
-type Action = ClickAction<Selector> | WaitAction<[number, number]>;
+type Action = ClickAction<Selector>;
 
-type SelectedAction = ClickAction<SelectedElement> | WaitAction<number>;
+type SelectedAction = ClickAction<SelectedElement>;
 
 function renderAction(action: SelectedAction): string {
     switch (action.tag) {
         case "click":
             return `click ${action.target.selector}[${action.target.index}]`;
-        case "wait":
-            return `wait ${action.duration}ms`;
     }
 }
 
@@ -144,13 +140,10 @@ function selectAction(action: Action): Optional<SelectedAction> {
             } else {
                 return null;
             }
-        case "wait":
-            const duration = pickBetween(action.duration[0], action.duration[1]);
-            return { tag: "wait", duration };
     }
 }
 
-function selectNextAction(actions: Array<Action>): Optional<SelectedAction> {
+export function selectNextAction(actions: Array<Action>): Optional<SelectedAction> {
     const validActions: Array<SelectedAction> = actions
         .map(selectAction)
         .filter(isNotNull);
@@ -167,7 +160,7 @@ function delay(ms: number): Promise<void> {
     });
 }
 
-async function runAction(action: SelectedAction): Promise<void> {
+export async function runAction(action: SelectedAction): Promise<void> {
     switch (action.tag) {
         case "click":
             const el = document.querySelectorAll(action.target.selector)[
@@ -175,8 +168,6 @@ async function runAction(action: SelectedAction): Promise<void> {
             ];
             (el as HTMLElement).click();
             return;
-        case "wait":
-            return delay(action.duration);
     }
 }
 
@@ -196,10 +187,6 @@ export function enabled(elementQuery: ElementQuery): ElementStateQuery {
 
 export function click(target: Selector): ClickAction<Selector> {
     return { tag: "click", target };
-}
-
-export function wait(min: number, max: number): WaitAction<[number, number]> {
-    return { tag: "wait", duration: [min, max] };
 }
 
 // OBSERVATION
@@ -305,11 +292,10 @@ type Specification = {
     actionTimeout?: number;
 };
 
-async function runAndObserveAction(
+export async function runAndObserveAction(
     spec: Specification,
     currentState: ObservedState,
-    action: SelectedAction,
-    n: number
+    action: SelectedAction
 ): Promise<Optional<ObservedState>> {
     const changedState = observeNextNonStutterState(currentState, spec.queries);
     // console.info(`Running action #${n}: ${renderAction(action)}`);
@@ -322,7 +308,7 @@ async function runAndObserveAction(
     return isStateEqual(currentState, merged) ? null : merged;
 }
 
-async function runNext(
+export async function runNext(
     spec: Specification,
     n: number,
     currentState: ObservedState
@@ -330,7 +316,7 @@ async function runNext(
     if (n <= (spec.maxActions || 100)) {
         const selected = selectNextAction(spec.actions);
         if (selected) {
-            const newState = await runAndObserveAction(spec, currentState, selected, n);
+            const newState = await runAndObserveAction(spec, currentState, selected);
             if (newState) {
                 logObservedState(`Update on action ${n}:`, newState);
                 await runNext(spec, n + 1, newState);
@@ -371,4 +357,18 @@ export function isElementVisible(el: HTMLElement): boolean {
         cs.getPropertyValue("opacity") !== "0" &&
         el.offsetParent !== null
     );
+}
+
+
+const registeredObservers: Map<string, Promise<Optional<ObservedState>>> = new Map();
+
+export function registerNextNonStutterStateObserver(currentState: ObservedState, queries: Query[]): string {
+    const id = uuidv4();
+    const p = observeNextNonStutterState(currentState, queries);
+    registeredObservers.set(id, p);
+    return id;
+}
+
+export function getNextNonStutterState(id: string): Promise<Optional<ObservedState>> {
+    return (registeredObservers.get(id) || Promise.reject(`No registered state observer for ID: ${id}`));
 }

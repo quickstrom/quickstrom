@@ -32,8 +32,7 @@
     });
   </script>
   <script>
-    /*
-    wtp.check({
+    const spec = {
       queries: [
         wtp.enabled(wtp.byCss("button[name=launch]")),
         wtp.text(wtp.byCss(".message")),
@@ -41,7 +40,21 @@
       actions: [wtp.click("button")],
       maxActions: 10,
       actionTimeout: 500,
-    });
+    };
+    /*
+    wtp.check();
     */
+    (async function() {
+        while (true) {
+            const observer = wtp.registerNextNonStutterStateObserver(wtp.observeInitialStates(spec.queries), spec.queries);
+            const action = wtp.selectNextAction(spec.actions);
+            if (action) {
+                await wtp.runAction(action);
+            } else {
+                console.log("No more actions.");
+            }
+            console.log(await wtp.getNextNonStutterState(observer));
+        }
+    })();
   </script>
 </html>

@@ -171,13 +171,6 @@ runActions' spec = do
     Pipes.yield . TraceState () =<< lift observe'
   where
     observe' = observeStates (runIdentity (withQueries (pure . SomeQuery) (proposition spec)))
-  {-
-    observe = do
-      st <-
-        withQueries runQuery (proposition spec)
-          & flip execStateT RunQueryState {cachedQueries = mempty}
-      pure (ObservedState (cachedQueries st))
--}
 
 data Shrink a = Shrink Int a
 
@@ -358,40 +351,6 @@ toRef (Element ref) = ElementRef (Text.unpack ref)
 
 fromRef :: ElementRef -> Element
 fromRef (ElementRef ref) = Element (Text.pack ref)
-
-data RunQueryState
-  = RunQueryState
-      { cachedQueries :: HashMap SomeQuery [SomeValue]
-      }
-  deriving (Generic)
-
-runQuery :: (IsValue a, Hashable a) => Query a -> StateT RunQueryState Runner ()
-runQuery = void . run
-  where
-    run :: (IsValue a, Hashable a) => Query a -> StateT RunQueryState Runner [a]
-    run query = do
-      RunQueryState s <- get
-      case s ^. at (SomeQuery query) of
-        Just xs -> pure (mapMaybe cast xs)
-        Nothing -> do
-          xs <- runUncached query
-          put (RunQueryState (s & at (SomeQuery query) ?~ map SomeValue xs))
-          pure xs
-    runUncached :: Query a -> StateT RunQueryState Runner [a]
-    runUncached = \case
-      ByCss selector -> do
-        els <- lift (findAll selector)
-        pure els
-      Get state' sub ->
-        runUncached sub >>= mapM \el -> do
-          value <- lift $ case state' of
-            Attribute name -> (either (const name) Text.pack) <$> (getElementAttribute (Text.unpack name) (toRef el))
-            Property name -> (getElementProperty (Text.unpack name) (toRef el))
-            CssValue name -> Text.pack <$> (getElementCssValue (Text.unpack name) (toRef el))
-            Text -> Text.pack <$> (getElementText (toRef el))
-            Enabled -> (isElementEnabled (toRef el))
-          pure value
-      
 
 logInfo :: MonadIO m => String -> m ()
 logInfo = liftIO . putStrLn

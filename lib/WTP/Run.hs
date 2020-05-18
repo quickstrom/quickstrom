@@ -165,18 +165,20 @@ runActions' :: Specification Proposition -> Pipe (Action Selected) (TraceElement
 runActions' spec = do
   state1 <- lift observe'
   Pipes.yield (TraceState () state1)
-  forever do
-    action <- Pipes.await
-    obs <- lift (registerNextNonStutterStateObserver state1 queries)
-    lift (logInfoWD ("OBSERVER: " <> show obs))
-    result <- lift (runAction action)
-    stateChange <- lift (getNextNonStutterState obs)
-    lift (logInfoWD (show stateChange))
-    Pipes.yield (TraceAction () action result)
-    Pipes.yield . TraceState () =<< lift observe'
+  loop state1
   where
     queries = runIdentity (withQueries (pure . SomeQuery) (proposition spec))
-    observe' = observeStates queries
+    observe' = observeStates queries 
+    loop currentState = do
+      action <- Pipes.await
+      observer <- lift (registerNextNonStutterStateObserver currentState queries)
+      result <- lift (runAction action)
+      update <- either (fail . Text.unpack) (maybe mempty pure)
+        =<< lift (getNextNonStutterState observer)
+      let newState = currentState <> update
+      Pipes.yield (TraceAction () action result)
+      Pipes.yield (TraceState () newState)
+      loop newState
 
 data Shrink a = Shrink Int a
 

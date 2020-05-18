@@ -163,18 +163,21 @@ genActions' spec = forever do
 {-# SCC runActions' "runActions'" #-}
 runActions' :: Specification Proposition -> Pipe (Action Selected) (TraceElement ()) Runner ()
 runActions' spec = do
-  Pipes.yield =<< lift observe
+  Pipes.yield . TraceState () =<< lift observe'
   forever do
     action <- Pipes.await
     result <- lift (runAction action)
     Pipes.yield (TraceAction () action result)
-    Pipes.yield =<< lift observe
+    Pipes.yield . TraceState () =<< lift observe'
   where
+    observe' = observeStates (runIdentity (withQueries (pure . SomeQuery) (proposition spec)))
+  {-
     observe = do
       st <-
         withQueries runQuery (proposition spec)
           & flip execStateT RunQueryState {cachedQueries = mempty}
-      pure (TraceState () (ObservedState (cachedQueries st)))
+      pure (ObservedState (cachedQueries st))
+-}
 
 data Shrink a = Shrink Int a
 
@@ -403,6 +406,13 @@ isElementVisible el =
 awaitElement :: Selector -> WebDriverT IO ()
 awaitElement (Selector sel) =
   void (executeAsyncScript "window.wtp.awaitElement(arguments[0], arguments[1])" [JSON.toJSON sel])
+
+observeStates :: [SomeQuery] -> WebDriverT IO ObservedState
+observeStates queries = do
+  v <- executeScript "return Array.from(window.wtp.observeInitialStates(arguments[0]).entries())" [JSON.toJSON queries]
+  case JSON.fromJSON v of
+    JSON.Success s -> pure s
+    JSON.Error e -> fail e
 
 renderString :: Doc AnsiStyle -> String
 renderString = Text.unpack . renderStrict . layoutPretty defaultLayoutOptions

@@ -239,7 +239,7 @@ function logObservedState(label: string, s: ObservedState) {
     });
 }
 
-function observeInitialStates(queries: Query[]): ObservedState {
+export function observeInitialStates(queries: Query[]): ObservedState {
     const m = new Map();
     queries.forEach((query) => m.set(query, runQuery(query)));
     return m;

@@ -55,9 +55,11 @@ import WTP.Element
 import WTP.Query
 import WTP.Specification (Action (..), Path (..), Selected (..))
 import Prelude hiding (Bool (..), not)
+import Data.Aeson (Result, ToJSON (..), FromJSON (..))
+import Control.Applicative ((<|>))
 
 data SomeValue where
-  SomeValue :: forall a. (Show a, Typeable a, Eq a) => a -> SomeValue
+  SomeValue :: forall a. (Show a, Typeable a, Eq a, FromJSON a, ToJSON a) => a -> SomeValue
 
 deriving instance Show SomeValue
 
@@ -66,6 +68,18 @@ instance Eq SomeValue where
     case eqTypeRep (typeRep @t1) (typeRep @t2) of
       Just HRefl -> v1 == v2
       Nothing -> Bool.False
+
+instance FromJSON SomeValue where
+  parseJSON v =
+    (SomeValue <$> parseJSON @Element v)
+    <|> (SomeValue <$> parseJSON @Bool.Bool v)
+    <|> (SomeValue <$> parseJSON @Text v)
+    <|> (SomeValue <$> parseJSON @Int v)
+    <|> (SomeValue <$> parseJSON @Double v)
+
+instance ToJSON SomeValue where
+  toJSON (SomeValue x) = toJSON x
+
 
 castValue :: TypeRep a -> SomeValue -> Maybe a
 castValue rep (SomeValue (v :: t)) =
@@ -81,7 +95,7 @@ findElementState (state :: ElementState s1) (SomeValue (value :: s2) : rest) =
     Nothing -> findElementState state rest
 
 newtype ObservedState = ObservedState (HashMap SomeQuery [SomeValue])
-  deriving (Show, Eq, Generic)
+  deriving (Show, Eq, Generic, FromJSON, ToJSON)
 
 instance Semigroup ObservedState where
   ObservedState s1 <> ObservedState s2 = ObservedState (s1 <> s2)

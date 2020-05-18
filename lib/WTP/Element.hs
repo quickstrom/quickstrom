@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
@@ -19,12 +20,18 @@ import Data.Text.Prettyprint.Doc
 import Data.Typeable (Typeable)
 import GHC.Generics (Generic)
 import Type.Reflection
+import Data.Aeson.Types (parseFail)
 
 newtype Element = Element {ref :: Text}
   deriving (Eq, Ord, Show, Hashable, Pretty)
 
 instance JSON.ToJSON Element where
   toJSON (Element e) = JSON.object ["element-6066-11e4-a52e-4f735466cecf" JSON..= e]
+
+instance JSON.FromJSON Element where
+  parseJSON = withObject "Element" $ \o -> do
+    e <- o JSON..: "element-6066-11e4-a52e-4f735466cecf"
+    pure (Element e)
 
 data ElementState a where
   Attribute :: Text -> ElementState Text
@@ -52,6 +59,29 @@ instance JSON.ToJSON (ElementState a) where
     CssValue name -> JSON.object ["tag" .= ("cssValue" :: Text), "name" .= name]
     Text -> JSON.object ["tag" .= ("text" :: Text)]
     Enabled -> JSON.object ["tag" .= ("enabled" :: Text)]
+
+instance JSON.FromJSON (ElementState Text) where
+  parseJSON = withObject "ElementState" $ \o -> do
+    tag <- o JSON..: "tag"
+    case tag of
+      "attribute" -> Attribute <$> (o .: "name")
+      "cssValue" -> CssValue <$> (o .: "name")
+      "text" -> pure Text
+      t -> parseFail ("Invalid tag: " <> t)
+
+instance JSON.FromJSON (ElementState Value) where
+  parseJSON = withObject "ElementState" $ \o -> do
+    tag <- o JSON..: "tag"
+    case tag of
+      "property" -> Property <$> (o .: "name")
+      t -> parseFail ("Invalid tag: " <> t)
+
+instance JSON.FromJSON (ElementState Bool) where
+  parseJSON = withObject "ElementState" $ \o -> do
+    tag <- o JSON..: "tag"
+    case tag of
+      "enabled" -> pure Enabled
+      t -> parseFail ("Invalid tag: " <> t)
 
 data SomeElementState where
   SomeElementState :: (Typeable a, Eq a, Show a) => ElementState a -> SomeElementState

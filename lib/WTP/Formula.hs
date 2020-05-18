@@ -27,6 +27,7 @@ import qualified Data.Text as Text
 import Data.Typeable (Typeable)
 import WTP.Query
 import Prelude hiding (False, True, not)
+import Data.Aeson (ToJSON, FromJSON)
 
 data Literal t where
   LTrue :: Literal Bool
@@ -39,7 +40,7 @@ deriving instance Eq (Literal t)
 
 deriving instance Show (Literal t)
 
-type IsValue a = (Eq a, Show a, Typeable a)
+type IsValue a = (Eq a, Show a, Typeable a, FromJSON a, ToJSON a)
 
 type Set = HashSet
 

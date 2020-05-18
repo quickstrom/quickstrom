@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module TodoMVC
@@ -17,6 +19,7 @@ import Text.Read (readMaybe)
 import WTP.Specification
 import WTP.Syntax
 import Prelude hiding ((<), (<=), (>), (>=), all, init)
+import GHC.Generics (Generic)
 
 spec :: Text -> Specification Proposition
 spec name =
@@ -66,7 +69,7 @@ spec name =
            )
 
 data Filter = All | Active | Completed
-  deriving (Eq, Read, Show)
+  deriving (Eq, Read, Show, Generic, FromJSON, ToJSON)
 
 -- * State helpers:
 

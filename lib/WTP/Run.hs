@@ -36,6 +36,7 @@ import qualified Data.HashMap.Strict as HashMap
 import Data.HashMap.Strict (HashMap)
 import Data.Hashable (Hashable)
 import Data.Maybe (catMaybes, fromMaybe)
+import Data.Maybe (mapMaybe)
 import qualified Data.Text as Text
 import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
@@ -60,7 +61,6 @@ import WTP.TH (embedStringFile')
 import WTP.Trace
 import WTP.Verify
 import Web.Api.WebDriver hiding (Action, Selector, assertFailure, hPutStrLn, runIsolated)
-import Data.Maybe (mapMaybe)
 
 type Runner = WebDriverTT IdentityT IO
 
@@ -163,14 +163,20 @@ genActions' spec = forever do
 {-# SCC runActions' "runActions'" #-}
 runActions' :: Specification Proposition -> Pipe (Action Selected) (TraceElement ()) Runner ()
 runActions' spec = do
-  Pipes.yield . TraceState () =<< lift observe'
+  state1 <- lift observe'
+  Pipes.yield (TraceState () state1)
   forever do
     action <- Pipes.await
+    obs <- lift (registerNextNonStutterStateObserver state1 queries)
+    lift (logInfoWD ("OBSERVER: " <> show obs))
     result <- lift (runAction action)
+    stateChange <- lift (getNextNonStutterState obs)
+    lift (logInfoWD (show stateChange))
     Pipes.yield (TraceAction () action result)
     Pipes.yield . TraceState () =<< lift observe'
   where
-    observe' = observeStates (runIdentity (withQueries (pure . SomeQuery) (proposition spec)))
+    queries = runIdentity (withQueries (pure . SomeQuery) (proposition spec))
+    observe' = observeStates queries
 
 data Shrink a = Shrink Int a
 
@@ -297,7 +303,7 @@ inNewPrivateWindow = runIsolated (reconfigure headlessFirefoxCapabilities)
               o
                 { _firefoxArgs = Just ["-headless", "-private"],
                   _firefoxPrefs = Just (HashMap.singleton "Dom.storage.enabled" (JSON.Bool False)),
-                  _firefoxLog = Just (FirefoxLog (Just LogWarn))
+                  _firefoxLog = Just (FirefoxLog (Just LogTrace))
                 }
         }
 
@@ -366,12 +372,39 @@ awaitElement :: Selector -> WebDriverT IO ()
 awaitElement (Selector sel) =
   void (executeAsyncScript "window.wtp.awaitElement(arguments[0], arguments[1])" [JSON.toJSON sel])
 
-observeStates :: [SomeQuery] -> WebDriverT IO ObservedState
-observeStates queries = do
-  v <- executeScript "return Array.from(window.wtp.observeInitialStates(arguments[0]).entries())" [JSON.toJSON queries]
-  case JSON.fromJSON v of
-    JSON.Success s -> pure s
+executeScript' :: JSON.FromJSON r => Script -> [JSON.Value] -> Runner r
+executeScript' script args = do
+  r <- executeScript script args
+  case JSON.fromJSON r of
+    JSON.Success a -> pure a
     JSON.Error e -> fail e
+
+executeAsyncScript' :: JSON.FromJSON r => Script -> [JSON.Value] -> Runner r
+executeAsyncScript' script args = do
+  r <- executeAsyncScript script args
+  case JSON.fromJSON r of
+    JSON.Success a -> pure a
+    JSON.Error e -> fail e
+
+observeStates :: [SomeQuery] -> WebDriverT IO ObservedState
+observeStates queries =
+  executeScript' "return wtp.mapToArray(window.wtp.observeInitialStates(arguments[0]))" [JSON.toJSON queries]
+
+newtype StateObserver = StateObserver Text
+  deriving (Eq, Show)
+
+registerNextNonStutterStateObserver :: ObservedState -> [SomeQuery] -> Runner StateObserver
+registerNextNonStutterStateObserver currentState queries =
+  StateObserver
+    <$> executeScript'
+      "return wtp.registerNextNonStutterStateObserver(new Map(arguments[0]), arguments[1])"
+      [JSON.toJSON currentState, JSON.toJSON queries]
+
+getNextNonStutterState :: StateObserver -> Runner (Either Text (Maybe ObservedState))
+getNextNonStutterState (StateObserver sid) =
+  executeAsyncScript'
+    "wtp.runPromiseEither(wtp.getNextNonStutterState(arguments[0]).then(wtp.mapNullable(wtp.mapToArray)), arguments[1])"
+    [JSON.toJSON sid]
 
 renderString :: Doc AnsiStyle -> String
 renderString = Text.unpack . renderStrict . layoutPretty defaultLayoutOptions

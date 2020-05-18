@@ -44,6 +44,7 @@
     /*
     wtp.check();
     */
+    /*
     (async function() {
         while (true) {
             const observer = wtp.registerNextNonStutterStateObserver(wtp.observeInitialStates(spec.queries), spec.queries);
@@ -56,5 +57,7 @@
             console.log(await wtp.getNextNonStutterState(observer));
         }
     })();
+    */
+    console.log(JSON.stringify(wtp.mapToArray(wtp.observeInitialStates(spec.queries))));
   </script>
 </html>

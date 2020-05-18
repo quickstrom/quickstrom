@@ -372,3 +372,17 @@ export function registerNextNonStutterStateObserver(currentState: ObservedState,
 export function getNextNonStutterState(id: string): Promise<Optional<ObservedState>> {
     return (registeredObservers.get(id) || Promise.reject(`No registered state observer for ID: ${id}`));
 }
+
+type Either<a, b> = { Left: a } | { Right: b };
+
+export function runPromiseEither<A>(promise: Promise<A>, done: (either: Either<Error, A>) => void): void {
+    promise.then(a => done({ Right: a })).catch(err => done({ Left: err.message }));
+}
+
+export function mapToArray<K, V>(m: Map<K, V>): [K, V][] {
+    return Array.from(m.entries());
+}
+
+export function mapNullable<A, B>(f: (a: A) => B): (oa: Optional<A>) => Optional<B> {
+    return (a) => a ? f(a) : null;
+}

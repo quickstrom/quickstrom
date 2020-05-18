@@ -24,7 +24,6 @@ import Control.Monad ((>=>), forever, void, when)
 import Control.Monad (filterM)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Loops (andM)
-import Control.Monad.State
 import Control.Monad.Trans.Class (MonadTrans)
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import Control.Monad.Trans.Identity (IdentityT)
@@ -33,16 +32,12 @@ import Data.Function ((&))
 import Data.Functor (($>))
 import Data.Generics.Product (field)
 import qualified Data.HashMap.Strict as HashMap
-import Data.HashMap.Strict (HashMap)
-import Data.Hashable (Hashable)
 import Data.Maybe (catMaybes, fromMaybe)
-import Data.Maybe (mapMaybe)
 import qualified Data.Text as Text
 import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
 import Data.Tree
-import Data.Typeable (cast)
 import GHC.Generics (Generic)
 import Network.HTTP.Client as Http
 import qualified Network.Wreq as Wreq
@@ -57,10 +52,11 @@ import WTP.Formula
 import WTP.Query
 import WTP.Result
 import WTP.Specification
-import WTP.TH (embedStringFile')
 import WTP.Trace
 import WTP.Verify
 import Web.Api.WebDriver hiding (Action, Selector, assertFailure, hPutStrLn, runIsolated)
+import Data.HashSet (HashSet)
+import qualified Data.HashSet as HashSet
 
 type Runner = WebDriverTT IdentityT IO
 
@@ -156,26 +152,34 @@ beforeRun spec = do
 
 {-# SCC genActions' "genActions'" #-}
 genActions' :: Specification Proposition -> Producer (Action Selected) Runner ()
-genActions' spec = forever do
-  genValidAction <- lift (validActions (actions spec))
-  Pipes.yield =<< lift (liftWebDriverTT (lift (QuickCheck.generate genValidAction)))
+genActions' spec = loop
+  where
+    loop = do
+      lift (validActions (actions spec)) >>= \case
+        Just genValidAction -> do
+          Pipes.yield =<< lift (liftWebDriverTT (lift (QuickCheck.generate genValidAction)))
+          loop
+        Nothing -> pure ()
 
 {-# SCC runActions' "runActions'" #-}
 runActions' :: Specification Proposition -> Pipe (Action Selected) (TraceElement ()) Runner ()
 runActions' spec = do
-  state1 <- lift observe'
+  state1 <- lift (observeStates queries)
   Pipes.yield (TraceState () state1)
   loop state1
   where
-    queries = runIdentity (withQueries (pure . SomeQuery) (proposition spec))
-    observe' = observeStates queries 
+    queries = HashSet.fromList (runIdentity (withQueries (pure . SomeQuery) (proposition spec)))
     loop currentState = do
       action <- Pipes.await
-      observer <- lift (registerNextNonStutterStateObserver currentState queries)
+      lift (logInfoWD (show action))
+      observer <- lift (registerNextStateObserver queries)
       result <- lift (runAction action)
-      update <- either (fail . Text.unpack) (maybe mempty pure)
-        =<< lift (getNextNonStutterState observer)
-      let newState = currentState <> update
+      update <-
+        either (fail . Text.unpack) pure
+          =<< lift (getNextState observer)
+      lift (logInfoWD (show update))
+      let newState = update <> currentState
+      lift (logInfoWD (show newState))
       Pipes.yield (TraceAction () action result)
       Pipes.yield (TraceState () newState)
       loop newState
@@ -204,14 +208,12 @@ shrinkAction = \case
   Wait range -> Wait <$> QuickCheck.shrink range
   _ -> [] -- TODO?
 
-validActions :: [(Int, Action Selector)] -> Runner (QuickCheck.Gen (Action Selected))
+validActions :: [(Int, Action Selector)] -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
 validActions actions = do
   gens <- catMaybes <$> traverse tryGenActionWithFreq actions
   case gens of
-    [] -> do
-      logInfoWD "No actions applicable. Falling back to generating a waiting action."
-      pure (genWait (10, 1000))
-    _ -> pure (QuickCheck.frequency gens)
+    [] -> pure Nothing
+    _ -> pure (Just (QuickCheck.frequency gens))
   where
     tryGenActionWithFreq :: (Int, Action Selector) -> Runner (Maybe (Int, QuickCheck.Gen (Action Selected)))
     tryGenActionWithFreq (i, a) = fmap (i,) <$> tryGenAction a
@@ -388,32 +390,33 @@ executeAsyncScript' script args = do
     JSON.Success a -> pure a
     JSON.Error e -> fail e
 
-observeStates :: [SomeQuery] -> WebDriverT IO ObservedState
+observeStates :: HashSet SomeQuery -> WebDriverT IO ObservedState
 observeStates queries =
   executeScript' "return wtp.mapToArray(window.wtp.observeInitialStates(arguments[0]))" [JSON.toJSON queries]
 
 newtype StateObserver = StateObserver Text
   deriving (Eq, Show)
 
-registerNextNonStutterStateObserver :: ObservedState -> [SomeQuery] -> Runner StateObserver
-registerNextNonStutterStateObserver currentState queries =
-  StateObserver
+registerNextStateObserver :: HashSet SomeQuery -> Runner StateObserver
+registerNextStateObserver queries =
+  StateObserver 
     <$> executeScript'
-      "return wtp.registerNextNonStutterStateObserver(new Map(arguments[0]), arguments[1])"
-      [JSON.toJSON currentState, JSON.toJSON queries]
+      "return wtp.registerNextStateObserver(arguments[0])"
+      [JSON.toJSON queries]
 
-getNextNonStutterState :: StateObserver -> Runner (Either Text (Maybe ObservedState))
-getNextNonStutterState (StateObserver sid) =
-  executeAsyncScript'
-    "wtp.runPromiseEither(wtp.getNextNonStutterState(arguments[0]).then(wtp.mapNullable(wtp.mapToArray)), arguments[1])"
+getNextState :: StateObserver -> Runner (Either Text ObservedState)
+getNextState (StateObserver sid) =
+  executeAsyncScript' 
+    "wtp.runPromiseEither(wtp.getNextState(arguments[0]).then(wtp.mapToArray), arguments[1])"
     [JSON.toJSON sid]
 
 renderString :: Doc AnsiStyle -> String
 renderString = Text.unpack . renderStrict . layoutPretty defaultLayoutOptions
 
-wtpJs :: Script
-wtpJs = $(embedStringFile' "target/index.js")
+wtpJs :: Runner Script
+wtpJs = liftWebDriverTT (lift (readFile "target/index.js"))
 
 initializeScript :: Runner ()
-initializeScript =
-  void (executeScript wtpJs [])
+initializeScript = do
+  js <- wtpJs 
+  void (executeScript js [])

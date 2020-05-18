@@ -237,29 +237,25 @@ async function observeNextStateForQuery<Q extends Query>(
 ): Promise<ObservedState> {
     const selector = selectorInQuery(query);
 
-    function queryMatching(node: Node): Optional<Value> {
-        if (node instanceof Element && node.matches(selector)) {
-            return runQuery(query);
-        } else {
-            return null;
-        }
+    function matchesSelector(node: Node): boolean {
+        return node instanceof Element && node.matches(selector);
     }
 
     return new Promise((resolve) => {
         new MutationObserver((mutations, observer) => {
-            const updatedQueries: Value[] = mutations.flatMap((mutation) => {
+            const matchesAnyQuery: boolean = mutations.flatMap((mutation) => {
                 return [
                     [mutation.target],
                     toArray(mutation.addedNodes) as Node[],
                     toArray(mutation.removedNodes) as Node[],
                 ]
-                    .flat()
-                    .flatMap(queryMatching)
-                    .filter(isNotNull);
-            });
+                    .flat();
+            }).every(matchesSelector);
+
             const m = new Map<Query, Value[]>();
-            if (updatedQueries.length > 0) {
-                m.set(query, updatedQueries);
+            if (matchesAnyQuery) {
+                const values = runQuery(query);
+                m.set(query, values);
             }
             observer.disconnect();
             resolve(m);
@@ -267,11 +263,10 @@ async function observeNextStateForQuery<Q extends Query>(
     });
 }
 
-async function observeNextState<Q extends Query>(
+function observeNextState<Q extends Query>(
     queries: Q[]
 ): Promise<ObservedState> {
-    const allStates = await Promise.all(queries.map(observeNextStateForQuery));
-    return mergeStates(allStates);
+    return Promise.race(queries.map(observeNextStateForQuery));
 }
 
 async function observeNextNonStutterState<Q extends Query>(
@@ -360,16 +355,16 @@ export function isElementVisible(el: HTMLElement): boolean {
 }
 
 
-const registeredObservers: Map<string, Promise<Optional<ObservedState>>> = new Map();
+const registeredObservers: Map<string, Promise<ObservedState>> = new Map();
 
-export function registerNextNonStutterStateObserver(currentState: ObservedState, queries: Query[]): string {
+export function registerNextStateObserver(queries: Query[]): string {
     const id = uuidv4();
-    const p = observeNextNonStutterState(currentState, queries);
+    const p = observeNextState(queries);
     registeredObservers.set(id, p);
     return id;
 }
 
-export function getNextNonStutterState(id: string): Promise<Optional<ObservedState>> {
+export function getNextState(id: string): Promise<ObservedState> {
     return (registeredObservers.get(id) || Promise.reject(`No registered state observer for ID: ${id}`));
 }
 

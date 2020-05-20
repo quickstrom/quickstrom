@@ -36,16 +36,18 @@ function selectorInQuery(query: Query): Selector {
     }
 }
 
-type Value = string | object | number | boolean | Element | null;
+type Value = string | number | boolean | Element | PropertyValue | null;
+
+type PropertyValue = { tag: "propertyValue", value: any }
 
 function runQuery(query: Query): Array<Value> {
     function runStateQuery(element: Element, stateQuery: StateQuery): Value {
         switch (stateQuery.tag) {
             case "attribute":
-                return element.attributes.getNamedItem(stateQuery.name);
+                return element.attributes.getNamedItem(stateQuery.name) as (string | null);
             case "property":
                 // @ts-ignore
-                return element[stateQuery.name];
+                return { tag: "propertyValue", value: element[stateQuery.name] };
             case "cssValue":
                 return window
                     .getComputedStyle(element)
@@ -359,7 +361,10 @@ const registeredObservers: Map<string, Promise<ObservedState>> = new Map();
 
 export function registerNextStateObserver(queries: Query[]): string {
     const id = uuidv4();
-    const p = observeNextState(queries);
+    const p = Promise.race([
+        observeNextState(queries),
+        delay(100).then(() => observeInitialStates(queries)),
+    ]);
     registeredObservers.set(id, p);
     return id;
 }

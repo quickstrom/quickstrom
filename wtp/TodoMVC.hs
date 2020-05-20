@@ -27,12 +27,12 @@ spec name =
     { origin = Path ("http://todomvc.com/examples/" <> name <> "/"),
       readyWhen = ".todoapp",
       actions =
-        [ (2, KeyPress 'a'),
-          (2, KeyPress '\xe006'),
-          (2, Focus ".todoapp .new-todo"),
-          (2, Click ".todoapp .filters a"),
-          (1, Click ".todoapp label[for=toggle-byCss]"),
-          (1, Click ".todoapp .destroy")
+        [ (Weight 2, KeyPress 'a'),
+          (Weight 2, KeyPress '\xe006'),
+          (Weight 2, Focus ".todoapp .new-todo"),
+          (Weight 2, Click ".todoapp .filters a"),
+          (Weight 1, Click ".todoapp label[for=toggle-all]"),
+          (Weight 1, Click ".todoapp .destroy")
         ],
       proposition = init /\ (always (enterText \/ addNew \/ changeFilter \/ toggleAll))
     }
@@ -74,7 +74,7 @@ data Filter = All | Active | Completed
 -- * State helpers:
 
 isEmpty :: Proposition
-isEmpty = filterIs Nothing /\ (null <$> items) /\ ((== Just "") <$> pendingText)
+isEmpty = filterIs (Just All) /\ (null <$> items) /\ ((== Just "") <$> pendingText)
 
 currentFilter :: Formula (Maybe Filter)
 currentFilter = (>>= (readMaybe . Text.unpack)) <$> queryOne (text (byCss ".todoapp .filters .selected"))
@@ -95,7 +95,7 @@ numItems :: Formula Int
 numItems = lengthOf traverse <$> items
 
 checked :: Formula [Bool]
-checked = (map (== JSON.Bool top)) <$> queryAll (property "checked" (byCss ".todo-list li label"))
+checked = (map (== PropertyValue (JSON.Bool top))) <$> queryAll (property "checked" (byCss ".todo-list li input[type=checkbox]"))
 
 numUnchecked :: Formula Int
 numUnchecked = length . filter neg <$> checked

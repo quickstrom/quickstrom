@@ -15,6 +15,7 @@ import qualified WTP.Gen as Gen
 import WTP.Result
 import WTP.Verify
 import Prelude hiding (Bool (..), not)
+import qualified Data.List.NonEmpty as NonEmpty
 
 spec_logic :: Spec
 spec_logic =
@@ -27,9 +28,9 @@ spec_logic =
       testFormula (always top) [mempty] Accepted
       testFormula (always top) [] Accepted
 
-prop_logic_always = forAll ((,) <$> Gen.trueSyntax <*> Gen.trace) $ \(p, trace) -> do
+prop_logic_always = forAll ((,) <$> Gen.trueSyntax <*> listOf Gen.observedState) $ \(p, trace) -> do
   verify trace (simplify (always p)) === Accepted
 
 prop_logic_any_false = forAll ((,) <$> Gen.falseSyntax <*> Gen.nonEmpty (listOf (pure mempty))) $ \(p, trace) -> do
   let p' = simplify p
-  Rejected === verify trace p'
+  Rejected === verify (NonEmpty.toList trace) p'

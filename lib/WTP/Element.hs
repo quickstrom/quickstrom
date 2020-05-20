@@ -33,9 +33,26 @@ instance JSON.FromJSON Element where
     e <- o JSON..: "element-6066-11e4-a52e-4f735466cecf"
     pure (Element e)
 
+data PropertyValue = PropertyValue { propertyValue :: JSON.Value }
+  deriving (Eq, Show)
+
+instance JSON.FromJSON PropertyValue where
+  parseJSON = withObject "PropertyValue" $ \o -> do
+    tag <- o JSON..: "tag"
+    case tag of
+      "propertyValue" -> PropertyValue <$> (o .: "value")
+      _ -> parseFail ("Invalid tag: " <> tag)
+
+instance JSON.ToJSON PropertyValue where
+  toJSON = \case
+    PropertyValue v -> JSON.object ["tag" .= ("propertyValue" :: Text), "value" .= v]
+
+instance Hashable PropertyValue where
+  hashWithSalt s (PropertyValue v) = s `hashWithSalt` v
+
 data ElementState a where
   Attribute :: Text -> ElementState Text
-  Property :: Text -> ElementState JSON.Value
+  Property :: Text -> ElementState PropertyValue
   CssValue :: Text -> ElementState Text
   Text :: ElementState Text
   Enabled :: ElementState Bool
@@ -69,7 +86,7 @@ instance JSON.FromJSON (ElementState Text) where
       "text" -> pure Text
       t -> parseFail ("Invalid tag: " <> t)
 
-instance JSON.FromJSON (ElementState Value) where
+instance JSON.FromJSON (ElementState PropertyValue) where
   parseJSON = withObject "ElementState" $ \o -> do
     tag <- o JSON..: "tag"
     case tag of

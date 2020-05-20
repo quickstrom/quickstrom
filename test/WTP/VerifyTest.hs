@@ -26,13 +26,13 @@ spec_verify :: Spec
 spec_verify = do
   it "verifies with get and assertion" $ do
     let classList = JSON.toJSON ["foo", "bar" :: Text]
-    let q = (property "classList" (byCss "#some-element"))
+    let q = property "classList" (byCss "#some-element")
     verify'
-      ((fromMaybe (JSON.Array mempty) <$> (queryOne q)) === json classList)
+      ((fromMaybe (JSON.Array mempty) . fmap propertyValue <$> (queryOne q)) === json classList)
       [ Trace.ObservedState
           ( HashMap.singleton
               (SomeQuery q)
-              [Trace.SomeValue classList]
+              [Trace.SomeValue (PropertyValue classList)]
           )
       ]
       `shouldBe` Accepted

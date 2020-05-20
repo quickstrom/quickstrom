@@ -84,7 +84,7 @@ instance FromJSON SomeQuery where
             q state' = SomeQuery (Get state' elementQuery)
         stateQuery <- o .: "stateQuery"
         (q <$> parseJSON @(ElementState Text) stateQuery)
-          <|> (q <$> parseJSON @(ElementState Value) stateQuery)
+          <|> (q <$> parseJSON @(ElementState PropertyValue) stateQuery)
           <|> (q <$> parseJSON @(ElementState Bool) stateQuery)
       _ -> parseFail "Invalid query"
 

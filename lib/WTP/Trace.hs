@@ -28,6 +28,7 @@ module WTP.Trace
     nonStutterStates,
     TraceElementEffect,
     annotateStutteringSteps,
+    withoutStutterStates,
     prettyAction,
     prettyActions,
     prettyTrace,
@@ -35,7 +36,9 @@ module WTP.Trace
   )
 where
 
+import Control.Applicative ((<|>))
 import Control.Lens
+import Data.Aeson (FromJSON (..), ToJSON (..))
 import qualified Data.Bool as Bool
 import Data.Function ((&))
 import Data.Generics.Product (position)
@@ -55,8 +58,6 @@ import WTP.Element
 import WTP.Query
 import WTP.Specification (Action (..), Path (..), Selected (..))
 import Prelude hiding (Bool (..), not)
-import Data.Aeson (Result, ToJSON (..), FromJSON (..))
-import Control.Applicative ((<|>))
 
 data SomeValue where
   SomeValue :: forall a. (Show a, Typeable a, Eq a, FromJSON a, ToJSON a) => a -> SomeValue
@@ -72,14 +73,14 @@ instance Eq SomeValue where
 instance FromJSON SomeValue where
   parseJSON v =
     (SomeValue <$> parseJSON @Element v)
-    <|> (SomeValue <$> parseJSON @Bool.Bool v)
-    <|> (SomeValue <$> parseJSON @Text v)
-    <|> (SomeValue <$> parseJSON @Int v)
-    <|> (SomeValue <$> parseJSON @Double v)
+      <|> (SomeValue <$> parseJSON @Bool.Bool v)
+      <|> (SomeValue <$> parseJSON @Text v)
+      <|> (SomeValue <$> parseJSON @Int v)
+      <|> (SomeValue <$> parseJSON @Double v)
+      <|> (SomeValue <$> parseJSON @PropertyValue v)
 
 instance ToJSON SomeValue where
   toJSON (SomeValue x) = toJSON x
-
 
 castValue :: TypeRep a -> SomeValue -> Maybe a
 castValue rep (SomeValue (v :: t)) =
@@ -106,10 +107,10 @@ instance Monoid ObservedState where
 newtype Trace ann = Trace [TraceElement ann]
   deriving (Show, Generic)
 
-traceElements :: Getting r (Trace ann) [TraceElement ann]
+traceElements :: Lens' (Trace ann) [TraceElement ann]
 traceElements = position @1
 
-observedStates :: Monoid r => Getting r (Trace ann) ObservedState
+observedStates :: Traversal' (Trace ann) ObservedState
 observedStates = traceElements . traverse . _Ctor @"TraceState" . position @2
 
 traceActions :: Monoid r => Getting r (Trace ann) (Action Selected)
@@ -136,12 +137,16 @@ data TraceElementEffect = Stutter | NoStutter
 annotateStutteringSteps :: Trace a -> Trace TraceElementEffect
 annotateStutteringSteps (Trace els) = Trace (go els mempty)
   where
-    -- TODO: Not tail-recursive, might need optimization
-    go (TraceAction _ action ActionSuccess : TraceState _ newState : rest) lastState =
+    -- TODO: Not tail-recursive, might neeu optimization
+    go (TraceAction _ action result : rest) lastState =
+      (TraceAction NoStutter action result : go rest lastState)
+    go (TraceState _ newState : rest) lastState =
       let ann' = if newState == lastState then Stutter else NoStutter
-       in (TraceAction ann' action ActionSuccess : TraceState ann' newState : go rest newState)
-    go (el : rest) lastState = (el & ann .~ NoStutter) : go rest lastState
+       in TraceState ann' newState : go rest newState
     go [] _ = []
+
+withoutStutterStates :: Trace TraceElementEffect -> Trace TraceElementEffect
+withoutStutterStates t = Trace (t ^.. traceElements . folded . filtered ((== NoStutter) . view ann))
 
 prettyAction :: Action Selected -> Doc AnsiStyle
 prettyAction = \case
@@ -162,6 +167,7 @@ prettyActions actions = vsep (zipWith item [1 ..] actions)
       action -> (pretty i <> "." <+> prettyAction action)
 
 prettyTrace :: Trace TraceElementEffect -> Doc AnsiStyle
+prettyTrace (Trace []) = "(empty trace)"
 prettyTrace (Trace elements') = vsep (zipWith prettyElement [1 ..] elements')
   where
     prettyElement :: Int -> TraceElement TraceElementEffect -> Doc AnsiStyle
@@ -172,18 +178,23 @@ prettyTrace (Trace elements') = vsep (zipWith prettyElement [1 ..] elements')
               ActionFailed {} -> effect `stutterColorOr` Red <> bold
               ActionImpossible -> color Yellow <> bold
          in annotate annotation (pretty i <> "." <+> prettyAction action)
-      TraceState effect state -> annotate (effect `stutterColorOr` Blue <> bold) (pretty i <> "." <+> "State") <> line <> indent 2 (prettyObservedState state)
+      TraceState effect state ->
+        annotate (effect `stutterColorOr` Blue <> bold) (pretty i <> "." <+> "State")
+          <> line
+          <> indent 2 (prettyObservedState state)
     Stutter `stutterColorOr` _ = colorDull Black
     NoStutter `stutterColorOr` fallback = color fallback
 
 prettyObservedState :: ObservedState -> Doc AnsiStyle
-prettyObservedState (ObservedState state) =
-  vsep
-    ( withValues
-        ( \(SomeQuery query, values) ->
-            bullet <+> align (prettyQuery query <> line <> indent 2 (vsep (map prettySomeValue values)))
-        )
-    )
+prettyObservedState (ObservedState state)
+  | HashMap.null state = "(empty state)"
+  | otherwise =
+    vsep
+      ( withValues
+          ( \(SomeQuery query, values) ->
+              bullet <+> align (prettyQuery query <> line <> indent 2 (vsep (map prettySomeValue values)))
+          )
+      )
   where
     withValues :: ((SomeQuery, [SomeValue]) -> s) -> [s]
     withValues f =

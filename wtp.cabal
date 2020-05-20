@@ -76,6 +76,7 @@ test-suite wtp-test
   other-modules:      WTP.Gen
                     , WTP.LogicTest
                     , WTP.SyntaxTest
+                    , WTP.TraceTest
                     , WTP.VerifyTest
   build-depends:      base
                     , wtp

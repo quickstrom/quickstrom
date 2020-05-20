@@ -32,6 +32,9 @@ import Data.Function ((&))
 import Data.Functor (($>))
 import Data.Generics.Product (field)
 import qualified Data.HashMap.Strict as HashMap
+import Data.HashSet (HashSet)
+import qualified Data.HashSet as HashSet
+import qualified Data.List.NonEmpty as NonEmpty
 import Data.Maybe (catMaybes, fromMaybe)
 import qualified Data.Text as Text
 import Data.Text (Text)
@@ -55,8 +58,6 @@ import WTP.Specification
 import WTP.Trace
 import WTP.Verify
 import Web.Api.WebDriver hiding (Action, Selector, assertFailure, hPutStrLn, runIsolated)
-import Data.HashSet (HashSet)
-import qualified Data.HashSet as HashSet
 
 type Runner = WebDriverTT IdentityT IO
 
@@ -79,7 +80,7 @@ check spec = do
   case result of
     CheckFailure {failedAfter, failingTest} -> do
       logInfo . renderString $
-        prettyTrace (trace failingTest) <> line
+        prettyTrace (withoutStutterStates (trace failingTest)) <> line
       assertFailure ("Failed after " <> show failedAfter <> " tests and " <> show (numShrinks failingTest) <> " levels of shrinking.")
     CheckSuccess -> logInfo ("Passed " <> show numTests <> " tests.")
   where
@@ -161,6 +162,39 @@ genActions' spec = loop
           loop
         Nothing -> pure ()
 
+takeUntil :: (Monad m) => (a -> Bool) -> Pipe a a m ()
+takeUntil predicate = go
+  where
+    go = do
+      a <- Pipes.await
+      if (predicate a)
+        then do
+          Pipes.yield a
+          go
+        else Pipes.yield a
+
+observeManyStatesAfter :: HashSet SomeQuery -> ObservedState -> Action Selected -> Pipe a (TraceElement ()) Runner ObservedState
+observeManyStatesAfter queries initialState action = do
+  result <- lift (runAction action)
+  delta <- getNextOrFail =<< lift (registerNextStateObserver queries)
+  Pipes.yield (TraceAction () action result)
+  nonStutters <-
+    (loop (delta <> initialState) >-> Pipes.take 10 >-> takeUntil (/= initialState))
+      & Pipes.toListM
+      & lift
+      & fmap (fromMaybe (pure initialState) . NonEmpty.nonEmpty)
+  mapM_ (Pipes.yield . (TraceState ())) nonStutters
+  pure (NonEmpty.last nonStutters)
+  where
+    getNextOrFail observer =
+      either (fail . Text.unpack) pure
+        =<< lift (getNextState observer)
+    loop :: ObservedState -> Producer ObservedState Runner ()
+    loop currentState = do
+      Pipes.yield currentState
+      delta <- getNextOrFail =<< lift (registerNextStateObserver queries)
+      loop (delta <> currentState)
+
 {-# SCC runActions' "runActions'" #-}
 runActions' :: Specification Proposition -> Pipe (Action Selected) (TraceElement ()) Runner ()
 runActions' spec = do
@@ -171,17 +205,7 @@ runActions' spec = do
     queries = HashSet.fromList (runIdentity (withQueries (pure . SomeQuery) (proposition spec)))
     loop currentState = do
       action <- Pipes.await
-      lift (logInfoWD (show action))
-      observer <- lift (registerNextStateObserver queries)
-      result <- lift (runAction action)
-      update <-
-        either (fail . Text.unpack) pure
-          =<< lift (getNextState observer)
-      lift (logInfoWD (show update))
-      let newState = update <> currentState
-      lift (logInfoWD (show newState))
-      Pipes.yield (TraceAction () action result)
-      Pipes.yield (TraceState () newState)
+      newState <- observeManyStatesAfter queries currentState action
       loop newState
 
 data Shrink a = Shrink Int a
@@ -208,15 +232,15 @@ shrinkAction = \case
   Wait range -> Wait <$> QuickCheck.shrink range
   _ -> [] -- TODO?
 
-validActions :: [(Int, Action Selector)] -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
+validActions :: [(Weight, Action Selector)] -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
 validActions actions = do
   gens <- catMaybes <$> traverse tryGenActionWithFreq actions
   case gens of
     [] -> pure Nothing
     _ -> pure (Just (QuickCheck.frequency gens))
   where
-    tryGenActionWithFreq :: (Int, Action Selector) -> Runner (Maybe (Int, QuickCheck.Gen (Action Selected)))
-    tryGenActionWithFreq (i, a) = fmap (i,) <$> tryGenAction a
+    tryGenActionWithFreq :: (Weight, Action Selector) -> Runner (Maybe (Int, QuickCheck.Gen (Action Selected)))
+    tryGenActionWithFreq (Weight w, a) = fmap (w,) <$> tryGenAction a
     tryGenAction :: Action Selector -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
     tryGenAction = \case
       KeyPress k ->
@@ -399,14 +423,14 @@ newtype StateObserver = StateObserver Text
 
 registerNextStateObserver :: HashSet SomeQuery -> Runner StateObserver
 registerNextStateObserver queries =
-  StateObserver 
+  StateObserver
     <$> executeScript'
       "return wtp.registerNextStateObserver(arguments[0])"
       [JSON.toJSON queries]
 
 getNextState :: StateObserver -> Runner (Either Text ObservedState)
 getNextState (StateObserver sid) =
-  executeAsyncScript' 
+  executeAsyncScript'
     "wtp.runPromiseEither(wtp.getNextState(arguments[0]).then(wtp.mapToArray), arguments[1])"
     [JSON.toJSON sid]
 
@@ -418,5 +442,5 @@ wtpJs = liftWebDriverTT (lift (readFile "target/index.js"))
 
 initializeScript :: Runner ()
 initializeScript = do
-  js <- wtpJs 
+  js <- wtpJs
   void (executeScript js [])

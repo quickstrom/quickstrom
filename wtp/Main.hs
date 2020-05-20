@@ -45,8 +45,7 @@ buttonSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/button.html"),
       readyWhen = "button",
-      actions =
-        [(1, Click "button")],
+      actions = clicks (Weight 1),
       proposition =
         let click = buttonIsEnabled /\ next (".message" `hasText` "Boom!" /\ neg buttonIsEnabled)
          in buttonIsEnabled /\ always click
@@ -57,16 +56,20 @@ ajaxSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/ajax.html"),
       readyWhen = "button",
-      actions =
-        [(1, Click "button")],
+      actions = clicks (Weight 1),
       proposition =
-        let launch =
+        let disabledLaunchWithMessage msg =
+              ".message" `hasText` msg /\ neg buttonIsEnabled
+            launch =
               buttonIsEnabled
-                /\ next (".message" `hasText` "Missiles launched." /\ neg buttonIsEnabled)
-            impact =
-              (".message" `hasText` "Missiles launched." /\ neg buttonIsEnabled)
-                /\ next (".message" `hasText` "Boom!" /\ neg buttonIsEnabled)
-         in buttonIsEnabled /\ always (launch \/ impact)
+                /\ next (disabledLaunchWithMessage "Missiles launched.")
+            impactOrNoImpact =
+              disabledLaunchWithMessage "Missiles launched."
+                /\ next
+                  ( disabledLaunchWithMessage "Boom"
+                      \/ disabledLaunchWithMessage "Missiles did not hit target."
+                  )
+         in buttonIsEnabled /\ always (launch \/ impactOrNoImpact)
     }
 
 toggleSpec :: Specification Proposition
@@ -74,8 +77,7 @@ toggleSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/toggle.html"),
       readyWhen = "button",
-      actions =
-        [(1, Click "button")],
+      actions = clicks (Weight 1),
       proposition =
         let on = "button" `hasText` "Turn me off"
             off = "button" `hasText` "Turn me on"
@@ -89,8 +91,7 @@ draftsSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/drafts.html"),
       readyWhen = "button",
-      actions =
-        [(1, Click "button")],
+      actions = clicks (Weight 1),
       proposition = top
     }
 
@@ -99,14 +100,7 @@ commentFormSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/comment-form.html"),
       readyWhen = "form",
-      actions =
-        [ (1, Click "input[type=submit]"),
-          (1, Focus "input[type=text]"),
-          (1, KeyPress 'a'),
-          (2, Focus "input[type=text]")
-        ],
-      -- <> (KeyPress <$> ['\0' .. '\127'])
-
+      actions = clicks (Weight 1) <> letterKeyPresses (Weight 1) <> foci (Weight 2),
       proposition =
         let commentPosted = isVisible ".comment-display" /\ commentIsValid /\ neg (isVisible "form")
             invalidComment = neg (isVisible ".comment-display") /\ isVisible "form"

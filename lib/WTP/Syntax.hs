@@ -20,6 +20,7 @@ module WTP.Syntax
     Selector,
     Lattice (..),
     Heyting (..),
+    PropertyValue (..),
     top,
     bottom,
     num,
@@ -54,7 +55,8 @@ import Data.Text (Text)
 import WTP.Element
 import WTP.Formula
 import WTP.Query
-import Prelude ((.), Bool, Eq, Num, Ord, Show, fmap)
+import WTP.Specification
+import Prelude ((.), Bool, Eq, Int, Num, Ord, Show, fmap)
 
 num :: (Eq n, Show n, Num n) => n -> Formula n
 num = Literal . LNum
@@ -77,7 +79,7 @@ always = Always
 attribute :: Text -> Query Element -> Query Text
 attribute t = Get (Attribute t)
 
-property :: Text -> Query Element -> Query JSON.Value
+property :: Text -> Query Element -> Query PropertyValue
 property t = Get (Property t)
 
 cssValue :: Text -> Query Element -> Query Text

@@ -20,9 +20,9 @@
         });
     }
     button.addEventListener("click", function () {
-        //setTimeout(function () {
+        setTimeout(function () {
             button.disabled = true;
-        //}, 100);
+        }, 500);
         message.innerText = "Missiles launched.";
         launchMissiles().then(() => {
             message.innerText = "Boom!";

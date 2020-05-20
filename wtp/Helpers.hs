@@ -12,7 +12,7 @@ import WTP.Syntax
 inputValue :: Selector -> Formula (Maybe Text)
 inputValue sel =
   queryOne (property "value" (byCss sel))
-    <&> fmap fromJSON
+    <&> fmap (fromJSON . propertyValue)
     <&> ( >>=
             \case
               JSON.Success a -> Just a

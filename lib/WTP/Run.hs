@@ -156,24 +156,13 @@ beforeRun spec = do
   initializeScript
   awaitElement (readyWhen spec)
 
-takeUntil :: (Monad m) => (a -> Bool) -> Pipe a a m ()
-takeUntil predicate = go
-  where
-    go = do
-      a <- Pipes.await
-      if (predicate a)
-        then do
-          Pipes.yield a
-          go
-        else Pipes.yield a
-
 observeManyStatesAfter :: HashSet SomeQuery -> ObservedState -> Action Selected -> Pipe a (TraceElement ()) Runner ObservedState
 observeManyStatesAfter queries initialState action = do
   result <- lift (runAction action)
   delta <- getNextOrFail =<< lift (registerNextStateObserver queries)
   Pipes.yield (TraceAction () action result)
   nonStutters <-
-    (loop (delta <> initialState) >-> Pipes.take 1 >-> takeUntil (/= initialState))
+    (loop (delta <> initialState) >-> Pipes.takeWhile (/= initialState) >-> Pipes.take 10)
       & Pipes.toListM
       & lift
       & fmap (fromMaybe (pure initialState) . NonEmpty.nonEmpty)

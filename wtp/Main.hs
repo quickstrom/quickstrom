@@ -38,7 +38,8 @@ main =
         ("TodoMVC AngularJS", TodoMVC.spec "angularjs"),
         ("TodoMVC React", TodoMVC.spec "react"),
         ("TodoMVC Vue.js", TodoMVC.spec "vue"),
-        ("TodoMVC Backbone.js", TodoMVC.spec "backbone")
+        ("TodoMVC Backbone.js", TodoMVC.spec "backbone"),
+        ("TodoMVC Mithril", TodoMVC.spec "mithril")
       ]
 
 -- Simple example: a button that can be clicked, which then shows a message

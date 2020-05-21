@@ -80,7 +80,10 @@ data Filter = All | Active | Completed
 -- * State helpers:
 
 isEmpty :: Proposition
-isEmpty = filterIs (Just All) /\ (null <$> items) /\ ((== Just "") <$> pendingText)
+isEmpty =
+  (filterIs Nothing \/ filterIs (Just All))
+    /\ (null <$> items)
+    /\ ((== Just "") <$> pendingText)
 
 currentFilter :: Formula (Maybe Filter)
 currentFilter = (>>= (readMaybe . Text.unpack)) <$> queryOne (text (byCss ".todoapp .filters .selected"))

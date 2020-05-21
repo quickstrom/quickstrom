@@ -12,6 +12,7 @@ module WTP.Specification where
 import Data.String (IsString)
 import Data.Text (Text)
 import GHC.Generics (Generic)
+import Test.QuickCheck
 import WTP.Element
 
 newtype Path = Path Text
@@ -20,51 +21,46 @@ newtype Path = Path Text
 data Selected = Selected Selector Int
   deriving (Eq, Show, Generic)
 
-data Action sel = Focus sel | KeyPress Char | Click sel | Navigate Path | Wait (Int, Int)
+data Action sel = Focus sel | KeyPress Char | Click sel | Navigate Path
   deriving (Eq, Show, Generic)
 
-data Weight = Weight Int
-  deriving (Eq, Show, Generic)
-
-type ActionSpec = (Weight, Action Selector)
+type ActionGenerator = Gen (Action Selector)
 
 data Specification formula
   = Specification
       { origin :: Path,
         readyWhen :: Selector,
-        actions :: [ActionSpec],
+        actions :: ActionGenerator,
         proposition :: formula
       }
-  deriving (Show, Generic)
+  deriving (Generic)
 
-clicks :: Weight -> [ActionSpec]
-clicks weight =
-  map
-    (weight,)
+clicks :: ActionGenerator
+clicks =
+  elements
     [ Click "button",
       Click "input[type=button]",
       Click "a"
     ]
 
-foci :: Weight -> [ActionSpec]
-foci weight =
-  map
-    (weight,)
+foci :: ActionGenerator
+foci =
+  elements
     [ Focus "input",
       Focus "textarea"
     ]
 
-keyPresses :: Weight -> [Char] -> [ActionSpec]
-keyPresses weight range =
-  [(weight, KeyPress c) | c <- range]
+keyPresses :: Gen Char -> ActionGenerator
+keyPresses genChar =
+  KeyPress <$> genChar
 
-letterKeyPresses ::Weight -> [ActionSpec]
-letterKeyPresses weight =
-  keyPresses weight (['a' .. 'z'] <> ['A' .. 'Z'])
+asciiKeyPresses :: ActionGenerator
+asciiKeyPresses =
+  keyPresses arbitraryASCIIChar
 
-specialKeyPress :: Weight -> [ActionSpec]
-specialKeyPress weight =
-  keyPresses weight (enumFromTo minBound maxBound)
+specialKeyPress :: Gen SpecialKey -> ActionGenerator
+specialKeyPress genSpecialKey =
+  KeyPress . specialKeyToChar <$> genSpecialKey
 
 -- From https://www.selenium.dev/selenium/docs/api/py/webdriver/selenium.webdriver.common.keys.html
 

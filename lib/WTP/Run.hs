@@ -18,7 +18,6 @@ module WTP.Run
   )
 where
 
-import Control.Concurrent (threadDelay)
 import Control.Lens hiding (each)
 import Control.Monad ((>=>), forever, void, when)
 import Control.Monad (filterM)
@@ -35,7 +34,7 @@ import qualified Data.HashMap.Strict as HashMap
 import Data.HashSet (HashSet)
 import qualified Data.HashSet as HashSet
 import qualified Data.List.NonEmpty as NonEmpty
-import Data.Maybe (catMaybes, fromMaybe)
+import Data.Maybe (fromMaybe)
 import qualified Data.Text as Text
 import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
@@ -107,7 +106,13 @@ select f = forever do
 
 runSingle :: Specification Proposition -> Int -> Runner (Either FailingTest ())
 runSingle spec size = do
-  result <- runAndVerifyIsolated (genActions' spec >-> Pipes.take size) 0
+  let maxTries = size * 10
+  result <-
+    generateActions (actions spec)
+      >-> Pipes.take maxTries
+      >-> selectValidActions
+      >-> Pipes.take size
+      & runAndVerifyIsolated 0
   case result of
     Right () -> pure (Right ())
     f@(Left (FailingTest _ trace)) -> do
@@ -116,7 +121,7 @@ runSingle spec size = do
       shrunk <- minBy (lengthOf (field @"trace" . traceElements)) (traverseShrinks runShrink shrinks >-> select (preview _Left) >-> Pipes.take 10)
       pure (fromMaybe f (Left <$> shrunk))
   where
-    runAndVerifyIsolated producer n = do
+    runAndVerifyIsolated n producer = do
       trace <- annotateStutteringSteps <$> inNewPrivateWindow do
         beforeRun spec
         elementsToTrace (producer >-> runActions' spec)
@@ -124,7 +129,7 @@ runSingle spec size = do
         Accepted -> pure (Right ())
         Rejected -> pure (Left (FailingTest n trace))
     runShrink (Shrink n actions) =
-      runAndVerifyIsolated (Pipes.each actions) n
+      runAndVerifyIsolated n (Pipes.each actions)
 
 runAll :: Int -> Specification Proposition -> Effect Runner CheckResult
 runAll numTests spec' = (allTests $> CheckSuccess) >-> firstFailure
@@ -150,17 +155,6 @@ beforeRun spec = do
   navigateToOrigin spec
   initializeScript
   awaitElement (readyWhen spec)
-
-{-# SCC genActions' "genActions'" #-}
-genActions' :: Specification Proposition -> Producer (Action Selected) Runner ()
-genActions' spec = loop
-  where
-    loop = do
-      lift (validActions (actions spec)) >>= \case
-        Just genValidAction -> do
-          Pipes.yield =<< lift (liftWebDriverTT (lift (QuickCheck.generate genValidAction)))
-          loop
-        Nothing -> pure ()
 
 takeUntil :: (Monad m) => (a -> Bool) -> Pipe a a m ()
 takeUntil predicate = go
@@ -228,34 +222,34 @@ traverseShrinks test = go
         go rest
 
 shrinkAction :: Action sel -> [Action sel]
-shrinkAction = \case
-  Wait range -> Wait <$> QuickCheck.shrink range
-  _ -> [] -- TODO?
+shrinkAction _ = [] -- TODO?
 
-validActions :: [(Weight, Action Selector)] -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
-validActions actions = do
-  gens <- catMaybes <$> traverse tryGenActionWithFreq actions
-  case gens of
-    [] -> pure Nothing
-    _ -> pure (Just (QuickCheck.frequency gens))
-  where
-    tryGenActionWithFreq :: (Weight, Action Selector) -> Runner (Maybe (Int, QuickCheck.Gen (Action Selected)))
-    tryGenActionWithFreq (Weight w, a) = fmap (w,) <$> tryGenAction a
-    tryGenAction :: Action Selector -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
-    tryGenAction = \case
-      KeyPress k ->
+generate :: QuickCheck.Gen a -> Runner a
+generate = liftWebDriverTT . lift . QuickCheck.generate
+
+generateActions :: ActionGenerator -> Producer (Action Selector) Runner ()
+generateActions gen = forever do
+  Pipes.yield =<< lift (generate gen)
+
+selectValidActions :: Pipe (Action Selector) (Action Selected) Runner ()
+selectValidActions = forever do
+  possibleAction <- Pipes.await
+  result <- case possibleAction of
+    KeyPress k ->
+      lift $
         activeElement >>= \case
           Just el ->
             getElementTagName el >>= \case
               name
-                | name `elem` ["input", "textarea"] -> pure (Just (pure (KeyPress k)))
+                | name `elem` ["input", "textarea"] -> pure (Just (KeyPress k))
                 | otherwise -> pure Nothing
           Nothing -> pure Nothing
-      Navigate p -> pure (Just (pure (Navigate p)))
-      Focus sel -> selectOne sel Focus (isNotActive . toRef)
-      Click sel -> selectOne sel Click isClickable
-      Wait range -> pure (Just (genWait range))
-    selectOne :: Selector -> (Selected -> Action Selected) -> (Element -> Runner Bool) -> Runner (Maybe (QuickCheck.Gen (Action Selected)))
+    Navigate p -> pure (Just (Navigate p))
+    Focus sel -> lift (selectOne sel Focus (isNotActive . toRef))
+    Click sel -> lift (selectOne sel Click isClickable)
+  maybe mempty Pipes.yield result
+  where
+    selectOne :: Selector -> (Selected -> Action Selected) -> (Element -> Runner Bool) -> Runner (Maybe (Action Selected))
     selectOne sel ctor isValid = do
       found <- findAll sel
       validChoices <-
@@ -265,13 +259,9 @@ validActions actions = do
           )
       case validChoices of
         [] -> pure Nothing
-        choices -> do
-          pure (Just (ctor . Selected sel <$> QuickCheck.elements (map fst choices)))
+        choices -> Just <$> generate (ctor . Selected sel <$> QuickCheck.elements (map fst choices))
     isNotActive e = (/= Just e) <$> activeElement
     activeElement = (Just <$> getActiveElement) `catchError` const (pure Nothing)
-    genWait (min', max') = do
-      n <- QuickCheck.choose (min', max')
-      pure (Wait (n, n))
     isClickable e =
       andM [isElementEnabled (toRef e), isElementVisible e]
 
@@ -301,7 +291,6 @@ runAction = \case
   KeyPress c -> sendKey c
   Click s -> click s
   Navigate (Path path) -> tryAction (ActionSuccess <$ navigateTo (Text.unpack path))
-  Wait (_, max') -> ActionSuccess <$ liftWebDriverTT (liftIO (threadDelay max')) -- Selected should be a single wait time, not a tuple
 
 runWebDriver :: Runner a -> IO a
 runWebDriver ma = do
@@ -331,7 +320,7 @@ inNewPrivateWindow = runIsolated (reconfigure headlessFirefoxCapabilities)
               o
                 { _firefoxArgs = Just ["-headless", "-private"],
                   _firefoxPrefs = Just (HashMap.singleton "Dom.storage.enabled" (JSON.Bool False)),
-                  _firefoxLog = Just (FirefoxLog (Just LogTrace))
+                  _firefoxLog = Just (FirefoxLog (Just LogWarn))
                 }
         }
 

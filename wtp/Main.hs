@@ -21,6 +21,7 @@ import qualified WTP.Run as WTP
 import WTP.Specification
 import WTP.Syntax
 import Prelude hiding ((<), (<=), (>), (>=), all, init)
+import qualified Test.QuickCheck as QuickCheck
 
 cwd :: FilePath
 cwd = unsafePerformIO getCurrentDirectory
@@ -45,7 +46,7 @@ buttonSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/button.html"),
       readyWhen = "button",
-      actions = clicks (Weight 1),
+      actions = clicks,
       proposition =
         let click = buttonIsEnabled /\ next (".message" `hasText` "Boom!" /\ neg buttonIsEnabled)
          in buttonIsEnabled /\ always click
@@ -56,7 +57,7 @@ ajaxSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/ajax.html"),
       readyWhen = "button",
-      actions = clicks (Weight 1),
+      actions = clicks,
       proposition =
         let disabledLaunchWithMessage msg =
               ".message" `hasText` msg /\ neg buttonIsEnabled
@@ -77,7 +78,7 @@ toggleSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/toggle.html"),
       readyWhen = "button",
-      actions = clicks (Weight 1),
+      actions = clicks,
       proposition =
         let on = "button" `hasText` "Turn me off"
             off = "button" `hasText` "Turn me on"
@@ -91,7 +92,7 @@ draftsSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/drafts.html"),
       readyWhen = "button",
-      actions = clicks (Weight 1),
+      actions = clicks,
       proposition = top
     }
 
@@ -100,7 +101,7 @@ commentFormSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/comment-form.html"),
       readyWhen = "form",
-      actions = clicks (Weight 1) <> letterKeyPresses (Weight 1) <> foci (Weight 2),
+      actions = QuickCheck.oneof [clicks, asciiKeyPresses, foci],
       proposition =
         let commentPosted = isVisible ".comment-display" /\ commentIsValid /\ neg (isVisible "form")
             invalidComment = neg (isVisible ".comment-display") /\ isVisible "form"

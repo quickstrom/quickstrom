@@ -14,12 +14,13 @@ import Data.Maybe (fromMaybe)
 import qualified Data.Text as Text
 import Data.Text (Text)
 import qualified Data.Text.Read as Text
+import GHC.Generics (Generic)
 import Helpers
+import qualified Test.QuickCheck as QuickCheck
 import Text.Read (readMaybe)
 import WTP.Specification
 import WTP.Syntax
 import Prelude hiding ((<), (<=), (>), (>=), all, init)
-import GHC.Generics (Generic)
 
 spec :: Text -> Specification Proposition
 spec name =
@@ -27,13 +28,15 @@ spec name =
     { origin = Path ("http://todomvc.com/examples/" <> name <> "/"),
       readyWhen = ".todoapp",
       actions =
-        [ (Weight 2, KeyPress 'a'),
-          (Weight 2, KeyPress '\xe006'),
-          (Weight 2, Focus ".todoapp .new-todo"),
-          (Weight 2, Click ".todoapp .filters a"),
-          (Weight 1, Click ".todoapp label[for=toggle-all]"),
-          (Weight 1, Click ".todoapp .destroy")
-        ],
+        QuickCheck.frequency
+          [ (5, pure (KeyPress 'a')),
+            (5, specialKeyPress (pure KeyEnter)),
+            (5, pure (Focus ".todoapp .new-todo")),
+            (5, pure (Click ".todoapp .filters a:not(.selected)")),
+            (1, pure (Click ".todoapp .filters a.selected"))
+            -- (1, pure (Click ".todoapp label[for=toggle-all]")),
+            --(1, pure (Click ".todoapp .destroy"))
+          ],
       proposition = init /\ (always (enterText \/ addNew \/ changeFilter \/ toggleAll))
     }
   where
@@ -41,6 +44,7 @@ spec name =
     enterText =
       pendingText /== next pendingText
         /\ itemTexts === next itemTexts
+        /\ currentFilter === next currentFilter
     changeFilter =
       currentFilter /== next currentFilter
         /\ filterIs (Just All) ==> (numItems >= next numItems)
@@ -54,15 +58,17 @@ spec name =
         -- NOTE: AngularJS and Mithril implementations are
         -- inconsistent with the other JS implementations, in that
         -- they clear the input field when the filter is changed.
-        /\ if name `elem` ["angularjs", "mithril"] then top else pendingText === next pendingText
+        /\ {- if name `elem` ["angularjs", "mithril"] then top else -} pendingText === next pendingText
     addNew =
       pendingText === next lastItemText
-        /\ next ((== Nothing) <$> pendingText)
+        /\ next ((== Just "") <$> pendingText)
     toggleAll =
-      ( filterIs (Just All)
-          ==> numItems === next numItems /\ next (numItems === numChecked)
-      )
-        \/ ( filterIs (Just Active)
+      pendingText === next lastItemText
+        /\ currentFilter === next currentFilter
+        /\ ( filterIs (Just All)
+               ==> numItems === next numItems /\ next (numItems === numChecked)
+           )
+        /\ ( filterIs (Just Active)
                ==> ( numItems > num 0 ==> next numItems === num 0
                        \/ (numItems === num 0) ==> next numItems > num 0
                    )

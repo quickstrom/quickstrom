@@ -1,9 +1,12 @@
 #+TITLE: WebCheck Backlog
 
-- Backlog [2/5]
+- Backlog [4/5]
   - [X] Stream-based runner
   - [X] Applicative queries
-  - [ ] Examples using AJAX
-  - [ ] MutationObserved for observing states
+  - [X] Examples using AJAX
+  - [X] MutationObserved for observing states
+  - [ ] QuickCheck action generators
+  - [ ] Default action generators
+  - [ ] Submit bug report to TodoMVC
   - [ ] Web GUI
 

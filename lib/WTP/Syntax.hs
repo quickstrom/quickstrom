@@ -55,8 +55,7 @@ import Data.Text (Text)
 import WTP.Element
 import WTP.Formula
 import WTP.Query
-import WTP.Specification
-import Prelude ((.), Bool, Eq, Int, Num, Ord, Show, fmap)
+import Prelude ((.), Bool, Eq, Num, Ord, Show, fmap)
 
 num :: (Eq n, Show n, Num n) => n -> Formula n
 num = Literal . LNum

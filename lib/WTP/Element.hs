@@ -34,7 +34,10 @@ instance JSON.FromJSON Element where
     pure (Element e)
 
 data PropertyValue = PropertyValue { propertyValue :: JSON.Value }
-  deriving (Eq, Show)
+  deriving (Eq)
+
+instance Show PropertyValue where
+  show = show . propertyValue
 
 instance JSON.FromJSON PropertyValue where
   parseJSON = withObject "PropertyValue" $ \o -> do

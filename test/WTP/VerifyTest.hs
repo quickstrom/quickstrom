@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -5,11 +6,12 @@
 module WTP.VerifyTest where
 
 import Algebra.Lattice (bottom, top)
+import Data.Functor ((<&>))
 import qualified Data.Aeson as JSON
 import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
-import Test.Tasty.Hspec
+import Test.Tasty.Hspec hiding (Selector)
 import WTP.Element
 import WTP.Query
 import WTP.Result
@@ -78,3 +80,31 @@ spec_verify = do
           -- TODO: define actions using primed queries
           always (buttonIsEnabled \/ (messageIs "Boom!" /\ neg buttonIsEnabled))
     verify' prop steps `shouldBe` Accepted
+
+  it "verifies changing input state" $ do
+    let steps =
+          [ Trace.ObservedState
+              ( HashMap.fromList
+                  [ (SomeQuery (property "value" (byCss "input")), [Trace.SomeValue (PropertyValue (JSON.String "a"))])
+                  ]
+              ),
+            Trace.ObservedState
+              ( HashMap.fromList
+                  [ (SomeQuery (property "value" (byCss "input")), [Trace.SomeValue (PropertyValue (JSON.String ""))])
+                  ]
+              )
+          ]
+    let inputIs :: Formula Text -> Proposition
+        inputIs t = inputValue "input" === (Just <$> t)
+        prop = inputIs "a" /\ next (inputIs "")
+    verify' prop steps `shouldBe` Accepted
+
+inputValue :: Selector -> Formula (Maybe Text)
+inputValue sel =
+  queryOne (property "value" (byCss sel))
+    <&> fmap (JSON.fromJSON . propertyValue)
+    <&> ( >>=
+            \case
+              JSON.Success a -> Just a
+              JSON.Error {} -> Nothing
+        )

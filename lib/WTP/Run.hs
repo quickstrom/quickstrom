@@ -173,7 +173,7 @@ observeManyStatesAfter queries initialState action = do
   delta <- getNextOrFail =<< lift (registerNextStateObserver queries)
   Pipes.yield (TraceAction () action result)
   nonStutters <-
-    (loop (delta <> initialState) >-> Pipes.take 10 >-> takeUntil (/= initialState))
+    (loop (delta <> initialState) >-> Pipes.take 1 >-> takeUntil (/= initialState))
       & Pipes.toListM
       & lift
       & fmap (fromMaybe (pure initialState) . NonEmpty.nonEmpty)

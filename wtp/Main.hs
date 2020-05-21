@@ -15,13 +15,13 @@ import qualified Data.Text as Text
 import Helpers
 import System.Directory
 import System.IO.Unsafe (unsafePerformIO)
+import qualified Test.QuickCheck as QuickCheck
 import qualified Test.Tasty as Tasty
 import qualified TodoMVC
 import qualified WTP.Run as WTP
 import WTP.Specification
 import WTP.Syntax
 import Prelude hiding ((<), (<=), (>), (>=), all, init)
-import qualified Test.QuickCheck as QuickCheck
 
 cwd :: FilePath
 cwd = unsafePerformIO getCurrentDirectory
@@ -32,6 +32,7 @@ main =
     WTP.testSpecifications
       [ ("button", buttonSpec),
         ("ajax", ajaxSpec),
+        ("spinners", spinnersSpec),
         ("toggle", toggleSpec),
         ("comment form", commentFormSpec),
         ("TodoMVC AngularJS", TodoMVC.spec "angularjs"),
@@ -71,6 +72,17 @@ ajaxSpec =
                       \/ disabledLaunchWithMessage "Missiles did not hit target."
                   )
          in buttonIsEnabled /\ always (launch \/ impactOrNoImpact)
+    }
+
+spinnersSpec :: Specification Proposition
+spinnersSpec =
+  Specification
+    { origin = Path ("file://" <> Text.pack cwd <> "/test/spinners.html"),
+      readyWhen = "body",
+      actions = clicks,
+      proposition =
+        let numberOfActiveSpinners = length <$> queryAll (byCss ".spinner.active")
+         in numberOfActiveSpinners === num 0 /\ always (numberOfActiveSpinners <= num 1)
     }
 
 toggleSpec :: Specification Proposition

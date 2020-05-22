@@ -36,10 +36,13 @@ main =
         ("toggle", toggleSpec),
         ("comment form", commentFormSpec),
         ("TodoMVC AngularJS", TodoMVC.spec "angularjs"),
+        ("TodoMVC Angular2", TodoMVC.spec "angular2"),
         ("TodoMVC React", TodoMVC.spec "react"),
         ("TodoMVC Vue.js", TodoMVC.spec "vue"),
         ("TodoMVC Backbone.js", TodoMVC.spec "backbone"),
-        ("TodoMVC Mithril", TodoMVC.spec "mithril")
+        ("TodoMVC Mithril", TodoMVC.spec "mithril"),
+        ("TodoMVC Shpadoinkle", (TodoMVC.spec mempty) {origin = Path "http://fresheyeball.gitlab.io/Shpadoinkle/"}),
+        ("TodoMVC Moxie.rs", (TodoMVC.spec mempty) {origin = Path "https://moxie.rs/dom/examples/todo/index.html"})
       ]
 
 -- Simple example: a button that can be clicked, which then shows a message

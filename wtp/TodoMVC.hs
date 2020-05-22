@@ -33,9 +33,9 @@ spec name =
             (5, specialKeyPress (pure KeyEnter)),
             (5, pure (Focus ".todoapp .new-todo")),
             (5, pure (Click ".todoapp .filters a:not(.selected)")),
-            (1, pure (Click ".todoapp .filters a.selected"))
-            -- (1, pure (Click ".todoapp label[for=toggle-all]")),
-            --(1, pure (Click ".todoapp .destroy"))
+            (1, pure (Click ".todoapp .filters a.selected")),
+            (1, pure (Click ".todoapp label[for=toggle-all]")),
+            (1, pure (Click ".todoapp .destroy"))
           ],
       proposition = init /\ (always (enterText \/ addNew \/ changeFilter \/ toggleAll))
     }

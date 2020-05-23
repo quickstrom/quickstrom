@@ -83,7 +83,8 @@ isEmpty :: Proposition
 isEmpty =
   (filterIs Nothing \/ filterIs (Just All))
     /\ (null <$> items)
-    /\ ((== Just "") <$> pendingText)
+    /\ ((`elem` [Nothing, Just ""]) <$> pendingText)
+    
 
 currentFilter :: Formula (Maybe Filter)
 currentFilter = (>>= (readMaybe . Text.unpack)) <$> queryOne (text (byCss ".todoapp .filters .selected"))

@@ -8,9 +8,10 @@
   - [X] QuickCheck action generators
   - [X] Default action generators
   - [X] Submit bug report to TodoMVC
+  - [ ] User-facing DSL
   - [ ] Web GUI
-  - [ ] Streaming verifier
   - [ ] Coverage
     - [ ] Query coverage: All query results used in all ~or~ branches
     - [ ] Test coverage: Percentage of tests hitting each node in the AST 
+  - [ ] Streaming verifier
 

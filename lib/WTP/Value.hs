@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE LambdaCase #-}
@@ -26,8 +27,30 @@ data Value
   | VNumber Scientific
   | VSeq (Vector Value)
   | VSet (HashSet Value)
-  | VFunction Text -- Only built-in named functions for now
+  | VFunction Function
   deriving (Eq, Show, Generic)
+
+data Function
+  = BuiltInFunction BuiltInFunction
+  -- TODO: UserDefined
+  deriving (Eq, Show, Generic, Hashable)
+
+data BuiltInFunction
+  = FAnd
+  | FOr
+  | FNot
+  | FIdentity
+  | FLength
+  | FFilter
+  | FMap
+  | FHead
+  | FTail
+  | FInit
+  | FLast
+  | FParseNumber
+  | FSplitOn
+  | FStrip
+  deriving (Eq, Show, Generic, Hashable)
 
 instance IsList Value where
   type Item Value = Value

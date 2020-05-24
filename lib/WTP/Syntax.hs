@@ -18,7 +18,6 @@ module WTP.Syntax
     Selector,
     Lattice (..),
     Heyting (..),
-    PropertyValue (..),
     top,
     bottom,
     lit,
@@ -43,9 +42,10 @@ module WTP.Syntax
     (<=),
     (>),
     (>=),
+    apply,
     identity,
+    not,
     length,
-    isEmpty,
     filter,
     map,
     head,
@@ -66,7 +66,7 @@ import WTP.Element
 import WTP.Formula
 import WTP.Query
 import WTP.Value
-import Prelude ((.), undefined)
+import Prelude ((.))
 
 -- * Constructing Terms
 
@@ -140,38 +140,44 @@ a /== b = neg (a === b)
 
 -- * Functions
 
-identity :: Formula -> Formula
-identity = undefined
+apply :: Formula -> [Formula] -> Formula
+apply = Apply
 
-length :: Formula -> Formula
-length = undefined
+builtIn :: BuiltInFunction -> Formula
+builtIn = Literal . VFunction . BuiltInFunction
 
-isEmpty :: Formula -> Formula
-isEmpty = (=== num 0) . length
+not :: Formula
+not = Literal (VFunction (BuiltInFunction FNot))
 
-filter :: (Formula -> Formula) -> Formula -> Formula
-filter = undefined
+identity :: Formula
+identity = builtIn FIdentity
 
-map :: (Formula -> Formula) -> Formula -> Formula
-map = undefined
+length :: Formula
+length = builtIn FLength
 
-head :: Formula -> Formula
-head = undefined
+filter :: Formula
+filter = builtIn FFilter
 
-tail :: Formula -> Formula
-tail = undefined
+map :: Formula
+map = builtIn FMap
 
-init :: Formula -> Formula
-init = undefined
+head :: Formula
+head = builtIn FHead
 
-last :: Formula -> Formula
-last = undefined
+tail :: Formula
+tail = builtIn FTail
 
-parseNumber :: Formula -> Formula
-parseNumber = undefined
+init :: Formula
+init = builtIn FInit
 
-splitOn :: Formula -> Formula -> Formula
-splitOn = undefined
+last :: Formula
+last = builtIn FLast
 
-strip :: Formula -> Formula
-strip = undefined
+parseNumber :: Formula
+parseNumber = builtIn FParseNumber
+
+splitOn :: Formula
+splitOn = builtIn FSplitOn
+
+strip :: Formula
+strip = builtIn FStrip

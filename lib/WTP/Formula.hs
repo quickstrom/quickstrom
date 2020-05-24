@@ -21,10 +21,10 @@ import Algebra.Lattice (BoundedJoinSemiLattice (..), BoundedMeetSemiLattice (..)
 import Data.HashSet (HashSet)
 import Data.String (IsString (..))
 import qualified Data.Text as Text
+import GHC.Exts (IsList (..))
 import WTP.Query
 import WTP.Value
 import Prelude hiding (not)
-import GHC.Exts (IsList (..))
 
 type Set = HashSet
 
@@ -42,12 +42,13 @@ data Formula
   = Literal Value
   | Set [Formula]
   | Seq [Formula]
-  | Not Formula
-  | And Formula Formula
-  | Or Formula Formula
-  | Next Formula
+  | -- | Not Formula
+    -- | And Formula Formula
+    -- | Or Formula Formula
+    Next Formula
   | Always Formula
   | BindQuery QueryCardinality Query
+  | Apply Formula [Formula]
   | Equals Formula Formula
   | Compare Comparison Formula Formula
   deriving (Eq, Show)
@@ -63,10 +64,8 @@ instance IsList Formula where
     _ -> []
 
 instance Lattice Formula where
-
-  (/\) = And
-
-  (\/) = Or
+  p /\ q = Apply (Literal (VFunction (BuiltInFunction FAnd))) [p, q]
+  p \/q  = Apply (Literal (VFunction (BuiltInFunction FOr))) [p, q]
 
 instance BoundedJoinSemiLattice Formula where
   bottom = Literal (VBool False)
@@ -75,42 +74,42 @@ instance BoundedMeetSemiLattice Formula where
   top = Literal (VBool True)
 
 instance Heyting Formula where
-  p ==> q = Not p `Or` q
-  neg = Not
+  p ==> q = neg p \/ q
+  neg p = (Apply (Literal (VFunction (BuiltInFunction FNot))) [p])
 
 simplify :: Formula -> Formula
-simplify = \case
-  And p q ->
-    case (simplify p, simplify q) of
-      (_, Literal (VBool False)) -> Literal (VBool False)
-      (Literal (VBool False), _) -> Literal (VBool False)
-      (p', Literal (VBool True)) -> p'
-      (Literal (VBool True), p') -> p'
-      (p', q') -> And p' q'
-  Or p q ->
-    case (simplify p, simplify q) of
-      (_, Literal (VBool True)) -> Literal (VBool True)
-      (Literal (VBool True), _) -> Literal (VBool True)
-      (p', Literal (VBool False)) -> p'
-      (Literal (VBool False), p') -> p'
-      (p', q') -> Or p' q'
-  Not p ->
-    case simplify p of
-      Literal (VBool False) -> Literal (VBool True)
-      Literal (VBool True) -> Literal (VBool False)
-      p' -> Not p'
-  p -> p
+simplify f@(Apply (Literal (VFunction (BuiltInFunction FAnd))) [p, q]) =
+  case (simplify p, simplify q) of
+    (_, Literal (VBool False)) -> Literal (VBool False)
+    (Literal (VBool False), _) -> Literal (VBool False)
+    (p', Literal (VBool True)) -> p'
+    (Literal (VBool True), p') -> p'
+    _ -> f
+simplify f@(Apply (Literal (VFunction (BuiltInFunction FOr))) [p, q]) =
+  case (simplify p, simplify q) of
+    (_, Literal (VBool True)) -> Literal (VBool True)
+    (Literal (VBool True), _) -> Literal (VBool True)
+    (p', Literal (VBool False)) -> p'
+    (Literal (VBool False), p') -> p'
+    _ -> f
+simplify f@(Apply (Literal (VFunction (BuiltInFunction FNot))) [p]) =
+  case simplify p of
+    Literal (VBool False) -> Literal (VBool True)
+    Literal (VBool True) -> Literal (VBool False)
+    _ -> f
+simplify p = p
 
 withQueries :: Monad m => (Query -> m b) -> Formula -> m [b]
 withQueries f = \case
   Literal {} -> pure []
   Set ps -> concat <$> traverse (withQueries f) ps
   Seq ps -> concat <$> traverse (withQueries f) ps
-  Not p -> withQueries f p
-  And p q -> (<>) <$> withQueries f p <*> withQueries f q
-  Or p q -> (<>) <$> withQueries f p <*> withQueries f q
+  -- Not p -> withQueries f p
+  -- And p q -> (<>) <$> withQueries f p <*> withQueries f q
+  -- Or p q -> (<>) <$> withQueries f p <*> withQueries f q
   Next p -> withQueries f p
   Always p -> withQueries f p
+  Apply f' a -> concat <$> traverse (withQueries f) (f' : a)
   Equals p q -> (<>) <$> withQueries f p <*> withQueries f q
   Compare _ p q -> (<>) <$> withQueries f p <*> withQueries f q
   BindQuery _ query -> pure <$> f query

@@ -33,7 +33,7 @@ spec_verify = do
   it "verifies with get and satisfy" $ do
     let q = byCss "p"
     verify'
-      (length (queryAll q) === num 2)
+      (apply length [queryAll q] === num 2)
       [ Trace.ObservedState
           ( HashMap.singleton
               q
@@ -47,6 +47,8 @@ spec_verify = do
     verify' (top /\ top) [Trace.ObservedState mempty] `shouldBe` Accepted
   it "is true with (next false \\/ true)" $ do
     verify' (next bottom \/ top) [Trace.ObservedState mempty] `shouldBe` Accepted
+  it "is true with (true \\/ next false)" $ do
+    verify' (top \/ next bottom) [Trace.ObservedState mempty] `shouldBe` Accepted
   it "is false with (next top) when empty trace" $ do
     verify' (next top) [] `shouldBe` Rejected
   it "is top with (neg bottom)" $ do

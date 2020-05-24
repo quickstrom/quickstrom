@@ -12,7 +12,7 @@ import Helpers
 import qualified Test.QuickCheck as QuickCheck
 import WTP.Specification
 import WTP.Syntax
-import Prelude hiding ((<), (<=), (>), (>=), all, filter, head, init, last, length, null)
+import Prelude hiding ((<), (<=), (>), (>=), all, filter, head, init, last, length, null, not)
 
 spec :: Text -> Specification Formula
 spec name =
@@ -34,7 +34,7 @@ spec name =
   where
     initial =
       (currentFilter === null \/ currentFilter === "All")
-        /\ (isEmpty items)
+        /\ (numItems === num 0)
         /\ (pendingText === "" \/ pendingText === null)
     enterText =
       pendingText /== next pendingText
@@ -81,19 +81,19 @@ itemTexts :: Formula
 itemTexts = queryAll (text (byCss ".todo-list li label"))
 
 lastItemText :: Formula
-lastItemText = last itemTexts
+lastItemText = apply last [itemTexts]
 
 numItems :: Formula
-numItems = length items
+numItems = apply length [items]
 
 checked :: Formula
 checked = queryAll (property "checked" (byCss ".todo-list li input[type=checkbox]"))
 
 numUnchecked :: Formula
-numUnchecked = length (filter (/== top) checked)
+numUnchecked = apply length [apply filter [not, checked]]
 
 numChecked :: Formula
-numChecked = length (filter (=== top) checked)
+numChecked = apply length [apply filter [identity, checked]]
 
 pendingText :: Formula
 pendingText = inputValue ".new-todo"
@@ -101,4 +101,4 @@ pendingText = inputValue ".new-todo"
 numItemsLeft :: Formula
 numItemsLeft =
   let strs = queryOne (text (byCss ".todoapp .todo-count strong"))
-   in parseNumber (head (splitOn " " strs))
+  in apply parseNumber [apply head [apply splitOn [" ", strs]]]

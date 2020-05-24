@@ -51,6 +51,8 @@ import WTP.Query
 import WTP.Specification (Action (..), Path (..), Selected (..))
 import WTP.Value
 import Prelude hiding (Bool (..), not)
+import qualified Data.Vector as Vector
+import qualified Data.HashSet as HashSet
 
 newtype ObservedState = ObservedState (HashMap Query [Value])
   deriving (Show, Eq, Generic, FromJSON, ToJSON)
@@ -148,7 +150,7 @@ prettyObservedState (ObservedState state)
     vsep
       ( withValues
           ( \(query, values) ->
-              bullet <+> align (prettyQuery query <> line <> indent 2 (vsep (map prettyValue values)))
+              bullet <+> align (prettyQuery query <> line <> indent 2 (vsep (map (("-" <+>) . prettyValue) values)))
           )
       )
   where
@@ -163,7 +165,30 @@ prettyObservedState (ObservedState state)
       ByCss (Selector selector) -> "byCss" <+> pretty (show selector)
       Get state' sub -> prettyState state' <+> parens (prettyQuery sub)
     prettyValue :: Value -> Doc AnsiStyle
-    prettyValue value = "-" <+> pretty (show value)
+    prettyValue = \case
+      VNull -> "null"
+      VBool b -> pretty (show b)
+      VElement el -> pretty (ref el)
+      VString t -> pretty (show t)
+      VNumber n -> pretty (show n)
+      VSeq vs -> brackets (hsep (map prettyValue (Vector.toList vs)))
+      VSet vs -> braces (hsep (map prettyValue (HashSet.toList vs)))
+      VFunction (BuiltInFunction bif) -> prettyBuiltInFunction bif
+    prettyBuiltInFunction = \case
+      FAnd -> "and"
+      FOr -> "or"
+      FNot -> "not"
+      FIdentity -> "identity"
+      FLength -> "length"
+      FFilter -> "filter"
+      FMap -> "map"
+      FHead -> "head"
+      FTail -> "tail"
+      FInit -> "init"
+      FLast -> "last"
+      FParseNumber -> "parseNumber"
+      FSplitOn -> "splitOn"
+      FStrip -> "strip"
 
 prettyState :: ElementState -> Doc AnsiStyle
 prettyState = \case

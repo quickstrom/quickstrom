@@ -8,7 +8,6 @@
 
 module Main where
 
-import Data.Function ((&))
 import qualified Data.Text as Text
 import Helpers
 import System.Directory
@@ -83,7 +82,7 @@ spinnersSpec =
       readyWhen = "body",
       actions = clicks,
       proposition =
-        let numberOfActiveSpinners = length (queryAll (byCss ".spinner.active"))
+        let numberOfActiveSpinners = apply length [queryAll (byCss ".spinner.active")]
          in numberOfActiveSpinners === num 0 /\ always (numberOfActiveSpinners <= num 1)
     }
 
@@ -129,10 +128,4 @@ buttonIsEnabled = queryOne (enabled (byCss "button")) === top
 commentIsValid :: Formula
 commentIsValid = commentLength (queryOne (text (byCss ".comment"))) >= num 3
   where
-    commentLength t =
-        t
-          & splitOn ": "
-          & tail
-          & head
-          & strip
-          & length
+    commentLength t = apply length [apply strip [apply head [apply tail [apply splitOn [": ", t]]]]]

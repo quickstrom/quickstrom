@@ -26,7 +26,7 @@ instance FromJSON Query where
     tag :: Text <- o .: "tag"
     case tag of
       "element" -> ByCss . Selector <$> o .: "selector"
-      "elementState" -> Get <$> o .: "elementQuery" <*> o .: "query"
+      "elementState" -> Get <$> o .: "stateQuery" <*> o .: "elementQuery"
       _ -> parseFail "Invalid query"
 
 instance ToJSON Query where

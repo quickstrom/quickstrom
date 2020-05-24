@@ -12,7 +12,7 @@ import Data.Text (Text)
 import Test.QuickCheck hiding ((===), (==>))
 import WTP.Element
 import WTP.Specification
-import WTP.Syntax
+import WTP.Syntax hiding (map)
 import WTP.Trace hiding (observedStates)
 import Prelude hiding (Bool (..))
 
@@ -52,13 +52,13 @@ trace = Trace <$> listOf traceElement
 nonEmpty :: Gen [a] -> Gen (NonEmpty.NonEmpty a)
 nonEmpty g = fromMaybe discard . NonEmpty.nonEmpty <$> g
 
-stringFormula :: Gen (Formula Text)
+stringFormula :: Gen Formula
 stringFormula = fromString . Text.unpack <$> stringValues
 
-anySyntax :: Gen Proposition
+anySyntax :: Gen Formula
 anySyntax = sized syntax'
   where
-    syntax' :: Int -> Gen Proposition
+    syntax' :: Int -> Gen Formula
     syntax' 0 =
       oneof
         [ pure top,
@@ -77,10 +77,10 @@ anySyntax = sized syntax'
               always <$> subterm
             ]
 
-trueSyntax :: Gen Proposition
+trueSyntax :: Gen Formula
 trueSyntax = sized syntax'
   where
-    syntax' :: Int -> Gen Proposition
+    syntax' :: Int -> Gen Formula
     syntax' 0 =
       oneof
         [ pure top
@@ -95,10 +95,10 @@ trueSyntax = sized syntax'
               always <$> subterm
             ]
 
-falseSyntax :: Gen Proposition
+falseSyntax :: Gen Formula
 falseSyntax = sized syntax'
   where
-    syntax' :: Int -> Gen Proposition
+    syntax' :: Int -> Gen Formula
     syntax' 0 =
       oneof [pure bottom]
     syntax' n =
@@ -109,10 +109,10 @@ falseSyntax = sized syntax'
               always <$> subterm
             ]
 
-simpleConnectivesSyntax :: Gen Proposition
+simpleConnectivesSyntax :: Gen Formula
 simpleConnectivesSyntax = sized syntax'
   where
-    syntax' :: Int -> Gen Proposition
+    syntax' :: Int -> Gen Formula
     syntax' 0 =
       oneof
         [ pure top,

@@ -12,10 +12,8 @@
 {-# LANGUAGE StandaloneDeriving #-}
 
 module WTP.Syntax
-  ( Literal,
-    Formula,
+  ( Formula,
     Query,
-    Proposition,
     Element,
     Selector,
     Lattice (..),
@@ -23,8 +21,10 @@ module WTP.Syntax
     PropertyValue (..),
     top,
     bottom,
+    lit,
+    null,
     num,
-    json,
+    string,
     next,
     always,
     seq,
@@ -43,72 +43,135 @@ module WTP.Syntax
     (<=),
     (>),
     (>=),
+    identity,
+    length,
+    isEmpty,
+    filter,
+    map,
+    head,
+    tail,
+    init,
+    last,
+    parseNumber,
+    splitOn,
+    strip,
   )
 where
 
 import Algebra.Heyting
 import Algebra.Lattice
 import qualified Data.Aeson as JSON
-import Data.Hashable (Hashable)
-import Data.Maybe (Maybe, listToMaybe)
+import Data.Scientific (Scientific)
 import Data.Text (Text)
 import WTP.Element
 import WTP.Formula
 import WTP.Query
-import Prelude ((.), Bool, Eq, Num, Ord, Show, fmap)
+import Prelude (undefined, (.))
 
-num :: (Eq n, Show n, Num n) => n -> Formula n
-num = Literal . LNum
+-- * Constructing Terms
 
-json :: JSON.Value -> Formula JSON.Value
-json = Literal . LJson
+num :: Scientific -> Formula
+num = Literal . JSON.Number
 
-seq :: IsValue a => [Formula a] -> Formula [a]
+lit :: JSON.Value -> Formula
+lit = Literal
+
+null :: Formula
+null = lit JSON.Null
+
+string :: Text -> Formula
+string = Literal . JSON.String
+
+seq :: [Formula] -> Formula
 seq = Seq
 
-set :: (IsValue a, Hashable a) => [Formula a] -> Formula (Set a)
+set :: [Formula] -> Formula
 set = Set
 
-next :: Formula a -> Formula a
+-- * Temporal Operators
+
+next :: Formula -> Formula
 next = Next
 
-always :: Proposition -> Proposition
+always :: Formula -> Formula
 always = Always
 
-attribute :: Text -> Query Element -> Query Text
+-- * Queries and Element States
+
+attribute :: Text -> Query -> Query
 attribute t = Get (Attribute t)
 
-property :: Text -> Query Element -> Query PropertyValue
+property :: Text -> Query -> Query
 property t = Get (Property t)
 
-cssValue :: Text -> Query Element -> Query Text
+cssValue :: Text -> Query -> Query
 cssValue t = Get (CssValue t)
 
-text :: Query Element -> Query Text
+text :: Query -> Query
 text = Get Text
 
-enabled :: Query Element -> Query Bool
+enabled :: Query -> Query
 enabled = Get Enabled
 
-byCss :: Selector -> Query Element
+byCss :: Selector -> Query
 byCss = ByCss
 
-queryAll :: (IsValue a, Hashable a) => Query a -> Formula [a]
-queryAll = BindQuery
+queryAll :: Query -> Formula
+queryAll = BindQuery QueryAll
 
-queryOne :: (IsValue a, Hashable a) => Query a -> Formula (Maybe a)
-queryOne = fmap listToMaybe . queryAll
+queryOne :: Query -> Formula
+queryOne = BindQuery QueryOne
+
+-- * Equality and Ordering
 
 infixl 7 ===, /==
 
-(===) :: IsValue a => Formula a -> Formula a -> Proposition
+(===) :: Formula -> Formula -> Formula
 (===) = Equals
 
-(/==) :: IsValue a => Formula a -> Formula a -> Proposition
+(/==) :: Formula -> Formula -> Formula
 a /== b = neg (a === b)
 
-(<), (<=), (>), (>=) :: Ord a => Formula a -> Formula a -> Proposition
+(<), (<=), (>), (>=) :: Formula -> Formula -> Formula
 (<) = Compare LessThan
 (<=) = Compare LessThanEqual
 (>) = Compare GreaterThan
 (>=) = Compare GreaterThanEqual
+
+-- * Functions
+
+identity :: Formula -> Formula
+identity = undefined
+
+length :: Formula -> Formula
+length = undefined
+
+isEmpty :: Formula -> Formula
+isEmpty = (=== num 0) . length
+
+filter :: (Formula -> Formula) -> Formula -> Formula
+filter = undefined
+
+map :: (Formula -> Formula) -> Formula -> Formula
+map = undefined
+
+head :: Formula -> Formula
+head = undefined
+
+tail :: Formula -> Formula
+tail = undefined
+  
+init :: Formula -> Formula
+init = undefined
+
+last :: Formula -> Formula
+last = undefined
+
+parseNumber :: Formula -> Formula
+parseNumber = undefined
+
+splitOn :: Formula -> Formula -> Formula
+splitOn = undefined
+
+strip :: Formula -> Formula
+strip = undefined

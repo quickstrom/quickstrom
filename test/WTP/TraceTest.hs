@@ -5,8 +5,7 @@
 module WTP.TraceTest where
 
 import Control.Lens
-import Test.QuickCheck ((===), forAll, listOf)
-import Data.Generics.Product (position, field)
+import Test.QuickCheck ((===), forAll)
 import qualified WTP.Gen as Gen
 import WTP.Trace
 

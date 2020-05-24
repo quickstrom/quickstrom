@@ -29,6 +29,7 @@ common shared-deps
                     , QuickCheck
                     , QuickCheck-GenT
                     , random
+                    , scientific
                     , tasty
                     , tasty-hunit
                     , tasty-quickcheck

@@ -1,27 +1,23 @@
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module WTP.VerifyTest where
 
 import Algebra.Lattice (bottom, top)
-import Data.Functor ((<&>))
 import qualified Data.Aeson as JSON
 import qualified Data.HashMap.Strict as HashMap
-import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Test.Tasty.Hspec hiding (Selector)
 import WTP.Element
-import WTP.Query
 import WTP.Result
 import WTP.Syntax
 import qualified WTP.Trace as Trace
 import WTP.Verify
-import Prelude hiding (Bool (..), all, map, seq)
-import qualified Data.Bool as Bool
+import Prelude hiding (Bool (..), all, length, map, seq)
 
-verify' :: Proposition -> [Trace.ObservedState] -> Result
+verify' :: Formula -> [Trace.ObservedState] -> Result
 verify' = flip verify
 
 spec_verify :: Spec
@@ -30,23 +26,20 @@ spec_verify = do
     let classList = JSON.toJSON ["foo", "bar" :: Text]
     let q = property "classList" (byCss "#some-element")
     verify'
-      ((fromMaybe (JSON.Array mempty) . fmap propertyValue <$> (queryOne q)) === json classList)
+      (queryOne q === lit classList)
       [ Trace.ObservedState
-          ( HashMap.singleton
-              (SomeQuery q)
-              [Trace.SomeValue (PropertyValue classList)]
-          )
+          (HashMap.singleton q [classList])
       ]
       `shouldBe` Accepted
   it "verifies with get and satisfy" $ do
     let q = byCss "p"
     verify'
-      ((length <$> queryAll q) === num 2)
+      (length (queryAll q) === num 2)
       [ Trace.ObservedState
           ( HashMap.singleton
-              (SomeQuery q)
-              [ Trace.SomeValue (Element "a"),
-                Trace.SomeValue (Element "b")
+              q
+              [ JSON.toJSON (Element "a"),
+                JSON.toJSON (Element "b")
               ]
           )
       ]
@@ -63,48 +56,35 @@ spec_verify = do
     let steps =
           [ Trace.ObservedState
               ( HashMap.fromList
-                  [ (SomeQuery (enabled (byCss "button")), [Trace.SomeValue Bool.True]),
-                    (SomeQuery (text (byCss ".message")), [Trace.SomeValue (mempty :: Text)])
+                  [ (enabled (byCss "button"), [JSON.Bool top]),
+                    (text (byCss ".message"), [""])
                   ]
               ),
             Trace.ObservedState
               ( HashMap.fromList
-                  [ (SomeQuery (enabled (byCss "button")), [Trace.SomeValue Bool.False]),
-                    (SomeQuery (text (byCss ".message")), [Trace.SomeValue ("Boom!" :: Text)])
+                  [ (enabled (byCss "button"), [JSON.Bool bottom]),
+                    (text (byCss ".message"), ["Boom!"])
                   ]
               )
           ]
-    let buttonIsEnabled = fromMaybe bottom <$> queryOne (enabled (byCss "button"))
-        messageIs message = queryOne (text (byCss ".message")) === (Just <$> message)
+    let buttonIsEnabled = queryOne (enabled (byCss "button")) === top
+        messageIs message = queryOne (text (byCss ".message")) === message
         prop =
           -- TODO: define actions using primed queries
           always (buttonIsEnabled \/ (messageIs "Boom!" /\ neg buttonIsEnabled))
     verify' prop steps `shouldBe` Accepted
-
   it "verifies changing input state" $ do
     let steps =
           [ Trace.ObservedState
               ( HashMap.fromList
-                  [ (SomeQuery (property "value" (byCss "input")), [Trace.SomeValue (PropertyValue (JSON.String "a"))])
-                  ]
+                  [(property "value" (byCss "input"), [JSON.String "a"])]
               ),
             Trace.ObservedState
               ( HashMap.fromList
-                  [ (SomeQuery (property "value" (byCss "input")), [Trace.SomeValue (PropertyValue (JSON.String ""))])
-                  ]
+                  [(property "value" (byCss "input"), [JSON.String ""])]
               )
           ]
-    let inputIs :: Formula Text -> Proposition
-        inputIs t = inputValue "input" === (Just <$> t)
+    let inputIs :: Formula -> Formula
+        inputIs t = queryOne (property "value" (byCss "input")) === t
         prop = inputIs "a" /\ next (inputIs "")
     verify' prop steps `shouldBe` Accepted
-
-inputValue :: Selector -> Formula (Maybe Text)
-inputValue sel =
-  queryOne (property "value" (byCss sel))
-    <&> fmap (JSON.fromJSON . propertyValue)
-    <&> ( >>=
-            \case
-              JSON.Success a -> Just a
-              JSON.Error {} -> Nothing
-        )

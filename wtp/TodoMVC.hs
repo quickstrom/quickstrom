@@ -7,22 +7,14 @@ module TodoMVC
   )
 where
 
-import Control.Lens (lastOf, lengthOf)
-import Data.Aeson as JSON
-import Data.Functor ((<&>))
-import Data.Maybe (fromMaybe)
-import qualified Data.Text as Text
 import Data.Text (Text)
-import qualified Data.Text.Read as Text
-import GHC.Generics (Generic)
 import Helpers
 import qualified Test.QuickCheck as QuickCheck
-import Text.Read (readMaybe)
 import WTP.Specification
 import WTP.Syntax
-import Prelude hiding ((<), (<=), (>), (>=), all, init)
+import Prelude hiding ((<), (<=), (>), (>=), all, filter, head, init, last, length, null)
 
-spec :: Text -> Specification Proposition
+spec :: Text -> Specification Formula
 spec name =
   Specification
     { origin = Path ("http://todomvc.com/examples/" <> name <> "/"),
@@ -37,19 +29,22 @@ spec name =
             (1, pure (Click ".todoapp label[for=toggle-all]")),
             (1, pure (Click ".todoapp .destroy"))
           ],
-      proposition = init /\ (always (enterText \/ addNew \/ changeFilter \/ toggleAll))
+      proposition = initial /\ (always (enterText \/ addNew \/ changeFilter \/ toggleAll))
     }
   where
-    init = isEmpty
+    initial =
+      (currentFilter === null \/ currentFilter === "All")
+        /\ (isEmpty items)
+        /\ (pendingText === "" \/ pendingText === null)
     enterText =
       pendingText /== next pendingText
         /\ itemTexts === next itemTexts
         /\ currentFilter === next currentFilter
     changeFilter =
       currentFilter /== next currentFilter
-        /\ filterIs (Just All) ==> (numItems >= next numItems)
+        /\ (currentFilter === "All") ==> (numItems >= next numItems)
         /\ ( next
-               ( filterIs (Just Active)
+               ( (currentFilter === "Active")
                    ==> ( numItemsLeft === numUnchecked
                            /\ numItems === numUnchecked
                        )
@@ -61,64 +56,49 @@ spec name =
         /\ {- if name `elem` ["angularjs", "mithril"] then top else -} pendingText === next pendingText
     addNew =
       pendingText === next lastItemText
-        /\ next ((== Just "") <$> pendingText)
+        /\ next (pendingText === "")
     toggleAll =
       pendingText === next lastItemText
         /\ currentFilter === next currentFilter
-        /\ ( filterIs (Just All)
+        /\ ( (currentFilter === "All")
                ==> numItems === next numItems /\ next (numItems === numChecked)
            )
-        /\ ( filterIs (Just Active)
+        /\ ( (currentFilter === "Active")
                ==> ( numItems > num 0 ==> next numItems === num 0
                        \/ (numItems === num 0) ==> next numItems > num 0
                    )
            )
 
-data Filter = All | Active | Completed
-  deriving (Eq, Read, Show, Generic, FromJSON, ToJSON)
-
 -- * State helpers:
 
-isEmpty :: Proposition
-isEmpty =
-  (filterIs Nothing \/ filterIs (Just All))
-    /\ (null <$> items)
-    /\ ((`elem` [Nothing, Just ""]) <$> pendingText)
-    
+currentFilter :: Formula
+currentFilter = queryOne (text (byCss ".todoapp .filters .selected"))
 
-currentFilter :: Formula (Maybe Filter)
-currentFilter = (>>= (readMaybe . Text.unpack)) <$> queryOne (text (byCss ".todoapp .filters .selected"))
-
-filterIs :: Maybe Filter -> Proposition
-filterIs f = (== f) <$> currentFilter
-
-items :: Formula [Element]
+items :: Formula
 items = queryAll (byCss ".todo-list li")
 
-itemTexts :: Formula [Text]
+itemTexts :: Formula
 itemTexts = queryAll (text (byCss ".todo-list li label"))
 
-lastItemText :: Formula (Maybe Text)
-lastItemText = lastOf traverse <$> itemTexts
+lastItemText :: Formula
+lastItemText = last itemTexts
 
-numItems :: Formula Int
-numItems = lengthOf traverse <$> items
+numItems :: Formula
+numItems = length items
 
-checked :: Formula [Bool]
-checked = (map (== PropertyValue (JSON.Bool top))) <$> queryAll (property "checked" (byCss ".todo-list li input[type=checkbox]"))
+checked :: Formula
+checked = queryAll (property "checked" (byCss ".todo-list li input[type=checkbox]"))
 
-numUnchecked :: Formula Int
-numUnchecked = length . filter neg <$> checked
+numUnchecked :: Formula
+numUnchecked = length (filter (/== top) checked)
 
-numChecked :: Formula Int
-numChecked = length . filter id <$> checked
+numChecked :: Formula
+numChecked = length (filter (=== top) checked)
 
-pendingText :: Formula (Maybe Text)
+pendingText :: Formula
 pendingText = inputValue ".new-todo"
 
-numItemsLeft :: Formula Int
+numItemsLeft :: Formula
 numItemsLeft =
-  queryOne (text (byCss ".todoapp .todo-count strong"))
-    <&> \t -> fromMaybe 0 (t >>= parse)
-  where
-    parse = either (const Nothing) (Just . fst) . Text.decimal
+  let strs = queryOne (text (byCss ".todoapp .todo-count strong"))
+   in parseNumber (head (splitOn " " strs))

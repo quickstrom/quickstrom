@@ -49,10 +49,10 @@ import GHC.Generics (Generic)
 import WTP.Element
 import WTP.Query
 import WTP.Specification (Action (..), Path (..), Selected (..))
+import WTP.Value
 import Prelude hiding (Bool (..), not)
-import qualified Data.Aeson as JSON
 
-newtype ObservedState = ObservedState (HashMap Query [JSON.Value])
+newtype ObservedState = ObservedState (HashMap Query [Value])
   deriving (Show, Eq, Generic, FromJSON, ToJSON)
 
 instance Semigroup ObservedState where
@@ -152,7 +152,7 @@ prettyObservedState (ObservedState state)
           )
       )
   where
-    withValues :: ((Query, [JSON.Value]) -> s) -> [s]
+    withValues :: ((Query, [Value]) -> s) -> [s]
     withValues f =
       state
         & HashMap.toList
@@ -162,7 +162,7 @@ prettyObservedState (ObservedState state)
     prettyQuery = \case
       ByCss (Selector selector) -> "byCss" <+> pretty (show selector)
       Get state' sub -> prettyState state' <+> parens (prettyQuery sub)
-    prettyValue :: JSON.Value -> Doc AnsiStyle
+    prettyValue :: Value -> Doc AnsiStyle
     prettyValue value = "-" <+> pretty (show value)
 
 prettyState :: ElementState -> Doc AnsiStyle

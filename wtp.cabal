@@ -52,6 +52,7 @@ library
                     , WTP.Specification
                     , WTP.TH
                     , WTP.Trace
+                    , WTP.Value
                     , WTP.Verify
   hs-source-dirs:     lib
   default-language:   Haskell2010

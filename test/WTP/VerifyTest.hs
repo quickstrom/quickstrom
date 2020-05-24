@@ -1,19 +1,19 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module WTP.VerifyTest where
 
 import Algebra.Lattice (bottom, top)
-import qualified Data.Aeson as JSON
 import qualified Data.HashMap.Strict as HashMap
-import Data.Text (Text)
 import Test.Tasty.Hspec hiding (Selector)
 import WTP.Element
 import WTP.Result
 import WTP.Syntax
 import qualified WTP.Trace as Trace
+import WTP.Value
 import WTP.Verify
 import Prelude hiding (Bool (..), all, length, map, seq)
 
@@ -23,12 +23,11 @@ verify' = flip verify
 spec_verify :: Spec
 spec_verify = do
   it "verifies with get and assertion" $ do
-    let classList = JSON.toJSON ["foo", "bar" :: Text]
     let q = property "classList" (byCss "#some-element")
     verify'
-      (queryOne q === lit classList)
+      (queryOne q === ["foo", "bar"])
       [ Trace.ObservedState
-          (HashMap.singleton q [classList])
+          (HashMap.singleton q [VSeq ["foo", "bar"]])
       ]
       `shouldBe` Accepted
   it "verifies with get and satisfy" $ do
@@ -38,8 +37,8 @@ spec_verify = do
       [ Trace.ObservedState
           ( HashMap.singleton
               q
-              [ JSON.toJSON (Element "a"),
-                JSON.toJSON (Element "b")
+              [ VElement (Element "a"),
+                VElement (Element "b")
               ]
           )
       ]
@@ -56,13 +55,13 @@ spec_verify = do
     let steps =
           [ Trace.ObservedState
               ( HashMap.fromList
-                  [ (enabled (byCss "button"), [JSON.Bool top]),
+                  [ (enabled (byCss "button"), [VBool top]),
                     (text (byCss ".message"), [""])
                   ]
               ),
             Trace.ObservedState
               ( HashMap.fromList
-                  [ (enabled (byCss "button"), [JSON.Bool bottom]),
+                  [ (enabled (byCss "button"), [VBool bottom]),
                     (text (byCss ".message"), ["Boom!"])
                   ]
               )
@@ -77,11 +76,11 @@ spec_verify = do
     let steps =
           [ Trace.ObservedState
               ( HashMap.fromList
-                  [(property "value" (byCss "input"), [JSON.String "a"])]
+                  [(property "value" (byCss "input"), [VString "a"])]
               ),
             Trace.ObservedState
               ( HashMap.fromList
-                  [(property "value" (byCss "input"), [JSON.String ""])]
+                  [(property "value" (byCss "input"), [VString ""])]
               )
           ]
     let inputIs :: Formula -> Formula

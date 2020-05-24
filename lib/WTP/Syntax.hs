@@ -60,27 +60,27 @@ where
 
 import Algebra.Heyting
 import Algebra.Lattice
-import qualified Data.Aeson as JSON
 import Data.Scientific (Scientific)
 import Data.Text (Text)
 import WTP.Element
 import WTP.Formula
 import WTP.Query
-import Prelude (undefined, (.))
+import WTP.Value
+import Prelude ((.), undefined)
 
 -- * Constructing Terms
 
 num :: Scientific -> Formula
-num = Literal . JSON.Number
+num = Literal . VNumber
 
-lit :: JSON.Value -> Formula
+lit :: Value -> Formula
 lit = Literal
 
 null :: Formula
-null = lit JSON.Null
+null = lit VNull
 
 string :: Text -> Formula
-string = Literal . JSON.String
+string = Literal . VString
 
 seq :: [Formula] -> Formula
 seq = Seq
@@ -160,7 +160,7 @@ head = undefined
 
 tail :: Formula -> Formula
 tail = undefined
-  
+
 init :: Formula -> Formula
 init = undefined
 

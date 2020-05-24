@@ -19,28 +19,29 @@ where
 import Algebra.Heyting (Heyting (..))
 import Algebra.Lattice (Lattice (..))
 import Control.Applicative (Alternative (..))
-import qualified Data.Aeson as JSON
 import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (fromMaybe, listToMaybe)
 import qualified Data.Vector as Vector
 import WTP.Formula
 import WTP.Query
+import WTP.Value
 import WTP.Result
 import WTP.Trace
+import qualified Data.HashSet as HashSet
 
-boolOp :: (Bool -> Bool -> Bool) -> JSON.Value -> JSON.Value -> Maybe JSON.Value
-boolOp op' (JSON.Bool b1) (JSON.Bool b2) = Just (JSON.Bool (op' b1 b2))
+boolOp :: (Bool -> Bool -> Bool) -> Value -> Value -> Maybe Value
+boolOp op' (VBool b1) (VBool b2) = Just (VBool (op' b1 b2))
 boolOp _ _ _ = Nothing
 
-eval :: [ObservedState] -> Formula -> Maybe JSON.Value
-eval [] (Always _) = pure (JSON.Bool True)
+eval :: [ObservedState] -> Formula -> Maybe Value
+eval [] (Always _) = pure (VBool True)
 eval [] _ = Nothing
 eval steps@(current : rest) f = case f of
   Literal l -> pure l
-  Set ps -> JSON.Array . Vector.uniq . Vector.fromList <$> traverse (eval steps) ps
-  Seq ps -> JSON.Array . Vector.fromList <$> traverse (eval steps) ps
+  Set ps -> VSet . HashSet.fromList <$> traverse (eval steps) ps
+  Seq ps -> VSeq . Vector.fromList <$> traverse (eval steps) ps
   Not p -> case eval steps p of
-    Just (JSON.Bool b) -> Just (JSON.Bool (neg b))
+    Just (VBool b) -> Just (VBool (neg b))
     _ -> Nothing
   p `And` q ->
     case (eval steps p, eval steps q) of
@@ -48,17 +49,17 @@ eval steps@(current : rest) f = case f of
       _ -> Nothing
   p `Or` q ->
     case eval steps p of
-      Just (JSON.Bool True) -> pure (JSON.Bool True)
+      Just (VBool True) -> pure (VBool True)
       _ -> eval steps q
   Next p -> eval rest p
   Always p -> do
-    first' <- (eval steps p <|> Just (JSON.Bool True))
+    first' <- (eval steps p <|> Just (VBool True))
     rest' <- (eval rest (Always p))
     boolOp (/\) first' rest'
   Equals p q -> do
     p' <- eval steps p
     q' <- eval steps q
-    pure (JSON.Bool (p' == q'))
+    pure (VBool (p' == q'))
   Compare comparison p q -> do
     let op :: Ord a => a -> a -> Bool
         op = case comparison of
@@ -69,16 +70,16 @@ eval steps@(current : rest) f = case f of
     p' <- eval steps p
     q' <- eval steps q
     case (p', q') of
-      (JSON.String s1, JSON.String s2) -> pure (JSON.Bool (s1 `op` s2))
-      (JSON.Number n1, JSON.Number n2) -> pure (JSON.Bool (n1 `op` n2))
+      (VString s1, VString s2) -> pure (VBool (s1 `op` s2))
+      (VNumber n1, VNumber n2) -> pure (VBool (n1 `op` n2))
       _ -> Nothing
-  BindQuery QueryAll query -> JSON.Array . Vector.fromList <$> evalQuery current query
+  BindQuery QueryAll query -> VSeq . Vector.fromList <$> evalQuery current query
   BindQuery QueryOne query -> evalQuery current query >>= listToMaybe
 
-evalQuery :: ObservedState -> Query -> Maybe [JSON.Value]
+evalQuery :: ObservedState -> Query -> Maybe [Value]
 evalQuery (ObservedState current) query = HashMap.lookup query current
 
 verify :: [ObservedState] -> Formula -> Result
-verify trace formula = case (fromMaybe (JSON.Bool False) (eval trace formula)) of
-  JSON.Bool True -> Accepted
+verify trace formula = case (fromMaybe (VBool False) (eval trace formula)) of
+  VBool True -> Accepted
   _ -> Rejected

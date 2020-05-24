@@ -18,11 +18,11 @@ module WTP.Formula where
 
 import Algebra.Heyting (Heyting (..))
 import Algebra.Lattice (BoundedJoinSemiLattice (..), BoundedMeetSemiLattice (..), Lattice (..))
-import qualified Data.Aeson as JSON
 import Data.HashSet (HashSet)
 import Data.String (IsString (..))
 import qualified Data.Text as Text
 import WTP.Query
+import WTP.Value
 import Prelude hiding (not)
 import GHC.Exts (IsList (..))
 
@@ -34,8 +34,6 @@ data Comparison
   | GreaterThan
   | GreaterThanEqual
   deriving (Show, Eq, Ord, Bounded)
-
-type Value = JSON.Value
 
 data QueryCardinality = QueryOne | QueryAll
   deriving (Eq, Show, Ord, Enum, Bounded)
@@ -55,7 +53,7 @@ data Formula
   deriving (Eq, Show)
 
 instance IsString Formula where
-  fromString = Literal . JSON.String . Text.pack
+  fromString = Literal . VString . Text.pack
 
 instance IsList Formula where
   type Item Formula = Formula
@@ -71,10 +69,10 @@ instance Lattice Formula where
   (\/) = Or
 
 instance BoundedJoinSemiLattice Formula where
-  bottom = Literal (JSON.Bool False)
+  bottom = Literal (VBool False)
 
 instance BoundedMeetSemiLattice Formula where
-  top = Literal (JSON.Bool True)
+  top = Literal (VBool True)
 
 instance Heyting Formula where
   p ==> q = Not p `Or` q
@@ -84,22 +82,22 @@ simplify :: Formula -> Formula
 simplify = \case
   And p q ->
     case (simplify p, simplify q) of
-      (_, Literal (JSON.Bool False)) -> Literal (JSON.Bool False)
-      (Literal (JSON.Bool False), _) -> Literal (JSON.Bool False)
-      (p', Literal (JSON.Bool True)) -> p'
-      (Literal (JSON.Bool True), p') -> p'
+      (_, Literal (VBool False)) -> Literal (VBool False)
+      (Literal (VBool False), _) -> Literal (VBool False)
+      (p', Literal (VBool True)) -> p'
+      (Literal (VBool True), p') -> p'
       (p', q') -> And p' q'
   Or p q ->
     case (simplify p, simplify q) of
-      (_, Literal (JSON.Bool True)) -> Literal (JSON.Bool True)
-      (Literal (JSON.Bool True), _) -> Literal (JSON.Bool True)
-      (p', Literal (JSON.Bool False)) -> p'
-      (Literal (JSON.Bool False), p') -> p'
+      (_, Literal (VBool True)) -> Literal (VBool True)
+      (Literal (VBool True), _) -> Literal (VBool True)
+      (p', Literal (VBool False)) -> p'
+      (Literal (VBool False), p') -> p'
       (p', q') -> Or p' q'
   Not p ->
     case simplify p of
-      Literal (JSON.Bool False) -> Literal (JSON.Bool True)
-      Literal (JSON.Bool True) -> Literal (JSON.Bool False)
+      Literal (VBool False) -> Literal (VBool True)
+      Literal (VBool True) -> Literal (VBool False)
       p' -> Not p'
   p -> p
 

@@ -125,6 +125,8 @@ evalFunc f args = case f of
       (FOr, [VBool b1, VBool b2]) -> pure (VBool (b1 \/ b2))
       (FNot, [VBool b]) -> pure (VBool (not b))
       (FIdentity, [arg]) -> pure arg
+      (FIn, [x, VSeq xs]) -> pure (VBool (Vector.elem x xs))
+      (FIn, [x, VSet xs]) -> pure (VBool (HashSet.member x xs))
       (FLength, [VSeq vs]) -> pure (VNumber (fromIntegral (Vector.length vs)))
       (FLength, [VString s]) -> pure (VNumber (fromIntegral (Text.length s)))
       (FFilter, [f', VSeq vs]) -> do

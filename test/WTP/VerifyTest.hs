@@ -50,7 +50,7 @@ spec_verify = do
   it "is true with (true \\/ next false)" $ do
     verify' (top \/ next bottom) [Trace.ObservedState mempty] `shouldBe` pure Accepted
   it "is false with (next top) when empty trace" $ do
-    verify' (next top) [] `shouldBe` pure Rejected
+    verify' (next top) [] `shouldBe` Left Undetermined
   it "is top with (neg bottom)" $ do
     verify' (neg bottom) [Trace.ObservedState mempty] `shouldBe` pure Accepted
   it "verifies button example" $ do

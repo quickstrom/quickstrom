@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedLists #-}
 
 module TodoMVC
   ( spec,
@@ -53,7 +54,7 @@ spec name =
         -- NOTE: AngularJS and Mithril implementations are
         -- inconsistent with the other JS implementations, in that
         -- they clear the input field when the filter is changed.
-        /\ {- if name `elem` ["angularjs", "mithril"] then top else -} pendingText === next pendingText
+        /\ neg (apply in' [string name, [string "angularjs", string "mithril"]]) ==> pendingText === next pendingText
     addNew =
       pendingText === next lastItemText
         /\ next (pendingText === "")

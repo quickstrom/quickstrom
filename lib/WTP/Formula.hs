@@ -42,10 +42,7 @@ data Formula
   = Literal Value
   | Set [Formula]
   | Seq [Formula]
-  | -- | Not Formula
-    -- | And Formula Formula
-    -- | Or Formula Formula
-    Next Formula
+  | Next Formula
   | Always Formula
   | BindQuery QueryCardinality Query
   | Apply Formula [Formula]

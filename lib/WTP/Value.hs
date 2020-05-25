@@ -40,6 +40,7 @@ data BuiltInFunction
   | FOr
   | FNot
   | FIdentity
+  | FIn
   | FLength
   | FFilter
   | FMap

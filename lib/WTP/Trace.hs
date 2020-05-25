@@ -184,6 +184,7 @@ prettyValue = \case
       FOr -> "or"
       FNot -> "not"
       FIdentity -> "identity"
+      FIn -> "in"
       FLength -> "length"
       FFilter -> "filter"
       FMap -> "map"

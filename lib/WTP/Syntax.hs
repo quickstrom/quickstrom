@@ -44,6 +44,7 @@ module WTP.Syntax
     (>=),
     apply,
     identity,
+    in',
     not,
     length,
     filter,
@@ -151,6 +152,9 @@ not = Literal (VFunction (BuiltInFunction FNot))
 
 identity :: Formula
 identity = builtIn FIdentity
+
+in' :: Formula
+in' = builtIn FIn
 
 length :: Formula
 length = builtIn FLength

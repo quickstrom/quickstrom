@@ -56,3 +56,26 @@ toggleAll =
                     or (numItems == num 0) => next numItems > num 0
                 )
         )
+
+
+currentFilter = queryOne (text (byCss ".todoapp .filters .selected"))
+
+items = queryAll (byCss ".todo-list li")
+
+itemTexts = queryAll (text (byCss ".todo-list li label"))
+
+lastItemText = last itemTexts
+
+numItems = length items
+
+checked = queryAll (property "checked" (byCss ".todo-list li input[type=checkbox]"))
+
+numUnchecked = length (filter not checked)
+
+numChecked = length (filter identity checked)
+
+pendingText = queryOne (property "value" (byCss ".new-todo")) 
+
+numItemsLeft =
+  let str = queryOne (text (byCss ".todoapp .todo-count strong"))
+  in parseNumber (head (splitOn " " str))

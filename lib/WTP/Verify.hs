@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE GADTs #-}
@@ -12,7 +13,8 @@
 {-# LANGUAGE TypeOperators #-}
 
 module WTP.Verify
-  ( eval,
+  ( EvalError (..),
+    eval,
     verify,
   )
 where
@@ -36,6 +38,8 @@ import WTP.Query
 import WTP.Result
 import WTP.Trace
 import WTP.Value
+import Data.Bool (bool)
+import GHC.Generics (Generic)
 
 data EvalError
   = TypeError Value Text
@@ -43,6 +47,7 @@ data EvalError
   | QueryError Query
   | RuntimeError Text
   | Undetermined
+  deriving (Eq, Show, Generic)
 
 type Eval = Either EvalError
 
@@ -105,7 +110,7 @@ eval steps@(current : rest) f = case f of
       (VNumber n1, _) -> do
         n2 <- require (Proxy @"VNumber") q'
         pure (VBool (n1 `op` n2))
-      _ -> throwError (TypeError p' "Only strings and numbers can be compared")
+      _ -> throwError (TypeError p' "string or number")
   BindQuery QueryAll query -> VSeq . Vector.fromList <$> evalQuery current query
   BindQuery QueryOne query ->
     evalQuery current query <&> \case
@@ -154,7 +159,6 @@ evalFunc f args = case f of
 evalQuery :: ObservedState -> Query -> Eval [Value]
 evalQuery (ObservedState current) query = maybe (throwError (QueryError query)) pure (HashMap.lookup query current)
 
-verify :: [ObservedState] -> Formula -> Result
-verify trace formula = case (eval trace formula >>= require (Proxy @"VBool")) of
-  Right True -> Accepted
-  _ -> Rejected
+verify :: [ObservedState] -> Formula -> Eval Result
+verify trace formula =
+  eval trace formula >>= require (Proxy @"VBool") <&> bool Rejected Accepted

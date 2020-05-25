@@ -64,7 +64,7 @@ testSpecifications :: [(Text, Specification Formula)] -> Tasty.TestTree
 testSpecifications specs =
   Tasty.testGroup "WTP specifications" [testCase (Text.unpack name) (check spec) | (name, spec) <- specs]
 
-data FailingTest = FailingTest {numShrinks :: Int, trace :: Trace TraceElementEffect}
+data FailingTest = FailingTest {numShrinks :: Int, trace :: Trace TraceElementEffect, reason :: Maybe EvalError}
   deriving (Show, Generic)
 
 data CheckResult = CheckSuccess | CheckFailure {failedAfter :: Int, failingTest :: FailingTest}
@@ -80,10 +80,21 @@ check spec = do
     CheckFailure {failedAfter, failingTest} -> do
       logInfo . renderString $
         prettyTrace (withoutStutterStates (trace failingTest)) <> line
+      case reason failingTest of
+        Just err -> logInfo (renderString (annotate (color Red) ("Verification failed with error:" <+> prettyEvalError err <> line)))
+        Nothing -> pure ()
       assertFailure ("Failed after " <> show failedAfter <> " tests and " <> show (numShrinks failingTest) <> " levels of shrinking.")
     CheckSuccess -> logInfo ("Passed " <> show numTests <> " tests.")
   where
     spec' = spec & field @"proposition" %~ simplify
+
+prettyEvalError :: EvalError -> Doc AnsiStyle
+prettyEvalError = \case
+  TypeError value type' -> prettyValue value <+> "is not a" <+> pretty type'
+  ApplyError f args -> prettyValue f <+> "cannot be applied to" <+> hsep (punctuate comma (map prettyValue args))
+  QueryError query -> "Query failed: " <+> prettyQuery query
+  RuntimeError t -> "Verification failed with error: " <+> pretty t
+  Undetermined -> "Verification failed with undetermination. There are too few observed states to satisfy the specification."
 
 elementsToTrace :: Producer (TraceElement ()) Runner () -> Runner (Trace ())
 elementsToTrace = fmap Trace . Pipes.toListM
@@ -115,7 +126,7 @@ runSingle spec size = do
       & runAndVerifyIsolated 0
   case result of
     Right () -> pure (Right ())
-    f@(Left (FailingTest _ trace)) -> do
+    f@(Left (FailingTest _ trace _)) -> do
       logInfoWD "Test failed. Shrinking..."
       let shrinks = shrinkForest (QuickCheck.shrinkList shrinkAction) (trace ^.. traceActions)
       shrunk <- minBy (lengthOf (field @"trace" . traceElements)) (traverseShrinks runShrink shrinks >-> select (preview _Left) >-> Pipes.take 10)
@@ -126,8 +137,9 @@ runSingle spec size = do
         beforeRun spec
         elementsToTrace (producer >-> runActions' spec)
       case verify (trace ^.. nonStutterStates) (proposition spec) of
-        Accepted -> pure (Right ())
-        Rejected -> pure (Left (FailingTest n trace))
+        Right Accepted -> pure (Right ())
+        Right Rejected -> pure (Left (FailingTest n trace Nothing))
+        Left err -> pure (Left (FailingTest n trace (Just err)))
     runShrink (Shrink n actions) =
       runAndVerifyIsolated n (Pipes.each actions)
 

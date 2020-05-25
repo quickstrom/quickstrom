@@ -17,7 +17,7 @@ import WTP.Value
 import WTP.Verify
 import Prelude hiding (Bool (..), all, length, map, seq)
 
-verify' :: Formula -> [Trace.ObservedState] -> Result
+verify' :: Formula -> [Trace.ObservedState] -> Either EvalError Result
 verify' = flip verify
 
 spec_verify :: Spec
@@ -29,7 +29,7 @@ spec_verify = do
       [ Trace.ObservedState
           (HashMap.singleton q [VSeq ["foo", "bar"]])
       ]
-      `shouldBe` Accepted
+      `shouldBe` pure Accepted
   it "verifies with get and satisfy" $ do
     let q = byCss "p"
     verify'
@@ -42,17 +42,17 @@ spec_verify = do
               ]
           )
       ]
-      `shouldBe` Accepted
+      `shouldBe` pure Accepted
   it "is top with (top /\\ top)" $ do
-    verify' (top /\ top) [Trace.ObservedState mempty] `shouldBe` Accepted
+    verify' (top /\ top) [Trace.ObservedState mempty] `shouldBe` pure Accepted
   it "is true with (next false \\/ true)" $ do
-    verify' (next bottom \/ top) [Trace.ObservedState mempty] `shouldBe` Accepted
+    verify' (next bottom \/ top) [Trace.ObservedState mempty] `shouldBe` pure Accepted
   it "is true with (true \\/ next false)" $ do
-    verify' (top \/ next bottom) [Trace.ObservedState mempty] `shouldBe` Accepted
+    verify' (top \/ next bottom) [Trace.ObservedState mempty] `shouldBe` pure Accepted
   it "is false with (next top) when empty trace" $ do
-    verify' (next top) [] `shouldBe` Rejected
+    verify' (next top) [] `shouldBe` pure Rejected
   it "is top with (neg bottom)" $ do
-    verify' (neg bottom) [Trace.ObservedState mempty] `shouldBe` Accepted
+    verify' (neg bottom) [Trace.ObservedState mempty] `shouldBe` pure Accepted
   it "verifies button example" $ do
     let steps =
           [ Trace.ObservedState
@@ -73,7 +73,7 @@ spec_verify = do
         prop =
           -- TODO: define actions using primed queries
           always (buttonIsEnabled \/ (messageIs "Boom!" /\ neg buttonIsEnabled))
-    verify' prop steps `shouldBe` Accepted
+    verify' prop steps `shouldBe` pure Accepted
   it "verifies changing input state" $ do
     let steps =
           [ Trace.ObservedState
@@ -88,4 +88,4 @@ spec_verify = do
     let inputIs :: Formula -> Formula
         inputIs t = queryOne (property "value" (byCss "input")) === t
         prop = inputIs "a" /\ next (inputIs "")
-    verify' prop steps `shouldBe` Accepted
+    verify' prop steps `shouldBe` pure Accepted

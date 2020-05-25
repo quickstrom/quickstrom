@@ -28,6 +28,8 @@ module WTP.Trace
     prettyAction,
     prettyActions,
     prettyTrace,
+    prettyQuery,
+    prettyValue,
     prettySelected,
   )
 where
@@ -39,20 +41,20 @@ import Data.Generics.Product (position)
 import Data.Generics.Sum (_Ctor)
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
+import qualified Data.HashSet as HashSet
 import qualified Data.List as List
 import Data.Ord (comparing)
 import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
 import Data.Text.Prettyprint.Doc.Symbols.Unicode (bullet)
+import qualified Data.Vector as Vector
 import GHC.Generics (Generic)
 import WTP.Element
 import WTP.Query
 import WTP.Specification (Action (..), Path (..), Selected (..))
 import WTP.Value
 import Prelude hiding (Bool (..), not)
-import qualified Data.Vector as Vector
-import qualified Data.HashSet as HashSet
 
 newtype ObservedState = ObservedState (HashMap Query [Value])
   deriving (Show, Eq, Generic, FromJSON, ToJSON)
@@ -160,20 +162,23 @@ prettyObservedState (ObservedState state)
         & HashMap.toList
         & List.sortBy (comparing fst)
         & map f
-    prettyQuery :: Query -> Doc AnsiStyle
-    prettyQuery = \case
-      ByCss (Selector selector) -> "byCss" <+> pretty (show selector)
-      Get state' sub -> prettyState state' <+> parens (prettyQuery sub)
-    prettyValue :: Value -> Doc AnsiStyle
-    prettyValue = \case
-      VNull -> "null"
-      VBool b -> pretty (show b)
-      VElement el -> pretty (ref el)
-      VString t -> pretty (show t)
-      VNumber n -> pretty (show n)
-      VSeq vs -> brackets (hsep (map prettyValue (Vector.toList vs)))
-      VSet vs -> braces (hsep (map prettyValue (HashSet.toList vs)))
-      VFunction (BuiltInFunction bif) -> prettyBuiltInFunction bif
+
+prettyQuery :: Query -> Doc AnsiStyle
+prettyQuery = \case
+  ByCss (Selector selector) -> "byCss" <+> pretty (show selector)
+  Get state' sub -> prettyState state' <+> parens (prettyQuery sub)
+
+prettyValue :: Value -> Doc AnsiStyle
+prettyValue = \case
+  VNull -> "null"
+  VBool b -> pretty (show b)
+  VElement el -> pretty (ref el)
+  VString t -> pretty (show t)
+  VNumber n -> pretty (show n)
+  VSeq vs -> brackets (hsep (map prettyValue (Vector.toList vs)))
+  VSet vs -> braces (hsep (map prettyValue (HashSet.toList vs)))
+  VFunction (BuiltInFunction bif) -> prettyBuiltInFunction bif
+  where
     prettyBuiltInFunction = \case
       FAnd -> "and"
       FOr -> "or"

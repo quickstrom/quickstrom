@@ -26,6 +26,7 @@ common shared-deps
                     , pipes
                     , prettyprinter
                     , prettyprinter-ansi-terminal
+                    , purescript
                     , QuickCheck
                     , QuickCheck-GenT
                     , random

@@ -1,5 +1,4 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -15,10 +14,7 @@
 {-# LANGUAGE TypeOperators #-}
 
 module WTP.Trace
-  ( SomeValue (..),
-    castValue,
-    findElementState,
-    ObservedState (..),
+  ( ObservedState (..),
     Trace (..),
     ActionResult (..),
     TraceElement (..),
@@ -32,70 +28,35 @@ module WTP.Trace
     prettyAction,
     prettyActions,
     prettyTrace,
+    prettyQuery,
+    prettyValue,
     prettySelected,
   )
 where
 
-import Control.Applicative ((<|>))
 import Control.Lens
 import Data.Aeson (FromJSON (..), ToJSON (..))
-import qualified Data.Bool as Bool
 import Data.Function ((&))
 import Data.Generics.Product (position)
 import Data.Generics.Sum (_Ctor)
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
+import qualified Data.HashSet as HashSet
 import qualified Data.List as List
 import Data.Ord (comparing)
 import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
 import Data.Text.Prettyprint.Doc.Symbols.Unicode (bullet)
-import Data.Typeable (Typeable)
+import qualified Data.Vector as Vector
 import GHC.Generics (Generic)
-import Type.Reflection
 import WTP.Element
 import WTP.Query
 import WTP.Specification (Action (..), Path (..), Selected (..))
+import WTP.Value
 import Prelude hiding (Bool (..), not)
 
-data SomeValue where
-  SomeValue :: forall a. (Show a, Typeable a, Eq a, FromJSON a, ToJSON a) => a -> SomeValue
-
-deriving instance Show SomeValue
-
-instance Eq SomeValue where
-  SomeValue (v1 :: t1) == SomeValue (v2 :: t2) =
-    case eqTypeRep (typeRep @t1) (typeRep @t2) of
-      Just HRefl -> v1 == v2
-      Nothing -> Bool.False
-
-instance FromJSON SomeValue where
-  parseJSON v =
-    (SomeValue <$> parseJSON @Element v)
-      <|> (SomeValue <$> parseJSON @Bool.Bool v)
-      <|> (SomeValue <$> parseJSON @Text v)
-      <|> (SomeValue <$> parseJSON @Int v)
-      <|> (SomeValue <$> parseJSON @Double v)
-      <|> (SomeValue <$> parseJSON @PropertyValue v)
-
-instance ToJSON SomeValue where
-  toJSON (SomeValue x) = toJSON x
-
-castValue :: TypeRep a -> SomeValue -> Maybe a
-castValue rep (SomeValue (v :: t)) =
-  case eqTypeRep (typeRep @t) rep of
-    Just HRefl -> Just v
-    Nothing -> Nothing
-
-findElementState :: Typeable a => ElementState a -> [SomeValue] -> Maybe a
-findElementState _ [] = Nothing
-findElementState (state :: ElementState s1) (SomeValue (value :: s2) : rest) =
-  case eqTypeRep (typeRep @s1) (typeRep @s2) of
-    Just HRefl -> Just value
-    Nothing -> findElementState state rest
-
-newtype ObservedState = ObservedState (HashMap SomeQuery [SomeValue])
+newtype ObservedState = ObservedState (HashMap Query [Value])
   deriving (Show, Eq, Generic, FromJSON, ToJSON)
 
 instance Semigroup ObservedState where
@@ -190,25 +151,52 @@ prettyObservedState (ObservedState state)
   | otherwise =
     vsep
       ( withValues
-          ( \(SomeQuery query, values) ->
-              bullet <+> align (prettyQuery query <> line <> indent 2 (vsep (map prettySomeValue values)))
+          ( \(query, values) ->
+              bullet <+> align (prettyQuery query <> line <> indent 2 (vsep (map (("-" <+>) . prettyValue) values)))
           )
       )
   where
-    withValues :: ((SomeQuery, [SomeValue]) -> s) -> [s]
+    withValues :: ((Query, [Value]) -> s) -> [s]
     withValues f =
       state
         & HashMap.toList
         & List.sortBy (comparing fst)
         & map f
-    prettyQuery :: Query a -> Doc AnsiStyle
-    prettyQuery = \case
-      ByCss (Selector selector) -> "byCss" <+> pretty (show selector)
-      Get state' sub -> prettyState state' <+> parens (prettyQuery sub)
-    prettySomeValue :: SomeValue -> Doc AnsiStyle
-    prettySomeValue (SomeValue value) = "-" <+> pretty (show value)
 
-prettyState :: ElementState a -> Doc AnsiStyle
+prettyQuery :: Query -> Doc AnsiStyle
+prettyQuery = \case
+  ByCss (Selector selector) -> "byCss" <+> pretty (show selector)
+  Get state' sub -> prettyState state' <+> parens (prettyQuery sub)
+
+prettyValue :: Value -> Doc AnsiStyle
+prettyValue = \case
+  VNull -> "null"
+  VBool b -> pretty (show b)
+  VElement el -> pretty (ref el)
+  VString t -> pretty (show t)
+  VNumber n -> pretty (show n)
+  VSeq vs -> brackets (hsep (map prettyValue (Vector.toList vs)))
+  VSet vs -> braces (hsep (map prettyValue (HashSet.toList vs)))
+  VFunction (BuiltInFunction bif) -> prettyBuiltInFunction bif
+  where
+    prettyBuiltInFunction = \case
+      FAnd -> "and"
+      FOr -> "or"
+      FNot -> "not"
+      FIdentity -> "identity"
+      FIn -> "in"
+      FLength -> "length"
+      FFilter -> "filter"
+      FMap -> "map"
+      FHead -> "head"
+      FTail -> "tail"
+      FInit -> "init"
+      FLast -> "last"
+      FParseNumber -> "parseNumber"
+      FSplitOn -> "splitOn"
+      FStrip -> "strip"
+
+prettyState :: ElementState -> Doc AnsiStyle
 prettyState = \case
   Attribute n -> "attribute" <+> pretty (show n)
   Property n -> "property" <+> pretty (show n)

@@ -4,24 +4,15 @@
 module Helpers where
 
 import Prelude hiding (all)
-import Data.Aeson as JSON
-import Data.Functor ((<&>))
 import Data.Text (Text)
 import WTP.Syntax
 
-inputValue :: Selector -> Formula (Maybe Text)
-inputValue sel =
-  queryOne (property "value" (byCss sel))
-    <&> fmap (fromJSON . propertyValue)
-    <&> ( >>=
-            \case
-              JSON.Success a -> Just a
-              JSON.Error {} -> Nothing
-        )
+inputValue :: Selector -> Formula
+inputValue sel = queryOne (property "value" (byCss sel))
 
-isVisible :: Selector -> Proposition
-isVisible sel = (== Just "block") <$> queryOne (cssValue "display" (byCss sel))
+isVisible :: Selector -> Formula
+isVisible sel = "block" === queryOne (cssValue "display" (byCss sel))
 
-hasText :: Selector -> Text -> Proposition
+hasText :: Selector -> Text -> Formula
 hasText sel message =
-  (== Just message) <$> queryOne (text (byCss sel))
+  string message === queryOne (text (byCss sel))

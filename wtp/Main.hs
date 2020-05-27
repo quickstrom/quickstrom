@@ -8,9 +8,6 @@
 
 module Main where
 
-import Control.Lens ((^?), ix)
-import Data.Function ((&))
-import Data.Maybe (fromMaybe)
 import qualified Data.Text as Text
 import Helpers
 import System.Directory
@@ -21,7 +18,7 @@ import qualified TodoMVC
 import qualified WTP.Run as WTP
 import WTP.Specification
 import WTP.Syntax
-import Prelude hiding ((<), (<=), (>), (>=), all, init)
+import Prelude hiding ((<), (<=), (>), (>=), all, init, length, tail, head)
 
 cwd :: FilePath
 cwd = unsafePerformIO getCurrentDirectory
@@ -46,7 +43,7 @@ main =
       ]
 
 -- Simple example: a button that can be clicked, which then shows a message
-buttonSpec :: Specification Proposition
+buttonSpec :: Specification Formula
 buttonSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/button.html"),
@@ -57,7 +54,7 @@ buttonSpec =
          in buttonIsEnabled /\ always click
     }
 
-ajaxSpec :: Specification Proposition
+ajaxSpec :: Specification Formula
 ajaxSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/ajax.html"),
@@ -78,18 +75,18 @@ ajaxSpec =
          in buttonIsEnabled /\ always (launch \/ impactOrNoImpact)
     }
 
-spinnersSpec :: Specification Proposition
+spinnersSpec :: Specification Formula
 spinnersSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/spinners.html"),
       readyWhen = "body",
       actions = clicks,
       proposition =
-        let numberOfActiveSpinners = length <$> queryAll (byCss ".spinner.active")
+        let numberOfActiveSpinners = apply length [queryAll (byCss ".spinner.active")]
          in numberOfActiveSpinners === num 0 /\ always (numberOfActiveSpinners <= num 1)
     }
 
-toggleSpec :: Specification Proposition
+toggleSpec :: Specification Formula
 toggleSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/toggle.html"),
@@ -103,7 +100,7 @@ toggleSpec =
          in off /\ always (turnOn \/ turnOff)
     }
 
-draftsSpec :: Specification Proposition
+draftsSpec :: Specification Formula
 draftsSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/drafts.html"),
@@ -112,7 +109,7 @@ draftsSpec =
       proposition = top
     }
 
-commentFormSpec :: Specification Proposition
+commentFormSpec :: Specification Formula
 commentFormSpec =
   Specification
     { origin = Path ("file://" <> Text.pack cwd <> "/test/comment-form.html"),
@@ -125,18 +122,10 @@ commentFormSpec =
          in isVisible "form" /\ always postComment
     }
 
-buttonIsEnabled :: Proposition
-buttonIsEnabled = fromMaybe bottom <$> queryOne (enabled (byCss "button"))
+buttonIsEnabled :: Formula
+buttonIsEnabled = queryOne (enabled (byCss "button")) === top
 
-commentIsValid :: Proposition
-commentIsValid = (commentLength <$> queryOne (text (byCss ".comment"))) >= num 3
+commentIsValid :: Formula
+commentIsValid = commentLength (queryOne (text (byCss ".comment"))) >= num 3
   where
-    commentLength = \case
-      Just t ->
-        t
-          & Text.splitOn ": "
-          & (^? (ix 1))
-          & fromMaybe ""
-          & Text.strip
-          & Text.length
-      Nothing -> 0
+    commentLength t = apply length [apply strip [apply head [apply tail [apply splitOn [": ", t]]]]]

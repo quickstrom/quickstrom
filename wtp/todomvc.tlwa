@@ -1,0 +1,81 @@
+# Specification for TodoMVC using WebCheck prototype.
+spec name =
+  {
+    origin = ("http://todomvc.com/examples/" <> name <> "/"),
+    readyWhen = ".todoapp",
+    actions =
+        [
+          [5, keyPress 'a'],
+          [5, specialKeyPress KeyEnter],
+          [5, focus ".todoapp .new-todo"],
+          [5, click ".todoapp .filters a:not(.selected)"],
+          [1, click ".todoapp .filters a.selected"],
+          [1, click ".todoapp label[for=toggle-all]"],
+          [1, click ".todoapp .destroy"],
+        ],
+    proposition = initial and (always (enterText or addNew or changeFilter or toggleAll)),
+  }
+
+initial =
+  (currentFilter == null or currentFilter == "All")
+    and (numItems == num 0)
+    and (pendingText == "" or pendingText == null)
+
+enterText =
+  pendingText /= next pendingText
+    and itemTexts == next itemTexts
+    and currentFilter == next currentFilter
+
+changeFilter =
+  currentFilter /= next currentFilter
+    and (currentFilter == "All") => (numItems >= next numItems)
+    and ( next
+            ( (currentFilter == "Active")
+                => ( numItemsLeft == numUnchecked
+                        and numItems == numUnchecked
+                    )
+            )
+        )
+    # NOTE: AngularJS and Mithril implementations are
+    # inconsistent with the other JS implementations, in that
+    # they clear the input field when the filter is changed.
+    and not (name in {"angularjs", "mithril"}) => pendingText == next pendingText
+
+addNew =
+  pendingText == next lastItemText
+    and next (pendingText == "")
+
+toggleAll =
+  pendingText == next lastItemText
+    and currentFilter == next currentFilter
+    and ( (currentFilter == "All")
+            => numItems == next numItems and next (numItems == numChecked)
+        )
+    and ( (currentFilter == "Active")
+            => ( numItems > num 0 => next numItems == num 0
+                    or (numItems == num 0) => next numItems > num 0
+                )
+        )
+
+
+currentFilter: String = (queryOne ".todoapp .filters .selected").text
+
+items: [Element r] = queryAll ".todo-list li"
+
+itemTexts: [String] = [item in items: item.text]
+
+lastItemText: String = last itemTexts
+
+numItems: Number = length items
+
+checked: Bool = queryAll (".todo-list li input[type=checkbox]")
+
+numUnchecked = length (filter not checked)
+
+numChecked = length (filter identity checked)
+
+pendingText = queryOne (property "value" (".new-todo")) 
+
+numItemsLeft =
+  let str = queryOne (text (".todoapp .todo-count strong"))
+  in parseNumber (head (splitOn " " str))

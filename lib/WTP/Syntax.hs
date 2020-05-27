@@ -12,19 +12,18 @@
 {-# LANGUAGE StandaloneDeriving #-}
 
 module WTP.Syntax
-  ( Literal,
-    Formula,
+  ( Formula,
     Query,
-    Proposition,
     Element,
     Selector,
     Lattice (..),
     Heyting (..),
-    PropertyValue (..),
     top,
     bottom,
+    lit,
+    null,
     num,
-    json,
+    string,
     next,
     always,
     seq,
@@ -43,72 +42,146 @@ module WTP.Syntax
     (<=),
     (>),
     (>=),
+    apply,
+    identity,
+    in',
+    not,
+    length,
+    filter,
+    map,
+    head,
+    tail,
+    init,
+    last,
+    parseNumber,
+    splitOn,
+    strip,
   )
 where
 
 import Algebra.Heyting
 import Algebra.Lattice
-import qualified Data.Aeson as JSON
-import Data.Hashable (Hashable)
-import Data.Maybe (Maybe, listToMaybe)
+import Data.Scientific (Scientific)
 import Data.Text (Text)
 import WTP.Element
 import WTP.Formula
 import WTP.Query
-import Prelude ((.), Bool, Eq, Num, Ord, Show, fmap)
+import WTP.Value
+import Prelude ((.))
 
-num :: (Eq n, Show n, Num n) => n -> Formula n
-num = Literal . LNum
+-- * Constructing Terms
 
-json :: JSON.Value -> Formula JSON.Value
-json = Literal . LJson
+num :: Scientific -> Formula
+num = Literal . VNumber
 
-seq :: IsValue a => [Formula a] -> Formula [a]
+lit :: Value -> Formula
+lit = Literal
+
+null :: Formula
+null = lit VNull
+
+string :: Text -> Formula
+string = Literal . VString
+
+seq :: [Formula] -> Formula
 seq = Seq
 
-set :: (IsValue a, Hashable a) => [Formula a] -> Formula (Set a)
+set :: [Formula] -> Formula
 set = Set
 
-next :: Formula a -> Formula a
+-- * Temporal Operators
+
+next :: Formula -> Formula
 next = Next
 
-always :: Proposition -> Proposition
+always :: Formula -> Formula
 always = Always
 
-attribute :: Text -> Query Element -> Query Text
+-- * Queries and Element States
+
+attribute :: Text -> Query -> Query
 attribute t = Get (Attribute t)
 
-property :: Text -> Query Element -> Query PropertyValue
+property :: Text -> Query -> Query
 property t = Get (Property t)
 
-cssValue :: Text -> Query Element -> Query Text
+cssValue :: Text -> Query -> Query
 cssValue t = Get (CssValue t)
 
-text :: Query Element -> Query Text
+text :: Query -> Query
 text = Get Text
 
-enabled :: Query Element -> Query Bool
+enabled :: Query -> Query
 enabled = Get Enabled
 
-byCss :: Selector -> Query Element
+byCss :: Selector -> Query
 byCss = ByCss
 
-queryAll :: (IsValue a, Hashable a) => Query a -> Formula [a]
-queryAll = BindQuery
+queryAll :: Query -> Formula
+queryAll = BindQuery QueryAll
 
-queryOne :: (IsValue a, Hashable a) => Query a -> Formula (Maybe a)
-queryOne = fmap listToMaybe . queryAll
+queryOne :: Query -> Formula
+queryOne = BindQuery QueryOne
+
+-- * Equality and Ordering
 
 infixl 7 ===, /==
 
-(===) :: IsValue a => Formula a -> Formula a -> Proposition
+(===) :: Formula -> Formula -> Formula
 (===) = Equals
 
-(/==) :: IsValue a => Formula a -> Formula a -> Proposition
+(/==) :: Formula -> Formula -> Formula
 a /== b = neg (a === b)
 
-(<), (<=), (>), (>=) :: Ord a => Formula a -> Formula a -> Proposition
+(<), (<=), (>), (>=) :: Formula -> Formula -> Formula
 (<) = Compare LessThan
 (<=) = Compare LessThanEqual
 (>) = Compare GreaterThan
 (>=) = Compare GreaterThanEqual
+
+-- * Functions
+
+apply :: Formula -> [Formula] -> Formula
+apply = Apply
+
+builtIn :: BuiltInFunction -> Formula
+builtIn = Literal . VFunction . BuiltInFunction
+
+not :: Formula
+not = Literal (VFunction (BuiltInFunction FNot))
+
+identity :: Formula
+identity = builtIn FIdentity
+
+in' :: Formula
+in' = builtIn FIn
+
+length :: Formula
+length = builtIn FLength
+
+filter :: Formula
+filter = builtIn FFilter
+
+map :: Formula
+map = builtIn FMap
+
+head :: Formula
+head = builtIn FHead
+
+tail :: Formula
+tail = builtIn FTail
+
+init :: Formula
+init = builtIn FInit
+
+last :: Formula
+last = builtIn FLast
+
+parseNumber :: Formula
+parseNumber = builtIn FParseNumber
+
+splitOn :: Formula
+splitOn = builtIn FSplitOn
+
+strip :: Formula
+strip = builtIn FStrip

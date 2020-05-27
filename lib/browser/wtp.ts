@@ -36,9 +36,7 @@ function selectorInQuery(query: Query): Selector {
     }
 }
 
-type Value = string | number | boolean | Element | PropertyValue | null;
-
-type PropertyValue = { tag: "propertyValue", value: any }
+type Value = string | number | boolean | Element | null;
 
 function runQuery(query: Query): Array<Value> {
     function runStateQuery(element: Element, stateQuery: StateQuery): Value {
@@ -47,7 +45,7 @@ function runQuery(query: Query): Array<Value> {
                 return element.attributes.getNamedItem(stateQuery.name) as (string | null);
             case "property":
                 // @ts-ignore
-                return { tag: "propertyValue", value: element[stateQuery.name] };
+                return element[stateQuery.name];
             case "cssValue":
                 return window
                     .getComputedStyle(element)

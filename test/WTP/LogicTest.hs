@@ -25,12 +25,12 @@ spec_logic =
            in it (show input <> " ⊢ " <> show formula <> " (" <> show f <> ")") $
                 verify input f `shouldBe` result
     describe "Always" $ do
-      testFormula (always top) [mempty] Accepted
-      testFormula (always top) [] Accepted
+      testFormula (always top) [mempty] (pure Accepted)
+      testFormula (always top) [] (pure Accepted)
 
 prop_logic_always = forAll ((,) <$> Gen.trueSyntax <*> listOf Gen.observedState) $ \(p, trace) -> do
-  verify trace (simplify (always p)) === Accepted
+  verify trace (simplify (always p)) === pure Accepted
 
 prop_logic_any_false = forAll ((,) <$> Gen.falseSyntax <*> Gen.nonEmpty (listOf (pure mempty))) $ \(p, trace) -> do
   let p' = simplify p
-  Rejected === verify (NonEmpty.toList trace) p'
+  pure Rejected === verify (NonEmpty.toList trace) p'

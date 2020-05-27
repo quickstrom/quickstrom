@@ -60,17 +60,17 @@ import Web.Api.WebDriver hiding (Action, Selector, assertFailure, hPutStrLn, run
 
 type Runner = WebDriverTT IdentityT IO
 
-testSpecifications :: [(Text, Specification Proposition)] -> Tasty.TestTree
+testSpecifications :: [(Text, Specification Formula)] -> Tasty.TestTree
 testSpecifications specs =
   Tasty.testGroup "WTP specifications" [testCase (Text.unpack name) (check spec) | (name, spec) <- specs]
 
-data FailingTest = FailingTest {numShrinks :: Int, trace :: Trace TraceElementEffect}
+data FailingTest = FailingTest {numShrinks :: Int, trace :: Trace TraceElementEffect, reason :: Maybe EvalError}
   deriving (Show, Generic)
 
 data CheckResult = CheckSuccess | CheckFailure {failedAfter :: Int, failingTest :: FailingTest}
   deriving (Show)
 
-check :: Specification Proposition -> IO ()
+check :: Specification Formula -> IO ()
 check spec = do
   -- stdGen <- getStdGen
   let numTests = 10
@@ -80,10 +80,21 @@ check spec = do
     CheckFailure {failedAfter, failingTest} -> do
       logInfo . renderString $
         prettyTrace (withoutStutterStates (trace failingTest)) <> line
+      case reason failingTest of
+        Just err -> logInfo (renderString (annotate (color Red) ("Verification failed with error:" <+> prettyEvalError err <> line)))
+        Nothing -> pure ()
       assertFailure ("Failed after " <> show failedAfter <> " tests and " <> show (numShrinks failingTest) <> " levels of shrinking.")
     CheckSuccess -> logInfo ("Passed " <> show numTests <> " tests.")
   where
     spec' = spec & field @"proposition" %~ simplify
+
+prettyEvalError :: EvalError -> Doc AnsiStyle
+prettyEvalError = \case
+  TypeError value type' -> prettyValue value <+> "is not a" <+> pretty type'
+  ApplyError f args -> prettyValue f <+> "cannot be applied to" <+> hsep (punctuate comma (map prettyValue args))
+  QueryError query -> "Query failed: " <+> prettyQuery query
+  RuntimeError t -> "Verification failed with error: " <+> pretty t
+  Undetermined -> "Verification failed with undetermination. There are too few observed states to satisfy the specification."
 
 elementsToTrace :: Producer (TraceElement ()) Runner () -> Runner (Trace ())
 elementsToTrace = fmap Trace . Pipes.toListM
@@ -104,7 +115,7 @@ select f = forever do
   x <- Pipes.await
   maybe (pure ()) Pipes.yield (f x)
 
-runSingle :: Specification Proposition -> Int -> Runner (Either FailingTest ())
+runSingle :: Specification Formula -> Int -> Runner (Either FailingTest ())
 runSingle spec size = do
   let maxTries = size * 10
   result <-
@@ -115,7 +126,7 @@ runSingle spec size = do
       & runAndVerifyIsolated 0
   case result of
     Right () -> pure (Right ())
-    f@(Left (FailingTest _ trace)) -> do
+    f@(Left (FailingTest _ trace _)) -> do
       logInfoWD "Test failed. Shrinking..."
       let shrinks = shrinkForest (QuickCheck.shrinkList shrinkAction) (trace ^.. traceActions)
       shrunk <- minBy (lengthOf (field @"trace" . traceElements)) (traverseShrinks runShrink shrinks >-> select (preview _Left) >-> Pipes.take 10)
@@ -126,12 +137,13 @@ runSingle spec size = do
         beforeRun spec
         elementsToTrace (producer >-> runActions' spec)
       case verify (trace ^.. nonStutterStates) (proposition spec) of
-        Accepted -> pure (Right ())
-        Rejected -> pure (Left (FailingTest n trace))
+        Right Accepted -> pure (Right ())
+        Right Rejected -> pure (Left (FailingTest n trace Nothing))
+        Left err -> pure (Left (FailingTest n trace (Just err)))
     runShrink (Shrink n actions) =
       runAndVerifyIsolated n (Pipes.each actions)
 
-runAll :: Int -> Specification Proposition -> Effect Runner CheckResult
+runAll :: Int -> Specification Formula -> Effect Runner CheckResult
 runAll numTests spec' = (allTests $> CheckSuccess) >-> firstFailure
   where
     runSingle' :: Int -> Producer (Either FailingTest ()) Runner ()
@@ -150,13 +162,13 @@ firstFailure =
 sizes :: Functor m => Int -> Producer Int m ()
 sizes numSizes = Pipes.each (map (\n -> (n * 100 `div` numSizes)) [1 .. numSizes])
 
-beforeRun :: Specification Proposition -> Runner ()
+beforeRun :: Specification Formula -> Runner ()
 beforeRun spec = do
   navigateToOrigin spec
   initializeScript
   awaitElement (readyWhen spec)
 
-observeManyStatesAfter :: HashSet SomeQuery -> ObservedState -> Action Selected -> Pipe a (TraceElement ()) Runner ObservedState
+observeManyStatesAfter :: HashSet Query -> ObservedState -> Action Selected -> Pipe a (TraceElement ()) Runner ObservedState
 observeManyStatesAfter queries initialState action = do
   result <- lift (runAction action)
   delta <- getNextOrFail =<< lift (registerNextStateObserver queries)
@@ -179,13 +191,13 @@ observeManyStatesAfter queries initialState action = do
       loop (delta <> currentState)
 
 {-# SCC runActions' "runActions'" #-}
-runActions' :: Specification Proposition -> Pipe (Action Selected) (TraceElement ()) Runner ()
+runActions' :: Specification Formula -> Pipe (Action Selected) (TraceElement ()) Runner ()
 runActions' spec = do
   state1 <- lift (observeStates queries)
   Pipes.yield (TraceState () state1)
   loop state1
   where
-    queries = HashSet.fromList (runIdentity (withQueries (pure . SomeQuery) (proposition spec)))
+    queries = HashSet.fromList (runIdentity (withQueries pure (proposition spec)))
     loop currentState = do
       action <- Pipes.await
       newState <- observeManyStatesAfter queries currentState action
@@ -392,14 +404,14 @@ executeAsyncScript' script args = do
     JSON.Success a -> pure a
     JSON.Error e -> fail e
 
-observeStates :: HashSet SomeQuery -> WebDriverT IO ObservedState
+observeStates :: HashSet Query -> WebDriverT IO ObservedState
 observeStates queries =
   executeScript' "return wtp.mapToArray(window.wtp.observeInitialStates(arguments[0]))" [JSON.toJSON queries]
 
 newtype StateObserver = StateObserver Text
   deriving (Eq, Show)
 
-registerNextStateObserver :: HashSet SomeQuery -> Runner StateObserver
+registerNextStateObserver :: HashSet Query -> Runner StateObserver
 registerNextStateObserver queries =
   StateObserver
     <$> executeScript'

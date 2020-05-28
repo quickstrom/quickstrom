@@ -1,14 +1,14 @@
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 
 module WTP.PureScript where
 
@@ -19,7 +19,7 @@ import qualified Data.ByteString.Lazy.Char8 as BS
 import Data.Generics.Sum (AsConstructor, _Ctor)
 import qualified Data.HashMap.Strict as HashMap
 import Data.HashMap.Strict (HashMap)
-import Data.HashSet (HashSet)
+import qualified Data.Map as Map
 import Data.Scientific
 import qualified Data.Text as Text
 import Data.Vector (Vector)
@@ -29,9 +29,10 @@ import Language.PureScript.AST (SourceSpan)
 import Language.PureScript.CoreFn
 import Language.PureScript.CoreFn.FromJSON (moduleFromJSON)
 import Language.PureScript.Names
-import Language.PureScript.PSString (PSString, decodeString)
-import Protolude
+import Language.PureScript.PSString (PSString, decodeString, mkString)
+import Protolude hiding (moduleName)
 import WTP.Element
+import System.FilePath.Glob (glob)
 
 data Value
   = VNull
@@ -47,8 +48,8 @@ data Value
 
 data EvalError
   = UnexpectedError Text
-  | EntryPointNotDefined Ident
-  | NotInScope (Qualified Ident)
+  | EntryPointNotDefined (Qualified Ident)
+  | NotInScope SourceSpan (Qualified Ident)
   | InvalidString SourceSpan
   deriving (Eq, Show)
 
@@ -57,15 +58,6 @@ type Eval a = Except EvalError a
 runEval :: Eval a -> (Either EvalError a)
 runEval = runExcept
 
-loadModule :: FilePath -> IO (Either Text (Version, Module Ann))
-loadModule path = do
-  j <- liftIO (BS.readFile path)
-  case JSON.decode j of
-    Just val ->
-      case JSON.parse moduleFromJSON val of
-        JSON.Success m -> pure (Right m)
-        JSON.Error e -> pure (Left (toS e))
-    Nothing -> pure (Left "Couldn't read CoreFn file.")
 
 require ::
   forall (ctor :: Symbol) s t a b.
@@ -83,78 +75,128 @@ require (ctor :: Proxy ctor) v = case v ^? _Ctor @ctor of
           )
       )
 
-findBind :: Module a -> Ident -> Maybe (Expr a)
-findBind m ident = head (catMaybes (map fromBind (moduleDecls m)))
-  where
-    fromBind :: Bind a -> Maybe (Expr a)
-    fromBind = \case
-      NonRec _ name expr | name == ident -> pure expr
-      _ -> Nothing
-
 evalString :: SourceSpan -> PSString -> Eval Text
 evalString ss s =
   case decodeString s of
     Just t -> pure t
     Nothing -> throwError (InvalidString ss)
 
-type LocalEnv = HashMap Text Value
+data Env = Env
+  { locals ::  Map Ident Value
+  , topLevel :: Map (Qualified Ident) (Expr Ann)
+  }
+  deriving (Show)
 
-eval :: LocalEnv -> Expr Ann -> Eval Value
-eval = go
-  where
-    go locals = \case
+instance Semigroup Env where
+  e1 <> e2 = Env (locals e1 <> locals e2) (topLevel e1 <> topLevel e2)
+
+instance Monoid Env where
+  mempty = Env mempty mempty
+
+newLocal :: Ident -> Value -> Env
+newLocal ident value = Env (Map.singleton ident value) mempty
+
+newTopLevel :: Qualified Ident -> Expr Ann -> Env
+newTopLevel qn expr = Env mempty (Map.singleton qn expr)
+
+withoutLocals :: Env -> Env
+withoutLocals env = env { locals = mempty }
+
+envLookup :: Qualified Ident -> Env -> Maybe (Either Value (Expr Ann))
+envLookup qn@(Qualified Nothing n) env =
+  (Left <$> Map.lookup n (locals env)) <|> (Right <$> Map.lookup qn (topLevel env))
+envLookup qn env = (Right <$> Map.lookup qn (topLevel env))
+
+envLookupEval :: SourceSpan -> Qualified Ident -> Env -> Eval Value
+envLookupEval ss qn env =
+  case envLookup qn env of
+    Just r -> either pure (eval (withoutLocals env)) r
+    Nothing -> throwError (NotInScope ss qn)
+
+eval :: Env -> Expr Ann -> Eval Value
+eval env = \case
       Literal (ss, _, _, _) lit -> case lit of
         NumericLiteral n -> pure (either (VNumber . fromIntegral) (VNumber . realToFrac) n)
         StringLiteral s -> VString <$> evalString ss s
         CharLiteral c -> pure (VChar c)
         BooleanLiteral b -> pure (VBool b)
-        ArrayLiteral xs -> VArray . Vector.fromList <$> traverse (go locals) xs
+        ArrayLiteral xs -> VArray . Vector.fromList <$> traverse (eval env) xs
         ObjectLiteral pairs -> do
           pairs' <- for pairs $ \(field, value) ->
-            (,) <$> evalString ss field <*> go locals value
+            (,) <$> evalString ss field <*> eval env value
           pure (VObject (HashMap.fromList pairs'))
-      Constructor _ typeName ctorName fieldNames ->
-        throwError (UnexpectedError "Constructors are not yet supported")
+      Constructor ann _typeName ctorName fieldNames -> do
+        let body =
+              Literal
+                ann
+                ( ObjectLiteral
+                    [ (mkString "constructor", Literal ann (StringLiteral (mkString (runProperName ctorName)))),
+                      (mkString "fields", Literal ann (ArrayLiteral (map (Var ann . Qualified Nothing) fieldNames)))
+                    ]
+                )
+        eval env (foldr (Abs ann) body fieldNames)
+      -- throwError (UnexpectedError "Constructors are not yet supported")
       Accessor (ss, _, _, _) prop expr -> do
         key <- evalString ss prop
-        obj <- require (Proxy @"VObject") =<< go locals expr
+        obj <- require (Proxy @"VObject") =<< eval env expr
         maybe
           (throwError (UnexpectedError ("Key not present in object: " <> key)))
           pure
           (HashMap.lookup key obj)
       ObjectUpdate (ss, _, _, _) expr updates -> do
-        obj <- require (Proxy @"VObject") =<< go locals expr
+        obj <- require (Proxy @"VObject") =<< eval env expr
         updates' <- for updates $ \(field, expr') ->
-          (,) <$> evalString ss field <*> go locals expr'
+          (,) <$> evalString ss field <*> eval env expr'
         pure (VObject (obj <> HashMap.fromList updates'))
       Abs _ arg body -> pure (VFunction (arg, body))
       App _ func param -> do
-        (arg, body) <- require (Proxy @"VFunction") =<< go locals func
-        param' <- go locals param
-        go (locals <> HashMap.singleton (runIdent arg) param') body
-      Var _ qn@(Qualified Nothing localIdent) ->
-        maybe (throwError (NotInScope qn)) pure (HashMap.lookup (runIdent localIdent) locals)
-      Var _ qn@(Qualified _ _) ->
-        throwError (NotInScope qn)
-      Case _ exprs alts -> throwError (UnexpectedError "Case expressions are not yet supported")
+        (arg, body) <- require (Proxy @"VFunction") =<< eval env func
+        param' <- eval env param
+        eval (env <> newLocal arg param') body
+      Var (ss, _, _, Just IsForeign) qn -> traceShow qn $ envLookupEval ss qn env
+      Var (ss, _, _, _) qn -> envLookupEval ss qn env
+      Case _ _exprs _alts -> throwError (UnexpectedError "Case expressions are not yet supported")
       Let _ bindings body -> do
         let evalBinding = \case
-              NonRec _ name expr -> (runIdent name,) <$> go locals expr
-              Rec group -> throwError (UnexpectedError "Mutually recursive let bindings are not yet supported")
-        newEnv <- HashMap.fromList <$> traverse evalBinding bindings
-        go (locals <> newEnv) body
-        
-              
-      
+              NonRec _ name expr -> newLocal name <$> eval env expr
+              Rec _group -> throwError (UnexpectedError "Mutually recursive let bindings are not yet supported")
+        newEnv <- fold <$> traverse evalBinding bindings
+        eval (env <> newEnv) body
 
-evalEntryPoint :: Module Ann -> Ident -> Eval Value
-evalEntryPoint m entryPoint =
-  case findBind m entryPoint of
-    Just entry -> eval mempty entry
+toModuleEnv :: Module Ann -> Env
+toModuleEnv m =
+  let addDecl = \case
+        NonRec _ name expr -> newTopLevel (Qualified (Just (moduleName m)) name) expr
+        Rec _group -> mempty -- TODO
+  in foldMap addDecl (moduleDecls m)
+
+type AllModules = Map ModuleName (Module Ann)
+
+loadModule :: FilePath -> ExceptT Text IO (Module Ann)
+loadModule path = do
+  j <- liftIO (BS.readFile path)
+  case JSON.decode j of
+    Just val ->
+      case JSON.parse moduleFromJSON val of
+        JSON.Success (_, m) -> pure m
+        JSON.Error e -> throwError (toS e)
+    Nothing -> throwError "Couldn't read CoreFn file."
+
+loadAllModulesEnv :: [FilePath] -> ExceptT Text IO Env
+loadAllModulesEnv paths = do
+  ms <- traverse loadModule paths
+  pure (foldMap toModuleEnv ms)
+
+evalEntryPoint :: Qualified Ident -> Env -> Eval Value
+evalEntryPoint entryPoint env =
+  case Map.lookup entryPoint (topLevel env) of
+    Just entry -> eval env entry
     Nothing -> throwError (EntryPointNotDefined entryPoint)
 
-test :: FilePath -> Text -> IO ()
-test path name = do
-  loadModule path >>= \case
-    Right (_v, m) -> print (runEval (evalEntryPoint m (Ident name)))
-    Left e -> putStrLn e
+test :: Text -> Qualified Ident -> IO ()
+test g entry = do
+  paths <- glob (toS g)
+  runExceptT (loadAllModulesEnv paths) >>= \case
+    Right env ->  do
+      print (runEval (evalEntryPoint entry env))
+    Left err -> putStrLn err

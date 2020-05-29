@@ -1,14 +1,16 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module WTP.PureScript where
 
@@ -24,56 +26,67 @@ import Data.Scientific
 import qualified Data.Text as Text
 import Data.Vector (Vector)
 import qualified Data.Vector as Vector
-import Data.Version (Version)
 import Language.PureScript.AST (SourceSpan)
 import Language.PureScript.CoreFn
 import Language.PureScript.CoreFn.FromJSON (moduleFromJSON)
 import Language.PureScript.Names
 import Language.PureScript.PSString (PSString, decodeString, mkString)
 import Protolude hiding (moduleName)
-import WTP.Element
 import System.FilePath.Glob (glob)
+import WTP.Element (Element)
+import qualified WTP.Element as Element
 
 data Value
   = VNull
   | VBool Bool
   | VElement Element
+  | VElementState Element.ElementState
   | VString Text
   | VChar Char
   | VNumber Scientific
   | VArray (Vector Value)
   | VObject (HashMap Text Value)
-  | VFunction (Ident, (Expr Ann))
+  | VFunction (Env, Ident, (Expr Ann))
   deriving (Show, Generic)
 
 data EvalError
-  = UnexpectedError Text
+  = UnexpectedError (Maybe SourceSpan) Text
   | EntryPointNotDefined (Qualified Ident)
   | NotInScope SourceSpan (Qualified Ident)
   | InvalidString SourceSpan
-  deriving (Eq, Show)
+  | InvalidBuiltInFunctionApplication SourceSpan (Expr Ann) (Expr Ann)
+  deriving (Show, Generic)
 
 type Eval a = Except EvalError a
 
 runEval :: Eval a -> (Either EvalError a)
 runEval = runExcept
 
+unexpectedType :: (MonadError EvalError m, Show value) => SourceSpan -> Text -> value -> m a
+unexpectedType ss typ v =
+  throwError
+    ( UnexpectedError
+        (Just ss)
+        ( "Expected value of type "
+            <> typ
+            <> " but got "
+            <> show v
+        )
+    )
+
+sourceSpan :: Expr Ann -> SourceSpan
+sourceSpan expr = extractAnn expr ^. _1
 
 require ::
   forall (ctor :: Symbol) s t a b.
   (KnownSymbol ctor, AsConstructor ctor s t a b, s ~ Value, t ~ Value, a ~ b) =>
+  SourceSpan ->
   Proxy ctor ->
   Value ->
   Eval b
-require (ctor :: Proxy ctor) v = case v ^? _Ctor @ctor of
+require ss (ctor :: Proxy ctor) v = case v ^? _Ctor @ctor of
   Just x -> pure x
-  Nothing ->
-    throwError
-      ( UnexpectedError
-          ( "Expected value of type: "
-              <> Text.toLower (Text.drop 1 (Text.pack (symbolVal ctor)))
-          )
-      )
+  Nothing -> unexpectedType ss (Text.toLower (Text.drop 1 (Text.pack (symbolVal ctor)))) v
 
 evalString :: SourceSpan -> PSString -> Eval Text
 evalString ss s =
@@ -81,10 +94,18 @@ evalString ss s =
     Just t -> pure t
     Nothing -> throwError (InvalidString ss)
 
-data Env = Env
-  { locals ::  Map Ident Value
-  , topLevel :: Map (Qualified Ident) (Expr Ann)
-  }
+evalStringExpr :: Expr Ann -> Eval Text
+evalStringExpr (Literal (ss, _, _, _) (StringLiteral s)) =
+  case decodeString s of
+    Just t -> pure t
+    Nothing -> throwError (InvalidString ss)
+evalStringExpr expr = unexpectedType (sourceSpan expr) "string" expr
+
+data Env
+  = Env
+      { locals :: Map Ident Value,
+        topLevel :: Map (Qualified Ident) (Expr Ann)
+      }
   deriving (Show)
 
 instance Semigroup Env where
@@ -100,11 +121,13 @@ newTopLevel :: Qualified Ident -> Expr Ann -> Env
 newTopLevel qn expr = Env mempty (Map.singleton qn expr)
 
 withoutLocals :: Env -> Env
-withoutLocals env = env { locals = mempty }
+withoutLocals env = env {locals = mempty}
 
 envLookup :: Qualified Ident -> Env -> Maybe (Either Value (Expr Ann))
 envLookup qn@(Qualified Nothing n) env =
-  (Left <$> Map.lookup n (locals env)) <|> (Right <$> Map.lookup qn (topLevel env))
+  case Map.lookup n (locals env) of
+    Just v -> pure (Left v)
+    Nothing -> Right <$> Map.lookup qn (topLevel env)
 envLookup qn env = (Right <$> Map.lookup qn (topLevel env))
 
 envLookupEval :: SourceSpan -> Qualified Ident -> Env -> Eval Value
@@ -113,62 +136,89 @@ envLookupEval ss qn env =
     Just r -> either pure (eval (withoutLocals env)) r
     Nothing -> throwError (NotInScope ss qn)
 
+qualifiedName :: [Text] -> Text -> Qualified Ident
+qualifiedName moduleNames localName = Qualified (Just (ModuleName (map ProperName moduleNames))) (Ident localName)
+
+asBuiltInName :: Expr Ann -> Maybe ([Text], Text)
+asBuiltInName (Var (_, _, _, Just IsForeign) (Qualified (Just (ModuleName pns)) n)) = Just (map runProperName pns, runIdent n)
+asBuiltInName _ = Nothing
+
+evalApp :: Env -> Ann -> Expr Ann -> Expr Ann -> Eval Value
+evalApp env (ss, _, _, _) func param =
+  case (func, param) of
+    (asBuiltInName -> Just (["DSL"], "_property"), p) -> do
+      traceShowM ("_property", p)
+      name <- require (sourceSpan p) (Proxy @"VString") =<< eval env p
+      traceM ("Propery name: " <> name)
+      pure (VElementState (Element.Property name))
+    (asBuiltInName -> Just (["DSL"], "_attribute"), p) -> do
+      traceShowM ("_attribute", p)
+      name <- require (sourceSpan p) (Proxy @"VString") =<< eval env p
+      pure (VElementState (Element.Attribute name))
+    (App _ (asBuiltInName -> Just (["DSL"], "_queryAll")) p1, p2) -> do
+      traceShowM ("_queryAll", p1, p2)
+      _selector <- require (sourceSpan p1) (Proxy @"VString") =<< eval env p1
+      _states <- require ss (Proxy @"VObject") =<< eval env p2
+      -- TODO: Get state from trace
+      pure (VObject mempty)
+    _ -> do
+      (fEnv, arg, body) <- require ss (Proxy @"VFunction") =<< eval env func
+      param' <- eval env param
+      eval (env <> fEnv <> newLocal arg param') body
+
 eval :: Env -> Expr Ann -> Eval Value
 eval env = \case
-      Literal (ss, _, _, _) lit -> case lit of
-        NumericLiteral n -> pure (either (VNumber . fromIntegral) (VNumber . realToFrac) n)
-        StringLiteral s -> VString <$> evalString ss s
-        CharLiteral c -> pure (VChar c)
-        BooleanLiteral b -> pure (VBool b)
-        ArrayLiteral xs -> VArray . Vector.fromList <$> traverse (eval env) xs
-        ObjectLiteral pairs -> do
-          pairs' <- for pairs $ \(field, value) ->
-            (,) <$> evalString ss field <*> eval env value
-          pure (VObject (HashMap.fromList pairs'))
-      Constructor ann _typeName ctorName fieldNames -> do
-        let body =
-              Literal
-                ann
-                ( ObjectLiteral
-                    [ (mkString "constructor", Literal ann (StringLiteral (mkString (runProperName ctorName)))),
-                      (mkString "fields", Literal ann (ArrayLiteral (map (Var ann . Qualified Nothing) fieldNames)))
-                    ]
-                )
-        eval env (foldr (Abs ann) body fieldNames)
-      -- throwError (UnexpectedError "Constructors are not yet supported")
-      Accessor (ss, _, _, _) prop expr -> do
-        key <- evalString ss prop
-        obj <- require (Proxy @"VObject") =<< eval env expr
-        maybe
-          (throwError (UnexpectedError ("Key not present in object: " <> key)))
-          pure
-          (HashMap.lookup key obj)
-      ObjectUpdate (ss, _, _, _) expr updates -> do
-        obj <- require (Proxy @"VObject") =<< eval env expr
-        updates' <- for updates $ \(field, expr') ->
-          (,) <$> evalString ss field <*> eval env expr'
-        pure (VObject (obj <> HashMap.fromList updates'))
-      Abs _ arg body -> pure (VFunction (arg, body))
-      App _ func param -> do
-        (arg, body) <- require (Proxy @"VFunction") =<< eval env func
-        param' <- eval env param
-        eval (env <> newLocal arg param') body
-      Var (ss, _, _, Just IsForeign) qn -> traceShow qn $ envLookupEval ss qn env
-      Var (ss, _, _, _) qn -> envLookupEval ss qn env
-      Case _ _exprs _alts -> throwError (UnexpectedError "Case expressions are not yet supported")
-      Let _ bindings body -> do
-        let evalBinding = \case
-              NonRec _ name expr -> newLocal name <$> eval env expr
-              Rec _group -> throwError (UnexpectedError "Mutually recursive let bindings are not yet supported")
-        newEnv <- fold <$> traverse evalBinding bindings
-        eval (env <> newEnv) body
+  Literal (ss, _, _, _) lit -> case lit of
+    NumericLiteral n -> pure (either (VNumber . fromIntegral) (VNumber . realToFrac) n)
+    StringLiteral s -> VString <$> evalString ss s
+    CharLiteral c -> pure (VChar c)
+    BooleanLiteral b -> pure (VBool b)
+    ArrayLiteral xs -> VArray . Vector.fromList <$> traverse (eval env) xs
+    ObjectLiteral pairs -> do
+      pairs' <- for pairs $ \(field, value) ->
+        (,) <$> evalString ss field <*> eval env value
+      pure (VObject (HashMap.fromList pairs'))
+  Constructor ann _typeName ctorName fieldNames -> do
+    let body =
+          Literal
+            ann
+            ( ObjectLiteral
+                [ (mkString "constructor", Literal ann (StringLiteral (mkString (runProperName ctorName)))),
+                  (mkString "fields", Literal ann (ArrayLiteral (map (Var ann . Qualified Nothing) fieldNames)))
+                ]
+            )
+    eval env (foldr (Abs ann) body fieldNames)
+  -- throwError (UnexpectedError "Constructors are not yet supported")
+  Accessor (ss, _, _, _) prop expr -> do
+    key <- evalString ss prop
+    obj <- require ss (Proxy @"VObject") =<< eval env expr
+    maybe
+      (throwError (UnexpectedError (Just ss) ("Key not present in object: " <> key)))
+      pure
+      (HashMap.lookup key obj)
+  ObjectUpdate (ss, _, _, _) expr updates -> do
+    obj <- require ss (Proxy @"VObject") =<< eval env expr
+    updates' <- for updates $ \(field, expr') ->
+      (,) <$> evalString ss field <*> eval env expr'
+    pure (VObject (obj <> HashMap.fromList updates'))
+  Abs _ arg body -> pure (VFunction (env, arg, body))
+  App ann func param -> evalApp env ann func param
+  Var _ (Qualified (Just (ModuleName [ProperName "Prim"])) (Ident "undefined")) -> pure (VObject mempty)
+  Var (ss, _, _, _) qn -> envLookupEval ss qn env
+  Case (ss, _, _, _) _exprs _alts -> throwError (UnexpectedError (Just ss) "Case expressions are not yet supported")
+  Let (ss, _, _, _) bindings body -> do
+    let evalBinding = \case
+          NonRec _ name expr -> newLocal name <$> eval env expr
+          Rec _group -> throwError (UnexpectedError (Just ss) "Mutually recursive let bindings are not yet supported")
+    newEnv <- fold <$> traverse evalBinding bindings
+    eval (env <> newEnv) body
 
 toModuleEnv :: Module Ann -> Env
 toModuleEnv m =
   let addDecl = \case
         NonRec _ name expr -> newTopLevel (Qualified (Just (moduleName m)) name) expr
         Rec _group -> mempty -- TODO
-  in foldMap addDecl (moduleDecls m)
+   in foldMap addDecl (moduleDecls m)
 
 type AllModules = Map ModuleName (Module Ann)
 
@@ -197,6 +247,8 @@ test :: Text -> Qualified Ident -> IO ()
 test g entry = do
   paths <- glob (toS g)
   runExceptT (loadAllModulesEnv paths) >>= \case
-    Right env ->  do
-      print (runEval (evalEntryPoint entry env))
+    Right env -> do
+      case runEval (evalEntryPoint entry env) of
+        Right value -> print value
+        Left err -> print err
     Left err -> putStrLn err

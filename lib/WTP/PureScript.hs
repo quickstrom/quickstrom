@@ -2,15 +2,16 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 
 module WTP.PureScript where
 
@@ -26,7 +27,7 @@ import Data.Scientific
 import qualified Data.Text as Text
 import Data.Vector (Vector)
 import qualified Data.Vector as Vector
-import Language.PureScript.AST (SourceSpan)
+import Language.PureScript.AST (spanName, SourceSpan, nullSourceSpan)
 import Language.PureScript.CoreFn
 import Language.PureScript.CoreFn.FromJSON (moduleFromJSON)
 import Language.PureScript.Names
@@ -44,9 +45,13 @@ data Value
   | VString Text
   | VChar Char
   | VNumber Scientific
+  | VInt Integer
   | VArray (Vector Value)
   | VObject (HashMap Text Value)
-  | VFunction (Env, Ident, (Expr Ann))
+  | VFunction (Env, Ident, Expr EvalAnn)
+  deriving (Show, Generic)
+
+data ApplyForeign = ApplyForeign (Qualified Ident) [Ident]
   deriving (Show, Generic)
 
 data EvalError
@@ -54,8 +59,14 @@ data EvalError
   | EntryPointNotDefined (Qualified Ident)
   | NotInScope SourceSpan (Qualified Ident)
   | InvalidString SourceSpan
-  | InvalidBuiltInFunctionApplication SourceSpan (Expr Ann) (Expr Ann)
+  | InvalidBuiltInFunctionApplication SourceSpan (Expr EvalAnn) (Expr EvalAnn)
   deriving (Show, Generic)
+
+data EvalAnn = EvalAnn {annSourceSpan :: SourceSpan, annApplyForeign :: Maybe ApplyForeign}
+  deriving (Show, Generic)
+
+evalAnnFromAnn :: Ann -> EvalAnn
+evalAnnFromAnn (ss, _, _, _) = EvalAnn ss Nothing
 
 type Eval a = Except EvalError a
 
@@ -74,8 +85,8 @@ unexpectedType ss typ v =
         )
     )
 
-sourceSpan :: Expr Ann -> SourceSpan
-sourceSpan expr = extractAnn expr ^. _1
+sourceSpan :: Expr EvalAnn -> SourceSpan
+sourceSpan = annSourceSpan . extractAnn
 
 require ::
   forall (ctor :: Symbol) s t a b.
@@ -94,82 +105,98 @@ evalString ss s =
     Just t -> pure t
     Nothing -> throwError (InvalidString ss)
 
-evalStringExpr :: Expr Ann -> Eval Text
-evalStringExpr (Literal (ss, _, _, _) (StringLiteral s)) =
+evalStringExpr :: Expr EvalAnn -> Eval Text
+evalStringExpr (Literal ann (StringLiteral s)) =
   case decodeString s of
     Just t -> pure t
-    Nothing -> throwError (InvalidString ss)
+    Nothing -> throwError (InvalidString (annSourceSpan ann))
 evalStringExpr expr = unexpectedType (sourceSpan expr) "string" expr
 
-data Env
-  = Env
-      { locals :: Map Ident Value,
-        topLevel :: Map (Qualified Ident) (Expr Ann)
-      }
-  deriving (Show)
+newtype Env = Env (Map (Qualified Ident) (Either (Expr EvalAnn) Value))
+  deriving (Show, Semigroup, Monoid)
 
-instance Semigroup Env where
-  e1 <> e2 = Env (locals e1 <> locals e2) (topLevel e1 <> topLevel e2)
+initialEnv :: Env
+initialEnv = fold [foreignFunction ["Data", "Array"] "indexImpl" 4]
+  where
+    foreignFunction :: [Text] -> Text -> Int -> Env
+    foreignFunction ms n arity =
+      let qn = (qualifiedName ms n)
+       in envBindExpr qn (wrap arity (\names -> Var (EvalAnn nullSourceSpan { spanName = toS (showQualified runIdent qn) } (Just (ApplyForeign qn names))) qn))
+    wrap :: Int -> ([Ident] -> Expr EvalAnn) -> Expr EvalAnn
+    wrap arity f =
+      let names = [Ident ("x" <> show n) | n <- [1 .. arity]]
+       in foldr (Abs (EvalAnn nullSourceSpan Nothing)) (f names) names
 
-instance Monoid Env where
-  mempty = Env mempty mempty
+envBindValue :: Qualified Ident -> Value -> Env
+envBindValue qn expr = Env (Map.singleton qn (Right expr))
 
-newLocal :: Ident -> Value -> Env
-newLocal ident value = Env (Map.singleton ident value) mempty
-
-newTopLevel :: Qualified Ident -> Expr Ann -> Env
-newTopLevel qn expr = Env mempty (Map.singleton qn expr)
+envBindExpr :: Qualified Ident -> Expr EvalAnn -> Env
+envBindExpr qn expr = Env (Map.singleton qn (Left expr))
 
 withoutLocals :: Env -> Env
-withoutLocals env = env {locals = mempty}
+withoutLocals (Env ms) = Env (Map.filterWithKey (\(Qualified modules _) _ -> isJust modules) ms)
 
-envLookup :: Qualified Ident -> Env -> Maybe (Either Value (Expr Ann))
-envLookup qn@(Qualified Nothing n) env =
-  case Map.lookup n (locals env) of
-    Just v -> pure (Left v)
-    Nothing -> Right <$> Map.lookup qn (topLevel env)
-envLookup qn env = (Right <$> Map.lookup qn (topLevel env))
+envLookup :: Qualified Ident -> Env -> Maybe (Either (Expr EvalAnn) Value)
+envLookup qn (Env env) = Map.lookup qn env
 
 envLookupEval :: SourceSpan -> Qualified Ident -> Env -> Eval Value
 envLookupEval ss qn env =
   case envLookup qn env of
-    Just r -> either pure (eval (withoutLocals env)) r
+    Just r -> either (eval (withoutLocals env)) pure r
     Nothing -> throwError (NotInScope ss qn)
 
 qualifiedName :: [Text] -> Text -> Qualified Ident
 qualifiedName moduleNames localName = Qualified (Just (ModuleName (map ProperName moduleNames))) (Ident localName)
 
-asBuiltInName :: Expr Ann -> Maybe ([Text], Text)
-asBuiltInName (Var (_, _, _, Just IsForeign) (Qualified (Just (ModuleName pns)) n)) = Just (map runProperName pns, runIdent n)
-asBuiltInName _ = Nothing
+asQualifiedVar :: Expr EvalAnn -> Maybe ([Text], Text)
+asQualifiedVar (Var _ qn) = asQualifiedName qn
+asQualifiedVar _ = Nothing
 
-evalApp :: Env -> Ann -> Expr Ann -> Expr Ann -> Eval Value
-evalApp env (ss, _, _, _) func param =
+asQualifiedName :: Qualified Ident -> Maybe ([Text], Text)
+asQualifiedName (Qualified (Just (ModuleName pns)) n) = Just (map runProperName pns, runIdent n)
+asQualifiedName _ = Nothing
+
+evalForeign :: SourceSpan -> Env -> ApplyForeign -> Eval Value
+evalForeign ss env (ApplyForeign qn paramNames) = do
+  params <- for paramNames $ \n -> envLookupEval ss (Qualified Nothing n) env
+  case (asQualifiedName qn, params) of
+    (Just (["Data", "Array"], "indexImpl"), [just, nothing, xs, i]) -> do
+      just' <- require ss (Proxy @"VFunction") just
+      xs' <- require ss (Proxy @"VArray") xs
+      i' <- require ss (Proxy @"VInt") i
+      case xs' ^? ix (fromIntegral i') of
+        Just x -> evalFunc env just' x
+        Nothing -> pure nothing
+    _ -> pure VNull
+
+evalApp :: Env -> EvalAnn -> Expr EvalAnn -> Expr EvalAnn -> Eval Value
+evalApp env ann func param =
   case (func, param) of
-    (asBuiltInName -> Just (["DSL"], "_property"), p) -> do
-      traceShowM ("_property", p)
+    (asQualifiedVar -> Just (["DSL"], "_property"), p) -> do
       name <- require (sourceSpan p) (Proxy @"VString") =<< eval env p
-      traceM ("Propery name: " <> name)
       pure (VElementState (Element.Property name))
-    (asBuiltInName -> Just (["DSL"], "_attribute"), p) -> do
-      traceShowM ("_attribute", p)
+    (asQualifiedVar -> Just (["DSL"], "_attribute"), p) -> do
       name <- require (sourceSpan p) (Proxy @"VString") =<< eval env p
       pure (VElementState (Element.Attribute name))
-    (App _ (asBuiltInName -> Just (["DSL"], "_queryAll")) p1, p2) -> do
-      traceShowM ("_queryAll", p1, p2)
+    (App _ (asQualifiedVar -> Just (["DSL"], "_queryAll")) p1, p2) -> do
       _selector <- require (sourceSpan p1) (Proxy @"VString") =<< eval env p1
-      _states <- require ss (Proxy @"VObject") =<< eval env p2
+      _states <- require (annSourceSpan ann) (Proxy @"VObject") =<< eval env p2
       -- TODO: Get state from trace
-      pure (VObject mempty)
+      pure (VArray mempty)
     _ -> do
-      (fEnv, arg, body) <- require ss (Proxy @"VFunction") =<< eval env func
+      func' <- require (sourceSpan func) (Proxy @"VFunction") =<< eval env func
       param' <- eval env param
-      eval (env <> fEnv <> newLocal arg param') body
+      evalFunc env func' param'
 
-eval :: Env -> Expr Ann -> Eval Value
+evalFunc :: Env -> (Env, Ident, Expr EvalAnn) -> Value -> Eval Value
+evalFunc env (fEnv, arg, body) param' =
+  let newEnv = (env <> fEnv <> envBindValue (Qualified Nothing arg) param')
+   in eval newEnv body
+
+eval :: Env -> Expr EvalAnn -> Eval Value
 eval env = \case
-  Literal (ss, _, _, _) lit -> case lit of
-    NumericLiteral n -> pure (either (VNumber . fromIntegral) (VNumber . realToFrac) n)
+  Literal (EvalAnn ss _) lit -> case lit of
+    NumericLiteral n -> pure (either VInt (VNumber . realToFrac) n)
     StringLiteral s -> VString <$> evalString ss s
     CharLiteral c -> pure (VChar c)
     BooleanLiteral b -> pure (VBool b)
@@ -189,14 +216,14 @@ eval env = \case
             )
     eval env (foldr (Abs ann) body fieldNames)
   -- throwError (UnexpectedError "Constructors are not yet supported")
-  Accessor (ss, _, _, _) prop expr -> do
+  Accessor (EvalAnn ss _) prop expr -> do
     key <- evalString ss prop
     obj <- require ss (Proxy @"VObject") =<< eval env expr
     maybe
       (throwError (UnexpectedError (Just ss) ("Key not present in object: " <> key)))
       pure
       (HashMap.lookup key obj)
-  ObjectUpdate (ss, _, _, _) expr updates -> do
+  ObjectUpdate (EvalAnn ss _) expr updates -> do
     obj <- require ss (Proxy @"VObject") =<< eval env expr
     updates' <- for updates $ \(field, expr') ->
       (,) <$> evalString ss field <*> eval env expr'
@@ -204,11 +231,12 @@ eval env = \case
   Abs _ arg body -> pure (VFunction (env, arg, body))
   App ann func param -> evalApp env ann func param
   Var _ (Qualified (Just (ModuleName [ProperName "Prim"])) (Ident "undefined")) -> pure (VObject mempty)
-  Var (ss, _, _, _) qn -> envLookupEval ss qn env
-  Case (ss, _, _, _) _exprs _alts -> throwError (UnexpectedError (Just ss) "Case expressions are not yet supported")
-  Let (ss, _, _, _) bindings body -> do
+  Var (EvalAnn ss (Just applyForeign)) _ -> evalForeign ss env applyForeign
+  Var (EvalAnn ss Nothing) qn -> envLookupEval ss qn env
+  Case (EvalAnn ss _) _exprs _alts -> throwError (UnexpectedError (Just ss) "Case expressions are not yet supported")
+  Let (EvalAnn ss _) bindings body -> do
     let evalBinding = \case
-          NonRec _ name expr -> newLocal name <$> eval env expr
+          NonRec _ name expr -> envBindValue (Qualified Nothing name) <$> eval env expr
           Rec _group -> throwError (UnexpectedError (Just ss) "Mutually recursive let bindings are not yet supported")
     newEnv <- fold <$> traverse evalBinding bindings
     eval (env <> newEnv) body
@@ -216,7 +244,7 @@ eval env = \case
 toModuleEnv :: Module Ann -> Env
 toModuleEnv m =
   let addDecl = \case
-        NonRec _ name expr -> newTopLevel (Qualified (Just (moduleName m)) name) expr
+        NonRec _ name expr -> envBindExpr (Qualified (Just (moduleName m)) name) (evalAnnFromAnn <$> expr)
         Rec _group -> mempty -- TODO
    in foldMap addDecl (moduleDecls m)
 
@@ -239,16 +267,14 @@ loadAllModulesEnv paths = do
 
 evalEntryPoint :: Qualified Ident -> Env -> Eval Value
 evalEntryPoint entryPoint env =
-  case Map.lookup entryPoint (topLevel env) of
-    Just entry -> eval env entry
-    Nothing -> throwError (EntryPointNotDefined entryPoint)
+  envLookupEval nullSourceSpan entryPoint env
 
 test :: Text -> Qualified Ident -> IO ()
 test g entry = do
   paths <- glob (toS g)
   runExceptT (loadAllModulesEnv paths) >>= \case
     Right env -> do
-      case runEval (evalEntryPoint entry env) of
+      case runEval (evalEntryPoint entry (initialEnv <> env)) of
         Right value -> print value
         Left err -> print err
     Left err -> putStrLn err

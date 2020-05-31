@@ -260,9 +260,11 @@ envFromBinders = fmap fold . traverse envFromBinder
 toModuleEnv :: Module Ann -> Env EvalAnn
 toModuleEnv m =
   let addDecl = \case
-        NonRec _ name expr -> envBindExpr (Qualified (Just (moduleName m)) name) (evalAnnFromAnn <$> expr)
-        Rec _group -> mempty -- TODO
+        NonRec _ name expr -> bindExpr name expr
+        Rec binds -> foldMap (\((_, name), expr) -> bindExpr name expr) binds
    in foldMap addDecl (moduleDecls m)
+  where
+    bindExpr name expr = envBindExpr (Qualified (Just (moduleName m)) name) (evalAnnFromAnn <$> expr)
 
 type AllModules = Map ModuleName (Module Ann)
 
@@ -346,10 +348,20 @@ instance FromForeignValue Scientific where
 instance FromForeignValue (Vector (Value EvalAnn)) where
   fromForeignValue ss _ = require ss (Proxy @"VArray")
 
-instance FromForeignValue (Value EvalAnn -> Eval (Value EvalAnn)) where
+instance (ToForeignValue a, FromForeignValue b) => FromForeignValue (a -> Eval b) where
+  fromForeignValue ss env fn =
+    pure (\x -> do
+      fn' <- require ss (Proxy @"VFunction") fn
+      fromForeignValue ss env =<< evalFunc env fn' (toForeignValue x)
+      )
+
+instance (ToForeignValue a, ToForeignValue b, FromForeignValue c) => FromForeignValue (a -> b -> Eval c) where
   fromForeignValue ss env fn = do
-    fn' <- require ss (Proxy @"VFunction") fn
-    pure (evalFunc env fn')
+    pure (\a b -> do
+      fn' <- require ss (Proxy @"VFunction") fn
+      fn'' <- require ss (Proxy @"VFunction") =<< evalFunc env fn' (toForeignValue a)
+      fromForeignValue ss env =<< evalFunc env fn'' (toForeignValue b)
+      )
 
 instance FromForeignValue (Value EvalAnn) where
   fromForeignValue _ _ = pure
@@ -369,14 +381,29 @@ instance ToForeignValue Text where
 instance ToForeignValue a => ToForeignValue (Vector a) where
   toForeignValue xs = VArray (toForeignValue <$> xs)
 
+instance ToForeignValue (Value EvalAnn) where
+  toForeignValue = identity
+
 foreignFunctions :: Map (Qualified Ident) ForeignFunction
 foreignFunctions =
   Map.fromList
     [ (qualifiedName ["Data", "Array"] "indexImpl", ForeignFunction indexImpl)
+    , (qualifiedName ["Data", "Foldable"] "foldlArray", ForeignFunction foldlArray)
+    , (qualifiedName ["Data", "Foldable"] "foldrArray", ForeignFunction foldrArray)
+    , (qualifiedName ["Data", "Semiring"] "intAdd", ForeignFunction ((+) @Integer))
+    , (qualifiedName ["Data", "Semiring"] "intMul", ForeignFunction ((*) @Integer))
+    , (qualifiedName ["Data", "Semiring"] "numAdd", ForeignFunction ((+) @Scientific))
+    , (qualifiedName ["Data", "Semiring"] "numMul", ForeignFunction ((*) @Scientific))
     ]
   where
     indexImpl :: (Value EvalAnn -> Eval (Value EvalAnn)) -> Value EvalAnn -> Vector (Value EvalAnn) -> Integer -> Eval (Value EvalAnn)
     indexImpl just nothing xs i = maybe (pure nothing) just (xs ^? ix (fromIntegral i))
+
+    foldlArray :: (b ~ Value EvalAnn, a ~ Value EvalAnn) => (b -> a -> Eval b) -> b -> Vector a -> Eval b
+    foldlArray = foldM
+
+    foldrArray :: (b ~ Value EvalAnn, a ~ Value EvalAnn) => (a -> b -> Eval b) -> b -> Vector a -> Eval b
+    foldrArray = foldrM
 
 evalForeignApply :: SourceSpan -> Env EvalAnn -> ApplyForeign -> Eval (Value EvalAnn)
 evalForeignApply ss env (ApplyForeign qn paramNames) = do

@@ -341,6 +341,12 @@ instance FromForeignFunction (Eval (Value EvalAnn)) where
 class FromForeignValue r where
   fromForeignValue :: SourceSpan -> Env EvalAnn -> Value EvalAnn -> Eval r
 
+instance FromForeignValue Bool where
+  fromForeignValue ss _ = require ss (Proxy @"VBool")
+
+instance FromForeignValue Text where
+  fromForeignValue ss _ = require ss (Proxy @"VString")
+
 instance FromForeignValue Integer where
   fromForeignValue ss _ = require ss (Proxy @"VInt")
 
@@ -371,6 +377,9 @@ instance FromForeignValue (Value EvalAnn) where
 class ToForeignValue a where
   toForeignValue :: a -> Value EvalAnn
 
+instance ToForeignValue Bool where
+  toForeignValue = VBool
+
 instance ToForeignValue Integer where
   toForeignValue = VInt
 
@@ -390,12 +399,18 @@ foreignFunctions :: Map (Qualified Ident) ForeignFunction
 foreignFunctions =
   Map.fromList
     [ (qualifiedName ["Data", "Array"] "indexImpl", ForeignFunction indexImpl)
+    , (qualifiedName ["Data", "Array"] "length", ForeignFunction (fromIntegral @Int @Integer . Vector.length @(Value EvalAnn)))
+    , (qualifiedName ["Data", "HeytingAlgebra"] "boolConj", ForeignFunction (&&))
+    , (qualifiedName ["Data", "HeytingAlgebra"] "boolDisj", ForeignFunction (||))
+    , (qualifiedName ["Data", "HeytingAlgebra"] "boolNot", ForeignFunction not)
+    , (qualifiedName ["Data", "Eq"] "eqStringImpl", ForeignFunction ((==) @Text))
     , (qualifiedName ["Data", "Foldable"] "foldlArray", ForeignFunction foldlArray)
     , (qualifiedName ["Data", "Foldable"] "foldrArray", ForeignFunction foldrArray)
     , (qualifiedName ["Data", "Semiring"] "intAdd", ForeignFunction ((+) @Integer))
     , (qualifiedName ["Data", "Semiring"] "intMul", ForeignFunction ((*) @Integer))
     , (qualifiedName ["Data", "Semiring"] "numAdd", ForeignFunction ((+) @Scientific))
     , (qualifiedName ["Data", "Semiring"] "numMul", ForeignFunction ((*) @Scientific))
+    , (qualifiedName ["Data", "Ring"] "intSub", ForeignFunction ((-) @Integer))
     ]
   where
     indexImpl :: (Value EvalAnn -> Eval (Value EvalAnn)) -> Value EvalAnn -> Vector (Value EvalAnn) -> Integer -> Eval (Value EvalAnn)

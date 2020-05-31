@@ -263,10 +263,26 @@ evalGuards env ((guard', branch) : rest') = do
   if res then Just <$> eval env branch else evalGuards env rest'
 
 envFromBinders :: [(Binder EvalAnn, Value)] -> Maybe Env
-envFromBinders bs = fold <$> traverse envFromBinder bs
+envFromBinders = fmap fold . traverse envFromBinder
   where
     envFromBinder :: (Binder EvalAnn, Value) -> Maybe Env
     envFromBinder = \case
+      (NullBinder _, _) -> Just mempty
+      (LiteralBinder _ lit, val) -> 
+        case (lit, val) of
+          (NumericLiteral (Left n1), VInt n2) | n1 == n2 -> Just mempty
+          (StringLiteral (decodeString -> Just s1), VString s2) | s1 == s2 -> Just mempty
+          (CharLiteral c1, VChar c2) | c1 == c2 -> Just mempty
+          (BooleanLiteral b1, VBool b2) | b1 == b2 -> Just mempty
+          (ArrayLiteral bs, VArray vs) | length bs <= length vs -> 
+            envFromBinders (zip bs (Vector.toList vs))
+          (ObjectLiteral bs, VObject vs) -> do
+            envs <- for bs $ \(k, binder) -> do
+              k' <- decodeString k
+              v <- HashMap.lookup k' vs
+              envFromBinder (binder, v)
+            pure (fold envs)
+          _ -> Nothing
       _ -> Just mempty
 
 toModuleEnv :: Module Ann -> Env

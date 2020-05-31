@@ -174,10 +174,12 @@ eval env = \case
     values <- traverse (eval env) exprs
     evalCaseAlts ss env values alts
   Let (EvalAnn ss _) bindings body -> do
-    let evalBinding = \case
-          NonRec _ name expr -> envBindValue (Qualified Nothing name) <$> eval env expr
+    let evalBinding env' = \case
+          NonRec _ name expr -> do
+            value <- eval env' expr
+            pure (env' <> envBindValue (Qualified Nothing name) value)
           Rec _group -> throwError (UnexpectedError (Just ss) "Mutually recursive let bindings are not yet supported")
-    newEnv <- fold <$> traverse evalBinding bindings
+    newEnv <- foldM evalBinding env bindings
     eval (env <> newEnv) body
 
 evalApp :: Env EvalAnn -> EvalAnn -> Expr EvalAnn -> Expr EvalAnn -> Eval (Value EvalAnn)

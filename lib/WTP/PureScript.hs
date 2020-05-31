@@ -1,10 +1,14 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PackageImports #-}
@@ -21,9 +25,12 @@ import qualified Data.Aeson.Types as JSON
 import qualified Data.ByteString.Lazy.Char8 as BS
 import Data.Generics.Sum (AsConstructor, _Ctor)
 import qualified Data.HashMap.Strict as HashMap
+import qualified Data.Map as Map
+import Data.Scientific (Scientific)
 import qualified Data.Text as Text
 import qualified Data.Vector as Vector
-import Language.PureScript.AST (spanName, SourceSpan, nullSourceSpan)
+import Data.Vector (Vector)
+import Language.PureScript.AST (SourceSpan, nullSourceSpan, spanName)
 import Language.PureScript.CoreFn
 import Language.PureScript.CoreFn.FromJSON (moduleFromJSON)
 import Language.PureScript.Names
@@ -32,7 +39,6 @@ import Protolude hiding (moduleName)
 import System.FilePath.Glob (glob)
 import qualified WTP.Element as Element
 import WTP.PureScript.Value
-import WTP.PureScript.Foreign
 
 data EvalError
   = UnexpectedError (Maybe SourceSpan) Text
@@ -98,7 +104,7 @@ initialEnv = fold [foreignFunction ["Data", "Array"] "indexImpl" 4]
     foreignFunction :: [Text] -> Text -> Int -> Env EvalAnn
     foreignFunction ms n arity =
       let qn = (qualifiedName ms n)
-       in envBindExpr qn (wrap arity (\names -> Var (EvalAnn nullSourceSpan { spanName = toS (showQualified runIdent qn) } (Just (ApplyForeign qn names))) qn))
+       in envBindExpr qn (wrap arity (\names -> Var (EvalAnn nullSourceSpan {spanName = toS (showQualified runIdent qn)} (Just (ApplyForeign qn names))) qn))
     wrap :: Int -> ([Ident] -> Expr EvalAnn) -> Expr EvalAnn
     wrap arity f =
       let names = [Ident ("x" <> show n) | n <- [1 .. arity]]
@@ -159,7 +165,7 @@ eval env = \case
   Abs _ arg body -> pure (VFunction (Function env arg body))
   App ann func param -> evalApp env ann func param
   Var _ (Qualified (Just (ModuleName [ProperName "Prim"])) (Ident "undefined")) -> pure (VObject mempty)
-  Var (EvalAnn ss (Just applyForeign)) _ -> evalForeign ss env applyForeign
+  Var (EvalAnn ss (Just applyForeign)) _ -> evalForeignApply ss env applyForeign
   Var (EvalAnn ss Nothing) qn -> envLookupEval ss qn env
   Case (EvalAnn ss _) exprs alts -> do
     values <- traverse (eval env) exprs
@@ -170,19 +176,6 @@ eval env = \case
           Rec _group -> throwError (UnexpectedError (Just ss) "Mutually recursive let bindings are not yet supported")
     newEnv <- fold <$> traverse evalBinding bindings
     eval (env <> newEnv) body
-
-evalForeign :: SourceSpan -> Env EvalAnn -> ApplyForeign -> Eval (Value EvalAnn)
-evalForeign ss env (ApplyForeign qn paramNames) = do
-  params <- for paramNames $ \n -> envLookupEval ss (Qualified Nothing n) env
-  case (asQualifiedName qn, params) of
-    (Just (["Data", "Array"], "indexImpl"), [just, nothing, xs, i]) -> do
-      just' <- require ss (Proxy @"VFunction") just
-      xs' <- require ss (Proxy @"VArray") xs
-      i' <- require ss (Proxy @"VInt") i
-      case xs' ^? ix (fromIntegral i') of
-        Just x -> evalFunc env just' x
-        Nothing -> pure nothing
-    _ -> pure VNull
 
 evalApp :: Env EvalAnn -> EvalAnn -> Expr EvalAnn -> Expr EvalAnn -> Eval (Value EvalAnn)
 evalApp env ann func param =
@@ -233,14 +226,15 @@ envFromBinders = fmap fold . traverse envFromBinder
     envFromBinder :: (Binder EvalAnn, (Value EvalAnn)) -> Maybe (Env EvalAnn)
     envFromBinder = \case
       (NullBinder _, _) -> Just mempty
-      (LiteralBinder _ lit, val) -> 
+      (LiteralBinder _ lit, val) ->
         case (lit, val) of
           (NumericLiteral (Left n1), VInt n2) | n1 == n2 -> Just mempty
           (StringLiteral (decodeString -> Just s1), VString s2) | s1 == s2 -> Just mempty
           (CharLiteral c1, VChar c2) | c1 == c2 -> Just mempty
           (BooleanLiteral b1, VBool b2) | b1 == b2 -> Just mempty
-          (ArrayLiteral bs, VArray vs) | length bs <= length vs -> 
-            envFromBinders (zip bs (Vector.toList vs))
+          (ArrayLiteral bs, VArray vs)
+            | length bs <= length vs ->
+              envFromBinders (zip bs (Vector.toList vs))
           (ObjectLiteral bs, VObject vs) -> do
             envs <- for bs $ \(k, binder) -> do
               k' <- decodeString k
@@ -254,8 +248,8 @@ envFromBinders = fmap fold . traverse envFromBinder
         pure (env' <> envBindValue (Qualified Nothing n) v)
       (ConstructorBinder _ _typeName (Qualified _ ctorName) bs, val) -> do
         VObject obj <- pure val
-        VString ctor <- HashMap.lookup "constructor" obj 
-        VArray fields <- HashMap.lookup "fields" obj 
+        VString ctor <- HashMap.lookup "constructor" obj
+        VArray fields <- HashMap.lookup "fields" obj
         if ctor == runProperName ctorName
           then envFromBinders (zip bs (Vector.toList fields))
           else Nothing
@@ -297,3 +291,99 @@ test g entry = do
         Right value -> print value
         Left err -> print err
     Left err -> putStrLn err
+
+-- * Foreign Functions
+
+data ApplyForeign = ApplyForeign (Qualified Ident) [Ident]
+  deriving (Show, Generic)
+
+data ForeignFunction = forall f. FromForeignFunction f => ForeignFunction f
+
+class FromForeignFunction f where
+  fromForeignFunction :: SourceSpan -> Env EvalAnn -> [Value EvalAnn] -> f -> Eval (Value EvalAnn)
+
+foreignFunctionArityMismatch :: SourceSpan -> Eval a
+foreignFunctionArityMismatch ss = throwError (UnexpectedError (Just ss) "Foreign function arity mismatch")
+
+fromForeignFunctionWithValue :: ToForeignValue a => SourceSpan -> Env EvalAnn -> [Value EvalAnn] -> a -> Eval (Value EvalAnn)
+fromForeignFunctionWithValue _ _ [] x = pure (toForeignValue x)
+fromForeignFunctionWithValue ss _ _ _ = foreignFunctionArityMismatch ss
+
+instance (FromForeignValue a, FromForeignFunction b) => FromForeignFunction (a -> b) where
+  fromForeignFunction ss env (v : vs) f = do
+    a <- fromForeignValue ss env v
+    fromForeignFunction ss env vs (f a)
+  fromForeignFunction ss _ [] _ = foreignFunctionArityMismatch ss
+
+instance FromForeignFunction (Value EvalAnn) where
+  fromForeignFunction _ _ [] x = pure x
+  fromForeignFunction ss _ (_ : _) _ = foreignFunctionArityMismatch ss
+
+instance FromForeignFunction Text where
+  fromForeignFunction = fromForeignFunctionWithValue
+
+instance FromForeignFunction Integer where
+  fromForeignFunction = fromForeignFunctionWithValue
+
+instance FromForeignFunction Scientific where
+  fromForeignFunction = fromForeignFunctionWithValue
+
+instance ToForeignValue a => FromForeignFunction (Vector a) where
+  fromForeignFunction = fromForeignFunctionWithValue
+
+instance FromForeignFunction (Eval (Value EvalAnn)) where
+  fromForeignFunction _ _ _ = identity
+
+class FromForeignValue r where
+  fromForeignValue :: SourceSpan -> Env EvalAnn -> Value EvalAnn -> Eval r
+
+instance FromForeignValue Integer where
+  fromForeignValue ss _ = require ss (Proxy @"VInt")
+
+instance FromForeignValue Scientific where
+  fromForeignValue ss _ = require ss (Proxy @"VNumber")
+
+instance FromForeignValue (Vector (Value EvalAnn)) where
+  fromForeignValue ss _ = require ss (Proxy @"VArray")
+
+instance FromForeignValue (Value EvalAnn -> Eval (Value EvalAnn)) where
+  fromForeignValue ss env fn = do
+    fn' <- require ss (Proxy @"VFunction") fn
+    pure (evalFunc env fn')
+
+instance FromForeignValue (Value EvalAnn) where
+  fromForeignValue _ _ = pure
+
+class ToForeignValue a where
+  toForeignValue :: a -> Value EvalAnn
+
+instance ToForeignValue Integer where
+  toForeignValue = VInt
+
+instance ToForeignValue Scientific where
+  toForeignValue = VNumber
+
+instance ToForeignValue Text where
+  toForeignValue = VString
+
+instance ToForeignValue a => ToForeignValue (Vector a) where
+  toForeignValue xs = VArray (toForeignValue <$> xs)
+
+indexImpl :: (Value EvalAnn -> Eval (Value EvalAnn)) -> Value EvalAnn -> Vector (Value EvalAnn) -> Integer -> Eval (Value EvalAnn)
+indexImpl just nothing xs i =
+  case xs ^? ix (fromIntegral i) of
+    Just x -> just x
+    Nothing -> pure nothing
+
+foreignFunctions :: Map (Qualified Ident) ForeignFunction
+foreignFunctions =
+  Map.fromList
+    [ (qualifiedName ["Data", "Array"] "indexImpl", ForeignFunction indexImpl)
+    ]
+
+evalForeignApply :: SourceSpan -> Env EvalAnn -> ApplyForeign -> Eval (Value EvalAnn)
+evalForeignApply ss env (ApplyForeign qn paramNames) = do
+  params <- for paramNames $ \n -> envLookupEval ss (Qualified Nothing n) env
+  case Map.lookup qn foreignFunctions of
+    (Just (ForeignFunction f)) -> fromForeignFunction ss env params f
+    _ -> throwError (NotInScope ss qn)

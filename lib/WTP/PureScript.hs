@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE DeriveGeneric #-}
@@ -99,12 +100,14 @@ evalStringExpr (Literal ann (StringLiteral s)) =
 evalStringExpr expr = unexpectedType (sourceSpan expr) "string" expr
 
 initialEnv :: Env EvalAnn
-initialEnv = fold [foreignFunction ["Data", "Array"] "indexImpl" 4]
+initialEnv =
+  foldMap
+    (\(qn, (ForeignFunction (_ :: f))) -> foreignFunction qn (foreignFunctionArity (Proxy :: Proxy f)))
+    (Map.toList foreignFunctions)
   where
-    foreignFunction :: [Text] -> Text -> Int -> Env EvalAnn
-    foreignFunction ms n arity =
-      let qn = (qualifiedName ms n)
-       in envBindExpr qn (wrap arity (\names -> Var (EvalAnn nullSourceSpan {spanName = toS (showQualified runIdent qn)} (Just (ApplyForeign qn names))) qn))
+    foreignFunction :: Qualified Ident -> Int -> Env EvalAnn
+    foreignFunction qn arity =
+      envBindExpr qn (wrap arity (\names -> Var (EvalAnn nullSourceSpan {spanName = toS (showQualified runIdent qn)} (Just (ApplyForeign qn names))) qn))
     wrap :: Int -> ([Ident] -> Expr EvalAnn) -> Expr EvalAnn
     wrap arity f =
       let names = [Ident ("x" <> show n) | n <- [1 .. arity]]
@@ -297,7 +300,16 @@ test g entry = do
 data ApplyForeign = ApplyForeign (Qualified Ident) [Ident]
   deriving (Show, Generic)
 
-data ForeignFunction = forall f. FromForeignFunction f => ForeignFunction f
+data ForeignFunction = forall f. (FromForeignFunction f, ForeignFunctionArity f) => ForeignFunction f
+
+class ForeignFunctionArity f where
+  foreignFunctionArity :: Proxy f -> Int
+
+instance ForeignFunctionArity b => ForeignFunctionArity (a -> b) where
+  foreignFunctionArity (_ :: Proxy (a -> b)) = succ (foreignFunctionArity (Proxy :: Proxy b))
+
+instance {-# OVERLAPPABLE #-} ForeignFunctionArity a where
+  foreignFunctionArity _ = 0
 
 class FromForeignFunction f where
   fromForeignFunction :: SourceSpan -> Env EvalAnn -> [Value EvalAnn] -> f -> Eval (Value EvalAnn)
@@ -315,21 +327,9 @@ instance (FromForeignValue a, FromForeignFunction b) => FromForeignFunction (a -
     fromForeignFunction ss env vs (f a)
   fromForeignFunction ss _ [] _ = foreignFunctionArityMismatch ss
 
-instance FromForeignFunction (Value EvalAnn) where
-  fromForeignFunction _ _ [] x = pure x
-  fromForeignFunction ss _ (_ : _) _ = foreignFunctionArityMismatch ss
-
-instance FromForeignFunction Text where
-  fromForeignFunction = fromForeignFunctionWithValue
-
-instance FromForeignFunction Integer where
-  fromForeignFunction = fromForeignFunctionWithValue
-
-instance FromForeignFunction Scientific where
-  fromForeignFunction = fromForeignFunctionWithValue
-
-instance ToForeignValue a => FromForeignFunction (Vector a) where
-  fromForeignFunction = fromForeignFunctionWithValue
+instance {-# OVERLAPPABLE #-} ToForeignValue a => FromForeignFunction a where
+  fromForeignFunction _ _ [] x = pure (toForeignValue x)
+  fromForeignFunction ss _ _ _ = foreignFunctionArityMismatch ss
 
 instance FromForeignFunction (Eval (Value EvalAnn)) where
   fromForeignFunction _ _ _ = identity
@@ -369,17 +369,14 @@ instance ToForeignValue Text where
 instance ToForeignValue a => ToForeignValue (Vector a) where
   toForeignValue xs = VArray (toForeignValue <$> xs)
 
-indexImpl :: (Value EvalAnn -> Eval (Value EvalAnn)) -> Value EvalAnn -> Vector (Value EvalAnn) -> Integer -> Eval (Value EvalAnn)
-indexImpl just nothing xs i =
-  case xs ^? ix (fromIntegral i) of
-    Just x -> just x
-    Nothing -> pure nothing
-
 foreignFunctions :: Map (Qualified Ident) ForeignFunction
 foreignFunctions =
   Map.fromList
     [ (qualifiedName ["Data", "Array"] "indexImpl", ForeignFunction indexImpl)
     ]
+  where
+    indexImpl :: (Value EvalAnn -> Eval (Value EvalAnn)) -> Value EvalAnn -> Vector (Value EvalAnn) -> Integer -> Eval (Value EvalAnn)
+    indexImpl just nothing xs i = maybe (pure nothing) just (xs ^? ix (fromIntegral i))
 
 evalForeignApply :: SourceSpan -> Env EvalAnn -> ApplyForeign -> Eval (Value EvalAnn)
 evalForeignApply ss env (ApplyForeign qn paramNames) = do

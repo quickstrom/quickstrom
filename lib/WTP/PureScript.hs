@@ -156,43 +156,6 @@ asQualifiedName :: Qualified Ident -> Maybe ([Text], Text)
 asQualifiedName (Qualified (Just (ModuleName pns)) n) = Just (map runProperName pns, runIdent n)
 asQualifiedName _ = Nothing
 
-evalForeign :: SourceSpan -> Env -> ApplyForeign -> Eval Value
-evalForeign ss env (ApplyForeign qn paramNames) = do
-  params <- for paramNames $ \n -> envLookupEval ss (Qualified Nothing n) env
-  case (asQualifiedName qn, params) of
-    (Just (["Data", "Array"], "indexImpl"), [just, nothing, xs, i]) -> do
-      just' <- require ss (Proxy @"VFunction") just
-      xs' <- require ss (Proxy @"VArray") xs
-      i' <- require ss (Proxy @"VInt") i
-      case xs' ^? ix (fromIntegral i') of
-        Just x -> evalFunc env just' x
-        Nothing -> pure nothing
-    _ -> pure VNull
-
-evalApp :: Env -> EvalAnn -> Expr EvalAnn -> Expr EvalAnn -> Eval Value
-evalApp env ann func param =
-  case (func, param) of
-    (asQualifiedVar -> Just (["DSL"], "_property"), p) -> do
-      name <- require (sourceSpan p) (Proxy @"VString") =<< eval env p
-      pure (VElementState (Element.Property name))
-    (asQualifiedVar -> Just (["DSL"], "_attribute"), p) -> do
-      name <- require (sourceSpan p) (Proxy @"VString") =<< eval env p
-      pure (VElementState (Element.Attribute name))
-    (App _ (asQualifiedVar -> Just (["DSL"], "_queryAll")) p1, p2) -> do
-      _selector <- require (sourceSpan p1) (Proxy @"VString") =<< eval env p1
-      _states <- require (annSourceSpan ann) (Proxy @"VObject") =<< eval env p2
-      -- TODO: Get state from trace
-      pure (VArray mempty)
-    _ -> do
-      func' <- require (sourceSpan func) (Proxy @"VFunction") =<< eval env func
-      param' <- eval env param
-      evalFunc env func' param'
-
-evalFunc :: Env -> (Env, Ident, Expr EvalAnn) -> Value -> Eval Value
-evalFunc env (fEnv, arg, body) param' =
-  let newEnv = (env <> fEnv <> envBindValue (Qualified Nothing arg) param')
-   in eval newEnv body
-
 eval :: Env -> Expr EvalAnn -> Eval Value
 eval env = \case
   Literal (EvalAnn ss _) lit -> case lit of
@@ -233,13 +196,78 @@ eval env = \case
   Var _ (Qualified (Just (ModuleName [ProperName "Prim"])) (Ident "undefined")) -> pure (VObject mempty)
   Var (EvalAnn ss (Just applyForeign)) _ -> evalForeign ss env applyForeign
   Var (EvalAnn ss Nothing) qn -> envLookupEval ss qn env
-  Case (EvalAnn ss _) _exprs _alts -> throwError (UnexpectedError (Just ss) "Case expressions are not yet supported")
+  Case (EvalAnn ss _) exprs alts -> do
+    values <- traverse (eval env) exprs
+    evalCaseAlts ss env values alts
   Let (EvalAnn ss _) bindings body -> do
     let evalBinding = \case
           NonRec _ name expr -> envBindValue (Qualified Nothing name) <$> eval env expr
           Rec _group -> throwError (UnexpectedError (Just ss) "Mutually recursive let bindings are not yet supported")
     newEnv <- fold <$> traverse evalBinding bindings
     eval (env <> newEnv) body
+
+evalForeign :: SourceSpan -> Env -> ApplyForeign -> Eval Value
+evalForeign ss env (ApplyForeign qn paramNames) = do
+  params <- for paramNames $ \n -> envLookupEval ss (Qualified Nothing n) env
+  case (asQualifiedName qn, params) of
+    (Just (["Data", "Array"], "indexImpl"), [just, nothing, xs, i]) -> do
+      just' <- require ss (Proxy @"VFunction") just
+      xs' <- require ss (Proxy @"VArray") xs
+      i' <- require ss (Proxy @"VInt") i
+      case xs' ^? ix (fromIntegral i') of
+        Just x -> evalFunc env just' x
+        Nothing -> pure nothing
+    _ -> pure VNull
+
+evalApp :: Env -> EvalAnn -> Expr EvalAnn -> Expr EvalAnn -> Eval Value
+evalApp env ann func param =
+  case (func, param) of
+    (asQualifiedVar -> Just (["DSL"], "_property"), p) -> do
+      name <- require (sourceSpan p) (Proxy @"VString") =<< eval env p
+      pure (VElementState (Element.Property name))
+    (asQualifiedVar -> Just (["DSL"], "_attribute"), p) -> do
+      name <- require (sourceSpan p) (Proxy @"VString") =<< eval env p
+      pure (VElementState (Element.Attribute name))
+    (App _ (asQualifiedVar -> Just (["DSL"], "_queryAll")) p1, p2) -> do
+      _selector <- require (sourceSpan p1) (Proxy @"VString") =<< eval env p1
+      _states <- require (annSourceSpan ann) (Proxy @"VObject") =<< eval env p2
+      -- TODO: Get state from trace
+      pure (VArray mempty)
+    _ -> do
+      func' <- require (sourceSpan func) (Proxy @"VFunction") =<< eval env func
+      param' <- eval env param
+      evalFunc env func' param'
+
+evalFunc :: Env -> (Env, Ident, Expr EvalAnn) -> Value -> Eval Value
+evalFunc env (fEnv, arg, body) param' =
+  let newEnv = (env <> fEnv <> envBindValue (Qualified Nothing arg) param')
+   in eval newEnv body
+
+evalCaseAlts :: SourceSpan -> Env -> [Value] -> [CaseAlternative EvalAnn] -> Eval Value
+evalCaseAlts ss _ _ [] = throwError (UnexpectedError (Just ss) "Non-exhaustive case expression")
+evalCaseAlts ss env values (CaseAlternative binders result : rest) =
+  case envFromBinders (zip binders values) of
+    Just bindersEnv ->
+      case result of
+        Left guardedExprs ->
+          evalGuards (env <> bindersEnv) guardedExprs >>= \case
+            Just expr -> pure expr
+            Nothing -> evalCaseAlts ss env values rest
+        Right expr -> eval (env <> bindersEnv) expr
+    Nothing -> evalCaseAlts ss env values rest
+
+evalGuards :: Env -> [(Guard EvalAnn, Expr EvalAnn)] -> Eval (Maybe Value)
+evalGuards _ [] = pure Nothing
+evalGuards env ((guard', branch) : rest') = do
+  res <- require (sourceSpan guard') (Proxy @"VBool") =<< eval env guard'
+  if res then Just <$> eval env branch else evalGuards env rest'
+
+envFromBinders :: [(Binder EvalAnn, Value)] -> Maybe Env
+envFromBinders bs = fold <$> traverse envFromBinder bs
+  where
+    envFromBinder :: (Binder EvalAnn, Value) -> Maybe Env
+    envFromBinder = \case
+      _ -> Just mempty
 
 toModuleEnv :: Module Ann -> Env
 toModuleEnv m =

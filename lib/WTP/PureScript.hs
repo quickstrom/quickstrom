@@ -48,6 +48,7 @@ data Value
   | VInt Integer
   | VArray (Vector Value)
   | VObject (HashMap Text Value)
+  | VData  (HashMap Text Value)
   | VFunction (Env, Ident, Expr EvalAnn)
   deriving (Show, Generic)
 
@@ -283,7 +284,17 @@ envFromBinders = fmap fold . traverse envFromBinder
               envFromBinder (binder, v)
             pure (fold envs)
           _ -> Nothing
-      _ -> Just mempty
+      (VarBinder _ n, v) -> Just (envBindValue (Qualified Nothing n) v)
+      (NamedBinder _ n b, v) -> do
+        env' <- envFromBinder (b, v)
+        pure (env' <> envBindValue (Qualified Nothing n) v)
+      (ConstructorBinder _ _typeName (Qualified _ ctorName) bs, val) -> do
+        VObject obj <- pure val
+        VString ctor <- HashMap.lookup "constructor" obj 
+        VArray fields <- HashMap.lookup "fields" obj 
+        if ctor == runProperName ctorName
+          then envFromBinders (zip bs (Vector.toList fields))
+          else Nothing
 
 toModuleEnv :: Module Ann -> Env
 toModuleEnv m =

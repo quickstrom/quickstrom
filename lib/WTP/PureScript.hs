@@ -21,11 +21,7 @@ import qualified Data.Aeson.Types as JSON
 import qualified Data.ByteString.Lazy.Char8 as BS
 import Data.Generics.Sum (AsConstructor, _Ctor)
 import qualified Data.HashMap.Strict as HashMap
-import Data.HashMap.Strict (HashMap)
-import qualified Data.Map as Map
-import Data.Scientific
 import qualified Data.Text as Text
-import Data.Vector (Vector)
 import qualified Data.Vector as Vector
 import Language.PureScript.AST (spanName, SourceSpan, nullSourceSpan)
 import Language.PureScript.CoreFn
@@ -35,25 +31,8 @@ import Language.PureScript.PSString (PSString, decodeString, mkString)
 import Protolude hiding (moduleName)
 import System.FilePath.Glob (glob)
 import qualified WTP.Element as Element
-
-data Function = Function Env Ident (Expr EvalAnn) 
-  deriving (Show, Generic)
-
-data Value
-  = VNull
-  | VBool Bool
-  | VElementState Element.ElementState
-  | VString Text
-  | VChar Char
-  | VNumber Scientific
-  | VInt Integer
-  | VArray (Vector Value)
-  | VObject (HashMap Text Value)
-  | VFunction Function
-  deriving (Show, Generic)
-
-data ApplyForeign = ApplyForeign (Qualified Ident) [Ident]
-  deriving (Show, Generic)
+import WTP.PureScript.Value
+import WTP.PureScript.Foreign
 
 data EvalError
   = UnexpectedError (Maybe SourceSpan) Text
@@ -90,11 +69,11 @@ sourceSpan :: Expr EvalAnn -> SourceSpan
 sourceSpan = annSourceSpan . extractAnn
 
 require ::
-  forall (ctor :: Symbol) s t a b.
-  (KnownSymbol ctor, AsConstructor ctor s t a b, s ~ Value, t ~ Value, a ~ b) =>
+  forall (ctor :: Symbol) s t a b ann.
+  (KnownSymbol ctor, AsConstructor ctor s t a b, s ~ Value ann, t ~ Value ann, a ~ b, Show ann) =>
   SourceSpan ->
   Proxy ctor ->
-  Value ->
+  Value ann ->
   Eval b
 require ss (ctor :: Proxy ctor) v = case v ^? _Ctor @ctor of
   Just x -> pure x
@@ -113,13 +92,10 @@ evalStringExpr (Literal ann (StringLiteral s)) =
     Nothing -> throwError (InvalidString (annSourceSpan ann))
 evalStringExpr expr = unexpectedType (sourceSpan expr) "string" expr
 
-newtype Env = Env (Map (Qualified Ident) (Either (Expr EvalAnn) Value))
-  deriving (Show, Semigroup, Monoid)
-
-initialEnv :: Env
+initialEnv :: Env EvalAnn
 initialEnv = fold [foreignFunction ["Data", "Array"] "indexImpl" 4]
   where
-    foreignFunction :: [Text] -> Text -> Int -> Env
+    foreignFunction :: [Text] -> Text -> Int -> Env EvalAnn
     foreignFunction ms n arity =
       let qn = (qualifiedName ms n)
        in envBindExpr qn (wrap arity (\names -> Var (EvalAnn nullSourceSpan { spanName = toS (showQualified runIdent qn) } (Just (ApplyForeign qn names))) qn))
@@ -128,19 +104,7 @@ initialEnv = fold [foreignFunction ["Data", "Array"] "indexImpl" 4]
       let names = [Ident ("x" <> show n) | n <- [1 .. arity]]
        in foldr (Abs (EvalAnn nullSourceSpan Nothing)) (f names) names
 
-envBindValue :: Qualified Ident -> Value -> Env
-envBindValue qn expr = Env (Map.singleton qn (Right expr))
-
-envBindExpr :: Qualified Ident -> Expr EvalAnn -> Env
-envBindExpr qn expr = Env (Map.singleton qn (Left expr))
-
-withoutLocals :: Env -> Env
-withoutLocals (Env ms) = Env (Map.filterWithKey (\(Qualified modules _) _ -> isJust modules) ms)
-
-envLookup :: Qualified Ident -> Env -> Maybe (Either (Expr EvalAnn) Value)
-envLookup qn (Env env) = Map.lookup qn env
-
-envLookupEval :: SourceSpan -> Qualified Ident -> Env -> Eval Value
+envLookupEval :: SourceSpan -> Qualified Ident -> Env EvalAnn -> Eval (Value EvalAnn)
 envLookupEval ss qn env =
   case envLookup qn env of
     Just r -> either (eval (withoutLocals env)) pure r
@@ -157,7 +121,7 @@ asQualifiedName :: Qualified Ident -> Maybe ([Text], Text)
 asQualifiedName (Qualified (Just (ModuleName pns)) n) = Just (map runProperName pns, runIdent n)
 asQualifiedName _ = Nothing
 
-eval :: Env -> Expr EvalAnn -> Eval Value
+eval :: Env EvalAnn -> Expr EvalAnn -> Eval (Value EvalAnn)
 eval env = \case
   Literal (EvalAnn ss _) lit -> case lit of
     NumericLiteral n -> pure (either VInt (VNumber . realToFrac) n)
@@ -207,7 +171,7 @@ eval env = \case
     newEnv <- fold <$> traverse evalBinding bindings
     eval (env <> newEnv) body
 
-evalForeign :: SourceSpan -> Env -> ApplyForeign -> Eval Value
+evalForeign :: SourceSpan -> Env EvalAnn -> ApplyForeign -> Eval (Value EvalAnn)
 evalForeign ss env (ApplyForeign qn paramNames) = do
   params <- for paramNames $ \n -> envLookupEval ss (Qualified Nothing n) env
   case (asQualifiedName qn, params) of
@@ -220,7 +184,7 @@ evalForeign ss env (ApplyForeign qn paramNames) = do
         Nothing -> pure nothing
     _ -> pure VNull
 
-evalApp :: Env -> EvalAnn -> Expr EvalAnn -> Expr EvalAnn -> Eval Value
+evalApp :: Env EvalAnn -> EvalAnn -> Expr EvalAnn -> Expr EvalAnn -> Eval (Value EvalAnn)
 evalApp env ann func param =
   case (func, param) of
     (asQualifiedVar -> Just (["DSL"], "_property"), p) -> do
@@ -239,12 +203,12 @@ evalApp env ann func param =
       param' <- eval env param
       evalFunc env func' param'
 
-evalFunc :: Env -> Function -> Value -> Eval Value
+evalFunc :: Env EvalAnn -> Function EvalAnn -> (Value EvalAnn) -> Eval (Value EvalAnn)
 evalFunc env (Function fEnv arg body) param' =
   let newEnv = (env <> fEnv <> envBindValue (Qualified Nothing arg) param')
    in eval newEnv body
 
-evalCaseAlts :: SourceSpan -> Env -> [Value] -> [CaseAlternative EvalAnn] -> Eval Value
+evalCaseAlts :: SourceSpan -> Env EvalAnn -> [(Value EvalAnn)] -> [CaseAlternative EvalAnn] -> Eval (Value EvalAnn)
 evalCaseAlts ss _ _ [] = throwError (UnexpectedError (Just ss) "Non-exhaustive case expression")
 evalCaseAlts ss env values (CaseAlternative binders result : rest) =
   case envFromBinders (zip binders values) of
@@ -257,16 +221,16 @@ evalCaseAlts ss env values (CaseAlternative binders result : rest) =
         Right expr -> eval (env <> bindersEnv) expr
     Nothing -> evalCaseAlts ss env values rest
 
-evalGuards :: Env -> [(Guard EvalAnn, Expr EvalAnn)] -> Eval (Maybe Value)
+evalGuards :: Env EvalAnn -> [(Guard EvalAnn, Expr EvalAnn)] -> Eval (Maybe (Value EvalAnn))
 evalGuards _ [] = pure Nothing
 evalGuards env ((guard', branch) : rest') = do
   res <- require (sourceSpan guard') (Proxy @"VBool") =<< eval env guard'
   if res then Just <$> eval env branch else evalGuards env rest'
 
-envFromBinders :: [(Binder EvalAnn, Value)] -> Maybe Env
+envFromBinders :: [(Binder EvalAnn, (Value EvalAnn))] -> Maybe (Env EvalAnn)
 envFromBinders = fmap fold . traverse envFromBinder
   where
-    envFromBinder :: (Binder EvalAnn, Value) -> Maybe Env
+    envFromBinder :: (Binder EvalAnn, (Value EvalAnn)) -> Maybe (Env EvalAnn)
     envFromBinder = \case
       (NullBinder _, _) -> Just mempty
       (LiteralBinder _ lit, val) -> 
@@ -296,7 +260,7 @@ envFromBinders = fmap fold . traverse envFromBinder
           then envFromBinders (zip bs (Vector.toList fields))
           else Nothing
 
-toModuleEnv :: Module Ann -> Env
+toModuleEnv :: Module Ann -> Env EvalAnn
 toModuleEnv m =
   let addDecl = \case
         NonRec _ name expr -> envBindExpr (Qualified (Just (moduleName m)) name) (evalAnnFromAnn <$> expr)
@@ -315,12 +279,12 @@ loadModule path = do
         JSON.Error e -> throwError (toS e)
     Nothing -> throwError "Couldn't read CoreFn file."
 
-loadAllModulesEnv :: [FilePath] -> ExceptT Text IO Env
+loadAllModulesEnv :: [FilePath] -> ExceptT Text IO (Env EvalAnn)
 loadAllModulesEnv paths = do
   ms <- traverse loadModule paths
   pure (foldMap toModuleEnv ms)
 
-evalEntryPoint :: Qualified Ident -> Env -> Eval Value
+evalEntryPoint :: Qualified Ident -> Env EvalAnn -> Eval (Value EvalAnn)
 evalEntryPoint entryPoint env =
   envLookupEval nullSourceSpan entryPoint env
 

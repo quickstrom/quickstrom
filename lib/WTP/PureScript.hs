@@ -34,13 +34,14 @@ import Language.PureScript.Names
 import Language.PureScript.PSString (PSString, decodeString, mkString)
 import Protolude hiding (moduleName)
 import System.FilePath.Glob (glob)
-import WTP.Element (Element)
 import qualified WTP.Element as Element
+
+data Function = Function Env Ident (Expr EvalAnn) 
+  deriving (Show, Generic)
 
 data Value
   = VNull
   | VBool Bool
-  | VElement Element
   | VElementState Element.ElementState
   | VString Text
   | VChar Char
@@ -48,8 +49,7 @@ data Value
   | VInt Integer
   | VArray (Vector Value)
   | VObject (HashMap Text Value)
-  | VData  (HashMap Text Value)
-  | VFunction (Env, Ident, Expr EvalAnn)
+  | VFunction Function
   deriving (Show, Generic)
 
 data ApplyForeign = ApplyForeign (Qualified Ident) [Ident]
@@ -192,7 +192,7 @@ eval env = \case
     updates' <- for updates $ \(field, expr') ->
       (,) <$> evalString ss field <*> eval env expr'
     pure (VObject (obj <> HashMap.fromList updates'))
-  Abs _ arg body -> pure (VFunction (env, arg, body))
+  Abs _ arg body -> pure (VFunction (Function env arg body))
   App ann func param -> evalApp env ann func param
   Var _ (Qualified (Just (ModuleName [ProperName "Prim"])) (Ident "undefined")) -> pure (VObject mempty)
   Var (EvalAnn ss (Just applyForeign)) _ -> evalForeign ss env applyForeign
@@ -239,8 +239,8 @@ evalApp env ann func param =
       param' <- eval env param
       evalFunc env func' param'
 
-evalFunc :: Env -> (Env, Ident, Expr EvalAnn) -> Value -> Eval Value
-evalFunc env (fEnv, arg, body) param' =
+evalFunc :: Env -> Function -> Value -> Eval Value
+evalFunc env (Function fEnv arg body) param' =
   let newEnv = (env <> fEnv <> envBindValue (Qualified Nothing arg) param')
    in eval newEnv body
 

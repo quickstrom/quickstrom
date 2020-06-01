@@ -1,6 +1,5 @@
 module TodoMVC where
 
-import Prelude ((+))
 import DSL (Spec, always, bind, checked, map, next, not, pure, queryAll, queryOne, textContent, (&&), (/=), (<<<), (<>), (==), (==>), (>), (>=), (||))
 import Data.Array (filter, head, last)
 import Data.Array as Array
@@ -8,12 +7,14 @@ import Data.Foldable (elem, length)
 import Data.Maybe (Maybe(..))
 import Data.Number as Number
 import Data.String (Pattern(..), split, toUpper)
+import Prelude (identity, (+), (<$>))
+import Data.Enum (succ)
 
 angularjs :: Boolean
 angularjs = (spec "angularjs").proposition
 
-foo :: Array Int
-foo = map (_ + 10) [1, 2, 3]
+foo :: Array (Array Int)
+foo = (\x -> [x]) <$> [1, 2, 3]
 
 spec :: String -> Spec
 spec name =

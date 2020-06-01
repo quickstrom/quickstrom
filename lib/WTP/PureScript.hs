@@ -12,6 +12,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PackageImports #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
@@ -28,11 +29,11 @@ import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Map as Map
 import Data.Scientific (Scientific)
 import qualified Data.Text as Text
-import qualified Data.Vector as Vector
-import Data.Vector (Vector)
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Text
-import Language.PureScript.AST (SourceSpan, nullSourceSpan, spanName)
+import qualified Data.Vector as Vector
+import Data.Vector (Vector)
+import Language.PureScript.AST (SourceSpan, displaySourceSpan, nullSourceSpan, spanName)
 import Language.PureScript.CoreFn
 import Language.PureScript.CoreFn.FromJSON (moduleFromJSON)
 import Language.PureScript.Names
@@ -44,11 +45,33 @@ import WTP.PureScript.Value
 
 data EvalError
   = UnexpectedError (Maybe SourceSpan) Text
+  | UnexpectedType (Maybe SourceSpan) Text (Value EvalAnn)
   | EntryPointNotDefined (Qualified Ident)
   | NotInScope SourceSpan (Qualified Ident)
   | InvalidString SourceSpan
   | InvalidBuiltInFunctionApplication SourceSpan (Expr EvalAnn) (Expr EvalAnn)
   deriving (Show, Generic)
+
+errorSourceSpan :: EvalError -> Maybe SourceSpan
+errorSourceSpan = \case
+  UnexpectedError ss _ -> ss
+  UnexpectedType ss _ _ -> ss
+  EntryPointNotDefined _ -> Nothing
+  NotInScope ss _ -> Just ss
+  InvalidString ss -> Just ss
+  InvalidBuiltInFunctionApplication ss _ _ -> Just ss
+
+instance Pretty EvalError where
+  pretty = \case
+    UnexpectedError _ t -> pretty t
+    UnexpectedType _ t val -> "Expected value of type" <+> pretty t <+> "but got" <+> pretty val
+    EntryPointNotDefined qn -> pretty (showQualified runIdent qn)
+    NotInScope _ qn -> pretty (showQualified runIdent qn)
+    InvalidString _ -> "Invalid string"
+    InvalidBuiltInFunctionApplication _ _fn _param -> "Invalid function application"
+
+prettySourceSpan :: SourceSpan -> Doc ann
+prettySourceSpan ss = pretty (displaySourceSpan (spanName ss) ss)
 
 data EvalAnn = EvalAnn {annSourceSpan :: SourceSpan, annApplyForeign :: Maybe ApplyForeign}
   deriving (Show, Generic)
@@ -61,16 +84,13 @@ type Eval a = Except EvalError a
 runEval :: Eval a -> (Either EvalError a)
 runEval = runExcept
 
-unexpectedType :: (MonadError EvalError m, Show value) => SourceSpan -> Text -> value -> m a
+unexpectedType :: (MonadError EvalError m) => SourceSpan -> Text -> Value EvalAnn -> m a
 unexpectedType ss typ v =
   throwError
-    ( UnexpectedError
+    ( UnexpectedType
         (Just ss)
-        ( "Expected value of type "
-            <> typ
-            <> " but got "
-            <> show v
-        )
+        typ
+        v
     )
 
 sourceSpan :: Expr EvalAnn -> SourceSpan
@@ -78,14 +98,26 @@ sourceSpan = annSourceSpan . extractAnn
 
 require ::
   forall (ctor :: Symbol) s t a b ann.
-  (KnownSymbol ctor, AsConstructor ctor s t a b, s ~ Value ann, t ~ Value ann, a ~ b, Show ann) =>
+  (KnownSymbol ctor, AsConstructor ctor s t a b, ann ~ EvalAnn, s ~ Value ann, t ~ Value ann, a ~ b, Show ann) =>
   SourceSpan ->
   Proxy ctor ->
   Value ann ->
   Eval b
 require ss (ctor :: Proxy ctor) v = case v ^? _Ctor @ctor of
   Just x -> pure x
-  Nothing -> unexpectedType ss (Text.toLower (Text.drop 1 (Text.pack (symbolVal ctor)))) v
+  Nothing -> unexpectedType ss (Text.drop 1 (Text.pack (symbolVal ctor))) v
+
+requireNamed ::
+  forall (ctor :: Symbol) s t a b ann.
+  (KnownSymbol ctor, AsConstructor ctor s t a b, ann ~ EvalAnn, s ~ Value ann, t ~ Value ann, a ~ b, Show ann) =>
+  Text ->
+  SourceSpan ->
+  Proxy ctor ->
+  Value ann ->
+  Eval b
+requireNamed name ss (ctor :: Proxy ctor) v = case v ^? _Ctor @ctor of
+  Just x -> pure x
+  Nothing -> unexpectedType ss (Text.drop 1 (Text.pack (symbolVal ctor)) <> " " <> "(" <> name <> ")") v
 
 evalString :: SourceSpan -> PSString -> Eval Text
 evalString ss s =
@@ -98,20 +130,20 @@ evalStringExpr (Literal ann (StringLiteral s)) =
   case decodeString s of
     Just t -> pure t
     Nothing -> throwError (InvalidString (annSourceSpan ann))
-evalStringExpr expr = unexpectedType (sourceSpan expr) "string" expr
+evalStringExpr expr = throwError (InvalidString (annSourceSpan (extractAnn expr)))
 
 initialEnv :: Env EvalAnn
 initialEnv =
   foldMap
-    (\(qn, (ForeignFunction (_ :: f))) -> foreignFunction qn (foreignFunctionArity (Proxy :: Proxy f)))
+    (\(qn, f) -> bindForeignFunction qn (arity f))
     (Map.toList foreignFunctions)
   where
-    foreignFunction :: Qualified Ident -> Int -> Env EvalAnn
-    foreignFunction qn arity =
-      envBindExpr qn (wrap arity (\names -> Var (EvalAnn nullSourceSpan {spanName = toS (showQualified runIdent qn)} (Just (ApplyForeign qn names))) qn))
+    bindForeignFunction :: Qualified Ident -> Int -> Env EvalAnn
+    bindForeignFunction qn arity' =
+      envBindExpr qn (wrap arity' (\names -> Var (EvalAnn nullSourceSpan {spanName = toS (showQualified runIdent qn)} (Just (ApplyForeign qn names))) qn))
     wrap :: Int -> ([Ident] -> Expr EvalAnn) -> Expr EvalAnn
-    wrap arity f =
-      let names = [Ident ("x" <> show n) | n <- [1 .. arity]]
+    wrap arity' f =
+      let names = [Ident ("x" <> show n) | n <- [1 .. arity']]
        in foldr (Abs (EvalAnn nullSourceSpan Nothing)) (f names) names
 
 envLookupEval :: SourceSpan -> Qualified Ident -> Env EvalAnn -> Eval (Value EvalAnn)
@@ -299,8 +331,12 @@ test g entry = do
   runExceptT (loadAllModulesEnv paths) >>= \case
     Right env -> do
       case runEval (evalEntryPoint entry (initialEnv <> env)) of
-        Right value -> putStrLn (renderStrict (layoutPretty defaultLayoutOptions (pretty value)))
-        Left err -> print err
+        Right value -> putStrLn (renderStrict (layoutPretty defaultLayoutOptions ("Result:" <+> pretty value)))
+        Left err ->
+          let prefix = case errorSourceSpan err of
+                Just ss -> prettySourceSpan ss <> ":" <> line <> "error:"
+                Nothing -> "<no source information>" <> "error:"
+           in putStrLn (renderStrict (layoutPretty defaultLayoutOptions (prefix <+> pretty err)))
     Left err -> putStrLn err
 
 -- * Foreign Functions
@@ -308,7 +344,17 @@ test g entry = do
 data ApplyForeign = ApplyForeign (Qualified Ident) [Ident]
   deriving (Show, Generic)
 
-data ForeignFunction = forall f. (EvalForeignFunction f, ForeignFunctionArity f) => ForeignFunction f
+data ForeignFunction
+  = ForeignFunction
+      { arity :: Int,
+        evalFn :: (SourceSpan -> Env EvalAnn -> [Value EvalAnn] -> Eval (Value EvalAnn))
+      }
+
+foreignFunction :: (EvalForeignFunction f, ForeignFunctionArity f) => f -> ForeignFunction
+foreignFunction (f :: f) =
+  ForeignFunction
+    (foreignFunctionArity (Proxy :: Proxy f))
+    (\ss env params -> evalForeignFunction ss env params f)
 
 class ForeignFunctionArity f where
   foreignFunctionArity :: Proxy f -> Int
@@ -325,151 +371,167 @@ foreignFunctionArityMismatch ss = throwError (UnexpectedError (Just ss) "Foreign
 class EvalForeignFunction f where
   evalForeignFunction :: SourceSpan -> Env EvalAnn -> [Value EvalAnn] -> f -> Eval (Value EvalAnn)
 
-instance (FromForeignValue a, EvalForeignFunction b) => EvalForeignFunction (a -> b) where
-  evalForeignFunction ss env (v : vs) f = do
-    a <- fromForeignValue ss env v
+instance {-# OVERLAPPABLE #-} FromHaskellValue a => EvalForeignFunction (Eval a) where
+  evalForeignFunction _ _ [] x = trace @Text "foo" $ do
+    v <- fromHaskellValue <$> x
+    traceM (renderStrict (layoutPretty defaultLayoutOptions ("last:" <+> pretty v)))
+    pure v
+  evalForeignFunction ss _ _ _ = foreignFunctionArityMismatch ss
+
+instance {-# OVERLAPPING #-} (ToHaskellValue a, EvalForeignFunction b) => EvalForeignFunction (a -> b) where
+  evalForeignFunction ss env (v : vs) f = trace @Text "bar" $ do
+    a <- toHaskellValue ss env v
+    traceM (renderStrict (layoutPretty defaultLayoutOptions ("bar arg:" <+> pretty v)))
     evalForeignFunction ss env vs (f a)
   evalForeignFunction ss _ [] _ = foreignFunctionArityMismatch ss
 
--- instance {-# OVERLAPPABLE #-} ToForeignValue a => EvalForeignFunction a where
---   evalForeignFunction _ _ [] x = pure (toForeignValue x)
---   evalForeignFunction ss _ _ _ = foreignFunctionArityMismatch ss
+instance {-# OVERLAPPING #-} (ToHaskellValue b, FromHaskellValue a, EvalForeignFunction c) => EvalForeignFunction ((a -> Eval b) -> c) where
+  evalForeignFunction ss env (v : vs) f = trace @Text "baz" $ do
+    f2 <- toHaskellValue ss env v
+    traceM (renderStrict (layoutPretty defaultLayoutOptions ("baz arg:" <+> pretty v)))
+    evalForeignFunction ss env vs (f f2)
+  evalForeignFunction ss _ [] _ = foreignFunctionArityMismatch ss
 
-instance {-# OVERLAPPABLE #-} ToForeignValue a => EvalForeignFunction (Eval a) where
-  evalForeignFunction _ _ [] x = toForeignValue <$> x
-  evalForeignFunction ss _ _ _ = foreignFunctionArityMismatch ss
+class ToHaskellValue r where
+  toHaskellValue :: SourceSpan -> Env EvalAnn -> Value EvalAnn -> Eval r
 
-instance EvalForeignFunction (Eval (Value EvalAnn)) where
-  evalForeignFunction _ _ _ = identity
+instance ToHaskellValue (Value EvalAnn) where
+  toHaskellValue _ _ = pure
 
-class FromForeignValue r where
-  fromForeignValue :: SourceSpan -> Env EvalAnn -> Value EvalAnn -> Eval r
+instance ToHaskellValue Bool where
+  toHaskellValue ss _ = require ss (Proxy @"VBool")
 
-instance FromForeignValue (Value EvalAnn) where
-  fromForeignValue _ _ = pure
+instance ToHaskellValue Text where
+  toHaskellValue ss _ = require ss (Proxy @"VString")
 
-instance FromForeignValue a => FromForeignValue (Eval a) where
-  fromForeignValue ss env x = do
-    fromForeignValue ss env x
+instance ToHaskellValue Char where
+  toHaskellValue ss _ = require ss (Proxy @"VChar")
 
-instance FromForeignValue Bool where
-  fromForeignValue ss _ = require ss (Proxy @"VBool")
+instance ToHaskellValue Integer where
+  toHaskellValue ss _ = requireNamed "Integer instance" ss (Proxy @"VInt")
 
-instance FromForeignValue Text where
-  fromForeignValue ss _ = require ss (Proxy @"VString")
+instance ToHaskellValue Scientific where
+  toHaskellValue ss _ = require ss (Proxy @"VNumber")
 
-instance FromForeignValue Char where
-  fromForeignValue ss _ = require ss (Proxy @"VChar")
+instance ToHaskellValue a => ToHaskellValue (Vector a) where
+  toHaskellValue ss env = traverse (toHaskellValue ss env) <=< require ss (Proxy @"VArray")
 
-instance FromForeignValue Integer where
-  fromForeignValue ss _ = require ss (Proxy @"VInt")
-
-instance FromForeignValue Scientific where
-  fromForeignValue ss _ = require ss (Proxy @"VNumber")
-
-instance FromForeignValue (Vector (Value EvalAnn)) where
-  fromForeignValue ss _ = require ss (Proxy @"VArray")
-
-instance (ToForeignValue a, FromForeignValue b) => FromForeignValue (a -> Eval b) where
-  fromForeignValue ss env fn =
-    pure (\x -> do
-      fn' <- require ss (Proxy @"VFunction") fn
-      fromForeignValue ss env =<< evalFunc env fn' (toForeignValue x)
+instance (FromHaskellValue a, ToHaskellValue b) => ToHaskellValue (a -> Eval b) where
+  toHaskellValue ss env fn =
+    pure
+      ( \x -> do
+          let x' = fromHaskellValue x
+          fn' <- require ss (Proxy @"VFunction") fn
+          let (Function _ arg expr) = fn'
+          -- traceShowM ("fn", runIdent arg, (const () <$> expr))
+          -- traceShowM ("param", x')
+          b <- evalFunc env fn' x'
+          -- traceShowM ("OK")
+          toHaskellValue ss env b
       )
 
-instance (ToForeignValue a, ToForeignValue b, FromForeignValue c) => FromForeignValue (a -> b -> Eval c) where
-  fromForeignValue ss env fn = do
-    pure (\a b -> do
-      fn' <- require ss (Proxy @"VFunction") fn
-      fn'' <- require ss (Proxy @"VFunction") =<< evalFunc env fn' (toForeignValue a)
-      fromForeignValue ss env =<< evalFunc env fn'' (toForeignValue b)
-      )
+--instance (Show a, Show b, FromHaskellValue a, FromHaskellValue b, ToHaskellValue c) => ToHaskellValue (a -> b -> Eval c) where
+--  toHaskellValue ss env fn = do
+--    pure
+--      ( \a b -> do
+--          fn' <- require ss (Proxy @"VFunction") fn
+--          fn'' <- require ss (Proxy @"VFunction") =<< evalFunc env fn' (fromHaskellValue a)
+--          c <- evalFunc env fn'' (fromHaskellValue b)
+--          toHaskellValue ss env c
+--      )
 
-class ToForeignValue a where
-  toForeignValue :: a -> Value EvalAnn
+class FromHaskellValue a where
+  fromHaskellValue :: a -> Value EvalAnn
 
-instance ToForeignValue Bool where
-  toForeignValue = VBool
+instance FromHaskellValue Bool where
+  fromHaskellValue = VBool
 
-instance ToForeignValue Integer where
-  toForeignValue = VInt
+instance FromHaskellValue Integer where
+  fromHaskellValue = VInt
 
-instance ToForeignValue Scientific where
-  toForeignValue = VNumber
+instance FromHaskellValue Scientific where
+  fromHaskellValue = VNumber
 
-instance ToForeignValue Char where
-  toForeignValue = VChar
+instance FromHaskellValue Char where
+  fromHaskellValue = VChar
 
-instance ToForeignValue Text where
-  toForeignValue = VString
+instance FromHaskellValue Text where
+  fromHaskellValue = VString
 
-instance ToForeignValue a => ToForeignValue (Vector a) where
-  toForeignValue xs = VArray (toForeignValue <$> xs)
+instance FromHaskellValue a => FromHaskellValue (Vector a) where
+  fromHaskellValue xs = VArray (fromHaskellValue <$> xs)
 
-instance ToForeignValue (Value EvalAnn) where
-  toForeignValue = identity
+instance FromHaskellValue (Value EvalAnn) where
+  fromHaskellValue = identity
 
 foreignFunctions :: Map (Qualified Ident) ForeignFunction
 foreignFunctions =
   Map.fromList
-    [ (qualifiedName ["Data", "Array"] "indexImpl", ForeignFunction indexImpl)
-    , (qualifiedName ["Data", "Array"] "length", ForeignFunction len)
-    , (qualifiedName ["Data", "Array"] "filter", ForeignFunction filterArray)
-    , (qualifiedName ["Data", "HeytingAlgebra"] "boolConj", ForeignFunction (binOp (&&)))
-    , (qualifiedName ["Data", "HeytingAlgebra"] "boolDisj", ForeignFunction (binOp (||)))
-    , (qualifiedName ["Data", "HeytingAlgebra"] "boolNot", ForeignFunction ((pure :: a -> Eval a) . not))
-    , (qualifiedName ["Data", "Eq"] "eqBooleanImpl", ForeignFunction (binOp ((==) @Bool)))
-    , (qualifiedName ["Data", "Eq"] "eqIntImpl", ForeignFunction (binOp ((==) @Integer)))
-    , (qualifiedName ["Data", "Eq"] "eqNumberImpl", ForeignFunction (binOp ((==) @Scientific)))
-    , (qualifiedName ["Data", "Eq"] "eqCharImpl", ForeignFunction (binOp ((==) @Char)))
-    , (qualifiedName ["Data", "Eq"] "eqStringImpl", ForeignFunction (binOp ((==) @Text)))
-    , (qualifiedName ["Data", "Eq"] "eqArrayImpl", ForeignFunction eqArray)
-    , (qualifiedName ["Data", "Ord"] "ordNumberImpl", ForeignFunction (ordImpl @Scientific))
-    , (qualifiedName ["Data", "Foldable"] "foldlArray", ForeignFunction foldlArray)
-    , (qualifiedName ["Data", "Foldable"] "foldrArray", ForeignFunction foldrArray)
-    , (qualifiedName ["Data", "Semiring"] "intAdd", ForeignFunction (binOp ((+) @Integer)))
-    , (qualifiedName ["Data", "Semiring"] "intMul", ForeignFunction (binOp ((*) @Integer)))
-    , (qualifiedName ["Data", "Semiring"] "numAdd", ForeignFunction (binOp ((+) @Scientific)))
-    , (qualifiedName ["Data", "Semiring"] "numMul", ForeignFunction (binOp ((*) @Scientific)))
-    , (qualifiedName ["Data", "Ring"] "intSub", ForeignFunction (binOp ((-) @Integer)))
-    , (qualifiedName ["Data", "Functor"] "arrayMap", ForeignFunction arrayMap)
+    [ (qualifiedName ["Data", "Array"] "indexImpl", foreignFunction indexImpl),
+      (qualifiedName ["Data", "Array"] "length", foreignFunction len),
+      (qualifiedName ["Data", "Array"] "filter", foreignFunction filterArray),
+      (qualifiedName ["Data", "HeytingAlgebra"] "boolConj", foreignFunction (binOp (&&))),
+      (qualifiedName ["Data", "HeytingAlgebra"] "boolDisj", foreignFunction (binOp (||))),
+      (qualifiedName ["Data", "HeytingAlgebra"] "boolNot", foreignFunction ((pure :: a -> Eval a) . not)),
+      (qualifiedName ["Data", "Eq"] "eqBooleanImpl", foreignFunction (binOp ((==) @Bool))),
+      (qualifiedName ["Data", "Eq"] "eqIntImpl", foreignFunction (binOp ((==) @Integer))),
+      (qualifiedName ["Data", "Eq"] "eqNumberImpl", foreignFunction (binOp ((==) @Scientific))),
+      (qualifiedName ["Data", "Eq"] "eqCharImpl", foreignFunction (binOp ((==) @Char))),
+      (qualifiedName ["Data", "Eq"] "eqStringImpl", foreignFunction (binOp ((==) @Text))),
+      --(qualifiedName ["Data", "Eq"] "eqArrayImpl", foreignFunction eqArray),
+      (qualifiedName ["Data", "Ord"] "ordNumberImpl", foreignFunction (ordImpl @Scientific)),
+      -- (qualifiedName ["Data", "Foldable"] "foldlArray", foreignFunction foldlArray),
+      -- (qualifiedName ["Data", "Foldable"] "foldrArray", foreignFunction foldrArray),
+      (qualifiedName ["Data", "Semiring"] "intAdd", ForeignFunction 2 $ \ss env [x, y] -> do
+        x' <- requireNamed "x" ss (Proxy @"VInt") x
+        y' <- requireNamed "y" ss (Proxy @"VInt") y
+        pure (VInt (x' + y'))
+      ),
+      (qualifiedName ["Data", "Semiring"] "intMul", foreignFunction (binOp ((*) @Integer))),
+      (qualifiedName ["Data", "Semiring"] "numAdd", foreignFunction (binOp ((+) @Scientific))),
+      (qualifiedName ["Data", "Semiring"] "numMul", foreignFunction (binOp ((*) @Scientific))),
+      (qualifiedName ["Data", "Ring"] "intSub", foreignFunction (binOp ((-) @Integer))),
+      (qualifiedName ["Data", "Functor"] "arrayMap", ForeignFunction 2 $ \ss env [f, xs] -> do
+        f' <- require ss (Proxy @"VFunction") f
+        xs' <- require ss (Proxy @"VArray") xs
+        VArray <$> Vector.mapM (evalFunc env f') xs'
+      )
     ]
   where
-    indexImpl :: (Value EvalAnn -> Eval (Value EvalAnn)) -> Value EvalAnn -> Vector (Value EvalAnn) -> Integer -> Eval (Value EvalAnn)
+    indexImpl :: a ~ (Value EvalAnn) => (a -> Eval (Value EvalAnn)) -> Value EvalAnn -> Vector a -> Integer -> Eval (Value EvalAnn)
     indexImpl just nothing xs i = maybe (pure nothing) just (xs ^? ix (fromIntegral i))
-    
     len :: Vector (Value EvalAnn) -> Eval Integer
     len xs = pure (fromIntegral (Vector.length xs))
-
     filterArray :: (a ~ Value EvalAnn, b ~ Bool) => (a -> Eval b) -> Vector a -> Eval (Vector a)
     filterArray = Vector.filterM
-  
     arrayMap :: (a ~ Value EvalAnn, b ~ Value EvalAnn) => (a -> Eval b) -> Vector a -> Eval (Vector b)
     arrayMap = Vector.mapM
-
     foldlArray :: (b ~ Value EvalAnn, a ~ Value EvalAnn) => (b -> a -> Eval b) -> b -> Vector a -> Eval b
     foldlArray = foldM
-
     foldrArray :: (b ~ Value EvalAnn, a ~ Value EvalAnn) => (a -> b -> Eval b) -> b -> Vector a -> Eval b
     foldrArray = foldrM
-
-    binOp :: (a -> b -> c) -> a -> b -> Eval c
-    binOp op x y = pure (x `op` y)
-
+    binOp :: Show a => (a -> a -> b) -> a -> a -> Eval b
+    binOp op x y = do
+      traceShowM (x, y)
+      pure (x `op` y)
     eqArray :: (a ~ Value EvalAnn, b ~ Bool) => (a -> a -> Eval b) -> Vector a -> Vector a -> Eval b
-    eqArray pred' v1 v2 
+    eqArray pred' v1 v2
       | Vector.length v1 == Vector.length v2 = Vector.and <$> Vector.zipWithM pred' v1 v2
       | otherwise = pure False
-
     ordImpl :: forall a o. (Show a, Ord a, o ~ Value EvalAnn) => o -> o -> o -> a -> a -> Eval o
     ordImpl lt eq gt x y = pure $ case x `compare` y of
       LT -> lt
       EQ -> eq
       GT -> gt
+    intAdd :: Value EvalAnn -> Value EvalAnn -> Eval (Value EvalAnn)
+    intAdd x y = do
+      x' <- requireNamed "int add x" nullSourceSpan (Proxy @"VInt") x
+      y' <- requireNamed "int add y" nullSourceSpan (Proxy @"VInt") y
+      pure (VInt (x' + y'))
 
 evalForeignApply :: SourceSpan -> Env EvalAnn -> ApplyForeign -> Eval (Value EvalAnn)
 evalForeignApply ss env (ApplyForeign qn paramNames) = do
   params <- for paramNames $ \n -> envLookupEval ss (Qualified Nothing n) env
   case Map.lookup qn foreignFunctions of
-    (Just (ForeignFunction f)) -> evalForeignFunction ss env params f
+    (Just f) -> evalFn f ss env params
     _ -> throwError (NotInScope ss qn)

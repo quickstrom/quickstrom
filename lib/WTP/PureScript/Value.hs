@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
@@ -29,7 +30,7 @@ data Value ann
   | VArray (Vector (Value ann))
   | VObject (HashMap Text (Value ann))
   | VFunction (Function ann)
-  deriving (Show, Generic)
+  deriving (Show, Generic, Functor)
 
 instance Pretty (Value ann) where
   pretty = \case
@@ -41,14 +42,17 @@ instance Pretty (Value ann) where
     VNumber n -> pretty (show n :: Text)
     VInt n -> pretty (show n :: Text)
     VArray xs -> list (Vector.toList (Vector.map pretty xs))
-    VObject obj -> encloseSep lbrace rbrace comma (map (\_ -> "") (HashMap.toList obj))
+    VObject obj -> encloseSep lbrace rbrace (comma <> space) (map (\(k, v) -> pretty k <> ":" <+> pretty v) (HashMap.toList obj))
     VFunction (Function _ arg _body) -> parens ("\\" <> pretty (runIdent arg) <+> "->" <+> "<body>")
 
 data Function ann = Function (Env ann) Ident (Expr ann)
-  deriving (Show, Generic)
+  deriving (Show, Generic, Functor)
 
 newtype Env ann = Env (Map (Qualified Ident) (Either (Expr ann) (Value ann)))
   deriving (Show, Semigroup, Monoid)
+
+instance Functor Env where
+  fmap f (Env m) = Env (Map.map (bimap (fmap f) (fmap f)) m)
 
 envBindValue :: Qualified Ident -> Value ann -> Env ann
 envBindValue qn expr = Env (Map.singleton qn (Right expr))

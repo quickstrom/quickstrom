@@ -185,6 +185,8 @@ eval env = \case
 evalApp :: Env EvalAnn -> EvalAnn -> Expr EvalAnn -> Expr EvalAnn -> Eval (Value EvalAnn)
 evalApp env ann func param =
   case (func, param) of
+    (asQualifiedVar -> Just (["DSL"], "next"), p) -> eval env p -- TODO: handle temporal operators
+    (asQualifiedVar -> Just (["DSL"], "always"), p) -> eval env p -- TODO: handle temporal operators
     (asQualifiedVar -> Just (["DSL"], "_property"), p) -> do
       name <- require (sourceSpan p) (Proxy @"VString") =<< eval env p
       pure (VElementState (Element.Property name))
@@ -304,7 +306,7 @@ test g entry = do
 data ApplyForeign = ApplyForeign (Qualified Ident) [Ident]
   deriving (Show, Generic)
 
-data ForeignFunction = forall f. (FromForeignFunction f, ForeignFunctionArity f) => ForeignFunction f
+data ForeignFunction = forall f. (EvalForeignFunction f, ForeignFunctionArity f) => ForeignFunction f
 
 class ForeignFunctionArity f where
   foreignFunctionArity :: Proxy f -> Int
@@ -315,37 +317,47 @@ instance ForeignFunctionArity b => ForeignFunctionArity (a -> b) where
 instance {-# OVERLAPPABLE #-} ForeignFunctionArity a where
   foreignFunctionArity _ = 0
 
-class FromForeignFunction f where
-  fromForeignFunction :: SourceSpan -> Env EvalAnn -> [Value EvalAnn] -> f -> Eval (Value EvalAnn)
-
 foreignFunctionArityMismatch :: SourceSpan -> Eval a
 foreignFunctionArityMismatch ss = throwError (UnexpectedError (Just ss) "Foreign function arity mismatch")
 
-fromForeignFunctionWithValue :: ToForeignValue a => SourceSpan -> Env EvalAnn -> [Value EvalAnn] -> a -> Eval (Value EvalAnn)
-fromForeignFunctionWithValue _ _ [] x = pure (toForeignValue x)
-fromForeignFunctionWithValue ss _ _ _ = foreignFunctionArityMismatch ss
+class EvalForeignFunction f where
+  evalForeignFunction :: SourceSpan -> Env EvalAnn -> [Value EvalAnn] -> f -> Eval (Value EvalAnn)
 
-instance (FromForeignValue a, FromForeignFunction b) => FromForeignFunction (a -> b) where
-  fromForeignFunction ss env (v : vs) f = do
+instance (FromForeignValue a, EvalForeignFunction b) => EvalForeignFunction (a -> b) where
+  evalForeignFunction ss env (v : vs) f = do
     a <- fromForeignValue ss env v
-    fromForeignFunction ss env vs (f a)
-  fromForeignFunction ss _ [] _ = foreignFunctionArityMismatch ss
+    evalForeignFunction ss env vs (f a)
+  evalForeignFunction ss _ [] _ = foreignFunctionArityMismatch ss
 
-instance {-# OVERLAPPABLE #-} ToForeignValue a => FromForeignFunction a where
-  fromForeignFunction _ _ [] x = pure (toForeignValue x)
-  fromForeignFunction ss _ _ _ = foreignFunctionArityMismatch ss
+instance {-# OVERLAPPABLE #-} ToForeignValue a => EvalForeignFunction a where
+  evalForeignFunction _ _ [] x = pure (toForeignValue x)
+  evalForeignFunction ss _ _ _ = foreignFunctionArityMismatch ss
 
-instance FromForeignFunction (Eval (Value EvalAnn)) where
-  fromForeignFunction _ _ _ = identity
+instance {-# OVERLAPPABLE #-} ToForeignValue a => EvalForeignFunction (Eval a) where
+  evalForeignFunction _ _ [] x = toForeignValue <$> x
+  evalForeignFunction ss _ _ _ = foreignFunctionArityMismatch ss
+
+instance EvalForeignFunction (Eval (Value EvalAnn)) where
+  evalForeignFunction _ _ _ = identity
 
 class FromForeignValue r where
   fromForeignValue :: SourceSpan -> Env EvalAnn -> Value EvalAnn -> Eval r
+
+instance FromForeignValue (Value EvalAnn) where
+  fromForeignValue _ _ = pure
+
+instance FromForeignValue a => FromForeignValue (Eval a) where
+  fromForeignValue ss env x = do
+    fromForeignValue ss env x
 
 instance FromForeignValue Bool where
   fromForeignValue ss _ = require ss (Proxy @"VBool")
 
 instance FromForeignValue Text where
   fromForeignValue ss _ = require ss (Proxy @"VString")
+
+instance FromForeignValue Char where
+  fromForeignValue ss _ = require ss (Proxy @"VChar")
 
 instance FromForeignValue Integer where
   fromForeignValue ss _ = require ss (Proxy @"VInt")
@@ -371,9 +383,6 @@ instance (ToForeignValue a, ToForeignValue b, FromForeignValue c) => FromForeign
       fromForeignValue ss env =<< evalFunc env fn'' (toForeignValue b)
       )
 
-instance FromForeignValue (Value EvalAnn) where
-  fromForeignValue _ _ = pure
-
 class ToForeignValue a where
   toForeignValue :: a -> Value EvalAnn
 
@@ -385,6 +394,9 @@ instance ToForeignValue Integer where
 
 instance ToForeignValue Scientific where
   toForeignValue = VNumber
+
+instance ToForeignValue Char where
+  toForeignValue = VChar
 
 instance ToForeignValue Text where
   toForeignValue = VString
@@ -403,7 +415,12 @@ foreignFunctions =
     , (qualifiedName ["Data", "HeytingAlgebra"] "boolConj", ForeignFunction (&&))
     , (qualifiedName ["Data", "HeytingAlgebra"] "boolDisj", ForeignFunction (||))
     , (qualifiedName ["Data", "HeytingAlgebra"] "boolNot", ForeignFunction not)
+    , (qualifiedName ["Data", "Eq"] "eqBooleanImpl", ForeignFunction ((==) @Bool))
+    , (qualifiedName ["Data", "Eq"] "eqIntImpl", ForeignFunction ((==) @Integer))
+    , (qualifiedName ["Data", "Eq"] "eqNumberImpl", ForeignFunction ((==) @Scientific))
+    , (qualifiedName ["Data", "Eq"] "eqCharImpl", ForeignFunction ((==) @Char))
     , (qualifiedName ["Data", "Eq"] "eqStringImpl", ForeignFunction ((==) @Text))
+    , (qualifiedName ["Data", "Eq"] "eqArrayImpl", ForeignFunction eqArray)
     , (qualifiedName ["Data", "Foldable"] "foldlArray", ForeignFunction foldlArray)
     , (qualifiedName ["Data", "Foldable"] "foldrArray", ForeignFunction foldrArray)
     , (qualifiedName ["Data", "Semiring"] "intAdd", ForeignFunction ((+) @Integer))
@@ -422,9 +439,14 @@ foreignFunctions =
     foldrArray :: (b ~ Value EvalAnn, a ~ Value EvalAnn) => (a -> b -> Eval b) -> b -> Vector a -> Eval b
     foldrArray = foldrM
 
+    eqArray :: (a ~ Value EvalAnn, b ~ Bool) => (a -> a -> Eval b) -> Vector a -> Vector a -> Eval b
+    eqArray pred' v1 v2 
+      | Vector.length v1 == Vector.length v2 = Vector.and <$> Vector.zipWithM pred' v1 v2
+      | otherwise = pure False
+
 evalForeignApply :: SourceSpan -> Env EvalAnn -> ApplyForeign -> Eval (Value EvalAnn)
 evalForeignApply ss env (ApplyForeign qn paramNames) = do
   params <- for paramNames $ \n -> envLookupEval ss (Qualified Nothing n) env
   case Map.lookup qn foreignFunctions of
-    (Just (ForeignFunction f)) -> fromForeignFunction ss env params f
+    (Just (ForeignFunction f)) -> evalForeignFunction ss env params f
     _ -> throwError (NotInScope ss qn)

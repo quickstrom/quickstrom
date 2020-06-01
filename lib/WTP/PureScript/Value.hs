@@ -1,17 +1,22 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module WTP.PureScript.Value where
 
 import Data.HashMap.Strict (HashMap)
+import qualified Data.Map as Map
 import Data.Scientific (Scientific)
+import Data.Text.Prettyprint.Doc
 import Data.Vector (Vector)
 import Language.PureScript.CoreFn
 import Language.PureScript.Names
-import Protolude
+import Protolude hiding (list)
 import qualified WTP.Element as Element
-import qualified Data.Map as Map
+import qualified Data.Vector as Vector
+import qualified Data.HashMap.Strict as HashMap
 
 data Value ann
   = VNull
@@ -25,6 +30,19 @@ data Value ann
   | VObject (HashMap Text (Value ann))
   | VFunction (Function ann)
   deriving (Show, Generic)
+
+instance Pretty (Value ann) where
+  pretty = \case
+    VNull -> "null"
+    VBool b -> bool "false" "true" b
+    VElementState _state -> "TODO: element state"
+    VString t -> pretty (show t :: Text)
+    VChar c -> pretty (show c :: Text)
+    VNumber n -> pretty (show n :: Text)
+    VInt n -> pretty (show n :: Text)
+    VArray xs -> list (Vector.toList (Vector.map pretty xs))
+    VObject obj -> encloseSep lbrace rbrace comma (map (\_ -> "") (HashMap.toList obj))
+    VFunction (Function _ arg _body) -> parens ("\\" <> pretty (runIdent arg) <+> "->" <+> "<body>")
 
 data Function ann = Function (Env ann) Ident (Expr ann)
   deriving (Show, Generic)

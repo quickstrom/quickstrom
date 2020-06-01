@@ -1,4 +1,3 @@
-{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE DeriveGeneric #-}
@@ -31,6 +30,8 @@ import Data.Scientific (Scientific)
 import qualified Data.Text as Text
 import qualified Data.Vector as Vector
 import Data.Vector (Vector)
+import Data.Text.Prettyprint.Doc
+import Data.Text.Prettyprint.Doc.Render.Text
 import Language.PureScript.AST (SourceSpan, nullSourceSpan, spanName)
 import Language.PureScript.CoreFn
 import Language.PureScript.CoreFn.FromJSON (moduleFromJSON)
@@ -294,10 +295,11 @@ evalEntryPoint entryPoint env =
 test :: Text -> Qualified Ident -> IO ()
 test g entry = do
   paths <- glob (toS g)
+  putStrLn ("Loading " <> show (length paths) <> " modules..." :: Text)
   runExceptT (loadAllModulesEnv paths) >>= \case
     Right env -> do
       case runEval (evalEntryPoint entry (initialEnv <> env)) of
-        Right value -> print value
+        Right value -> putStrLn (renderStrict (layoutPretty defaultLayoutOptions (pretty value)))
         Left err -> print err
     Left err -> putStrLn err
 
@@ -329,9 +331,9 @@ instance (FromForeignValue a, EvalForeignFunction b) => EvalForeignFunction (a -
     evalForeignFunction ss env vs (f a)
   evalForeignFunction ss _ [] _ = foreignFunctionArityMismatch ss
 
-instance {-# OVERLAPPABLE #-} ToForeignValue a => EvalForeignFunction a where
-  evalForeignFunction _ _ [] x = pure (toForeignValue x)
-  evalForeignFunction ss _ _ _ = foreignFunctionArityMismatch ss
+-- instance {-# OVERLAPPABLE #-} ToForeignValue a => EvalForeignFunction a where
+--   evalForeignFunction _ _ [] x = pure (toForeignValue x)
+--   evalForeignFunction ss _ _ _ = foreignFunctionArityMismatch ss
 
 instance {-# OVERLAPPABLE #-} ToForeignValue a => EvalForeignFunction (Eval a) where
   evalForeignFunction _ _ [] x = toForeignValue <$> x
@@ -411,27 +413,39 @@ foreignFunctions :: Map (Qualified Ident) ForeignFunction
 foreignFunctions =
   Map.fromList
     [ (qualifiedName ["Data", "Array"] "indexImpl", ForeignFunction indexImpl)
-    , (qualifiedName ["Data", "Array"] "length", ForeignFunction (fromIntegral @Int @Integer . Vector.length @(Value EvalAnn)))
-    , (qualifiedName ["Data", "HeytingAlgebra"] "boolConj", ForeignFunction (&&))
-    , (qualifiedName ["Data", "HeytingAlgebra"] "boolDisj", ForeignFunction (||))
-    , (qualifiedName ["Data", "HeytingAlgebra"] "boolNot", ForeignFunction not)
-    , (qualifiedName ["Data", "Eq"] "eqBooleanImpl", ForeignFunction ((==) @Bool))
-    , (qualifiedName ["Data", "Eq"] "eqIntImpl", ForeignFunction ((==) @Integer))
-    , (qualifiedName ["Data", "Eq"] "eqNumberImpl", ForeignFunction ((==) @Scientific))
-    , (qualifiedName ["Data", "Eq"] "eqCharImpl", ForeignFunction ((==) @Char))
-    , (qualifiedName ["Data", "Eq"] "eqStringImpl", ForeignFunction ((==) @Text))
+    , (qualifiedName ["Data", "Array"] "length", ForeignFunction len)
+    , (qualifiedName ["Data", "Array"] "filter", ForeignFunction filterArray)
+    , (qualifiedName ["Data", "HeytingAlgebra"] "boolConj", ForeignFunction (binOp (&&)))
+    , (qualifiedName ["Data", "HeytingAlgebra"] "boolDisj", ForeignFunction (binOp (||)))
+    , (qualifiedName ["Data", "HeytingAlgebra"] "boolNot", ForeignFunction ((pure :: a -> Eval a) . not))
+    , (qualifiedName ["Data", "Eq"] "eqBooleanImpl", ForeignFunction (binOp ((==) @Bool)))
+    , (qualifiedName ["Data", "Eq"] "eqIntImpl", ForeignFunction (binOp ((==) @Integer)))
+    , (qualifiedName ["Data", "Eq"] "eqNumberImpl", ForeignFunction (binOp ((==) @Scientific)))
+    , (qualifiedName ["Data", "Eq"] "eqCharImpl", ForeignFunction (binOp ((==) @Char)))
+    , (qualifiedName ["Data", "Eq"] "eqStringImpl", ForeignFunction (binOp ((==) @Text)))
     , (qualifiedName ["Data", "Eq"] "eqArrayImpl", ForeignFunction eqArray)
+    , (qualifiedName ["Data", "Ord"] "ordNumberImpl", ForeignFunction (ordImpl @Scientific))
     , (qualifiedName ["Data", "Foldable"] "foldlArray", ForeignFunction foldlArray)
     , (qualifiedName ["Data", "Foldable"] "foldrArray", ForeignFunction foldrArray)
-    , (qualifiedName ["Data", "Semiring"] "intAdd", ForeignFunction ((+) @Integer))
-    , (qualifiedName ["Data", "Semiring"] "intMul", ForeignFunction ((*) @Integer))
-    , (qualifiedName ["Data", "Semiring"] "numAdd", ForeignFunction ((+) @Scientific))
-    , (qualifiedName ["Data", "Semiring"] "numMul", ForeignFunction ((*) @Scientific))
-    , (qualifiedName ["Data", "Ring"] "intSub", ForeignFunction ((-) @Integer))
+    , (qualifiedName ["Data", "Semiring"] "intAdd", ForeignFunction (binOp ((+) @Integer)))
+    , (qualifiedName ["Data", "Semiring"] "intMul", ForeignFunction (binOp ((*) @Integer)))
+    , (qualifiedName ["Data", "Semiring"] "numAdd", ForeignFunction (binOp ((+) @Scientific)))
+    , (qualifiedName ["Data", "Semiring"] "numMul", ForeignFunction (binOp ((*) @Scientific)))
+    , (qualifiedName ["Data", "Ring"] "intSub", ForeignFunction (binOp ((-) @Integer)))
+    , (qualifiedName ["Data", "Functor"] "arrayMap", ForeignFunction arrayMap)
     ]
   where
     indexImpl :: (Value EvalAnn -> Eval (Value EvalAnn)) -> Value EvalAnn -> Vector (Value EvalAnn) -> Integer -> Eval (Value EvalAnn)
     indexImpl just nothing xs i = maybe (pure nothing) just (xs ^? ix (fromIntegral i))
+    
+    len :: Vector (Value EvalAnn) -> Eval Integer
+    len xs = pure (fromIntegral (Vector.length xs))
+
+    filterArray :: (a ~ Value EvalAnn, b ~ Bool) => (a -> Eval b) -> Vector a -> Eval (Vector a)
+    filterArray = Vector.filterM
+  
+    arrayMap :: (a ~ Value EvalAnn, b ~ Value EvalAnn) => (a -> Eval b) -> Vector a -> Eval (Vector b)
+    arrayMap = Vector.mapM
 
     foldlArray :: (b ~ Value EvalAnn, a ~ Value EvalAnn) => (b -> a -> Eval b) -> b -> Vector a -> Eval b
     foldlArray = foldM
@@ -439,10 +453,19 @@ foreignFunctions =
     foldrArray :: (b ~ Value EvalAnn, a ~ Value EvalAnn) => (a -> b -> Eval b) -> b -> Vector a -> Eval b
     foldrArray = foldrM
 
+    binOp :: (a -> b -> c) -> a -> b -> Eval c
+    binOp op x y = pure (x `op` y)
+
     eqArray :: (a ~ Value EvalAnn, b ~ Bool) => (a -> a -> Eval b) -> Vector a -> Vector a -> Eval b
     eqArray pred' v1 v2 
       | Vector.length v1 == Vector.length v2 = Vector.and <$> Vector.zipWithM pred' v1 v2
       | otherwise = pure False
+
+    ordImpl :: forall a o. (Show a, Ord a, o ~ Value EvalAnn) => o -> o -> o -> a -> a -> Eval o
+    ordImpl lt eq gt x y = pure $ case x `compare` y of
+      LT -> lt
+      EQ -> eq
+      GT -> gt
 
 evalForeignApply :: SourceSpan -> Env EvalAnn -> ApplyForeign -> Eval (Value EvalAnn)
 evalForeignApply ss env (ApplyForeign qn paramNames) = do

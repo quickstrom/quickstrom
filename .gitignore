@@ -10,3 +10,5 @@ cabal.project.local
 
 tsconfig.tsbuildinfo
 /target
+/output
+/.spago

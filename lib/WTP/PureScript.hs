@@ -48,6 +48,7 @@ import qualified WTP.Element as WTP
 import WTP.PureScript.Value
 import qualified WTP.Specification as WTP
 import Data.HashMap.Strict (HashMap)
+import Data.Fixed (mod')
 
 data EvalError
   = UnexpectedError (Maybe SourceSpan) Text
@@ -513,8 +514,10 @@ foreignFunctions =
       (qualifiedName ["Data", "Semiring"] "numMul", foreignFunction (binOp ((*) @Scientific))),
       (qualifiedName ["Data", "Semigroup"] "concatString", foreignFunction (binOp ((<>) @Text))),
       (qualifiedName ["Data", "Ring"] "intSub", foreignFunction (binOp ((-) @Integer))),
+      (qualifiedName ["Data", "Ring"] "numSub", foreignFunction (binOp ((-) @Scientific))),
       (qualifiedName ["Data", "Unfoldable"] "unfoldrArrayImpl", foreignFunction unfoldrArrayImpl),
       (qualifiedName ["Math"] "floor", foreignFunction (unOp (fromIntegral @Integer @Scientific . floor @Scientific @Integer))),
+      (qualifiedName ["Math"] "remainder", foreignFunction (binOp (mod' @Scientific))),
       (qualifiedName ["Partial", "Unsafe"] "unsafePartial", foreignFunction unsafePartial)
     ]
   where

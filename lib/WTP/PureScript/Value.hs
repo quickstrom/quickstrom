@@ -43,10 +43,13 @@ instance Pretty (Value ann) where
     VInt n -> pretty (show n :: Text)
     VArray xs -> list (Vector.toList (Vector.map pretty xs))
     VObject obj -> encloseSep lbrace rbrace (comma <> space) (map (\(k, v) -> pretty k <> ":" <+> pretty v) (HashMap.toList obj))
-    VFunction (Function _ arg _body) -> parens ("\\" <> pretty (runIdent arg) <+> "->" <+> "<body>")
+    VFunction f -> pretty f
 
 data Function ann = Function (Env ann) Ident (Expr ann)
   deriving (Show, Generic, Functor)
+
+instance Pretty (Function ann) where
+  pretty (Function _ arg _) = parens (backslash <> pretty (runIdent arg) <+> "->" <+> "<body>")
 
 newtype Env ann = Env (Map (Qualified Ident) (Either (Expr ann) (Value ann)))
   deriving (Show, Semigroup, Monoid)

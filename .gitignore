@@ -12,3 +12,4 @@ tsconfig.tsbuildinfo
 /target
 /output
 /.spago
+.psc-ide-port

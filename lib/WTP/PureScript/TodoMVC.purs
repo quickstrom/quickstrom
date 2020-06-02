@@ -1,6 +1,6 @@
 module TodoMVC where
 
-import DSL (Spec, always, bind, checked, map, next, not, pure, queryAll, queryOne, textContent, (&&), (/=), (<<<), (<>), (==), (==>), (>), (>=), (||))
+import DSL (Spec, always, bind, checked, map, next, not, pure, queryAll, queryOne, textContent, (&&), (/=), (<<<), (<>), (==), (==>), (>), (>=), (||), clicks)
 import Data.Array (filter, head, last)
 import Data.Array as Array
 import Data.Foldable (length)
@@ -28,6 +28,7 @@ spec name =
   {
     origin : ("http://todomvc.com/examples/" <> name <> "/"),
     readyWhen : ".todoapp",
+    actions: clicks,
     proposition : initial && (always (enterText || addNew || changeFilter || toggleAll))
   }
   where

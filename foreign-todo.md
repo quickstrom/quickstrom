@@ -141,11 +141,6 @@
 .spago/prelude/v4.1.1/src/Data/EuclideanRing.purs:foreign import intDiv :: Int -> Int -> Int
 .spago/prelude/v4.1.1/src/Data/EuclideanRing.purs:foreign import intMod :: Int -> Int -> Int
 .spago/prelude/v4.1.1/src/Data/EuclideanRing.purs:foreign import numDiv :: Number -> Number -> Number
-.spago/prelude/v4.1.1/src/Data/Ord.purs:foreign import ordBooleanImpl
-.spago/prelude/v4.1.1/src/Data/Ord.purs:foreign import ordIntImpl
-.spago/prelude/v4.1.1/src/Data/Ord.purs:foreign import ordNumberImpl
-.spago/prelude/v4.1.1/src/Data/Ord.purs:foreign import ordStringImpl
-.spago/prelude/v4.1.1/src/Data/Ord.purs:foreign import ordCharImpl
 .spago/prelude/v4.1.1/src/Data/Ord.purs:foreign import ordArrayImpl :: forall a. (a -> a -> Int) -> Array a -> Array a -> Int
 .spago/prelude/v4.1.1/src/Data/Bounded.purs:foreign import topInt :: Int
 .spago/prelude/v4.1.1/src/Data/Bounded.purs:foreign import bottomInt :: Int

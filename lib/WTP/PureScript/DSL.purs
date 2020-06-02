@@ -1,5 +1,4 @@
 module DSL (
-  Selector,
   implies,
   (==>),
   next,
@@ -14,19 +13,20 @@ module DSL (
   Query,
   queryAll,
   queryOne,
-  Spec,
+  module DSL.Selector,
+  module Spec,
   module Prelude
   ) where
 
 import Prelude
 
-import Data.Array (all, head)
+import Data.Array (head)
 import Data.Maybe (Maybe)
 import Data.Symbol (class IsSymbol, SProxy(..), reflectSymbol)
 import Prim.RowList (class RowToList, Cons, Nil, kind RowList)
+import DSL.Selector (Selector)
+import DSL.Spec (Action(..), Path, Spec, SpecialKey(..), asciiKeyPresses, clicks, foci, keyPresses, specialKeyPress, specialKeyToChar) as Spec
 import Type.Prelude (class ListToRow, class TypeEquals)
-
-type Selector = String
 
 implies :: Boolean -> Boolean -> Boolean
 implies p q = q || not p
@@ -104,11 +104,4 @@ queryAll selector states = _queryAll selector states
 queryOne :: Query Maybe
 queryOne selector = head <<< queryAll selector
 
--- ## Testing...
-
-test :: Boolean
-test = all _.on (queryAll "p" { text: textContent, on: enabled })
-
 -- ## Spec
-
-type Spec = { origin :: String, readyWhen :: Selector, proposition :: Boolean }

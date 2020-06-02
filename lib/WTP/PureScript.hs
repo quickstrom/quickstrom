@@ -464,25 +464,31 @@ foreignFunctions =
       (qualifiedName ["Data", "Array"] "indexImpl", foreignFunction indexImpl),
       (qualifiedName ["Data", "Array"] "length", foreignFunction len),
       (qualifiedName ["Data", "Array"] "filter", foreignFunction filterArray),
-      (qualifiedName ["Data", "HeytingAlgebra"] "boolConj", foreignFunction (binOp (&&))),
-      (qualifiedName ["Data", "HeytingAlgebra"] "boolDisj", foreignFunction (binOp (||))),
-      (qualifiedName ["Data", "HeytingAlgebra"] "boolNot", foreignFunction ((pure :: a -> Eval a) . not)),
       (qualifiedName ["Data", "Eq"] "eqBooleanImpl", foreignFunction (binOp ((==) @Bool))),
       (qualifiedName ["Data", "Eq"] "eqIntImpl", foreignFunction (binOp ((==) @Integer))),
       (qualifiedName ["Data", "Eq"] "eqNumberImpl", foreignFunction (binOp ((==) @Scientific))),
       (qualifiedName ["Data", "Eq"] "eqCharImpl", foreignFunction (binOp ((==) @Char))),
       (qualifiedName ["Data", "Eq"] "eqStringImpl", foreignFunction (binOp ((==) @Text))),
       (qualifiedName ["Data", "Eq"] "eqArrayImpl", foreignFunction eqArray),
-      (qualifiedName ["Data", "Ord"] "ordNumberImpl", foreignFunction (ordImpl @Scientific)),
       (qualifiedName ["Data", "Foldable"] "foldlArray", foreignFunction foldlArray),
       (qualifiedName ["Data", "Foldable"] "foldrArray", foreignFunction foldrArray),
+      (qualifiedName ["Data", "Functor"] "arrayMap", foreignFunction arrayMap),
+      (qualifiedName ["Data", "HeytingAlgebra"] "boolConj", foreignFunction (binOp (&&))),
+      (qualifiedName ["Data", "HeytingAlgebra"] "boolDisj", foreignFunction (binOp (||))),
+      (qualifiedName ["Data", "HeytingAlgebra"] "boolNot", foreignFunction ((pure :: a -> Eval a) . not)),
+      (qualifiedName ["Data", "Int"] "toNumber", foreignFunction ((pure :: Scientific -> Eval Scientific) . fromIntegral @Integer)),
+      (qualifiedName ["Data", "Ord"] "ordBooleanImpl", foreignFunction (ordImpl @Bool)),
+      (qualifiedName ["Data", "Ord"] "ordIntImpl", foreignFunction (ordImpl @Integer)),
+      (qualifiedName ["Data", "Ord"] "ordNumberImpl", foreignFunction (ordImpl @Scientific)),
+      (qualifiedName ["Data", "Ord"] "ordStringImpl", foreignFunction (ordImpl @Text)),
+      (qualifiedName ["Data", "Ord"] "ordCharImpl", foreignFunction (ordImpl @Char)),
       (qualifiedName ["Data", "Semiring"] "intAdd", foreignFunction (binOp ((+) @Integer))),
       (qualifiedName ["Data", "Semiring"] "intMul", foreignFunction (binOp ((*) @Integer))),
       (qualifiedName ["Data", "Semiring"] "numAdd", foreignFunction (binOp ((+) @Scientific))),
       (qualifiedName ["Data", "Semiring"] "numMul", foreignFunction (binOp ((*) @Scientific))),
       (qualifiedName ["Data", "Semigroup"] "concatString", foreignFunction (binOp ((<>) @Text))),
       (qualifiedName ["Data", "Ring"] "intSub", foreignFunction (binOp ((-) @Integer))),
-      (qualifiedName ["Data", "Functor"] "arrayMap", foreignFunction arrayMap)
+      (qualifiedName ["Math"] "floor", foreignFunction (unOp (fromIntegral @Integer @Scientific . floor @Scientific @Integer)))
     ]
   where
     indexImpl :: a ~ (Value EvalAnn) => (a -> Eval (Value EvalAnn)) -> Value EvalAnn -> Vector a -> Integer -> Eval (Value EvalAnn)
@@ -499,7 +505,9 @@ foreignFunctions =
     foldlArray = foldM
     foldrArray :: (b ~ Value EvalAnn, a ~ Value EvalAnn) => (a -> b -> Eval b) -> b -> Vector a -> Eval b
     foldrArray = foldrM
-    binOp :: Show a => (a -> a -> b) -> a -> a -> Eval b
+    unOp :: (a -> b) -> a -> Eval b
+    unOp op = pure . op
+    binOp :: (a -> a -> b) -> a -> a -> Eval b
     binOp op x y = pure (x `op` y)
     eqArray :: (a ~ Value EvalAnn, b ~ Bool) => (a -> a -> Eval b) -> Vector a -> Vector a -> Eval b
     eqArray pred' v1 v2

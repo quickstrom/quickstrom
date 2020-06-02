@@ -26,7 +26,6 @@
 .spago/math/v2.1.1/src/Math.purs:foreign import ceil :: Number -> Number
 .spago/math/v2.1.1/src/Math.purs:foreign import cos :: Radians -> Number
 .spago/math/v2.1.1/src/Math.purs:foreign import exp :: Number -> Number
-.spago/math/v2.1.1/src/Math.purs:foreign import floor :: Number -> Number
 .spago/math/v2.1.1/src/Math.purs:foreign import log :: Number -> Number
 .spago/math/v2.1.1/src/Math.purs:foreign import max :: Number -> Number -> Number
 .spago/math/v2.1.1/src/Math.purs:foreign import min :: Number -> Number -> Number

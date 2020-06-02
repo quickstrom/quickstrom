@@ -24,8 +24,8 @@ import Control.Lens hiding (op)
 import qualified Data.Aeson as JSON
 import qualified Data.Aeson.Types as JSON
 import qualified Data.ByteString.Lazy.Char8 as BS
-import Data.Generics.Sum (AsConstructor, _Ctor)
 import Data.Generics.Product (field)
+import Data.Generics.Sum (AsConstructor, _Ctor)
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Map as Map
 import Data.Scientific (Scientific)
@@ -39,11 +39,14 @@ import Language.PureScript.CoreFn
 import Language.PureScript.CoreFn.FromJSON (moduleFromJSON)
 import Language.PureScript.Names
 import Language.PureScript.PSString (PSString, decodeString, mkString)
-import Protolude hiding (moduleName, Meta)
+import Protolude hiding (Meta, moduleName)
+import System.FilePath ((</>))
 import System.FilePath.Glob (glob)
 import qualified WTP.Element as Element
+import qualified WTP.Element as WTP
 import WTP.PureScript.Value
-import System.FilePath ((</>))
+import qualified WTP.Specification as WTP
+import Data.HashMap.Strict (HashMap)
 
 data EvalError
   = UnexpectedError (Maybe SourceSpan) Text
@@ -153,6 +156,13 @@ asQualifiedName :: Qualified Ident -> Maybe ([Text], Text)
 asQualifiedName (Qualified (Just (ModuleName pns)) n) = Just (map runProperName pns, runIdent n)
 asQualifiedName _ = Nothing
 
+accessField :: SourceSpan -> Text -> HashMap Text (Value EvalAnn) -> Eval (Value EvalAnn)
+accessField ss key obj =
+  maybe
+    (throwError (UnexpectedError (Just ss) ("Key not present in object: " <> key)))
+    pure
+    (HashMap.lookup key obj)
+
 eval :: Env EvalAnn -> Expr EvalAnn -> Eval (Value EvalAnn)
 eval env = \case
   Literal (EvalAnn ss _ _) lit -> case lit of
@@ -181,10 +191,7 @@ eval env = \case
   Accessor (EvalAnn ss _ _) prop expr -> do
     key <- evalString ss prop
     obj <- require ss (Proxy @"VObject") =<< eval env expr
-    maybe
-      (throwError (UnexpectedError (Just ss) ("Key not present in object: " <> key)))
-      pure
-      (HashMap.lookup key obj)
+    accessField ss key obj
   ObjectUpdate (EvalAnn ss _ _) expr updates -> do
     obj <- require ss (Proxy @"VObject") =<< eval env expr
     updates' <- for updates $ \(field', expr') ->
@@ -305,7 +312,7 @@ loadModule path = do
   case JSON.decode j of
     Just val ->
       case JSON.parse moduleFromJSON val of
-        JSON.Success (_, m) -> pure m { moduleDecls = map (addNameToDecl (moduleName m)) (moduleDecls m) }
+        JSON.Success (_, m) -> pure m {moduleDecls = map (addNameToDecl (moduleName m)) (moduleDecls m)}
         JSON.Error e -> throwError (toS e)
     Nothing -> throwError "Couldn't read CoreFn file."
   where
@@ -338,7 +345,7 @@ runWithEntryPoint entry = runExceptT $ do
       let prefix = case errorSourceSpan err of
             Just ss -> prettySourceSpan ss <> ":" <> line <> "error:"
             Nothing -> "<no source information>" <> "error:"
-        in throwError (prettyText (prefix <+> pretty err))
+       in throwError (prettyText (prefix <+> pretty err))
 
 test :: Qualified Ident -> IO ()
 test ep = runWithEntryPoint @Bool ep >>= \case
@@ -414,6 +421,18 @@ instance ToHaskellValue Scientific where
 instance ToHaskellValue a => ToHaskellValue (Vector a) where
   toHaskellValue ss = traverse (toHaskellValue ss) <=< require ss (Proxy @"VArray")
 
+instance ToHaskellValue (WTP.Action WTP.Selector) where
+  toHaskellValue ss v = do
+    obj <- require ss (Proxy @"VObject") v
+    ctor <- require ss (Proxy @"VString") =<< accessField ss "constructor" obj
+    value <- Vector.head <$> (require ss (Proxy @"VArray") =<< accessField ss "values" obj)
+    case ctor of
+      "Focus" -> WTP.Focus . WTP.Selector <$> toHaskellValue ss value
+      "KeyPress" -> WTP.KeyPress <$> toHaskellValue ss value
+      "Click" -> WTP.Click . WTP.Selector <$> toHaskellValue ss value
+      "Navigate" -> WTP.Navigate . WTP.Path <$> toHaskellValue ss value
+      _ -> throwError (UnexpectedError (Just ss) ("Unknown Action constructor: " <> ctor))
+
 instance (FromHaskellValue a, ToHaskellValue b) => ToHaskellValue (a -> Eval b) where
   toHaskellValue ss fn =
     pure
@@ -470,6 +489,9 @@ foreignFunctions =
       (qualifiedName ["Data", "Eq"] "eqCharImpl", foreignFunction (binOp ((==) @Char))),
       (qualifiedName ["Data", "Eq"] "eqStringImpl", foreignFunction (binOp ((==) @Text))),
       (qualifiedName ["Data", "Eq"] "eqArrayImpl", foreignFunction eqArray),
+      (qualifiedName ["Data", "EuclideanRing"] "intDegree", foreignFunction intDegree),
+      (qualifiedName ["Data", "EuclideanRing"] "intDiv", foreignFunction intDiv),
+      (qualifiedName ["Data", "EuclideanRing"] "intMod", foreignFunction intMod),
       (qualifiedName ["Data", "Foldable"] "foldlArray", foreignFunction foldlArray),
       (qualifiedName ["Data", "Foldable"] "foldrArray", foreignFunction foldrArray),
       (qualifiedName ["Data", "Functor"] "arrayMap", foreignFunction arrayMap),
@@ -488,7 +510,9 @@ foreignFunctions =
       (qualifiedName ["Data", "Semiring"] "numMul", foreignFunction (binOp ((*) @Scientific))),
       (qualifiedName ["Data", "Semigroup"] "concatString", foreignFunction (binOp ((<>) @Text))),
       (qualifiedName ["Data", "Ring"] "intSub", foreignFunction (binOp ((-) @Integer))),
-      (qualifiedName ["Math"] "floor", foreignFunction (unOp (fromIntegral @Integer @Scientific . floor @Scientific @Integer)))
+      (qualifiedName ["Data", "Unfoldable"] "unfoldrArrayImpl", foreignFunction unfoldrArrayImpl),
+      (qualifiedName ["Math"] "floor", foreignFunction (unOp (fromIntegral @Integer @Scientific . floor @Scientific @Integer))),
+      (qualifiedName ["Partial", "Unsafe"] "unsafePartial", foreignFunction unsafePartial)
     ]
   where
     indexImpl :: a ~ (Value EvalAnn) => (a -> Eval (Value EvalAnn)) -> Value EvalAnn -> Vector a -> Integer -> Eval (Value EvalAnn)
@@ -518,6 +542,38 @@ foreignFunctions =
       LT -> lt
       EQ -> eq
       GT -> gt
+    intDegree :: Integer -> Eval Integer
+    intDegree n = pure (min (abs n) 2147483647)
+    intDiv :: Integer -> Integer -> Eval Integer
+    intDiv x y 
+      | y == 0 = pure 0
+      | otherwise = pure (x `div` y)
+    intMod :: Integer -> Integer -> Eval Integer
+    intMod x y 
+      | y == 0 = pure 0
+      | otherwise = let yy = abs y in pure ((x `mod` yy) + yy `mod` yy)
+    unfoldrArrayImpl 
+      :: (Value EvalAnn -> Eval Bool) -- isNothing
+      -> (Value EvalAnn -> Eval (Value EvalAnn)) -- fromJust
+      -> (Value EvalAnn -> Eval (Value EvalAnn)) -- fst
+      -> (Value EvalAnn -> Eval (Value EvalAnn)) -- snd
+      -> (Value EvalAnn -> Eval (Value EvalAnn)) -- f
+      -> Value EvalAnn -- b
+      -> Eval (Vector (Value EvalAnn))
+    unfoldrArrayImpl isNothing' fromJust' fst' snd' f =
+      Vector.unfoldrM $ \b -> do
+        r <- f b
+        isNothing' r >>= \case
+          True -> pure Nothing
+          False -> do
+            tuple <- fromJust' r
+            a <- fst' tuple
+            b' <- snd' tuple
+            pure (Just (a, b'))
+    unsafePartial :: Value EvalAnn -> Eval (Value EvalAnn)
+    unsafePartial f = do
+      Function fenv _ body <- require nullSourceSpan (Proxy @"VFunction") f
+      eval fenv body
 
 evalForeignApply :: SourceSpan -> Env EvalAnn -> ApplyForeign -> Eval (Value EvalAnn)
 evalForeignApply ss env (ApplyForeign qn paramNames) = do

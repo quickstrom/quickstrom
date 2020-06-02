@@ -1,6 +1,6 @@
 module TodoMVC where
 
-import DSL (Spec, always, bind, checked, map, next, not, pure, queryAll, queryOne, textContent, (&&), (/=), (<<<), (<>), (==), (==>), (>), (>=), (||), clicks)
+import DSL (Action, Spec, always, bind, checked, clicks, map, next, not, pure, queryAll, queryOne, textContent, (&&), (/=), (<<<), (<>), (==), (==>), (>), (>=), (||))
 import Data.Array (filter, head, last)
 import Data.Array as Array
 import Data.Foldable (length)
@@ -8,9 +8,14 @@ import Data.Maybe (Maybe(..))
 import Data.Number as Number
 import Data.String (Pattern(..), split)
 import Prelude ((+), (<$>))
+import Random.LCG (mkSeed)
+import Test.QuickCheck.Gen (sample)
 
 angularjs :: Boolean
 angularjs = (spec "angularjs").proposition
+
+sample' :: Array Action
+sample' = sample (mkSeed 1) 10 (spec "angularjs").actions
 
 foo :: Array Int
 foo = do

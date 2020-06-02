@@ -25,6 +25,7 @@ import qualified Data.Aeson as JSON
 import qualified Data.Aeson.Types as JSON
 import qualified Data.ByteString.Lazy.Char8 as BS
 import Data.Generics.Sum (AsConstructor, _Ctor)
+import Data.Generics.Product (field)
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Map as Map
 import Data.Scientific (Scientific)
@@ -38,7 +39,7 @@ import Language.PureScript.CoreFn
 import Language.PureScript.CoreFn.FromJSON (moduleFromJSON)
 import Language.PureScript.Names
 import Language.PureScript.PSString (PSString, decodeString, mkString)
-import Protolude hiding (moduleName)
+import Protolude hiding (moduleName, Meta)
 import System.FilePath.Glob (glob)
 import qualified WTP.Element as Element
 import WTP.PureScript.Value
@@ -71,13 +72,13 @@ instance Pretty EvalError where
     InvalidBuiltInFunctionApplication _ _fn _param -> "Invalid function application"
 
 prettySourceSpan :: SourceSpan -> Doc ann
-prettySourceSpan ss = pretty (displaySourceSpan (spanName ss) ss)
+prettySourceSpan ss = pretty (displaySourceSpan mempty ss)
 
-data EvalAnn = EvalAnn {annSourceSpan :: SourceSpan, annApplyForeign :: Maybe ApplyForeign}
+data EvalAnn = EvalAnn {annSourceSpan :: SourceSpan, annMeta :: Maybe Meta, annApplyForeign :: Maybe ApplyForeign}
   deriving (Show, Generic)
 
 evalAnnFromAnn :: Ann -> EvalAnn
-evalAnnFromAnn (ss, _, _, _) = EvalAnn ss Nothing
+evalAnnFromAnn (ss, _, _, meta) = EvalAnn ss meta Nothing
 
 type Eval a = Except EvalError a
 
@@ -128,11 +129,11 @@ initialEnv =
   where
     bindForeignFunction :: Qualified Ident -> Int -> Env EvalAnn
     bindForeignFunction qn arity' =
-      envBindExpr qn (wrap arity' (\names -> Var (EvalAnn nullSourceSpan {spanName = toS (showQualified runIdent qn)} (Just (ApplyForeign qn names))) qn))
+      envBindExpr qn (wrap arity' (\names -> Var (EvalAnn nullSourceSpan {spanName = toS (showQualified runIdent qn)} (Just IsForeign) (Just (ApplyForeign qn names))) qn))
     wrap :: Int -> ([Ident] -> Expr EvalAnn) -> Expr EvalAnn
     wrap arity' f =
       let names = [Ident ("x" <> show n) | n <- [1 .. arity']]
-       in foldr (Abs (EvalAnn nullSourceSpan Nothing)) (f names) names
+       in foldr (Abs (EvalAnn nullSourceSpan Nothing Nothing)) (f names) names
 
 envLookupEval :: SourceSpan -> Qualified Ident -> Env EvalAnn -> Eval (Value EvalAnn)
 envLookupEval ss qn env =
@@ -153,16 +154,18 @@ asQualifiedName _ = Nothing
 
 eval :: Env EvalAnn -> Expr EvalAnn -> Eval (Value EvalAnn)
 eval env = \case
-  Literal (EvalAnn ss _) lit -> case lit of
+  Literal (EvalAnn ss _ _) lit -> case lit of
     NumericLiteral n -> pure (either VInt (VNumber . realToFrac) n)
     StringLiteral s -> VString <$> evalString ss s
     CharLiteral c -> pure (VChar c)
     BooleanLiteral b -> pure (VBool b)
     ArrayLiteral xs -> VArray . Vector.fromList <$> traverse (eval env) xs
     ObjectLiteral pairs -> do
-      pairs' <- for pairs $ \(field, value) ->
-        (,) <$> evalString ss field <*> eval env value
+      pairs' <- for pairs $ \(field', value) ->
+        (,) <$> evalString ss field' <*> eval env value
       pure (VObject (HashMap.fromList pairs'))
+  Constructor ann@(EvalAnn ss (Just IsNewtype) _) _ _ fieldNames -> do
+    pure (VFunction (Function mempty (Ident "value") (Var (EvalAnn ss Nothing Nothing) (qualifiedName [] "value"))))
   Constructor ann _typeName ctorName fieldNames -> do
     let body =
           Literal
@@ -174,27 +177,27 @@ eval env = \case
             )
     eval env (foldr (Abs ann) body fieldNames)
   -- throwError (UnexpectedError "Constructors are not yet supported")
-  Accessor (EvalAnn ss _) prop expr -> do
+  Accessor (EvalAnn ss _ _) prop expr -> do
     key <- evalString ss prop
     obj <- require ss (Proxy @"VObject") =<< eval env expr
     maybe
       (throwError (UnexpectedError (Just ss) ("Key not present in object: " <> key)))
       pure
       (HashMap.lookup key obj)
-  ObjectUpdate (EvalAnn ss _) expr updates -> do
+  ObjectUpdate (EvalAnn ss _ _) expr updates -> do
     obj <- require ss (Proxy @"VObject") =<< eval env expr
-    updates' <- for updates $ \(field, expr') ->
-      (,) <$> evalString ss field <*> eval env expr'
+    updates' <- for updates $ \(field', expr') ->
+      (,) <$> evalString ss field' <*> eval env expr'
     pure (VObject (obj <> HashMap.fromList updates'))
-  Abs _ arg body -> pure (VFunction (Function env arg body))
+  Abs ann arg body -> pure (VFunction (Function env arg body))
   App ann func param -> evalApp env ann func param
   Var _ (Qualified (Just (ModuleName [ProperName "Prim"])) (Ident "undefined")) -> pure (VObject mempty)
-  Var (EvalAnn ss (Just applyForeign)) _ -> evalForeignApply ss env applyForeign
-  Var (EvalAnn ss Nothing) qn -> envLookupEval ss qn env
-  Case (EvalAnn ss _) exprs alts -> do
+  Var (EvalAnn ss _ (Just applyForeign)) _ -> evalForeignApply ss env applyForeign
+  Var (EvalAnn ss _ Nothing) qn -> envLookupEval ss qn env
+  Case (EvalAnn ss _ _) exprs alts -> do
     values <- traverse (eval env) exprs
     evalCaseAlts ss env values alts
-  Let (EvalAnn ss _) bindings body -> do
+  Let (EvalAnn ss _ _) bindings body -> do
     let evalBinding env' = \case
           NonRec _ name expr -> do
             value <- eval env' expr
@@ -230,7 +233,7 @@ evalFunc (Function fEnv arg body) param' =
    in eval newEnv body
 
 evalCaseAlts :: SourceSpan -> Env EvalAnn -> [(Value EvalAnn)] -> [CaseAlternative EvalAnn] -> Eval (Value EvalAnn)
-evalCaseAlts ss _ _ [] = throwError (UnexpectedError (Just ss) "Non-exhaustive case expression")
+evalCaseAlts ss _ vals [] = throwError (UnexpectedError (Just ss) (prettyText ("Non-exhaustive case expression on values:" <+> pretty vals)))
 evalCaseAlts ss env values (CaseAlternative binders result : rest) =
   case envFromBinders (zip binders values) of
     Just bindersEnv ->
@@ -274,6 +277,8 @@ envFromBinders = fmap fold . traverse envFromBinder
       (NamedBinder _ n b, v) -> do
         env' <- envFromBinder (b, v)
         pure (env' <> envBindValue (Qualified Nothing n) v)
+      (ConstructorBinder (EvalAnn _ (Just IsNewtype) _) _typeName (Qualified _ ctorName) [b], val) ->
+        envFromBinder (b, val)
       (ConstructorBinder _ _typeName (Qualified _ ctorName) bs, val) -> do
         VObject obj <- pure val
         VString ctor <- HashMap.lookup "constructor" obj
@@ -299,9 +304,12 @@ loadModule path = do
   case JSON.decode j of
     Just val ->
       case JSON.parse moduleFromJSON val of
-        JSON.Success (_, m) -> pure m
+        JSON.Success (_, m) -> pure m { moduleDecls = map (addNameToDecl (moduleName m)) (moduleDecls m) }
         JSON.Error e -> throwError (toS e)
     Nothing -> throwError "Couldn't read CoreFn file."
+  where
+    addNameToDecl :: ModuleName -> Bind Ann -> Bind Ann
+    addNameToDecl name = fmap (_1 . field @"spanName" .~ toS (runModuleName name))
 
 loadAllModulesEnv :: [FilePath] -> ExceptT Text IO (Env EvalAnn)
 loadAllModulesEnv paths = do
@@ -326,8 +334,9 @@ test g entry = do
                 Nothing -> "<no source information>" <> "error:"
            in putStrLn (prettyText (prefix <+> pretty err))
     Left err -> putStrLn err
-  where
-    prettyText x = renderStrict (layoutPretty defaultLayoutOptions x)
+
+prettyText :: Doc ann -> Text
+prettyText x = renderStrict (layoutPretty defaultLayoutOptions x)
 
 -- * Foreign Functions
 
@@ -404,15 +413,15 @@ instance (FromHaskellValue a, ToHaskellValue b) => ToHaskellValue (a -> Eval b) 
           toHaskellValue ss b
       )
 
---instance (Show a, Show b, FromHaskellValue a, FromHaskellValue b, ToHaskellValue c) => ToHaskellValue (a -> b -> Eval c) where
---  toHaskellValue ss env fn = do
---    pure
---      ( \a b -> do
---          fn' <- require ss (Proxy @"VFunction") fn
---          fn'' <- require ss (Proxy @"VFunction") =<< evalFunc env fn' (fromHaskellValue a)
---          c <- evalFunc env fn'' (fromHaskellValue b)
---          toHaskellValue ss env c
---      )
+instance (Show a, Show b, FromHaskellValue a, FromHaskellValue b, ToHaskellValue c) => ToHaskellValue (a -> b -> Eval c) where
+  toHaskellValue ss fn = do
+    pure
+      ( \a b -> do
+          fn' <- require ss (Proxy @"VFunction") fn
+          fn'' <- require ss (Proxy @"VFunction") =<< evalFunc fn' (fromHaskellValue a)
+          c <- evalFunc fn'' (fromHaskellValue b)
+          toHaskellValue ss c
+      )
 
 class FromHaskellValue a where
   fromHaskellValue :: a -> Value EvalAnn
@@ -453,14 +462,15 @@ foreignFunctions =
       (qualifiedName ["Data", "Eq"] "eqNumberImpl", foreignFunction (binOp ((==) @Scientific))),
       (qualifiedName ["Data", "Eq"] "eqCharImpl", foreignFunction (binOp ((==) @Char))),
       (qualifiedName ["Data", "Eq"] "eqStringImpl", foreignFunction (binOp ((==) @Text))),
-      --(qualifiedName ["Data", "Eq"] "eqArrayImpl", foreignFunction eqArray),
+      (qualifiedName ["Data", "Eq"] "eqArrayImpl", foreignFunction eqArray),
       (qualifiedName ["Data", "Ord"] "ordNumberImpl", foreignFunction (ordImpl @Scientific)),
-      -- (qualifiedName ["Data", "Foldable"] "foldlArray", foreignFunction foldlArray),
-      -- (qualifiedName ["Data", "Foldable"] "foldrArray", foreignFunction foldrArray),
+      (qualifiedName ["Data", "Foldable"] "foldlArray", foreignFunction foldlArray),
+      (qualifiedName ["Data", "Foldable"] "foldrArray", foreignFunction foldrArray),
       (qualifiedName ["Data", "Semiring"] "intAdd", foreignFunction (binOp ((+) @Integer))),
       (qualifiedName ["Data", "Semiring"] "intMul", foreignFunction (binOp ((*) @Integer))),
       (qualifiedName ["Data", "Semiring"] "numAdd", foreignFunction (binOp ((+) @Scientific))),
       (qualifiedName ["Data", "Semiring"] "numMul", foreignFunction (binOp ((*) @Scientific))),
+      (qualifiedName ["Data", "Semigroup"] "concatString", foreignFunction (binOp ((<>) @Text))),
       (qualifiedName ["Data", "Ring"] "intSub", foreignFunction (binOp ((-) @Integer))),
       (qualifiedName ["Data", "Functor"] "arrayMap", foreignFunction arrayMap)
     ]

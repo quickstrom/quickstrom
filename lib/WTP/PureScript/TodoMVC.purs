@@ -21,6 +21,9 @@ foo = do
 bar :: Array Int
 bar = (_ + 1) <$> [1, 2, 3]
 
+bools :: Boolean
+bools = (1 `Array.elem` [1 ,2, 3])
+
 spec :: String -> Spec
 spec name =
   {

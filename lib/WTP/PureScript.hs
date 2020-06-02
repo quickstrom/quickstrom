@@ -107,18 +107,6 @@ require ss (ctor :: Proxy ctor) v = case v ^? _Ctor @ctor of
   Just x -> pure x
   Nothing -> unexpectedType ss (Text.drop 1 (Text.pack (symbolVal ctor))) v
 
-requireNamed ::
-  forall (ctor :: Symbol) s t a b ann.
-  (KnownSymbol ctor, AsConstructor ctor s t a b, ann ~ EvalAnn, s ~ Value ann, t ~ Value ann, a ~ b, Show ann) =>
-  Text ->
-  SourceSpan ->
-  Proxy ctor ->
-  Value ann ->
-  Eval b
-requireNamed name ss (ctor :: Proxy ctor) v = case v ^? _Ctor @ctor of
-  Just x -> pure x
-  Nothing -> unexpectedType ss (Text.drop 1 (Text.pack (symbolVal ctor)) <> " " <> "(" <> name <> ")") v
-
 evalString :: SourceSpan -> PSString -> Eval Text
 evalString ss s =
   case decodeString s of
@@ -379,41 +367,41 @@ instance {-# OVERLAPPABLE #-} FromHaskellValue a => EvalForeignFunction (Eval a)
 
 instance {-# OVERLAPPING #-} (ToHaskellValue a, EvalForeignFunction b) => EvalForeignFunction (a -> b) where
   evalForeignFunction ss env (v : vs) f = do
-    a <- toHaskellValue ss env v
+    a <- toHaskellValue ss v
     evalForeignFunction ss env vs (f a)
   evalForeignFunction ss _ [] _ = foreignFunctionArityMismatch ss
 
 class ToHaskellValue r where
-  toHaskellValue :: SourceSpan -> Env EvalAnn -> Value EvalAnn -> Eval r
+  toHaskellValue :: SourceSpan -> Value EvalAnn -> Eval r
 
 instance ToHaskellValue (Value EvalAnn) where
-  toHaskellValue _ _ = pure
+  toHaskellValue _ = pure
 
 instance ToHaskellValue Bool where
-  toHaskellValue ss _ = require ss (Proxy @"VBool")
+  toHaskellValue ss = require ss (Proxy @"VBool")
 
 instance ToHaskellValue Text where
-  toHaskellValue ss _ = require ss (Proxy @"VString")
+  toHaskellValue ss = require ss (Proxy @"VString")
 
 instance ToHaskellValue Char where
-  toHaskellValue ss _ = require ss (Proxy @"VChar")
+  toHaskellValue ss = require ss (Proxy @"VChar")
 
 instance ToHaskellValue Integer where
-  toHaskellValue ss _ = requireNamed "Integer instance" ss (Proxy @"VInt")
+  toHaskellValue ss = require ss (Proxy @"VInt")
 
 instance ToHaskellValue Scientific where
-  toHaskellValue ss _ = require ss (Proxy @"VNumber")
+  toHaskellValue ss = require ss (Proxy @"VNumber")
 
 instance ToHaskellValue a => ToHaskellValue (Vector a) where
-  toHaskellValue ss env = traverse (toHaskellValue ss env) <=< require ss (Proxy @"VArray")
+  toHaskellValue ss = traverse (toHaskellValue ss) <=< require ss (Proxy @"VArray")
 
 instance (FromHaskellValue a, ToHaskellValue b) => ToHaskellValue (a -> Eval b) where
-  toHaskellValue ss env fn =
+  toHaskellValue ss fn =
     pure
       ( \x -> do
           fn' <- require ss (Proxy @"VFunction") fn
           b <- evalFunc fn' (fromHaskellValue x)
-          toHaskellValue ss env b
+          toHaskellValue ss b
       )
 
 --instance (Show a, Show b, FromHaskellValue a, FromHaskellValue b, ToHaskellValue c) => ToHaskellValue (a -> b -> Eval c) where
@@ -469,11 +457,7 @@ foreignFunctions =
       (qualifiedName ["Data", "Ord"] "ordNumberImpl", foreignFunction (ordImpl @Scientific)),
       -- (qualifiedName ["Data", "Foldable"] "foldlArray", foreignFunction foldlArray),
       -- (qualifiedName ["Data", "Foldable"] "foldrArray", foreignFunction foldrArray),
-      (qualifiedName ["Data", "Semiring"] "intAdd", ForeignFunction 2 $ \ss env [x, y] -> do
-        x' <- requireNamed "x" ss (Proxy @"VInt") x
-        y' <- requireNamed "y" ss (Proxy @"VInt") y
-        pure (VInt (x' + y'))
-      ),
+      (qualifiedName ["Data", "Semiring"] "intAdd", foreignFunction (binOp ((+) @Integer))),
       (qualifiedName ["Data", "Semiring"] "intMul", foreignFunction (binOp ((*) @Integer))),
       (qualifiedName ["Data", "Semiring"] "numAdd", foreignFunction (binOp ((+) @Scientific))),
       (qualifiedName ["Data", "Semiring"] "numMul", foreignFunction (binOp ((*) @Scientific))),

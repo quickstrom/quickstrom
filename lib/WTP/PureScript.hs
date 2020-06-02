@@ -321,28 +321,29 @@ evalEntryPoint :: Qualified Ident -> Env EvalAnn -> Eval (Value EvalAnn)
 evalEntryPoint entryPoint env =
   envLookupEval nullSourceSpan entryPoint env
 
-test :: Qualified Ident -> IO ()
-test entry = do
+runWithEntryPoint :: forall a. ToHaskellValue a => Qualified Ident -> IO (Either Text a)
+runWithEntryPoint entry = runExceptT $ do
   let coreFnPath :: Text -> FilePath
       coreFnPath mn = "output" </> toS mn </> "corefn.json"
-  stdPaths <- glob (coreFnPath "*") <&> filter (/= coreFnPath "Effect")
+  stdPaths <- liftIO (glob (coreFnPath "*") <&> filter (/= coreFnPath "Effect"))
   specPath <- case asQualifiedName entry of
     Just (mns, _) -> pure (coreFnPath (Text.intercalate "." mns))
-    Nothing -> do
-      putStrLn ("Unqualified entry point" :: Text)
-      exitWith (ExitFailure 1)
+    Nothing -> throwError ("Unqualified entry point")
   let paths = stdPaths <> pure specPath
-  putStrLn ("Loading " <> show (length paths) <> " modules..." :: Text)
-  runExceptT (loadAllModulesEnv paths) >>= \case
-    Right env -> do
-      case runEval (evalEntryPoint entry (initialEnv <> env)) of
-        Right value -> putStrLn (prettyText ("Result:" <+> pretty value))
-        Left err ->
-          let prefix = case errorSourceSpan err of
-                Just ss -> prettySourceSpan ss <> ":" <> line <> "error:"
-                Nothing -> "<no source information>" <> "error:"
-           in putStrLn (prettyText (prefix <+> pretty err))
-    Left err -> putStrLn err
+  liftIO (putStrLn ("Loading " <> show (length paths) <> " modules..." :: Text))
+  env <- loadAllModulesEnv paths
+  case runEval (evalEntryPoint entry (initialEnv <> env) >>= toHaskellValue nullSourceSpan) of
+    Right value -> pure value
+    Left err ->
+      let prefix = case errorSourceSpan err of
+            Just ss -> prettySourceSpan ss <> ":" <> line <> "error:"
+            Nothing -> "<no source information>" <> "error:"
+        in throwError (prettyText (prefix <+> pretty err))
+
+test :: Qualified Ident -> IO ()
+test ep = runWithEntryPoint @Bool ep >>= \case
+  Left err -> putStrLn err >> exitWith (ExitFailure 1)
+  Right successful -> putStrLn (prettyText ("Result:" <+> pretty successful))
 
 prettyText :: Doc ann -> Text
 prettyText x = renderStrict (layoutPretty defaultLayoutOptions x)

@@ -1,4 +1,4 @@
-module TodoMVC where
+module WTP.PureScript.TodoMVC where
 
 import DSL (Action, Spec, always, bind, checked, clicks, map, next, not, pure, queryAll, queryOne, textContent, (&&), (/=), (<<<), (<>), (==), (==>), (>), (>=), (||))
 import Data.Array (filter, head, last)

@@ -44,7 +44,13 @@ spec_purescript = do
                 eval initialEnv (app incrAll (arrayLit [intLit 1, intLit 2, intLit 3]))
     prettyText (either pretty pretty r) `shouldBe` "[2, 3, 4]"
   it "evaluates TodoMVC" $ do
-    runWithEntryPoint (qualifiedName ["TodoMVC"] "angularjs") `shouldReturn` Right True
+    runWithEntryPoint (qualifiedName ["WTP", "PureScript", "TodoMVC"] "angularjs") `shouldReturn` Right True
+
+  it "supports mutually recursive top-level bindings" $ do
+    runWithEntryPoint (qualifiedName ["WTP", "PureScriptTest"] "mutuallyRecTop") `shouldReturn` Right (0 :: Integer)
+
+  it "supports mutually recursive let bindings" $ do
+    runWithEntryPoint (qualifiedName ["WTP", "PureScriptTest"] "mutuallyRecLet") `shouldReturn` Right (0 :: Integer)
 
 
 nullAnn :: EvalAnn

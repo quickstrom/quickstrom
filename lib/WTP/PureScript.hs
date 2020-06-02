@@ -29,7 +29,6 @@ import Data.Generics.Product (field)
 import Data.Generics.Sum (AsConstructor, _Ctor)
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Map as Map
-import Data.Scientific (floatingOrInteger, Scientific)
 import qualified Data.Text as Text
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Text
@@ -49,6 +48,7 @@ import WTP.PureScript.Value
 import qualified WTP.Specification as WTP
 import Data.HashMap.Strict (HashMap)
 import Data.Fixed (mod')
+import Text.Read (read)
 
 data EvalError
   = UnexpectedError (Maybe SourceSpan) Text
@@ -144,8 +144,11 @@ initialEnv =
 envLookupEval :: SourceSpan -> Qualified Ident -> Env EvalAnn -> Eval (Value EvalAnn)
 envLookupEval ss qn env =
   case envLookup qn env of
-    Just r -> either (eval (withoutLocals env)) pure r
+    Just r -> either (eval (withoutLocals env)) onValue r
     Nothing -> throwError (NotInScope ss qn)
+  where
+    onValue (VDefer (Defer env' expr')) = eval env' expr'
+    onValue val = pure val
 
 qualifiedName :: [Text] -> Text -> Qualified Ident
 qualifiedName moduleNames localName = Qualified (Just (ModuleName (map ProperName moduleNames))) (Ident localName)
@@ -168,7 +171,7 @@ accessField ss key obj =
 eval :: Env EvalAnn -> Expr EvalAnn -> Eval (Value EvalAnn)
 eval env = \case
   Literal (EvalAnn ss _ _) lit -> case lit of
-    NumericLiteral n -> pure (either VInt (VNumber . realToFrac) n)
+    NumericLiteral n -> pure (either (VInt . fromInteger) (VNumber . realToFrac) n)
     StringLiteral s -> VString <$> evalString ss s
     CharLiteral c -> pure (VChar c)
     BooleanLiteral b -> pure (VBool b)
@@ -177,7 +180,7 @@ eval env = \case
       pairs' <- for pairs $ \(field', value) ->
         (,) <$> evalString ss field' <*> eval env value
       pure (VObject (HashMap.fromList pairs'))
-  Constructor ann@(EvalAnn ss (Just IsNewtype) _) _ _ fieldNames -> do
+  Constructor (EvalAnn ss (Just IsNewtype) _) _ _ _fieldNames -> do
     pure (VFunction (Function mempty (Ident "value") (Var (EvalAnn ss Nothing Nothing) (qualifiedName [] "value"))))
   Constructor ann _typeName ctorName fieldNames -> do
     let body =
@@ -189,16 +192,16 @@ eval env = \case
                 ]
             )
     eval env (foldr (Abs ann) body fieldNames)
-  Accessor (EvalAnn ss _ _) prop expr -> do
+  Accessor (EvalAnn ss _ _) prop objExpr -> do
     key <- evalString ss prop
-    obj <- require ss (Proxy @"VObject") =<< eval env expr
+    obj <- require ss (Proxy @"VObject") =<< eval env objExpr
     accessField ss key obj
-  ObjectUpdate (EvalAnn ss _ _) expr updates -> do
-    obj <- require ss (Proxy @"VObject") =<< eval env expr
+  ObjectUpdate (EvalAnn ss _ _) objExpr updates -> do
+    obj <- require ss (Proxy @"VObject") =<< eval env objExpr
     updates' <- for updates $ \(field', expr') ->
       (,) <$> evalString ss field' <*> eval env expr'
     pure (VObject (obj <> HashMap.fromList updates'))
-  Abs ann arg body -> pure (VFunction (Function env arg body))
+  Abs _ann arg body -> pure (VFunction (Function env arg body))
   App ann func param -> evalApp env ann func param
   Var _ (Qualified (Just (ModuleName [ProperName "Prim"])) (Ident "undefined")) -> pure (VObject mempty)
   Var (EvalAnn ss _ (Just applyForeign)) _ -> evalForeignApply ss env applyForeign
@@ -206,13 +209,13 @@ eval env = \case
   Case (EvalAnn ss _ _) exprs alts -> do
     values <- traverse (eval env) exprs
     evalCaseAlts ss env values alts
-  Let (EvalAnn ss _ _) bindings body -> do
+  Let (EvalAnn _ss _ _) bindings body -> do
     let bindingEnv env' = \case
-          NonRec _ name expr -> do
-            value <- eval env' expr
+          NonRec _ name expr' -> do
+            value <- eval env' expr'
             pure (env' <> envBindValue (Qualified Nothing name) value)
           Rec binds -> do
-            rec recEnv <- fold <$> traverse (\((_, name), expr) -> envBindValue (Qualified Nothing name) <$> eval (env' <> recEnv) expr) binds
+            rec recEnv <- fold <$> traverse (\((_, name), expr') -> envBindValue (Qualified Nothing name) <$> pure (VDefer (Defer (env' <> recEnv) expr'))) binds
             pure recEnv
     newEnv <- foldM bindingEnv env bindings
     eval (env <> newEnv) body
@@ -270,7 +273,7 @@ envFromBinders = fmap fold . traverse envFromBinder
       (NullBinder _, _) -> Just mempty
       (LiteralBinder _ lit, val) ->
         case (lit, val) of
-          (NumericLiteral (Left n1), VInt n2) | n1 == n2 -> Just mempty
+          (NumericLiteral (Left n1), VInt n2) | fromInteger n1 == n2 -> Just mempty
           (StringLiteral (decodeString -> Just s1), VString s2) | s1 == s2 -> Just mempty
           (CharLiteral c1, VChar c2) | c1 == c2 -> Just mempty
           (BooleanLiteral b1, VBool b2) | b1 == b2 -> Just mempty
@@ -288,7 +291,7 @@ envFromBinders = fmap fold . traverse envFromBinder
       (NamedBinder _ n b, v) -> do
         env' <- envFromBinder (b, v)
         pure (env' <> envBindValue (Qualified Nothing n) v)
-      (ConstructorBinder (EvalAnn _ (Just IsNewtype) _) _typeName (Qualified _ ctorName) [b], val) ->
+      (ConstructorBinder (EvalAnn _ (Just IsNewtype) _) _typeName _ [b], val) ->
         envFromBinder (b, val)
       (ConstructorBinder _ _typeName (Qualified _ ctorName) bs, val) -> do
         VObject obj <- pure val
@@ -340,8 +343,8 @@ runWithEntryPoint entry = runExceptT $ do
     Just (mns, _) -> pure (coreFnPath (Text.intercalate "." mns))
     Nothing -> throwError ("Unqualified entry point")
   let paths = stdPaths <> pure specPath
-  liftIO (putStrLn ("Loading " <> show (length paths) <> " modules..." :: Text))
   env <- loadAllModulesEnv paths
+  liftIO (putStrLn ("Loaded " <> show (length paths) <> " modules." :: Text))
   case runEval (evalEntryPoint entry (initialEnv <> env) >>= toHaskellValue nullSourceSpan) of
     Right value -> pure value
     Left err ->
@@ -415,10 +418,10 @@ instance ToHaskellValue Text where
 instance ToHaskellValue Char where
   toHaskellValue ss = require ss (Proxy @"VChar")
 
-instance ToHaskellValue Integer where
+instance ToHaskellValue Int where
   toHaskellValue ss = require ss (Proxy @"VInt")
 
-instance ToHaskellValue Scientific where
+instance ToHaskellValue Double where
   toHaskellValue ss = require ss (Proxy @"VNumber")
 
 instance ToHaskellValue a => ToHaskellValue (Vector a) where
@@ -428,7 +431,7 @@ instance ToHaskellValue (WTP.Action WTP.Selector) where
   toHaskellValue ss v = do
     obj <- require ss (Proxy @"VObject") v
     ctor <- require ss (Proxy @"VString") =<< accessField ss "constructor" obj
-    value <- Vector.head <$> (require ss (Proxy @"VArray") =<< accessField ss "values" obj)
+    value <- Vector.head <$> (require ss (Proxy @"VArray") =<< accessField ss "fields" obj)
     case ctor of
       "Focus" -> WTP.Focus . WTP.Selector <$> toHaskellValue ss value
       "KeyPress" -> WTP.KeyPress <$> toHaskellValue ss value
@@ -461,10 +464,10 @@ class FromHaskellValue a where
 instance FromHaskellValue Bool where
   fromHaskellValue = VBool
 
-instance FromHaskellValue Integer where
+instance FromHaskellValue Int where
   fromHaskellValue = VInt
 
-instance FromHaskellValue Scientific where
+instance FromHaskellValue Double where
   fromHaskellValue = VNumber
 
 instance FromHaskellValue Char where
@@ -486,46 +489,56 @@ foreignFunctions =
       (qualifiedName ["Data", "Array"] "indexImpl", foreignFunction indexImpl),
       (qualifiedName ["Data", "Array"] "length", foreignFunction len),
       (qualifiedName ["Data", "Array"] "filter", foreignFunction filterArray),
+      (qualifiedName ["Data", "Bounded"] "bottomInt", foreignFunction (pure minBound :: Eval Int)),
+      (qualifiedName ["Data", "Bounded"] "topInt", foreignFunction (pure maxBound :: Eval Int)),
       (qualifiedName ["Data", "Eq"] "eqBooleanImpl", foreignFunction (binOp ((==) @Bool))),
-      (qualifiedName ["Data", "Eq"] "eqIntImpl", foreignFunction (binOp ((==) @Integer))),
-      (qualifiedName ["Data", "Eq"] "eqNumberImpl", foreignFunction (binOp ((==) @Scientific))),
+      (qualifiedName ["Data", "Eq"] "eqIntImpl", foreignFunction (binOp ((==) @Int))),
+      (qualifiedName ["Data", "Eq"] "eqNumberImpl", foreignFunction (binOp ((==) @Double))),
       (qualifiedName ["Data", "Eq"] "eqCharImpl", foreignFunction (binOp ((==) @Char))),
       (qualifiedName ["Data", "Eq"] "eqStringImpl", foreignFunction (binOp ((==) @Text))),
       (qualifiedName ["Data", "Eq"] "eqArrayImpl", foreignFunction eqArray),
       (qualifiedName ["Data", "EuclideanRing"] "intDegree", foreignFunction intDegree),
       (qualifiedName ["Data", "EuclideanRing"] "intDiv", foreignFunction intDiv),
       (qualifiedName ["Data", "EuclideanRing"] "intMod", foreignFunction intMod),
+      (qualifiedName ["Data", "EuclideanRing"] "numDiv", foreignFunction (binOp @Double (/))),
       (qualifiedName ["Data", "Foldable"] "foldlArray", foreignFunction foldlArray),
       (qualifiedName ["Data", "Foldable"] "foldrArray", foreignFunction foldrArray),
       (qualifiedName ["Data", "Functor"] "arrayMap", foreignFunction arrayMap),
       (qualifiedName ["Data", "HeytingAlgebra"] "boolConj", foreignFunction (binOp (&&))),
       (qualifiedName ["Data", "HeytingAlgebra"] "boolDisj", foreignFunction (binOp (||))),
       (qualifiedName ["Data", "HeytingAlgebra"] "boolNot", foreignFunction ((pure :: a -> Eval a) . not)),
-      (qualifiedName ["Data", "Int"] "toNumber", foreignFunction ((pure :: Scientific -> Eval Scientific) . fromIntegral @Integer)),
+      (qualifiedName ["Data", "Int"] "toNumber", foreignFunction ((pure :: Double -> Eval Double) . fromIntegral @Int)),
       (qualifiedName ["Data", "Int"] "fromNumberImpl", foreignFunction fromNumberImpl),
       (qualifiedName ["Data", "Ord"] "ordBooleanImpl", foreignFunction (ordImpl @Bool)),
-      (qualifiedName ["Data", "Ord"] "ordIntImpl", foreignFunction (ordImpl @Integer)),
-      (qualifiedName ["Data", "Ord"] "ordNumberImpl", foreignFunction (ordImpl @Scientific)),
+      (qualifiedName ["Data", "Ord"] "ordIntImpl", foreignFunction (ordImpl @Int)),
+      (qualifiedName ["Data", "Ord"] "ordNumberImpl", foreignFunction (ordImpl @Double)),
       (qualifiedName ["Data", "Ord"] "ordStringImpl", foreignFunction (ordImpl @Text)),
       (qualifiedName ["Data", "Ord"] "ordCharImpl", foreignFunction (ordImpl @Char)),
-      (qualifiedName ["Data", "Semiring"] "intAdd", foreignFunction (binOp ((+) @Integer))),
-      (qualifiedName ["Data", "Semiring"] "intMul", foreignFunction (binOp ((*) @Integer))),
-      (qualifiedName ["Data", "Semiring"] "numAdd", foreignFunction (binOp ((+) @Scientific))),
-      (qualifiedName ["Data", "Semiring"] "numMul", foreignFunction (binOp ((*) @Scientific))),
+      (qualifiedName ["Data", "Semiring"] "intAdd", foreignFunction (binOp ((+) @Int))),
+      (qualifiedName ["Data", "Semiring"] "intMul", foreignFunction (binOp ((*) @Int))),
+      (qualifiedName ["Data", "Semiring"] "numAdd", foreignFunction (binOp ((+) @Double))),
+      (qualifiedName ["Data", "Semiring"] "numMul", foreignFunction (binOp ((*) @Double))),
       (qualifiedName ["Data", "Semigroup"] "concatString", foreignFunction (binOp ((<>) @Text))),
-      (qualifiedName ["Data", "Ring"] "intSub", foreignFunction (binOp ((-) @Integer))),
-      (qualifiedName ["Data", "Ring"] "numSub", foreignFunction (binOp ((-) @Scientific))),
+      (qualifiedName ["Data", "Semigroup"] "concatArray", foreignFunction (binOp ((<>) @(Vector (Value EvalAnn))))),
+      (qualifiedName ["Data", "Ring"] "intSub", foreignFunction (binOp ((-) @Int))),
+      (qualifiedName ["Data", "Ring"] "numSub", foreignFunction (binOp ((-) @Double))),
       (qualifiedName ["Data", "Unfoldable"] "unfoldrArrayImpl", foreignFunction unfoldrArrayImpl),
-      (qualifiedName ["Math"] "floor", foreignFunction (unOp (fromIntegral @Integer @Scientific . floor @Scientific @Integer))),
-      (qualifiedName ["Math"] "remainder", foreignFunction (binOp (mod' @Scientific))),
+      (qualifiedName ["Global"] "infinity", foreignFunction (pure (read "Infinity" :: Double) :: Eval Double)),
+      (qualifiedName ["Global"] "nan", foreignFunction (pure (read "NaN" :: Double) :: Eval Double)),
+      (qualifiedName ["Math"] "floor", foreignFunction (unOp (fromIntegral @Int @Double . floor @Double @Int))),
+      (qualifiedName ["Math"] "remainder", foreignFunction (binOp (mod' @Double))),
       (qualifiedName ["Partial", "Unsafe"] "unsafePartial", foreignFunction unsafePartial)
     ]
   where
-    indexImpl :: a ~ (Value EvalAnn) => (a -> Eval (Value EvalAnn)) -> Value EvalAnn -> Vector a -> Integer -> Eval (Value EvalAnn)
+    indexImpl :: a ~ (Value EvalAnn) => (a -> Eval (Value EvalAnn)) -> Value EvalAnn -> Vector a -> Int -> Eval (Value EvalAnn)
     indexImpl just nothing xs i = maybe (pure nothing) just (xs ^? ix (fromIntegral i))
-    fromNumberImpl :: a ~ (Value EvalAnn) => (Integer -> Eval (Value EvalAnn)) -> Value EvalAnn -> Scientific -> Eval (Value EvalAnn)
-    fromNumberImpl just nothing n = either (const (pure nothing)) just (floatingOrInteger @Double n)
-    len :: Vector (Value EvalAnn) -> Eval Integer
+    fromNumberImpl :: a ~ (Value EvalAnn) => (Int -> Eval (Value EvalAnn)) -> Value EvalAnn -> Double -> Eval (Value EvalAnn)
+    fromNumberImpl just nothing n =
+      case round n :: Int of
+        r 
+          | fromIntegral r == n -> just r
+          | otherwise -> pure nothing
+    len :: Vector (Value EvalAnn) -> Eval Int
     len xs = pure (fromIntegral (Vector.length xs))
     filterArray :: (a ~ Value EvalAnn, b ~ Bool) => (a -> Eval b) -> Vector a -> Eval (Vector a)
     filterArray = Vector.filterM
@@ -550,13 +563,13 @@ foreignFunctions =
       LT -> lt
       EQ -> eq
       GT -> gt
-    intDegree :: Integer -> Eval Integer
+    intDegree :: Int -> Eval Int
     intDegree n = pure (min (abs n) 2147483647)
-    intDiv :: Integer -> Integer -> Eval Integer
+    intDiv :: Int -> Int -> Eval Int
     intDiv x y 
       | y == 0 = pure 0
       | otherwise = pure (x `div` y)
-    intMod :: Integer -> Integer -> Eval Integer
+    intMod :: Int -> Int -> Eval Int
     intMod x y 
       | y == 0 = pure 0
       | otherwise = let yy = abs y in pure ((x `mod` yy) + yy `mod` yy)

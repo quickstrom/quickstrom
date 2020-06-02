@@ -5,9 +5,7 @@
 .spago/effect/v2.0.1/src/Effect.purs:foreign import whileE :: forall a. Effect Boolean -> Effect a -> Effect Unit
 .spago/effect/v2.0.1/src/Effect.purs:foreign import forE :: Int -> Int -> (Int -> Effect Unit) -> Effect Unit
 .spago/effect/v2.0.1/src/Effect.purs:foreign import foreachE :: forall a. Array a -> (a -> Effect Unit) -> Effect Unit
-.spago/globals/v4.1.0/src/Global.purs:foreign import nan :: Number
 .spago/globals/v4.1.0/src/Global.purs:foreign import isNaN :: Number -> Boolean
-.spago/globals/v4.1.0/src/Global.purs:foreign import infinity :: Number
 .spago/globals/v4.1.0/src/Global.purs:foreign import isFinite :: Number -> Boolean
 .spago/globals/v4.1.0/src/Global.purs:foreign import readInt :: Int -> String -> Number
 .spago/globals/v4.1.0/src/Global.purs:foreign import readFloat :: String -> Number
@@ -35,7 +33,6 @@
 .spago/math/v2.1.1/src/Math.purs:foreign import sqrt :: Number -> Number
 .spago/math/v2.1.1/src/Math.purs:foreign import tan :: Radians -> Number
 .spago/math/v2.1.1/src/Math.purs:foreign import trunc :: Number -> Number
-.spago/math/v2.1.1/src/Math.purs:foreign import remainder :: Number -> Number -> Number
 .spago/math/v2.1.1/src/Math.purs:foreign import e :: Number
 .spago/math/v2.1.1/src/Math.purs:foreign import ln2 :: Number
 .spago/math/v2.1.1/src/Math.purs:foreign import ln10 :: Number
@@ -70,40 +67,6 @@
 .spago/arrays/v5.3.1/src/Data/Array.purs:foreign import zipWith
 .spago/arrays/v5.3.1/src/Data/Array.purs:foreign import unsafeIndexImpl :: forall a. Array a -> Int -> a
 .spago/control/v4.2.0/src/Control/Extend.purs:foreign import arrayExtend :: forall a b. (Array a -> b) -> Array a -> Array b
-.spago/effect/v2.0.1/src/Effect/Unsafe.purs:foreign import unsafePerformEffect :: forall a. Effect a -> a
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:-- | foreign import logMessage :: String -> String -> Effect Unit
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:-- | foreign import logMessageImpl :: EffectFn2 String String Unit
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:-- | foreign import logMessageImpl
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import data EffectFn1 :: Type -> Type -> Type
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import data EffectFn2 :: Type -> Type -> Type -> Type
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import data EffectFn3 :: Type -> Type -> Type -> Type -> Type
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import data EffectFn4 :: Type -> Type -> Type -> Type -> Type -> Type
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import data EffectFn5 :: Type -> Type -> Type -> Type -> Type -> Type -> Type
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import data EffectFn6 :: Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import data EffectFn7 :: Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import data EffectFn8 :: Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import data EffectFn9 :: Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import data EffectFn10 :: Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import mkEffectFn1 :: forall a r.
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import mkEffectFn2 :: forall a b r.
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import mkEffectFn3 :: forall a b c r.
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import mkEffectFn4 :: forall a b c d r.
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import mkEffectFn5 :: forall a b c d e r.
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import mkEffectFn6 :: forall a b c d e f r.
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import mkEffectFn7 :: forall a b c d e f g r.
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import mkEffectFn8 :: forall a b c d e f g h r.
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import mkEffectFn9 :: forall a b c d e f g h i r.
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import mkEffectFn10 :: forall a b c d e f g h i j r.
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import runEffectFn1 :: forall a r.
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import runEffectFn2 :: forall a b r.
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import runEffectFn3 :: forall a b c r.
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import runEffectFn4 :: forall a b c d r.
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import runEffectFn5 :: forall a b c d e r.
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import runEffectFn6 :: forall a b c d e f r.
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import runEffectFn7 :: forall a b c d e f g r.
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import runEffectFn8 :: forall a b c d e f g h r.
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import runEffectFn9 :: forall a b c d e f g h i r.
-.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import runEffectFn10 :: forall a b c d e f g h i j r.
 .spago/foldable-traversable/v4.1.1/src/Data/Traversable.purs:foreign import traverseArrayImpl
 .spago/foldable-traversable/v4.1.1/src/Data/FunctorWithIndex.purs:foreign import mapWithIndexArray :: forall i a b. (i -> a -> b) -> Array a -> Array b
 .spago/foldable-traversable/v4.1.1/src/Data/Foldable.purs:foreign import foldrArray :: forall a b. (a -> b -> b) -> b -> Array a -> b
@@ -118,25 +81,19 @@
 .spago/globals/v4.1.0/src/Global/Unsafe.purs:foreign import unsafeEncodeURIComponent :: String -> String
 .spago/enums/v4.0.1/src/Data/Enum.purs:foreign import toCharCode :: Char -> Int
 .spago/enums/v4.0.1/src/Data/Enum.purs:foreign import fromCharCode :: Int -> Char
-.spago/integers/v4.0.0/src/Data/Int.purs:foreign import fromNumberImpl
 .spago/integers/v4.0.0/src/Data/Int.purs:foreign import toNumber :: Int -> Number
 .spago/integers/v4.0.0/src/Data/Int.purs:foreign import quot :: Int -> Int -> Int
 .spago/integers/v4.0.0/src/Data/Int.purs:foreign import rem :: Int -> Int -> Int
 .spago/integers/v4.0.0/src/Data/Int.purs:foreign import pow :: Int -> Int -> Int
 .spago/integers/v4.0.0/src/Data/Int.purs:foreign import fromStringAsImpl
 .spago/integers/v4.0.0/src/Data/Int.purs:foreign import toStringAs :: Radix -> Int -> String
-.spago/partial/v2.0.1/src/Partial/Unsafe.purs:foreign import unsafePartial :: forall a. (Partial => a) -> a
 .spago/prelude/v4.1.1/src/Data/Symbol.purs:foreign import unsafeCoerce :: forall a b. a -> b
-.spago/prelude/v4.1.1/src/Data/Ring.purs:foreign import intSub :: Int -> Int -> Int
-.spago/prelude/v4.1.1/src/Data/Ring.purs:foreign import numSub :: Number -> Number -> Number
 .spago/prelude/v4.1.1/src/Record/Unsafe.purs:foreign import unsafeHas :: forall r1. String -> Record r1 -> Boolean
 .spago/prelude/v4.1.1/src/Record/Unsafe.purs:foreign import unsafeGet :: forall r a. String -> Record r -> a
 .spago/prelude/v4.1.1/src/Record/Unsafe.purs:foreign import unsafeSet :: forall r1 r2 a. String -> a -> Record r1 -> Record r2
 .spago/prelude/v4.1.1/src/Record/Unsafe.purs:foreign import unsafeDelete :: forall r1 r2. String -> Record r1 -> Record r2
-.spago/prelude/v4.1.1/src/Data/Functor.purs:foreign import arrayMap :: forall a b. (a -> b) -> Array a -> Array b
 .spago/prelude/v4.1.1/src/Data/Unit.purs:foreign import data Unit :: Type
 .spago/prelude/v4.1.1/src/Data/Unit.purs:foreign import unit :: Unit
-.spago/prelude/v4.1.1/src/Data/EuclideanRing.purs:foreign import numDiv :: Number -> Number -> Number
 .spago/prelude/v4.1.1/src/Data/Ord.purs:foreign import ordArrayImpl :: forall a. (a -> a -> Int) -> Array a -> Array a -> Int
 .spago/prelude/v4.1.1/src/Data/Bounded.purs:foreign import topInt :: Int
 .spago/prelude/v4.1.1/src/Data/Bounded.purs:foreign import bottomInt :: Int
@@ -144,7 +101,6 @@
 .spago/prelude/v4.1.1/src/Data/Bounded.purs:foreign import bottomChar :: Char
 .spago/prelude/v4.1.1/src/Data/Bounded.purs:foreign import topNumber :: Number
 .spago/prelude/v4.1.1/src/Data/Bounded.purs:foreign import bottomNumber :: Number
-.spago/prelude/v4.1.1/src/Control/Bind.purs:foreign import arrayBind :: forall a b. Array a -> (a -> Array b) -> Array b
 .spago/prelude/v4.1.1/src/Data/Show.purs:foreign import showIntImpl :: Int -> String
 .spago/prelude/v4.1.1/src/Data/Show.purs:foreign import showNumberImpl :: Number -> String
 .spago/prelude/v4.1.1/src/Data/Show.purs:foreign import showCharImpl :: Char -> String
@@ -153,16 +109,6 @@
 .spago/prelude/v4.1.1/src/Data/Show.purs:foreign import cons :: forall a. a -> Array a -> Array a
 .spago/prelude/v4.1.1/src/Data/Show.purs:foreign import join :: String -> Array String -> String
 .spago/prelude/v4.1.1/src/Control/Apply.purs:foreign import arrayApply :: forall a b. Array (a -> b) -> Array a -> Array b
-.spago/prelude/v4.1.1/src/Data/Eq.purs:foreign import eqBooleanImpl :: Boolean -> Boolean -> Boolean
-.spago/prelude/v4.1.1/src/Data/Eq.purs:foreign import eqIntImpl :: Int -> Int -> Boolean
-.spago/prelude/v4.1.1/src/Data/Eq.purs:foreign import eqNumberImpl :: Number -> Number -> Boolean
-.spago/prelude/v4.1.1/src/Data/Eq.purs:foreign import eqCharImpl :: Char -> Char -> Boolean
-.spago/prelude/v4.1.1/src/Data/Eq.purs:foreign import eqStringImpl :: String -> String -> Boolean
-.spago/prelude/v4.1.1/src/Data/Eq.purs:foreign import eqArrayImpl :: forall a. (a -> a -> Boolean) -> Array a -> Array a -> Boolean
-.spago/prelude/v4.1.1/src/Data/Semiring.purs:foreign import intAdd :: Int -> Int -> Int
-.spago/prelude/v4.1.1/src/Data/Semiring.purs:foreign import intMul :: Int -> Int -> Int
-.spago/prelude/v4.1.1/src/Data/Semiring.purs:foreign import numAdd :: Number -> Number -> Number
-.spago/prelude/v4.1.1/src/Data/Semiring.purs:foreign import numMul :: Number -> Number -> Number
 .spago/prelude/v4.1.1/src/Data/Semigroup.purs:foreign import concatString :: String -> String -> String
 .spago/prelude/v4.1.1/src/Data/Semigroup.purs:foreign import concatArray :: forall a. Array a -> Array a -> Array a
 .spago/prelude/v4.1.1/src/Data/HeytingAlgebra.purs:foreign import boolConj :: Boolean -> Boolean -> Boolean

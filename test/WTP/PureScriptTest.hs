@@ -5,15 +5,13 @@
 module WTP.PureScriptTest where
 
 import Protolude
-import Control.Lens
 import Test.Tasty.Hspec hiding (Selector)
 import WTP.PureScript
 import WTP.PureScript.Value
 import Language.PureScript (Ident, Qualified, nullSourceSpan)
 import Language.PureScript.CoreFn
-import Data.Vector (Vector)
-import Data.Text.Prettyprint.Doc (defaultLayoutOptions, layoutPretty, Pretty(pretty))
-import Data.Text.Prettyprint.Doc.Render.Text (renderStrict)
+import Data.Text.Prettyprint.Doc (Pretty(pretty))
+import qualified Data.Vector as Vector
 
 eval' :: Expr EvalAnn -> Either EvalError (Value EvalAnn)
 eval' = runEval . eval initialEnv
@@ -25,6 +23,7 @@ envLookupExpr qn =
        _ -> throwError (NotInScope nullSourceSpan qn)
 
 
+spec_purescript :: Spec
 spec_purescript = do
   it "adds integers" $ do
     let r = runEval $ do
@@ -47,10 +46,19 @@ spec_purescript = do
     runWithEntryPoint (qualifiedName ["WTP", "PureScript", "TodoMVC"] "angularjs") `shouldReturn` Right True
 
   it "supports mutually recursive top-level bindings" $ do
-    runWithEntryPoint (qualifiedName ["WTP", "PureScriptTest"] "mutuallyRecTop") `shouldReturn` Right (0 :: Integer)
+    runWithEntryPoint (qualifiedName ["WTP", "PureScriptTest"] "mutuallyRecTop") `shouldReturn` Right (0 :: Int)
 
   it "supports mutually recursive let bindings" $ do
-    runWithEntryPoint (qualifiedName ["WTP", "PureScriptTest"] "mutuallyRecLet") `shouldReturn` Right (0 :: Integer)
+    runWithEntryPoint (qualifiedName ["WTP", "PureScriptTest"] "mutuallyRecLet") `shouldReturn` Right (0 :: Int)
+
+  it "unfoldr" $ do
+    runWithEntryPoint (qualifiedName ["WTP", "PureScriptTest"] "unfoldrNumbers") `shouldReturn` Right (Vector.reverse [1..10 :: Int])
+
+  it "toNumber" $ do
+    runWithEntryPoint (qualifiedName ["WTP", "PureScriptTest"] "convertNum") `shouldReturn` Right (1.0 :: Double)
+
+  it "runs state monad" $ do
+    runWithEntryPoint (qualifiedName ["WTP", "PureScriptTest"] "testState") `shouldReturn` Right (Vector.reverse [1..10 :: Int])
 
 
 nullAnn :: EvalAnn

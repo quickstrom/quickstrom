@@ -14,7 +14,9 @@ common shared-deps
                     , bytestring
                     , containers
                     , file-embed
+                    , filepath
                     , generic-lens
+                    , Glob
                     , hashable
                     , http-client
                     , lattices
@@ -47,11 +49,13 @@ library
   import:             shared-deps
   exposed-modules:    WTP.Element
                     , WTP.Formula
-                    , WTP.Syntax
+                    , WTP.PureScript
+                    , WTP.PureScript.Value
                     , WTP.Query
                     , WTP.Result
                     , WTP.Run
                     , WTP.Specification
+                    , WTP.Syntax
                     , WTP.TH
                     , WTP.Trace
                     , WTP.Value
@@ -79,6 +83,7 @@ test-suite wtp-test
   hs-source-dirs:     test
   other-modules:      WTP.Gen
                     , WTP.LogicTest
+                    , WTP.PureScriptTest
                     , WTP.SyntaxTest
                     , WTP.TraceTest
                     , WTP.VerifyTest

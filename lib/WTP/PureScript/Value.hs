@@ -9,7 +9,6 @@ module WTP.PureScript.Value where
 
 import Data.HashMap.Strict (HashMap)
 import qualified Data.Map as Map
-import Data.Scientific (Scientific)
 import Data.Text.Prettyprint.Doc
 import Data.Vector (Vector)
 import Language.PureScript.CoreFn
@@ -25,11 +24,12 @@ data Value ann
   | VElementState Element.ElementState
   | VString Text
   | VChar Char
-  | VNumber Scientific
-  | VInt Integer
+  | VNumber Double
+  | VInt Int
   | VArray (Vector (Value ann))
   | VObject (HashMap Text (Value ann))
   | VFunction (Function ann)
+  | VDefer (Defer ann)
   deriving (Show, Generic, Functor)
 
 instance Pretty (Value ann) where
@@ -44,6 +44,7 @@ instance Pretty (Value ann) where
     VArray xs -> list (Vector.toList (Vector.map pretty xs))
     VObject obj -> encloseSep lbrace rbrace (comma <> space) (map (\(k, v) -> pretty k <> ":" <+> pretty v) (HashMap.toList obj))
     VFunction f -> pretty f
+    VDefer f -> pretty f
 
 data Function ann = Function (Env ann) Ident (Expr ann)
   deriving (Show, Generic, Functor)
@@ -51,7 +52,13 @@ data Function ann = Function (Env ann) Ident (Expr ann)
 instance Pretty (Function ann) where
   pretty (Function _ arg _) = parens (backslash <> pretty (runIdent arg) <+> "->" <+> "<body>")
 
-newtype Env ann = Env (Map (Qualified Ident) (Either (Expr ann) (Value ann)))
+data Defer ann = Defer (Env ann) (Expr ann)
+  deriving (Show, Generic, Functor)
+
+instance Pretty (Defer ann) where
+  pretty (Defer _ _) = "<deferred>"
+
+newtype Env ann = Env { getEnv :: Map (Qualified Ident) (Either (Expr ann) (Value ann)) }
   deriving (Show, Semigroup, Monoid)
 
 instance Functor Env where

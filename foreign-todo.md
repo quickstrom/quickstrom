@@ -1,0 +1,306 @@
+.spago/effect/v2.0.1/src/Effect.purs:foreign import data Effect :: Type -> Type
+.spago/effect/v2.0.1/src/Effect.purs:foreign import pureE :: forall a. a -> Effect a
+.spago/effect/v2.0.1/src/Effect.purs:foreign import bindE :: forall a b. Effect a -> (a -> Effect b) -> Effect b
+.spago/effect/v2.0.1/src/Effect.purs:foreign import untilE :: Effect Boolean -> Effect Unit
+.spago/effect/v2.0.1/src/Effect.purs:foreign import whileE :: forall a. Effect Boolean -> Effect a -> Effect Unit
+.spago/effect/v2.0.1/src/Effect.purs:foreign import forE :: Int -> Int -> (Int -> Effect Unit) -> Effect Unit
+.spago/effect/v2.0.1/src/Effect.purs:foreign import foreachE :: forall a. Array a -> (a -> Effect Unit) -> Effect Unit
+.spago/globals/v4.1.0/src/Global.purs:foreign import nan :: Number
+.spago/globals/v4.1.0/src/Global.purs:foreign import isNaN :: Number -> Boolean
+.spago/globals/v4.1.0/src/Global.purs:foreign import infinity :: Number
+.spago/globals/v4.1.0/src/Global.purs:foreign import isFinite :: Number -> Boolean
+.spago/globals/v4.1.0/src/Global.purs:foreign import readInt :: Int -> String -> Number
+.spago/globals/v4.1.0/src/Global.purs:foreign import readFloat :: String -> Number
+.spago/globals/v4.1.0/src/Global.purs:foreign import _toFixed :: forall a. Fn4 (String -> a) (String -> a) Int Number a
+.spago/globals/v4.1.0/src/Global.purs:foreign import _toExponential :: forall a. Fn4 (String -> a) (String -> a) Int Number a
+.spago/globals/v4.1.0/src/Global.purs:foreign import _toPrecision :: forall a. Fn4 (String -> a) (String -> a) Int Number a
+.spago/globals/v4.1.0/src/Global.purs:foreign import _decodeURI :: forall a. Fn3 (String -> a) (String -> a) String a
+.spago/globals/v4.1.0/src/Global.purs:foreign import _encodeURI :: forall a. Fn3 (String -> a) (String -> a) String a
+.spago/globals/v4.1.0/src/Global.purs:foreign import _decodeURIComponent :: forall a. Fn3 (String -> a) (String -> a) String a
+.spago/globals/v4.1.0/src/Global.purs:foreign import _encodeURIComponent :: forall a. Fn3 (String -> a) (String -> a) String a
+.spago/math/v2.1.1/src/Math.purs:foreign import abs :: Number -> Number
+.spago/math/v2.1.1/src/Math.purs:foreign import acos :: Number -> Radians
+.spago/math/v2.1.1/src/Math.purs:foreign import asin :: Number -> Radians
+.spago/math/v2.1.1/src/Math.purs:foreign import atan :: Number -> Radians
+.spago/math/v2.1.1/src/Math.purs:foreign import atan2 :: Number -> Number -> Radians
+.spago/math/v2.1.1/src/Math.purs:foreign import ceil :: Number -> Number
+.spago/math/v2.1.1/src/Math.purs:foreign import cos :: Radians -> Number
+.spago/math/v2.1.1/src/Math.purs:foreign import exp :: Number -> Number
+.spago/math/v2.1.1/src/Math.purs:foreign import floor :: Number -> Number
+.spago/math/v2.1.1/src/Math.purs:foreign import log :: Number -> Number
+.spago/math/v2.1.1/src/Math.purs:foreign import max :: Number -> Number -> Number
+.spago/math/v2.1.1/src/Math.purs:foreign import min :: Number -> Number -> Number
+.spago/math/v2.1.1/src/Math.purs:foreign import pow :: Number -> Number -> Number
+.spago/math/v2.1.1/src/Math.purs:foreign import round :: Number -> Number
+.spago/math/v2.1.1/src/Math.purs:foreign import sin :: Radians -> Number
+.spago/math/v2.1.1/src/Math.purs:foreign import sqrt :: Number -> Number
+.spago/math/v2.1.1/src/Math.purs:foreign import tan :: Radians -> Number
+.spago/math/v2.1.1/src/Math.purs:foreign import trunc :: Number -> Number
+.spago/math/v2.1.1/src/Math.purs:foreign import remainder :: Number -> Number -> Number
+.spago/math/v2.1.1/src/Math.purs:foreign import e :: Number
+.spago/math/v2.1.1/src/Math.purs:foreign import ln2 :: Number
+.spago/math/v2.1.1/src/Math.purs:foreign import ln10 :: Number
+.spago/math/v2.1.1/src/Math.purs:foreign import log2e :: Number
+.spago/math/v2.1.1/src/Math.purs:foreign import log10e :: Number
+.spago/math/v2.1.1/src/Math.purs:foreign import pi :: Number
+.spago/math/v2.1.1/src/Math.purs:foreign import tau :: Number
+.spago/math/v2.1.1/src/Math.purs:foreign import sqrt1_2 :: Number
+.spago/math/v2.1.1/src/Math.purs:foreign import sqrt2 :: Number
+.spago/partial/v2.0.1/src/Partial.purs:foreign import crashWith :: forall a. Partial => String -> a
+.spago/arrays/v5.3.1/src/Data/Array.purs:foreign import fromFoldableImpl
+.spago/arrays/v5.3.1/src/Data/Array.purs:foreign import range :: Int -> Int -> Array Int
+.spago/arrays/v5.3.1/src/Data/Array.purs:foreign import replicate :: forall a. Int -> a -> Array a
+.spago/arrays/v5.3.1/src/Data/Array.purs:foreign import length :: forall a. Array a -> Int
+.spago/arrays/v5.3.1/src/Data/Array.purs:foreign import cons :: forall a. a -> Array a -> Array a
+.spago/arrays/v5.3.1/src/Data/Array.purs:foreign import snoc :: forall a. Array a -> a -> Array a
+.spago/arrays/v5.3.1/src/Data/Array.purs:foreign import uncons'
+.spago/arrays/v5.3.1/src/Data/Array.purs:foreign import indexImpl
+.spago/arrays/v5.3.1/src/Data/Array.purs:foreign import findIndexImpl
+.spago/arrays/v5.3.1/src/Data/Array.purs:foreign import findLastIndexImpl
+.spago/arrays/v5.3.1/src/Data/Array.purs:foreign import _insertAt
+.spago/arrays/v5.3.1/src/Data/Array.purs:foreign import _deleteAt
+.spago/arrays/v5.3.1/src/Data/Array.purs:foreign import _updateAt
+.spago/arrays/v5.3.1/src/Data/Array.purs:foreign import reverse :: forall a. Array a -> Array a
+.spago/arrays/v5.3.1/src/Data/Array.purs:foreign import concat :: forall a. Array (Array a) -> Array a
+.spago/arrays/v5.3.1/src/Data/Array.purs:foreign import filter :: forall a. (a -> Boolean) -> Array a -> Array a
+.spago/arrays/v5.3.1/src/Data/Array.purs:foreign import partition
+.spago/arrays/v5.3.1/src/Data/Array.purs:foreign import sortImpl :: forall a. (a -> a -> Int) -> Array a -> Array a
+.spago/arrays/v5.3.1/src/Data/Array.purs:foreign import slice :: forall a. Int -> Int -> Array a -> Array a
+.spago/arrays/v5.3.1/src/Data/Array.purs:foreign import take :: forall a. Int -> Array a -> Array a
+.spago/arrays/v5.3.1/src/Data/Array.purs:foreign import drop :: forall a. Int -> Array a -> Array a
+.spago/arrays/v5.3.1/src/Data/Array.purs:foreign import zipWith
+.spago/arrays/v5.3.1/src/Data/Array.purs:foreign import unsafeIndexImpl :: forall a. Array a -> Int -> a
+.spago/control/v4.2.0/src/Control/Extend.purs:foreign import arrayExtend :: forall a b. (Array a -> b) -> Array a -> Array b
+.spago/effect/v2.0.1/src/Effect/Unsafe.purs:foreign import unsafePerformEffect :: forall a. Effect a -> a
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:-- | foreign import logMessage :: String -> String -> Effect Unit
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:-- | foreign import logMessageImpl :: EffectFn2 String String Unit
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:-- | foreign import logMessageImpl
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import data EffectFn1 :: Type -> Type -> Type
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import data EffectFn2 :: Type -> Type -> Type -> Type
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import data EffectFn3 :: Type -> Type -> Type -> Type -> Type
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import data EffectFn4 :: Type -> Type -> Type -> Type -> Type -> Type
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import data EffectFn5 :: Type -> Type -> Type -> Type -> Type -> Type -> Type
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import data EffectFn6 :: Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import data EffectFn7 :: Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import data EffectFn8 :: Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import data EffectFn9 :: Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import data EffectFn10 :: Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import mkEffectFn1 :: forall a r.
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import mkEffectFn2 :: forall a b r.
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import mkEffectFn3 :: forall a b c r.
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import mkEffectFn4 :: forall a b c d r.
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import mkEffectFn5 :: forall a b c d e r.
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import mkEffectFn6 :: forall a b c d e f r.
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import mkEffectFn7 :: forall a b c d e f g r.
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import mkEffectFn8 :: forall a b c d e f g h r.
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import mkEffectFn9 :: forall a b c d e f g h i r.
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import mkEffectFn10 :: forall a b c d e f g h i j r.
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import runEffectFn1 :: forall a r.
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import runEffectFn2 :: forall a b r.
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import runEffectFn3 :: forall a b c r.
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import runEffectFn4 :: forall a b c d r.
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import runEffectFn5 :: forall a b c d e r.
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import runEffectFn6 :: forall a b c d e f r.
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import runEffectFn7 :: forall a b c d e f g r.
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import runEffectFn8 :: forall a b c d e f g h r.
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import runEffectFn9 :: forall a b c d e f g h i r.
+.spago/effect/v2.0.1/src/Effect/Uncurried.purs:foreign import runEffectFn10 :: forall a b c d e f g h i j r.
+.spago/foldable-traversable/v4.1.1/src/Data/Traversable.purs:foreign import traverseArrayImpl
+.spago/foldable-traversable/v4.1.1/src/Data/FunctorWithIndex.purs:foreign import mapWithIndexArray :: forall i a b. (i -> a -> b) -> Array a -> Array b
+.spago/foldable-traversable/v4.1.1/src/Data/Foldable.purs:foreign import foldrArray :: forall a b. (a -> b -> b) -> b -> Array a -> b
+.spago/foldable-traversable/v4.1.1/src/Data/Foldable.purs:foreign import foldlArray :: forall a b. (b -> a -> b) -> b -> Array a -> b
+.spago/globals/v4.1.0/src/Global/Unsafe.purs:foreign import unsafeStringify :: forall a. a -> String
+.spago/globals/v4.1.0/src/Global/Unsafe.purs:foreign import unsafeToFixed :: Int -> Number -> String
+.spago/globals/v4.1.0/src/Global/Unsafe.purs:foreign import unsafeToExponential :: Int -> Number -> String
+.spago/globals/v4.1.0/src/Global/Unsafe.purs:foreign import unsafeToPrecision :: Int -> Number -> String
+.spago/globals/v4.1.0/src/Global/Unsafe.purs:foreign import unsafeDecodeURI :: String -> String
+.spago/globals/v4.1.0/src/Global/Unsafe.purs:foreign import unsafeEncodeURI :: String -> String
+.spago/globals/v4.1.0/src/Global/Unsafe.purs:foreign import unsafeDecodeURIComponent :: String -> String
+.spago/globals/v4.1.0/src/Global/Unsafe.purs:foreign import unsafeEncodeURIComponent :: String -> String
+.spago/enums/v4.0.1/src/Data/Enum.purs:foreign import toCharCode :: Char -> Int
+.spago/enums/v4.0.1/src/Data/Enum.purs:foreign import fromCharCode :: Int -> Char
+.spago/integers/v4.0.0/src/Data/Int.purs:foreign import fromNumberImpl
+.spago/integers/v4.0.0/src/Data/Int.purs:foreign import toNumber :: Int -> Number
+.spago/integers/v4.0.0/src/Data/Int.purs:foreign import quot :: Int -> Int -> Int
+.spago/integers/v4.0.0/src/Data/Int.purs:foreign import rem :: Int -> Int -> Int
+.spago/integers/v4.0.0/src/Data/Int.purs:foreign import pow :: Int -> Int -> Int
+.spago/integers/v4.0.0/src/Data/Int.purs:foreign import fromStringAsImpl
+.spago/integers/v4.0.0/src/Data/Int.purs:foreign import toStringAs :: Radix -> Int -> String
+.spago/partial/v2.0.1/src/Partial/Unsafe.purs:foreign import unsafePartial :: forall a. (Partial => a) -> a
+.spago/prelude/v4.1.1/src/Data/Symbol.purs:foreign import unsafeCoerce :: forall a b. a -> b
+.spago/prelude/v4.1.1/src/Data/Ring.purs:foreign import intSub :: Int -> Int -> Int
+.spago/prelude/v4.1.1/src/Data/Ring.purs:foreign import numSub :: Number -> Number -> Number
+.spago/prelude/v4.1.1/src/Record/Unsafe.purs:foreign import unsafeHas :: forall r1. String -> Record r1 -> Boolean
+.spago/prelude/v4.1.1/src/Record/Unsafe.purs:foreign import unsafeGet :: forall r a. String -> Record r -> a
+.spago/prelude/v4.1.1/src/Record/Unsafe.purs:foreign import unsafeSet :: forall r1 r2 a. String -> a -> Record r1 -> Record r2
+.spago/prelude/v4.1.1/src/Record/Unsafe.purs:foreign import unsafeDelete :: forall r1 r2. String -> Record r1 -> Record r2
+.spago/prelude/v4.1.1/src/Data/Functor.purs:foreign import arrayMap :: forall a b. (a -> b) -> Array a -> Array b
+.spago/prelude/v4.1.1/src/Data/Unit.purs:foreign import data Unit :: Type
+.spago/prelude/v4.1.1/src/Data/Unit.purs:foreign import unit :: Unit
+.spago/prelude/v4.1.1/src/Data/EuclideanRing.purs:foreign import intDegree :: Int -> Int
+.spago/prelude/v4.1.1/src/Data/EuclideanRing.purs:foreign import intDiv :: Int -> Int -> Int
+.spago/prelude/v4.1.1/src/Data/EuclideanRing.purs:foreign import intMod :: Int -> Int -> Int
+.spago/prelude/v4.1.1/src/Data/EuclideanRing.purs:foreign import numDiv :: Number -> Number -> Number
+.spago/prelude/v4.1.1/src/Data/Ord.purs:foreign import ordBooleanImpl
+.spago/prelude/v4.1.1/src/Data/Ord.purs:foreign import ordIntImpl
+.spago/prelude/v4.1.1/src/Data/Ord.purs:foreign import ordNumberImpl
+.spago/prelude/v4.1.1/src/Data/Ord.purs:foreign import ordStringImpl
+.spago/prelude/v4.1.1/src/Data/Ord.purs:foreign import ordCharImpl
+.spago/prelude/v4.1.1/src/Data/Ord.purs:foreign import ordArrayImpl :: forall a. (a -> a -> Int) -> Array a -> Array a -> Int
+.spago/prelude/v4.1.1/src/Data/Bounded.purs:foreign import topInt :: Int
+.spago/prelude/v4.1.1/src/Data/Bounded.purs:foreign import bottomInt :: Int
+.spago/prelude/v4.1.1/src/Data/Bounded.purs:foreign import topChar :: Char
+.spago/prelude/v4.1.1/src/Data/Bounded.purs:foreign import bottomChar :: Char
+.spago/prelude/v4.1.1/src/Data/Bounded.purs:foreign import topNumber :: Number
+.spago/prelude/v4.1.1/src/Data/Bounded.purs:foreign import bottomNumber :: Number
+.spago/prelude/v4.1.1/src/Control/Bind.purs:foreign import arrayBind :: forall a b. Array a -> (a -> Array b) -> Array b
+.spago/prelude/v4.1.1/src/Data/Show.purs:foreign import showIntImpl :: Int -> String
+.spago/prelude/v4.1.1/src/Data/Show.purs:foreign import showNumberImpl :: Number -> String
+.spago/prelude/v4.1.1/src/Data/Show.purs:foreign import showCharImpl :: Char -> String
+.spago/prelude/v4.1.1/src/Data/Show.purs:foreign import showStringImpl :: String -> String
+.spago/prelude/v4.1.1/src/Data/Show.purs:foreign import showArrayImpl :: forall a. (a -> String) -> Array a -> String
+.spago/prelude/v4.1.1/src/Data/Show.purs:foreign import cons :: forall a. a -> Array a -> Array a
+.spago/prelude/v4.1.1/src/Data/Show.purs:foreign import join :: String -> Array String -> String
+.spago/prelude/v4.1.1/src/Control/Apply.purs:foreign import arrayApply :: forall a b. Array (a -> b) -> Array a -> Array b
+.spago/prelude/v4.1.1/src/Data/Eq.purs:foreign import eqBooleanImpl :: Boolean -> Boolean -> Boolean
+.spago/prelude/v4.1.1/src/Data/Eq.purs:foreign import eqIntImpl :: Int -> Int -> Boolean
+.spago/prelude/v4.1.1/src/Data/Eq.purs:foreign import eqNumberImpl :: Number -> Number -> Boolean
+.spago/prelude/v4.1.1/src/Data/Eq.purs:foreign import eqCharImpl :: Char -> Char -> Boolean
+.spago/prelude/v4.1.1/src/Data/Eq.purs:foreign import eqStringImpl :: String -> String -> Boolean
+.spago/prelude/v4.1.1/src/Data/Eq.purs:foreign import eqArrayImpl :: forall a. (a -> a -> Boolean) -> Array a -> Array a -> Boolean
+.spago/prelude/v4.1.1/src/Data/Semiring.purs:foreign import intAdd :: Int -> Int -> Int
+.spago/prelude/v4.1.1/src/Data/Semiring.purs:foreign import intMul :: Int -> Int -> Int
+.spago/prelude/v4.1.1/src/Data/Semiring.purs:foreign import numAdd :: Number -> Number -> Number
+.spago/prelude/v4.1.1/src/Data/Semiring.purs:foreign import numMul :: Number -> Number -> Number
+.spago/prelude/v4.1.1/src/Data/Semigroup.purs:foreign import concatString :: String -> String -> String
+.spago/prelude/v4.1.1/src/Data/Semigroup.purs:foreign import concatArray :: forall a. Array a -> Array a -> Array a
+.spago/prelude/v4.1.1/src/Data/HeytingAlgebra.purs:foreign import boolConj :: Boolean -> Boolean -> Boolean
+.spago/prelude/v4.1.1/src/Data/HeytingAlgebra.purs:foreign import boolDisj :: Boolean -> Boolean -> Boolean
+.spago/prelude/v4.1.1/src/Data/HeytingAlgebra.purs:foreign import boolNot :: Boolean -> Boolean
+.spago/refs/v4.1.0/src/Effect/Ref.purs:foreign import data Ref :: Type -> Type
+.spago/refs/v4.1.0/src/Effect/Ref.purs:foreign import new :: forall s. s -> Effect (Ref s)
+.spago/refs/v4.1.0/src/Effect/Ref.purs:foreign import read :: forall s. Ref s -> Effect s
+.spago/refs/v4.1.0/src/Effect/Ref.purs:foreign import modify' :: forall s b. (s -> { state :: s, value :: b }) -> Ref s -> Effect b
+.spago/refs/v4.1.0/src/Effect/Ref.purs:foreign import write :: forall s. s -> Ref s -> Effect Unit
+.spago/unfoldable/v4.1.0/src/Data/Unfoldable.purs:foreign import unfoldrArrayImpl
+.spago/unfoldable/v4.1.0/src/Data/Unfoldable1.purs:foreign import unfoldr1ArrayImpl
+.spago/arrays/v5.3.1/src/Data/Array/ST.purs:foreign import data STArray :: Region -> Type -> Type
+.spago/arrays/v5.3.1/src/Data/Array/ST.purs:foreign import unsafeFreeze :: forall h a. STArray h a -> ST h (Array a)
+.spago/arrays/v5.3.1/src/Data/Array/ST.purs:foreign import unsafeThaw :: forall h a. Array a -> ST h (STArray h a)
+.spago/arrays/v5.3.1/src/Data/Array/ST.purs:foreign import empty :: forall h a. ST h (STArray h a)
+.spago/arrays/v5.3.1/src/Data/Array/ST.purs:foreign import thaw :: forall h a. Array a -> ST h (STArray h a)
+.spago/arrays/v5.3.1/src/Data/Array/ST.purs:foreign import shiftImpl
+.spago/arrays/v5.3.1/src/Data/Array/ST.purs:foreign import sortByImpl
+.spago/arrays/v5.3.1/src/Data/Array/ST.purs:foreign import freeze :: forall h a. STArray h a -> ST h (Array a)
+.spago/arrays/v5.3.1/src/Data/Array/ST.purs:foreign import peekImpl
+.spago/arrays/v5.3.1/src/Data/Array/ST.purs:foreign import poke :: forall h a. Int -> a -> STArray h a -> ST h Boolean
+.spago/arrays/v5.3.1/src/Data/Array/ST.purs:foreign import popImpl
+.spago/arrays/v5.3.1/src/Data/Array/ST.purs:foreign import pushAll
+.spago/arrays/v5.3.1/src/Data/Array/ST.purs:foreign import unshiftAll
+.spago/arrays/v5.3.1/src/Data/Array/ST.purs:foreign import splice
+.spago/arrays/v5.3.1/src/Data/Array/ST.purs:foreign import toAssocArray :: forall h a. STArray h a -> ST h (Array (Assoc a))
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import data Fn0 :: Type -> Type
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import data Fn2 :: Type -> Type -> Type -> Type
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import data Fn3 :: Type -> Type -> Type -> Type -> Type
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import data Fn4 :: Type -> Type -> Type -> Type -> Type -> Type
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import data Fn5 :: Type -> Type -> Type -> Type -> Type -> Type -> Type
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import data Fn6 :: Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import data Fn7 :: Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import data Fn8 :: Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import data Fn9 :: Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import data Fn10 :: Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import mkFn0 :: forall a. (Unit -> a) -> Fn0 a
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import mkFn2 :: forall a b c. (a -> b -> c) -> Fn2 a b c
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import mkFn3 :: forall a b c d. (a -> b -> c -> d) -> Fn3 a b c d
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import mkFn4 :: forall a b c d e. (a -> b -> c -> d -> e) -> Fn4 a b c d e
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import mkFn5 :: forall a b c d e f. (a -> b -> c -> d -> e -> f) -> Fn5 a b c d e f
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import mkFn6 :: forall a b c d e f g. (a -> b -> c -> d -> e -> f -> g) -> Fn6 a b c d e f g
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import mkFn7 :: forall a b c d e f g h. (a -> b -> c -> d -> e -> f -> g -> h) -> Fn7 a b c d e f g h
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import mkFn8 :: forall a b c d e f g h i. (a -> b -> c -> d -> e -> f -> g -> h -> i) -> Fn8 a b c d e f g h i
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import mkFn9 :: forall a b c d e f g h i j. (a -> b -> c -> d -> e -> f -> g -> h -> i -> j) -> Fn9 a b c d e f g h i j
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import mkFn10 :: forall a b c d e f g h i j k. (a -> b -> c -> d -> e -> f -> g -> h -> i -> j -> k) -> Fn10 a b c d e f g h i j k
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import runFn0 :: forall a. Fn0 a -> a
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import runFn2 :: forall a b c. Fn2 a b c -> a -> b -> c
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import runFn3 :: forall a b c d. Fn3 a b c d -> a -> b -> c -> d
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import runFn4 :: forall a b c d e. Fn4 a b c d e -> a -> b -> c -> d -> e
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import runFn5 :: forall a b c d e f. Fn5 a b c d e f -> a -> b -> c -> d -> e -> f
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import runFn6 :: forall a b c d e f g. Fn6 a b c d e f g -> a -> b -> c -> d -> e -> f -> g
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import runFn7 :: forall a b c d e f g h. Fn7 a b c d e f g h -> a -> b -> c -> d -> e -> f -> g -> h
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import runFn8 :: forall a b c d e f g h i. Fn8 a b c d e f g h i -> a -> b -> c -> d -> e -> f -> g -> h -> i
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import runFn9 :: forall a b c d e f g h i j. Fn9 a b c d e f g h i j -> a -> b -> c -> d -> e -> f -> g -> h -> i -> j
+.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import runFn10 :: forall a b c d e f g h i j k. Fn10 a b c d e f g h i j k -> a -> b -> c -> d -> e -> f -> g -> h -> i -> j -> k
+.spago/integers/v4.0.0/src/Data/Int/Bits.purs:foreign import and :: Int -> Int -> Int
+.spago/integers/v4.0.0/src/Data/Int/Bits.purs:foreign import or :: Int -> Int -> Int
+.spago/integers/v4.0.0/src/Data/Int/Bits.purs:foreign import xor :: Int -> Int -> Int
+.spago/integers/v4.0.0/src/Data/Int/Bits.purs:foreign import shl :: Int -> Int -> Int
+.spago/integers/v4.0.0/src/Data/Int/Bits.purs:foreign import shr :: Int -> Int -> Int
+.spago/integers/v4.0.0/src/Data/Int/Bits.purs:foreign import zshr :: Int -> Int -> Int
+.spago/integers/v4.0.0/src/Data/Int/Bits.purs:foreign import complement :: Int -> Int
+.spago/numbers/v7.0.0/src/Data/Number/Format.purs:foreign import toPrecisionNative ∷   Int → Number → String
+.spago/numbers/v7.0.0/src/Data/Number/Format.purs:foreign import toFixedNative ∷       Int → Number → String
+.spago/numbers/v7.0.0/src/Data/Number/Format.purs:foreign import toExponentialNative ∷ Int → Number → String
+.spago/numbers/v7.0.0/src/Data/Number/Format.purs:foreign import toString ∷ Number → String
+.spago/prelude/v4.1.1/src/Data/Ord/Unsafe.purs:foreign import unsafeCompareImpl
+.spago/strings/v4.0.1/src/Data/String/Unsafe.purs:foreign import charAt :: Int -> String -> Char
+.spago/strings/v4.0.1/src/Data/String/Unsafe.purs:foreign import char :: String -> Char
+.spago/strings/v4.0.1/src/Data/String/Regex.purs:foreign import data Regex :: Type
+.spago/strings/v4.0.1/src/Data/String/Regex.purs:foreign import showRegex' :: Regex -> String
+.spago/strings/v4.0.1/src/Data/String/Regex.purs:foreign import regex'
+.spago/strings/v4.0.1/src/Data/String/Regex.purs:foreign import source :: Regex -> String
+.spago/strings/v4.0.1/src/Data/String/Regex.purs:foreign import flags' :: Regex -> RegexFlagsRec
+.spago/strings/v4.0.1/src/Data/String/Regex.purs:foreign import test :: Regex -> String -> Boolean
+.spago/strings/v4.0.1/src/Data/String/Regex.purs:foreign import _match
+.spago/strings/v4.0.1/src/Data/String/Regex.purs:foreign import replace :: Regex -> String -> String -> String
+.spago/strings/v4.0.1/src/Data/String/Regex.purs:foreign import replace' :: Regex -> (String -> Array String -> String) -> String -> String
+.spago/strings/v4.0.1/src/Data/String/Regex.purs:foreign import _search
+.spago/strings/v4.0.1/src/Data/String/Regex.purs:foreign import split :: Regex -> String -> Array String
+.spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import singleton :: Char -> String
+.spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import fromCharArray :: Array Char -> String
+.spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import toCharArray :: String -> Array Char
+.spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import _charAt
+.spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import _toChar
+.spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import length :: String -> Int
+.spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import countPrefix :: (Char -> Boolean) -> String -> Int
+.spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import _indexOf
+.spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import _indexOf'
+.spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import _lastIndexOf
+.spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import _lastIndexOf'
+.spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import take :: Int -> String -> String
+.spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import drop :: Int -> String -> String
+.spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import _slice :: Int -> Int -> String -> String
+.spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import splitAt :: Int -> String -> { before :: String, after :: String }
+.spago/strings/v4.0.1/src/Data/String/Common.purs:foreign import _localeCompare
+.spago/strings/v4.0.1/src/Data/String/Common.purs:foreign import replace :: Pattern -> Replacement -> String -> String
+.spago/strings/v4.0.1/src/Data/String/Common.purs:foreign import replaceAll :: Pattern -> Replacement -> String -> String
+.spago/strings/v4.0.1/src/Data/String/Common.purs:foreign import split :: Pattern -> String -> Array String
+.spago/strings/v4.0.1/src/Data/String/Common.purs:foreign import toLower :: String -> String
+.spago/strings/v4.0.1/src/Data/String/Common.purs:foreign import toUpper :: String -> String
+.spago/strings/v4.0.1/src/Data/String/Common.purs:foreign import trim :: String -> String
+.spago/strings/v4.0.1/src/Data/String/Common.purs:foreign import joinWith :: String -> Array String -> String
+.spago/strings/v4.0.1/src/Data/String/CodePoints.purs:foreign import _singleton
+.spago/strings/v4.0.1/src/Data/String/CodePoints.purs:foreign import _fromCodePointArray
+.spago/strings/v4.0.1/src/Data/String/CodePoints.purs:foreign import _toCodePointArray
+.spago/strings/v4.0.1/src/Data/String/CodePoints.purs:foreign import _codePointAt
+.spago/strings/v4.0.1/src/Data/String/CodePoints.purs:foreign import _countPrefix
+.spago/strings/v4.0.1/src/Data/String/CodePoints.purs:foreign import _take :: (Int -> String -> String) -> Int -> String -> String
+.spago/strings/v4.0.1/src/Data/String/CodePoints.purs:foreign import _unsafeCodePointAt0
+.spago/arrays/v5.3.1/src/Data/Array/NonEmpty/Internal.purs:foreign import fold1Impl :: forall a. (a -> a -> a) -> NonEmptyArray a -> a
+.spago/arrays/v5.3.1/src/Data/Array/NonEmpty/Internal.purs:foreign import traverse1Impl
+.spago/arrays/v5.3.1/src/Data/Array/ST/Partial.purs:foreign import peekImpl :: forall h a. Int -> STArray h a -> ST h a
+.spago/arrays/v5.3.1/src/Data/Array/ST/Partial.purs:foreign import pokeImpl
+.spago/unsafe-coerce/v4.0.0/src/Unsafe/Coerce.purs:foreign import unsafeCoerce :: forall a b. a -> b
+.spago/st/v4.1.1/src/Control/Monad/ST/Internal.purs:foreign import kind Region
+.spago/st/v4.1.1/src/Control/Monad/ST/Internal.purs:foreign import data ST :: Region -> Type -> Type
+.spago/st/v4.1.1/src/Control/Monad/ST/Internal.purs:foreign import map_ :: forall r a b. (a -> b) -> ST r a -> ST r b
+.spago/st/v4.1.1/src/Control/Monad/ST/Internal.purs:foreign import pure_ :: forall r a. a -> ST r a
+.spago/st/v4.1.1/src/Control/Monad/ST/Internal.purs:foreign import bind_ :: forall r a b. ST r a -> (a -> ST r b) -> ST r b
+.spago/st/v4.1.1/src/Control/Monad/ST/Internal.purs:foreign import run :: forall a. (forall r. ST r a) -> a
+.spago/st/v4.1.1/src/Control/Monad/ST/Internal.purs:foreign import while :: forall r a. ST r Boolean -> ST r a -> ST r Unit
+.spago/st/v4.1.1/src/Control/Monad/ST/Internal.purs:foreign import for :: forall r a. Int -> Int -> (Int -> ST r a) -> ST r Unit
+.spago/st/v4.1.1/src/Control/Monad/ST/Internal.purs:foreign import foreach :: forall r a. Array a -> (a -> ST r Unit) -> ST r Unit
+.spago/st/v4.1.1/src/Control/Monad/ST/Internal.purs:foreign import data STRef :: Region -> Type -> Type
+.spago/st/v4.1.1/src/Control/Monad/ST/Internal.purs:foreign import new :: forall a r. a -> ST r (STRef r a)
+.spago/st/v4.1.1/src/Control/Monad/ST/Internal.purs:foreign import read :: forall a r. STRef r a -> ST r a
+.spago/st/v4.1.1/src/Control/Monad/ST/Internal.purs:foreign import modify' :: forall r a b. (a -> { state :: a, value :: b }) -> STRef r a -> ST r b
+.spago/st/v4.1.1/src/Control/Monad/ST/Internal.purs:foreign import write :: forall a r. a -> STRef r a -> ST r a
+.spago/st/v4.1.1/src/Control/Monad/ST/Global.purs:foreign import data Global :: Region

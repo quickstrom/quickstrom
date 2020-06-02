@@ -43,6 +43,7 @@ import Protolude hiding (moduleName, Meta)
 import System.FilePath.Glob (glob)
 import qualified WTP.Element as Element
 import WTP.PureScript.Value
+import System.FilePath ((</>))
 
 data EvalError
   = UnexpectedError (Maybe SourceSpan) Text
@@ -320,9 +321,17 @@ evalEntryPoint :: Qualified Ident -> Env EvalAnn -> Eval (Value EvalAnn)
 evalEntryPoint entryPoint env =
   envLookupEval nullSourceSpan entryPoint env
 
-test :: Text -> Qualified Ident -> IO ()
-test g entry = do
-  paths <- glob (toS g)
+test :: Qualified Ident -> IO ()
+test entry = do
+  let coreFnPath :: Text -> FilePath
+      coreFnPath mn = "output" </> toS mn </> "corefn.json"
+  stdPaths <- glob (coreFnPath "*") <&> filter (/= coreFnPath "Effect")
+  specPath <- case asQualifiedName entry of
+    Just (mns, _) -> pure (coreFnPath (Text.intercalate "." mns))
+    Nothing -> do
+      putStrLn ("Unqualified entry point" :: Text)
+      exitWith (ExitFailure 1)
+  let paths = stdPaths <> pure specPath
   putStrLn ("Loading " <> show (length paths) <> " modules..." :: Text)
   runExceptT (loadAllModulesEnv paths) >>= \case
     Right env -> do

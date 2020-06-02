@@ -3,12 +3,11 @@ module TodoMVC where
 import DSL (Spec, always, bind, checked, map, next, not, pure, queryAll, queryOne, textContent, (&&), (/=), (<<<), (<>), (==), (==>), (>), (>=), (||))
 import Data.Array (filter, head, last)
 import Data.Array as Array
-import Data.Enum (succ)
-import Data.Foldable (elem, length)
+import Data.Foldable (length)
 import Data.Maybe (Maybe(..))
 import Data.Number as Number
-import Data.String (Pattern(..), split, toUpper)
-import Prelude (identity, (+), (<$>))
+import Data.String (Pattern(..), split)
+import Prelude ((+), (<$>))
 
 angularjs :: Boolean
 angularjs = (spec "angularjs").proposition

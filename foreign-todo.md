@@ -136,9 +136,6 @@
 .spago/prelude/v4.1.1/src/Data/Functor.purs:foreign import arrayMap :: forall a b. (a -> b) -> Array a -> Array b
 .spago/prelude/v4.1.1/src/Data/Unit.purs:foreign import data Unit :: Type
 .spago/prelude/v4.1.1/src/Data/Unit.purs:foreign import unit :: Unit
-.spago/prelude/v4.1.1/src/Data/EuclideanRing.purs:foreign import intDegree :: Int -> Int
-.spago/prelude/v4.1.1/src/Data/EuclideanRing.purs:foreign import intDiv :: Int -> Int -> Int
-.spago/prelude/v4.1.1/src/Data/EuclideanRing.purs:foreign import intMod :: Int -> Int -> Int
 .spago/prelude/v4.1.1/src/Data/EuclideanRing.purs:foreign import numDiv :: Number -> Number -> Number
 .spago/prelude/v4.1.1/src/Data/Ord.purs:foreign import ordArrayImpl :: forall a. (a -> a -> Int) -> Array a -> Array a -> Int
 .spago/prelude/v4.1.1/src/Data/Bounded.purs:foreign import topInt :: Int

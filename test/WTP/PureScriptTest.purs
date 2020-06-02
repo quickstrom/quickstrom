@@ -2,6 +2,13 @@ module WTP.PureScriptTest where
   
 import Prelude
 
+foo :: Int
+foo =
+    let x = 1
+        y = x + 2
+        z = x + y
+    in z
+
 mutuallyRecTop :: Int
 mutuallyRecTop = mutuallyRec1 10
 

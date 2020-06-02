@@ -1,3 +1,4 @@
+{-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE DeriveGeneric #-}
@@ -28,7 +29,7 @@ import Data.Generics.Product (field)
 import Data.Generics.Sum (AsConstructor, _Ctor)
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Map as Map
-import Data.Scientific (Scientific)
+import Data.Scientific (floatingOrInteger, Scientific)
 import qualified Data.Text as Text
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Text
@@ -187,7 +188,6 @@ eval env = \case
                 ]
             )
     eval env (foldr (Abs ann) body fieldNames)
-  -- throwError (UnexpectedError "Constructors are not yet supported")
   Accessor (EvalAnn ss _ _) prop expr -> do
     key <- evalString ss prop
     obj <- require ss (Proxy @"VObject") =<< eval env expr
@@ -206,12 +206,14 @@ eval env = \case
     values <- traverse (eval env) exprs
     evalCaseAlts ss env values alts
   Let (EvalAnn ss _ _) bindings body -> do
-    let evalBinding env' = \case
+    let bindingEnv env' = \case
           NonRec _ name expr -> do
             value <- eval env' expr
             pure (env' <> envBindValue (Qualified Nothing name) value)
-          Rec _group -> throwError (UnexpectedError (Just ss) "Mutually recursive let bindings are not yet supported")
-    newEnv <- foldM evalBinding env bindings
+          Rec binds -> do
+            rec recEnv <- fold <$> traverse (\((_, name), expr) -> envBindValue (Qualified Nothing name) <$> eval (env' <> recEnv) expr) binds
+            pure recEnv
+    newEnv <- foldM bindingEnv env bindings
     eval (env <> newEnv) body
 
 evalApp :: Env EvalAnn -> EvalAnn -> Expr EvalAnn -> Expr EvalAnn -> Eval (Value EvalAnn)
@@ -499,6 +501,7 @@ foreignFunctions =
       (qualifiedName ["Data", "HeytingAlgebra"] "boolDisj", foreignFunction (binOp (||))),
       (qualifiedName ["Data", "HeytingAlgebra"] "boolNot", foreignFunction ((pure :: a -> Eval a) . not)),
       (qualifiedName ["Data", "Int"] "toNumber", foreignFunction ((pure :: Scientific -> Eval Scientific) . fromIntegral @Integer)),
+      (qualifiedName ["Data", "Int"] "fromNumberImpl", foreignFunction fromNumberImpl),
       (qualifiedName ["Data", "Ord"] "ordBooleanImpl", foreignFunction (ordImpl @Bool)),
       (qualifiedName ["Data", "Ord"] "ordIntImpl", foreignFunction (ordImpl @Integer)),
       (qualifiedName ["Data", "Ord"] "ordNumberImpl", foreignFunction (ordImpl @Scientific)),
@@ -517,6 +520,8 @@ foreignFunctions =
   where
     indexImpl :: a ~ (Value EvalAnn) => (a -> Eval (Value EvalAnn)) -> Value EvalAnn -> Vector a -> Integer -> Eval (Value EvalAnn)
     indexImpl just nothing xs i = maybe (pure nothing) just (xs ^? ix (fromIntegral i))
+    fromNumberImpl :: a ~ (Value EvalAnn) => (Integer -> Eval (Value EvalAnn)) -> Value EvalAnn -> Scientific -> Eval (Value EvalAnn)
+    fromNumberImpl just nothing n = either (const (pure nothing)) just (floatingOrInteger @Double n)
     len :: Vector (Value EvalAnn) -> Eval Integer
     len xs = pure (fromIntegral (Vector.length xs))
     filterArray :: (a ~ Value EvalAnn, b ~ Bool) => (a -> Eval b) -> Vector a -> Eval (Vector a)

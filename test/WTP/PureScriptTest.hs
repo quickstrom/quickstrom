@@ -43,14 +43,18 @@ spec_purescript = do
                 -- traceShowM (const () <$> incrAll)
                 eval initialEnv (app incrAll (arrayLit [intLit 1, intLit 2, intLit 3]))
     prettyText (either pretty pretty r) `shouldBe` "[2, 3, 4]"
+  it "evaluates TodoMVC" $ do
+    runWithEntryPoint (qualifiedName ["TodoMVC"] "angularjs") `shouldReturn` Right True
 
 
-nullAnn = (EvalAnn nullSourceSpan Nothing)
+nullAnn :: EvalAnn
+nullAnn = (EvalAnn nullSourceSpan Nothing Nothing)
 
+app :: Expr EvalAnn -> Expr EvalAnn -> Expr EvalAnn
 app = App nullAnn
 
+intLit :: Integer -> Expr EvalAnn
 intLit n = Literal nullAnn (NumericLiteral (Left n))
 
+arrayLit :: [Expr EvalAnn] -> Expr EvalAnn
 arrayLit xs = Literal nullAnn (ArrayLiteral xs)
-
-prettyText x = renderStrict (layoutPretty defaultLayoutOptions x)

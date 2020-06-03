@@ -1,15 +1,12 @@
 module WTP.PureScriptTest where
-  
-import Prelude
+
+import DSL
 
 import Control.Monad.Reader (Reader, ask, local, runReader)
-import Control.Monad.State (evalState, get, modify, runState, state)
-import Data.Array (fromFoldable)
-import Data.Array.NonEmpty as Array
+import Control.Monad.State (evalState, get, modify)
 import Data.Identity (Identity(..))
 import Data.Int (toNumber)
-import Data.List.Lazy (iterate, take)
-import Data.Maybe (Maybe(..), fromJust, fromMaybe)
+import Data.Maybe (Maybe(..), fromJust, maybe)
 import Data.Newtype (un)
 import Data.Tuple (Tuple(..))
 import Data.Unfoldable (unfoldr)
@@ -80,5 +77,15 @@ seeds = go (mkSeed 1000) 20
       | n > 0 = [unSeed (lcgPerturb 1000.0 seed)] <> go (lcgNext seed) (n - 1)
       | otherwise = []
 
+
 partial :: Int
 partial = unsafePartial fromJust (pure 123)
+
+paragraph :: Maybe { text :: String }
+paragraph = queryOne "p" { text: textContent }
+
+testOneQuery :: String
+testOneQuery = maybe "" _.text paragraph
+
+testNextOneQuery :: String
+testNextOneQuery = next testOneQuery

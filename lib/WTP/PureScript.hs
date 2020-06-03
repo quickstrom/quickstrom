@@ -1,4 +1,3 @@
-{-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE DeriveGeneric #-}
@@ -14,6 +13,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
@@ -22,12 +22,16 @@
 module WTP.PureScript where
 
 import Control.Lens hiding (op)
+import Control.Monad.Fix (MonadFix)
 import qualified Data.Aeson as JSON
 import qualified Data.Aeson.Types as JSON
 import qualified Data.ByteString.Lazy.Char8 as BS
+import Data.Fixed (mod')
 import Data.Generics.Product (field)
 import Data.Generics.Sum (AsConstructor, _Ctor)
 import qualified Data.HashMap.Strict as HashMap
+import Data.HashMap.Strict (HashMap)
+import qualified Data.HashSet as Set
 import qualified Data.Map as Map
 import qualified Data.Text as Text
 import Data.Text.Prettyprint.Doc
@@ -42,15 +46,14 @@ import Language.PureScript.PSString (PSString, decodeString, mkString)
 import Protolude hiding (Meta, moduleName)
 import System.FilePath ((</>))
 import System.FilePath.Glob (glob)
+import Text.Read (read)
 import qualified WTP.Element as Element
 import qualified WTP.Element as WTP
 import WTP.PureScript.Value
+import qualified WTP.Query as WTP
 import qualified WTP.Specification as WTP
 import qualified WTP.Trace as WTP
-import Data.HashMap.Strict (HashMap)
-import Data.Fixed (mod')
-import Text.Read (read)
-import Control.Monad.Fix (MonadFix)
+import qualified WTP.Value as WTP
 
 data EvalError
   = UnexpectedError (Maybe SourceSpan) Text
@@ -88,11 +91,11 @@ data EvalAnn = EvalAnn {annSourceSpan :: SourceSpan, annMeta :: Maybe Meta, annA
 evalAnnFromAnn :: Ann -> EvalAnn
 evalAnnFromAnn (ss, _, _, meta) = EvalAnn ss meta Nothing
 
-newtype Eval a = Eval (ExceptT EvalError (State [WTP.ObservedState]) a)
-  deriving (Functor, Applicative, Monad, MonadError EvalError, MonadFix)
+newtype Eval a = Eval (ExceptT EvalError (Reader [QueriedElements]) a)
+  deriving (Functor, Applicative, Monad, MonadError EvalError, MonadFix, MonadReader [QueriedElements])
 
 runEval :: [WTP.ObservedState] -> Eval a -> (Either EvalError a)
-runEval observedStates (Eval ma) = evalState (runExceptT ma) observedStates
+runEval observedStates (Eval ma) = runReader (runExceptT ma) (map toQueriedElements observedStates)
 
 unexpectedType :: (MonadError EvalError m) => SourceSpan -> Text -> Value EvalAnn -> m a
 unexpectedType ss typ v =
@@ -171,6 +174,28 @@ accessField ss key obj =
     pure
     (HashMap.lookup key obj)
 
+type QueriedElements = HashMap WTP.Selector [HashMap WTP.ElementState (Value EvalAnn)]
+
+toQueriedElements :: WTP.ObservedState -> QueriedElements
+toQueriedElements (WTP.ObservedState m) =
+  HashMap.toList m
+    & mapMaybe fromQueryAndValues
+    & HashMap.fromListWith (<>)
+  where
+    fromQueryAndValues :: (WTP.Query, [WTP.Value]) -> Maybe (WTP.Selector, [HashMap WTP.ElementState (Value EvalAnn)])
+    fromQueryAndValues (WTP.Get elementState (WTP.ByCss selector), values) =
+      Just (selector, [HashMap.singleton elementState v | v <- mapMaybe fromValue values])
+    fromQueryAndValues _ = Nothing
+    fromValue = \case
+      WTP.VNull -> Nothing
+      WTP.VBool b -> pure (VBool b)
+      WTP.VElement _ -> Nothing
+      WTP.VString t -> pure (VString t)
+      WTP.VNumber n -> pure (VNumber (realToFrac n))
+      WTP.VSeq vs -> VArray <$> traverse fromValue vs
+      WTP.VSet vs -> VArray <$> traverse fromValue (Vector.fromList (Set.toList vs))
+      WTP.VFunction _ -> Nothing
+
 eval :: Env EvalAnn -> Expr EvalAnn -> Eval (Value EvalAnn)
 eval env = \case
   Literal (EvalAnn ss _ _) lit -> case lit of
@@ -224,21 +249,36 @@ eval env = \case
     eval (env <> newEnv) body
 
 evalApp :: Env EvalAnn -> EvalAnn -> Expr EvalAnn -> Expr EvalAnn -> Eval (Value EvalAnn)
-evalApp env ann func param =
-  case (func, param) of
-    (asQualifiedVar -> Just (["DSL"], "next"), p) -> eval env p -- TODO: handle temporal operators
-    (asQualifiedVar -> Just (["DSL"], "always"), p) -> eval env p -- TODO: handle temporal operators
-    (asQualifiedVar -> Just (["DSL"], "_property"), p) -> do
+evalApp env ann func param = do
+  queriedElements <- ask
+  case (func, param, queriedElements) of
+    (asQualifiedVar -> Just (["DSL"], "always"), p, []) -> pure (VBool True)
+    (_, _, []) -> pure (VBool False)
+    (asQualifiedVar -> Just (["DSL"], "next"), p, (_ : rest)) ->
+      local (const rest) (eval env p)
+    (asQualifiedVar -> Just (["DSL"], "always"), p, _) -> eval env p -- TODO: handle temporal operators
+    (asQualifiedVar -> Just (["DSL"], "_property"), p, _) -> do
       name <- require (sourceSpan p) (Proxy @"VString") =<< eval env p
       pure (VElementState (Element.Property name))
-    (asQualifiedVar -> Just (["DSL"], "_attribute"), p) -> do
+    (asQualifiedVar -> Just (["DSL"], "_attribute"), p, _) -> do
       name <- require (sourceSpan p) (Proxy @"VString") =<< eval env p
       pure (VElementState (Element.Attribute name))
-    (App _ (asQualifiedVar -> Just (["DSL"], "_queryAll")) p1, p2) -> do
-      _selector <- require (sourceSpan p1) (Proxy @"VString") =<< eval env p1
-      _states <- require (annSourceSpan ann) (Proxy @"VObject") =<< eval env p2
-      -- TODO: Get state from trace
-      pure (VArray mempty)
+    (App _ (asQualifiedVar -> Just (["DSL"], "_queryAll")) p1, p2, (current : _)) -> do
+      selector <- require (sourceSpan p1) (Proxy @"VString") =<< eval env p1
+      wantedStates <- require (annSourceSpan ann) (Proxy @"VObject") =<< eval env p2
+      matchedElements <-
+        maybe
+          (throwError (UnexpectedError (Just (sourceSpan p1)) ("Selector not in observed state: " <> selector)))
+          pure
+          (HashMap.lookup (WTP.Selector selector) current)
+      mappedElements <- for (Vector.fromList matchedElements) $ \matchedElement -> do
+        mappings <- flip HashMap.traverseWithKey wantedStates $ \k s -> do
+          elementState <- require (annSourceSpan ann) (Proxy @"VElementState") s
+          case HashMap.lookup elementState matchedElement of
+            Just x -> pure x
+            Nothing -> throwError (UnexpectedError (Just (sourceSpan p2)) ("Key not in observed state: " <> k))
+        pure (VObject mappings)
+      pure (VArray mappedElements)
     _ -> do
       func' <- require (sourceSpan func) (Proxy @"VFunction") =<< eval env func
       param' <- eval env param
@@ -333,7 +373,7 @@ loadAllModulesEnv paths = do
   ms <- traverse loadModule paths
   pure (foldMap toModuleEnv ms)
 
-data Program = Program { programEnv :: Env EvalAnn }
+data Program = Program {programEnv :: Env EvalAnn}
 
 loadProgram :: IO (Either Text Program)
 loadProgram = runExceptT $ do
@@ -341,7 +381,7 @@ loadProgram = runExceptT $ do
       coreFnPath mn' = "output" </> toS mn' </> "corefn.json"
   stdPaths <- liftIO (glob (coreFnPath "*") <&> filter (/= coreFnPath "Effect"))
   env <- loadAllModulesEnv stdPaths
-  pure Program { programEnv = initialEnv <> env }
+  pure Program {programEnv = initialEnv <> env}
 
 evalEntryPoint :: Qualified Ident -> Program -> Eval (Value EvalAnn)
 evalEntryPoint entryPoint prog = envLookupEval nullSourceSpan entryPoint (programEnv prog)
@@ -565,21 +605,21 @@ foreignFunctions =
     intDegree :: Int -> Eval Int
     intDegree n = pure (min (abs n) 2147483647)
     intDiv :: Int -> Int -> Eval Int
-    intDiv x y 
+    intDiv x y
       | y == 0 = pure 0
       | otherwise = pure (x `div` y)
     intMod :: Int -> Int -> Eval Int
-    intMod x y 
+    intMod x y
       | y == 0 = pure 0
       | otherwise = let yy = abs y in pure ((x `mod` yy) + yy `mod` yy)
-    unfoldrArrayImpl 
-      :: (Value EvalAnn -> Eval Bool) -- isNothing
-      -> (Value EvalAnn -> Eval (Value EvalAnn)) -- fromJust
-      -> (Value EvalAnn -> Eval (Value EvalAnn)) -- fst
-      -> (Value EvalAnn -> Eval (Value EvalAnn)) -- snd
-      -> (Value EvalAnn -> Eval (Value EvalAnn)) -- f
-      -> Value EvalAnn -- b
-      -> Eval (Vector (Value EvalAnn))
+    unfoldrArrayImpl ::
+      (Value EvalAnn -> Eval Bool) -> -- isNothing
+      (Value EvalAnn -> Eval (Value EvalAnn)) -> -- fromJust
+      (Value EvalAnn -> Eval (Value EvalAnn)) -> -- fst
+      (Value EvalAnn -> Eval (Value EvalAnn)) -> -- snd
+      (Value EvalAnn -> Eval (Value EvalAnn)) -> -- f
+      Value EvalAnn -> -- b
+      Eval (Vector (Value EvalAnn))
     unfoldrArrayImpl isNothing' fromJust' fst' snd' f =
       Vector.unfoldrM $ \b -> do
         r <- f b

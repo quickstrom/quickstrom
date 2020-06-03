@@ -590,10 +590,7 @@ foreignFunctions =
     unsafePartial :: Value EvalAnn -> Eval (Value EvalAnn)
     unsafePartial f = do
       Function fenv _ body <- require nullSourceSpan (Proxy @"VFunction") f
-      traceM ("Unsafe partial: " <> (show (void body)))
-      x <- eval fenv body
-      traceM ("Unsafe partial result: " <> prettyText (pretty x))
-      pure x
+      eval fenv body
 
 evalForeignApply :: SourceSpan -> Env EvalAnn -> ApplyForeign -> Eval (Value EvalAnn)
 evalForeignApply ss env (ApplyForeign qn paramNames) = do

@@ -4,14 +4,17 @@ import Prelude
 
 import Control.Monad.Reader (Reader, ask, local, runReader)
 import Control.Monad.State (evalState, get, modify, runState, state)
+import Data.Array (fromFoldable)
 import Data.Array.NonEmpty as Array
 import Data.Identity (Identity(..))
 import Data.Int (toNumber)
-import Data.Maybe (Maybe(..))
+import Data.List.Lazy (iterate, take)
+import Data.Maybe (Maybe(..), fromJust, fromMaybe)
 import Data.Newtype (un)
 import Data.Tuple (Tuple(..))
 import Data.Unfoldable (unfoldr)
-import Random.LCG (lcgNext, mkSeed, unSeed)
+import Partial.Unsafe (unsafePartial)
+import Random.LCG (lcgNext, lcgPerturb, mkSeed, unSeed)
 
 mutuallyRecTop :: Int
 mutuallyRecTop = mutuallyRec1 10
@@ -69,3 +72,13 @@ testIdentityBind = un Identity (go 10)
     where
       go n = do
         if n > 0 then go (n - 1) else pure n
+
+seeds :: Array Int
+seeds = go (mkSeed 1000) 20
+  where
+    go seed n
+      | n > 0 = [unSeed (lcgPerturb 1000.0 seed)] <> go (lcgNext seed) (n - 1)
+      | otherwise = []
+
+partial :: Int
+partial = unsafePartial fromJust (pure 123)

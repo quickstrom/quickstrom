@@ -533,11 +533,7 @@ foreignFunctions =
     indexImpl :: a ~ (Value EvalAnn) => (a -> Eval (Value EvalAnn)) -> Value EvalAnn -> Vector a -> Int -> Eval (Value EvalAnn)
     indexImpl just nothing xs i = maybe (pure nothing) just (xs ^? ix (fromIntegral i))
     fromNumberImpl :: a ~ (Value EvalAnn) => (Int -> Eval (Value EvalAnn)) -> Value EvalAnn -> Double -> Eval (Value EvalAnn)
-    fromNumberImpl just nothing n =
-      case round n :: Int of
-        r 
-          | fromIntegral r == n -> just r
-          | otherwise -> pure nothing
+    fromNumberImpl just _ = just . round
     len :: Vector (Value EvalAnn) -> Eval Int
     len xs = pure (fromIntegral (Vector.length xs))
     filterArray :: (a ~ Value EvalAnn, b ~ Bool) => (a -> Eval b) -> Vector a -> Eval (Vector a)
@@ -594,7 +590,10 @@ foreignFunctions =
     unsafePartial :: Value EvalAnn -> Eval (Value EvalAnn)
     unsafePartial f = do
       Function fenv _ body <- require nullSourceSpan (Proxy @"VFunction") f
-      eval fenv body
+      traceM ("Unsafe partial: " <> (show (void body)))
+      x <- eval fenv body
+      traceM ("Unsafe partial result: " <> prettyText (pretty x))
+      pure x
 
 evalForeignApply :: SourceSpan -> Env EvalAnn -> ApplyForeign -> Eval (Value EvalAnn)
 evalForeignApply ss env (ApplyForeign qn paramNames) = do

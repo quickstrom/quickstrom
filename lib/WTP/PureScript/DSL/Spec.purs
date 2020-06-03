@@ -1,42 +1,57 @@
-module DSL.Spec where
+module DSL.Spec
+ ( Path
+ , Action
+ , Actions
+ , clicks
+ , focus
+ , foci
+ , keyPress
+ , asciiKeyPresses
+ , SpecialKey(..)
+ , specialKeyPress
+ , Spec
+ )
+where
 
 import Prelude
 
 import DSL.Selector (Selector)
+import Data.Array (range)
+import Data.Char (fromCharCode)
 import Data.Enum (class Enum)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Enum (genericPred, genericSucc)
 import Data.Generic.Rep.Ord (genericCompare)
 import Data.Generic.Rep.Show (genericShow)
-import Data.NonEmpty ((:|))
-import Test.QuickCheck (arbitrary)
-import Test.QuickCheck.Gen (Gen, elements)
-  
+import Data.Maybe (fromJust)
+import Partial.Unsafe (unsafePartial)
+
 type Path = String
 
 data Action = Focus Selector | KeyPress Char | Click Selector | Navigate Path
 
-clicks :: Gen Action
-clicks =
-  elements
-    ( Click "button" :| [ Click "input[type=button]", Click "a" ])
+type Actions = Array Action
 
-foci :: Gen Action
-foci = elements ( Focus "input" :| [ Focus "textarea" ] )
+clicks :: Actions
+clicks = [ Click "button", Click "input[type=button]", Click "a" ]
 
-keyPresses :: Gen Char -> Gen Action
-keyPresses genChar =
-  KeyPress <$> genChar
+focus :: Selector -> Action
+focus = Focus
 
-asciiKeyPresses :: Gen Action
-asciiKeyPresses =
-  keyPresses arbitrary
+foci :: Actions
+foci = [ Focus "input", Focus "textarea" ]
 
-specialKeyPress :: Gen SpecialKey -> Gen Action
-specialKeyPress genSpecialKey =
-  KeyPress <<< specialKeyToChar <$> genSpecialKey
+keyPress :: Char -> Action
+keyPress = KeyPress
 
-type Spec = { origin :: Path, readyWhen :: Selector, proposition :: Boolean, actions :: Gen Action }
+asciiKeyPresses :: Actions
+asciiKeyPresses = KeyPress <<< unsafePartial fromJust <<< fromCharCode <$> range 32 126
+
+specialKeyPress :: SpecialKey -> Action
+specialKeyPress specialKey =
+  KeyPress (specialKeyToChar specialKey)
+
+type Spec = { origin :: Path, readyWhen :: Selector, proposition :: Boolean, actions :: Actions }
 
 data SpecialKey
   = KeyAdd

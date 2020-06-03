@@ -1,43 +1,26 @@
 module WTP.PureScript.TodoMVC where
 
-import Control.Monad.Gen (chooseInt)
-import DSL (Action, Spec, always, bind, checked, foci, map, next, not, pure, queryAll, queryOne, textContent, (&&), (/=), (<<<), (<>), (==), (==>), (>), (>=), (||))
+import DSL
+
 import Data.Array (filter, head, last)
 import Data.Array as Array
 import Data.Foldable (length)
-import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Maybe (Maybe(..))
 import Data.Number as Number
 import Data.String (Pattern(..), split)
-import Prelude ((+), (<$>))
-import Random.LCG (mkSeed)
-import Test.QuickCheck.Gen (sample, vectorOf)
 
 angularjs :: Boolean
 angularjs = (spec "angularjs").proposition
 
-sample' :: Array Action
-sample' = sample (mkSeed 112341239) 20 (spec "angularjs").actions
-
-sample2 :: Array Int
-sample2 = (sample (mkSeed 1) 10 (chooseInt 1 10))
-
-foo :: Array Int
-foo = do
-  x <- [1, 2, 3]
-  pure (x + 1)
-
-bar :: Array Int
-bar = (_ + 1) <$> [1, 2, 3]
-
-bools :: Boolean
-bools = (1 `Array.elem` [1 ,2, 3])
+actions :: Array Action
+actions = (spec "angularjs").actions
 
 spec :: String -> Spec
 spec name =
   {
     origin : ("http://todomvc.com/examples/" <> name <> "/"),
     readyWhen : ".todoapp",
-    actions: foci,
+    actions: foci <> clicks <> pure (keyPress 'a'),
     proposition : initial && (always (enterText || addNew || changeFilter || toggleAll))
   }
   where

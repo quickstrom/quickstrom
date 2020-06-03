@@ -25,7 +25,7 @@ import Data.Maybe (Maybe)
 import Data.Symbol (class IsSymbol, SProxy(..), reflectSymbol)
 import Prim.RowList (class RowToList, Cons, Nil, kind RowList)
 import DSL.Selector (Selector)
-import DSL.Spec (Action(..), Path, Spec, SpecialKey(..), asciiKeyPresses, clicks, foci, keyPresses, specialKeyPress, specialKeyToChar) as Spec
+import DSL.Spec (Action, Path, Spec, SpecialKey(..), asciiKeyPresses, clicks, foci, focus, keyPress, specialKeyPress) as Spec
 import Type.Prelude (class ListToRow, class TypeEquals)
 
 implies :: Boolean -> Boolean -> Boolean

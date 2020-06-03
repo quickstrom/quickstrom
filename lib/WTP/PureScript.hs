@@ -46,9 +46,11 @@ import qualified WTP.Element as Element
 import qualified WTP.Element as WTP
 import WTP.PureScript.Value
 import qualified WTP.Specification as WTP
+import qualified WTP.Trace as WTP
 import Data.HashMap.Strict (HashMap)
 import Data.Fixed (mod')
 import Text.Read (read)
+import Control.Monad.Fix (MonadFix)
 
 data EvalError
   = UnexpectedError (Maybe SourceSpan) Text
@@ -86,10 +88,11 @@ data EvalAnn = EvalAnn {annSourceSpan :: SourceSpan, annMeta :: Maybe Meta, annA
 evalAnnFromAnn :: Ann -> EvalAnn
 evalAnnFromAnn (ss, _, _, meta) = EvalAnn ss meta Nothing
 
-type Eval a = Except EvalError a
+newtype Eval a = Eval (ExceptT EvalError (State [WTP.ObservedState]) a)
+  deriving (Functor, Applicative, Monad, MonadError EvalError, MonadFix)
 
-runEval :: Eval a -> (Either EvalError a)
-runEval = runExcept
+runEval :: [WTP.ObservedState] -> Eval a -> (Either EvalError a)
+runEval observedStates (Eval ma) = evalState (runExceptT ma) observedStates
 
 unexpectedType :: (MonadError EvalError m) => SourceSpan -> Text -> Value EvalAnn -> m a
 unexpectedType ss typ v =
@@ -330,22 +333,22 @@ loadAllModulesEnv paths = do
   ms <- traverse loadModule paths
   pure (foldMap toModuleEnv ms)
 
-evalEntryPoint :: Qualified Ident -> Env EvalAnn -> Eval (Value EvalAnn)
-evalEntryPoint entryPoint env =
-  envLookupEval nullSourceSpan entryPoint env
+data Program = Program { programEnv :: Env EvalAnn }
 
-runWithEntryPoint :: forall a. ToHaskellValue a => Qualified Ident -> IO (Either Text a)
-runWithEntryPoint entry = runExceptT $ do
+loadProgram :: IO (Either Text Program)
+loadProgram = runExceptT $ do
   let coreFnPath :: Text -> FilePath
-      coreFnPath mn = "output" </> toS mn </> "corefn.json"
+      coreFnPath mn' = "output" </> toS mn' </> "corefn.json"
   stdPaths <- liftIO (glob (coreFnPath "*") <&> filter (/= coreFnPath "Effect"))
-  specPath <- case asQualifiedName entry of
-    Just (mns, _) -> pure (coreFnPath (Text.intercalate "." mns))
-    Nothing -> throwError ("Unqualified entry point")
-  let paths = stdPaths <> pure specPath
-  env <- loadAllModulesEnv paths
-  liftIO (putStrLn ("Loaded " <> show (length paths) <> " modules." :: Text))
-  case runEval (evalEntryPoint entry (initialEnv <> env) >>= toHaskellValue nullSourceSpan) of
+  env <- loadAllModulesEnv stdPaths
+  pure Program { programEnv = initialEnv <> env }
+
+evalEntryPoint :: Qualified Ident -> Program -> Eval (Value EvalAnn)
+evalEntryPoint entryPoint prog = envLookupEval nullSourceSpan entryPoint (programEnv prog)
+
+runWithEntryPoint :: forall a. ToHaskellValue a => [WTP.ObservedState] -> Qualified Ident -> Program -> IO (Either Text a)
+runWithEntryPoint observedStates entry prog = runExceptT $ do
+  case runEval observedStates (evalEntryPoint entry prog >>= toHaskellValue nullSourceSpan) of
     Right value -> pure value
     Left err ->
       let prefix = case errorSourceSpan err of
@@ -353,8 +356,8 @@ runWithEntryPoint entry = runExceptT $ do
             Nothing -> "<no source information>" <> "error:"
        in throwError (prettyText (prefix <+> pretty err))
 
-test :: Qualified Ident -> IO ()
-test ep = runWithEntryPoint @Bool ep >>= \case
+test :: [WTP.ObservedState] -> Qualified Ident -> Program -> IO ()
+test observedStates ep prog = runWithEntryPoint @Bool observedStates ep prog >>= \case
   Left err -> putStrLn err >> exitWith (ExitFailure 1)
   Right successful -> putStrLn (prettyText ("Result:" <+> pretty successful))
 

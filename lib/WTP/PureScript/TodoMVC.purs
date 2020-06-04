@@ -93,7 +93,7 @@ spec name =
     
     pendingText :: String
     pendingText = case queryOne ".new-todo" { text: value } of
-      Just el -> el.text
+      Just el ->  el.text
       Nothing -> ""
     
     numItemsLeft :: Maybe Number

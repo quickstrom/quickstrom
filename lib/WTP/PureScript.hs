@@ -39,7 +39,7 @@ import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Text
 import qualified Data.Vector as Vector
 import Data.Vector (Vector)
-import Language.PureScript.AST (SourceSpan, displaySourceSpan, nullSourceSpan, spanName)
+import Language.PureScript.AST (internalModuleSourceSpan, SourceSpan, displaySourceSpan, nullSourceSpan, spanName)
 import Language.PureScript.CoreFn
 import Language.PureScript.CoreFn.FromJSON (moduleFromJSON)
 import Language.PureScript.Names
@@ -61,9 +61,10 @@ data EvalError
   | UnexpectedType (Maybe SourceSpan) Text (Value EvalAnn)
   | EntryPointNotDefined (Qualified Ident)
   | NotInScope SourceSpan (Qualified Ident)
+  | ForeignFunctionNotSupported SourceSpan (Qualified Ident)
   | InvalidString SourceSpan
   | InvalidBuiltInFunctionApplication SourceSpan (Expr EvalAnn) (Expr EvalAnn)
-  | ForeignFunctionError Text
+  | ForeignFunctionError (Maybe SourceSpan) Text
   deriving (Show, Generic)
 
 errorSourceSpan :: EvalError -> Maybe SourceSpan
@@ -72,9 +73,10 @@ errorSourceSpan = \case
   UnexpectedType ss _ _ -> ss
   EntryPointNotDefined _ -> Nothing
   NotInScope ss _ -> Just ss
+  ForeignFunctionNotSupported ss _ -> Just ss
   InvalidString ss -> Just ss
   InvalidBuiltInFunctionApplication ss _ _ -> Just ss
-  ForeignFunctionError _ -> Nothing
+  ForeignFunctionError ss _ -> ss
 
 instance Pretty EvalError where
   pretty = \case
@@ -82,9 +84,10 @@ instance Pretty EvalError where
     UnexpectedType _ t val -> "Expected value of type" <+> pretty t <+> "but got" <+> pretty val
     EntryPointNotDefined qn -> "Entry point not in scope:" <+> pretty (showQualified runIdent qn)
     NotInScope _ qn -> "Not in scope:" <+> pretty (showQualified runIdent qn)
+    ForeignFunctionNotSupported _ qn -> "Foreign function is not supported in WebCheck:" <+> pretty (showQualified runIdent qn)
     InvalidString _ -> "Invalid string"
     InvalidBuiltInFunctionApplication _ _fn _param -> "Invalid function application"
-    ForeignFunctionError t -> pretty t
+    ForeignFunctionError _ t -> pretty t
 
 prettySourceSpan :: SourceSpan -> Doc ann
 prettySourceSpan ss = pretty (displaySourceSpan mempty ss)
@@ -143,13 +146,14 @@ initialEnv =
     (\(qn, f) -> bindForeignFunction qn (arity f))
     (Map.toList foreignFunctions)
   where
+    builtInSS = internalModuleSourceSpan "<builtin>"
     bindForeignFunction :: Qualified Ident -> Int -> Env EvalAnn
     bindForeignFunction qn arity' =
-      envBindExpr qn (wrap arity' (\names -> Var (EvalAnn nullSourceSpan {spanName = toS (showQualified runIdent qn)} (Just IsForeign) (Just (ApplyForeign qn names))) qn))
+      envBindExpr qn (wrap arity' (\names -> Var (EvalAnn builtInSS {spanName = toS (showQualified runIdent qn)} (Just IsForeign) (Just (ApplyForeign qn names))) qn))
     wrap :: Int -> ([Ident] -> Expr EvalAnn) -> Expr EvalAnn
     wrap arity' f =
       let names = [Ident ("x" <> show n) | n <- [1 .. arity']]
-       in foldr (Abs (EvalAnn nullSourceSpan Nothing Nothing)) (f names) names
+       in foldr (Abs (EvalAnn builtInSS Nothing Nothing)) (f names) names
 
 envLookupEval :: SourceSpan -> Qualified Ident -> Env EvalAnn -> Eval (Value EvalAnn)
 envLookupEval ss qn env =
@@ -272,7 +276,7 @@ evalApp env ann func param = do
       wantedStates <- require (annSourceSpan ann) (Proxy @"VObject") =<< eval env p2
       matchedElements <-
         maybe
-          (throwError (UnexpectedError (Just (sourceSpan p1)) ("Selector not in observed state: " <> selector)))
+          (throwError (ForeignFunctionError (Just (sourceSpan p1)) ("Selector not in observed state: " <> selector)))
           pure
           (HashMap.lookup (WTP.Selector selector) current)
       mappedElements <- for (Vector.fromList matchedElements) $ \matchedElement -> do
@@ -282,7 +286,7 @@ evalApp env ann func param = do
             Just x -> pure x
             Nothing ->
               let msg = ("Element state (bound to ." <> k <> ") not in observed state for query `" <> selector <> "`: " <> show elementState)
-               in throwError (UnexpectedError (Just (sourceSpan p2)) msg)
+               in throwError (ForeignFunctionError (Just (sourceSpan p2)) msg)
         pure (VObject mappings)
       pure (VArray mappedElements)
     _ -> do
@@ -389,12 +393,15 @@ loadProgram = runExceptT $ do
   env <- loadAllModulesEnv stdPaths
   pure Program {programEnv = initialEnv <> env}
 
+entrySS :: SourceSpan
+entrySS = internalModuleSourceSpan "<entry>"
+
 evalEntryPoint :: Qualified Ident -> Program -> Eval (Value EvalAnn)
-evalEntryPoint entryPoint prog = envLookupEval nullSourceSpan entryPoint (programEnv prog)
+evalEntryPoint entryPoint prog = envLookupEval entrySS entryPoint (programEnv prog)
 
 runWithEntryPoint :: forall a. ToHaskellValue a => [WTP.ObservedState] -> Qualified Ident -> Program -> IO (Either Text a)
 runWithEntryPoint observedStates entry prog = runExceptT $ do
-  case runEval observedStates (evalEntryPoint entry prog >>= toHaskellValue nullSourceSpan) of
+  case runEval observedStates (evalEntryPoint entry prog >>= toHaskellValue entrySS) of
     Right value -> pure value
     Left err ->
       let prefix = case errorSourceSpan err of
@@ -437,7 +444,7 @@ instance {-# OVERLAPPABLE #-} ForeignFunctionArity a where
   foreignFunctionArity _ = 0
 
 foreignFunctionArityMismatch :: SourceSpan -> Eval a
-foreignFunctionArityMismatch ss = throwError (UnexpectedError (Just ss) "Foreign function arity mismatch")
+foreignFunctionArityMismatch ss = throwError (ForeignFunctionError (Just ss) "Foreign function arity mismatch")
 
 class EvalForeignFunction f where
   evalForeignFunction :: SourceSpan -> Env EvalAnn -> [Value EvalAnn] -> f -> Eval (Value EvalAnn)
@@ -489,7 +496,7 @@ instance ToHaskellValue (WTP.Action WTP.Selector) where
       "KeyPress" -> WTP.KeyPress <$> toHaskellValue ss value
       "Click" -> WTP.Click . WTP.Selector <$> toHaskellValue ss value
       "Navigate" -> WTP.Navigate . WTP.Path <$> toHaskellValue ss value
-      _ -> throwError (UnexpectedError (Just ss) ("Unknown Action constructor: " <> ctor))
+      _ -> throwError (ForeignFunctionError (Just ss) ("Unknown Action constructor: " <> ctor))
 
 instance (FromHaskellValue a, ToHaskellValue b) => ToHaskellValue (a -> Eval b) where
   toHaskellValue ss fn =
@@ -577,6 +584,7 @@ foreignFunctions =
       (qualifiedName ["Data", "Semiring"] "numMul", foreignFunction (op2 ((*) @Double))),
       (qualifiedName ["Data", "Semigroup"] "concatString", foreignFunction (op2 ((<>) @Text))),
       (qualifiedName ["Data", "Semigroup"] "concatArray", foreignFunction (op2 ((<>) @(Vector (Value EvalAnn))))),
+      notSupported (qualifiedName ["Data", "String", "Common"] "_localeCompare"),
       (qualifiedName ["Data", "String", "Common"] "replace", foreignFunction (op3 Text.replace)),
       (qualifiedName ["Data", "String", "Common"] "split", foreignFunction (op2 Text.splitOn)),
       (qualifiedName ["Data", "String", "Common"] "toLower", foreignFunction (op1 Text.toLower)),
@@ -594,6 +602,8 @@ foreignFunctions =
       (qualifiedName ["Partial", "Unsafe"] "unsafePartial", foreignFunction unsafePartial)
     ]
   where
+    notSupported :: Qualified Ident -> (Qualified Ident, ForeignFunction)
+    notSupported qn = (qn, ForeignFunction 0 (\ss _env _params -> throwError (ForeignFunctionNotSupported ss qn)))
     indexImpl :: a ~ (Value EvalAnn) => (a -> Eval (Value EvalAnn)) -> Value EvalAnn -> Vector a -> Int -> Eval (Value EvalAnn)
     indexImpl just nothing xs i = maybe (pure nothing) just (xs ^? ix (fromIntegral i))
     fromNumberImpl :: a ~ (Value EvalAnn) => (Int -> Eval (Value EvalAnn)) -> Value EvalAnn -> Double -> Eval (Value EvalAnn)
@@ -617,12 +627,12 @@ foreignFunctions =
     op3 :: (a -> b -> c -> d) -> a -> b -> c -> Eval d
     op3 op x y z = pure (op x y z)
     readAs :: StringConv s Text => (Text -> Either s (a, Text)) -> Text -> Eval a
-    readAs parse t = either (throwError . UnexpectedError Nothing . toS) (pure . fst) (parse t)
+    readAs parse t = either (throwError . ForeignFunctionError Nothing . toS) (pure . fst) (parse t)
     readInt :: Int -> Text -> Eval Int
     readInt = \case
       10 -> readAs Text.decimal
       16 -> readAs Text.hexadecimal
-      radix -> const (throwError (ForeignFunctionError ("Unsupported radix for readInt: " <> show radix)))
+      radix -> const (throwError (ForeignFunctionError Nothing ("Unsupported radix for readInt: " <> show radix)))
     eqArray :: (a ~ Value EvalAnn, b ~ Bool) => (a -> a -> Eval b) -> Vector a -> Vector a -> Eval b
     eqArray pred' v1 v2
       | Vector.length v1 == Vector.length v2 = Vector.and <$> Vector.zipWithM pred' v1 v2
@@ -670,4 +680,4 @@ evalForeignApply ss env (ApplyForeign qn paramNames) = do
   params <- for paramNames $ \n -> envLookupEval ss (Qualified Nothing n) env
   case Map.lookup qn foreignFunctions of
     (Just f) -> evalFn f ss env params
-    _ -> throwError (NotInScope ss qn)
+    _ -> throwError (ForeignFunctionNotSupported ss qn)

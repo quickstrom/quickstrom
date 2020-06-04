@@ -92,7 +92,7 @@ spec name =
     numChecked = length (filter (not <<< _.checked) checkboxes)
     
     pendingText :: String
-    pendingText = case queryOne ".new-todo" { text: textContent } of
+    pendingText = case queryOne ".new-todo" { text: value } of
       Just el -> el.text
       Nothing -> ""
     

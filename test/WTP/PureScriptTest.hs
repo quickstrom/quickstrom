@@ -52,8 +52,6 @@ spec_purescript = beforeAll loadProgram' $ do
           let incrAll = (app arrayMap incr)
           eval initialEnv (app incrAll (arrayLit [intLit 1, intLit 2, intLit 3]))
     prettyText (either pretty pretty r) `shouldBe` "[2, 3, 4]"
-  it "evaluates TodoMVC" $ \p -> do
-    runWithEntryPoint oneEmptyState (qualifiedName ["WTP", "PureScript", "TodoMVC"] "angularjs") p `shouldReturn` Right True
   it "supports mutually recursive top-level bindings" $ \p -> do
     runWithEntryPoint oneEmptyState (qualifiedName ["WTP", "PureScriptTest"] "mutuallyRecTop") p `shouldReturn` Right (0 :: Int)
   it "supports mutually recursive let bindings" $ \p -> do
@@ -82,6 +80,20 @@ spec_purescript = beforeAll loadProgram' $ do
       (qualifiedName ["WTP", "PureScriptTest"] "testNextOneQuery")
       p
       `shouldReturn` Right ("bar" :: Text)
+  it "evaluates TodoMVC" $ \p -> do
+    let todoMvcState newTodo selected count =
+          WTP.ObservedState
+            ( HashMap.fromList
+                [ (WTP.Get (WTP.Property "value") (WTP.ByCss ".new-todo"), [WTP.VString newTodo]),
+                  (WTP.Get (WTP.Property "textContent") (WTP.ByCss ".todoapp .filters .selected"), [WTP.VString selected]),
+                  (WTP.Get (WTP.Property "textContent") (WTP.ByCss ".todoapp .todo-count strong"), [WTP.VString count])
+                ]
+            )
+    runWithEntryPoint
+      [todoMvcState "" "All" "0"]
+      (qualifiedName ["WTP", "PureScript", "TodoMVC"] "angularjs")
+      p
+      `shouldReturn` Right True
 
 nullAnn :: EvalAnn
 nullAnn = (EvalAnn nullSourceSpan Nothing Nothing)

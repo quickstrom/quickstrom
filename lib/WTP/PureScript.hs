@@ -276,7 +276,9 @@ evalApp env ann func param = do
           elementState <- require (annSourceSpan ann) (Proxy @"VElementState") s
           case HashMap.lookup elementState matchedElement of
             Just x -> pure x
-            Nothing -> throwError (UnexpectedError (Just (sourceSpan p2)) ("Key not in observed state: " <> k))
+            Nothing -> 
+              let msg = ("Element state (bound to ." <> k <> ") not in observed state for query `" <> selector <> "`: " <> show elementState)
+              in throwError (UnexpectedError (Just (sourceSpan p2)) msg)
         pure (VObject mappings)
       pure (VArray mappedElements)
     _ -> do

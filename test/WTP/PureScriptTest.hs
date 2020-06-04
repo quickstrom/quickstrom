@@ -81,16 +81,22 @@ spec_purescript = beforeAll loadProgram' $ do
       p
       `shouldReturn` Right ("bar" :: Text)
   it "evaluates TodoMVC" $ \p -> do
-    let todoMvcState newTodo selected count =
+    let todoMvcState newTodo selected count todoItems =
           WTP.ObservedState
             ( HashMap.fromList
                 [ (WTP.Get (WTP.Property "value") (WTP.ByCss ".new-todo"), [WTP.VString newTodo]),
                   (WTP.Get (WTP.Property "textContent") (WTP.ByCss ".todoapp .filters .selected"), [WTP.VString selected]),
+                  (WTP.Get (WTP.Property "textContent") (WTP.ByCss ".todo-list li"), (map (WTP.VString . fst) todoItems)),
+                  (WTP.Get (WTP.Property "checked") (WTP.ByCss ".todo-list li input[type=checkbox]"), (map (WTP.VBool . snd) todoItems)),
                   (WTP.Get (WTP.Property "textContent") (WTP.ByCss ".todoapp .todo-count strong"), [WTP.VString count])
                 ]
             )
     runWithEntryPoint
-      [todoMvcState "" "All" "0"]
+      [ todoMvcState "" "All" "0" [],
+        todoMvcState "Buy milk" "All" "0" [],
+        todoMvcState "" "All" "1" [("Buy milk", False)],
+        todoMvcState "" "All" "0" [("Buy milk", True)]
+      ]
       (qualifiedName ["WTP", "PureScript", "TodoMVC"] "angularjs")
       p
       `shouldReturn` Right True

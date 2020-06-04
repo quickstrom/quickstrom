@@ -34,6 +34,7 @@ import Data.HashMap.Strict (HashMap)
 import qualified Data.HashSet as Set
 import qualified Data.Map as Map
 import qualified Data.Text as Text
+import qualified Data.Text.Read as Text
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Text
 import qualified Data.Vector as Vector
@@ -62,6 +63,7 @@ data EvalError
   | NotInScope SourceSpan (Qualified Ident)
   | InvalidString SourceSpan
   | InvalidBuiltInFunctionApplication SourceSpan (Expr EvalAnn) (Expr EvalAnn)
+  | ForeignFunctionError Text
   deriving (Show, Generic)
 
 errorSourceSpan :: EvalError -> Maybe SourceSpan
@@ -72,6 +74,7 @@ errorSourceSpan = \case
   NotInScope ss _ -> Just ss
   InvalidString ss -> Just ss
   InvalidBuiltInFunctionApplication ss _ _ -> Just ss
+  ForeignFunctionError _ -> Nothing
 
 instance Pretty EvalError where
   pretty = \case
@@ -81,6 +84,7 @@ instance Pretty EvalError where
     NotInScope _ qn -> "Not in scope:" <+> pretty (showQualified runIdent qn)
     InvalidString _ -> "Invalid string"
     InvalidBuiltInFunctionApplication _ _fn _param -> "Invalid function application"
+    ForeignFunctionError t -> pretty t
 
 prettySourceSpan :: SourceSpan -> Doc ann
 prettySourceSpan ss = pretty (displaySourceSpan mempty ss)
@@ -276,9 +280,9 @@ evalApp env ann func param = do
           elementState <- require (annSourceSpan ann) (Proxy @"VElementState") s
           case HashMap.lookup elementState matchedElement of
             Just x -> pure x
-            Nothing -> 
+            Nothing ->
               let msg = ("Element state (bound to ." <> k <> ") not in observed state for query `" <> selector <> "`: " <> show elementState)
-              in throwError (UnexpectedError (Just (sourceSpan p2)) msg)
+               in throwError (UnexpectedError (Just (sourceSpan p2)) msg)
         pure (VObject mappings)
       pure (VArray mappedElements)
     _ -> do
@@ -363,12 +367,12 @@ loadModule path = do
   case JSON.decode j of
     Just val ->
       case JSON.parse moduleFromJSON val of
-        JSON.Success (_, m) -> pure m {moduleDecls = map (addNameToDecl (moduleName m)) (moduleDecls m)}
+        JSON.Success (_, m) -> pure m {moduleDecls = map (addNameToDecl (toS (modulePath m))) (moduleDecls m)}
         JSON.Error e -> throwError (toS e)
     Nothing -> throwError "Couldn't read CoreFn file."
   where
-    addNameToDecl :: ModuleName -> Bind Ann -> Bind Ann
-    addNameToDecl name = fmap (_1 . field @"spanName" .~ toS (runModuleName name))
+    addNameToDecl :: Text -> Bind Ann -> Bind Ann
+    addNameToDecl name = fmap (_1 . field @"spanName" .~ toS name)
 
 loadAllModulesEnv :: [FilePath] -> ExceptT Text IO (Env EvalAnn)
 loadAllModulesEnv paths = do
@@ -472,6 +476,9 @@ instance ToHaskellValue Double where
 instance ToHaskellValue a => ToHaskellValue (Vector a) where
   toHaskellValue ss = traverse (toHaskellValue ss) <=< require ss (Proxy @"VArray")
 
+instance ToHaskellValue a => ToHaskellValue [a] where
+  toHaskellValue ss x = Vector.toList <$> toHaskellValue ss x
+
 instance ToHaskellValue (WTP.Action WTP.Selector) where
   toHaskellValue ss v = do
     obj <- require ss (Proxy @"VObject") v
@@ -524,6 +531,9 @@ instance FromHaskellValue Text where
 instance FromHaskellValue a => FromHaskellValue (Vector a) where
   fromHaskellValue xs = VArray (fromHaskellValue <$> xs)
 
+instance FromHaskellValue a => FromHaskellValue [a] where
+  fromHaskellValue = fromHaskellValue . Vector.fromList
+
 instance FromHaskellValue (Value EvalAnn) where
   fromHaskellValue = identity
 
@@ -536,21 +546,21 @@ foreignFunctions =
       (qualifiedName ["Data", "Array"] "filter", foreignFunction filterArray),
       (qualifiedName ["Data", "Bounded"] "bottomInt", foreignFunction (pure minBound :: Eval Int)),
       (qualifiedName ["Data", "Bounded"] "topInt", foreignFunction (pure maxBound :: Eval Int)),
-      (qualifiedName ["Data", "Eq"] "eqBooleanImpl", foreignFunction (binOp ((==) @Bool))),
-      (qualifiedName ["Data", "Eq"] "eqIntImpl", foreignFunction (binOp ((==) @Int))),
-      (qualifiedName ["Data", "Eq"] "eqNumberImpl", foreignFunction (binOp ((==) @Double))),
-      (qualifiedName ["Data", "Eq"] "eqCharImpl", foreignFunction (binOp ((==) @Char))),
-      (qualifiedName ["Data", "Eq"] "eqStringImpl", foreignFunction (binOp ((==) @Text))),
+      (qualifiedName ["Data", "Eq"] "eqBooleanImpl", foreignFunction (op2 ((==) @Bool))),
+      (qualifiedName ["Data", "Eq"] "eqIntImpl", foreignFunction (op2 ((==) @Int))),
+      (qualifiedName ["Data", "Eq"] "eqNumberImpl", foreignFunction (op2 ((==) @Double))),
+      (qualifiedName ["Data", "Eq"] "eqCharImpl", foreignFunction (op2 ((==) @Char))),
+      (qualifiedName ["Data", "Eq"] "eqStringImpl", foreignFunction (op2 ((==) @Text))),
       (qualifiedName ["Data", "Eq"] "eqArrayImpl", foreignFunction eqArray),
       (qualifiedName ["Data", "EuclideanRing"] "intDegree", foreignFunction intDegree),
       (qualifiedName ["Data", "EuclideanRing"] "intDiv", foreignFunction intDiv),
       (qualifiedName ["Data", "EuclideanRing"] "intMod", foreignFunction intMod),
-      (qualifiedName ["Data", "EuclideanRing"] "numDiv", foreignFunction (binOp @Double (/))),
+      (qualifiedName ["Data", "EuclideanRing"] "numDiv", foreignFunction (op2 @Double (/))),
       (qualifiedName ["Data", "Foldable"] "foldlArray", foreignFunction foldlArray),
       (qualifiedName ["Data", "Foldable"] "foldrArray", foreignFunction foldrArray),
       (qualifiedName ["Data", "Functor"] "arrayMap", foreignFunction arrayMap),
-      (qualifiedName ["Data", "HeytingAlgebra"] "boolConj", foreignFunction (binOp (&&))),
-      (qualifiedName ["Data", "HeytingAlgebra"] "boolDisj", foreignFunction (binOp (||))),
+      (qualifiedName ["Data", "HeytingAlgebra"] "boolConj", foreignFunction (op2 (&&))),
+      (qualifiedName ["Data", "HeytingAlgebra"] "boolDisj", foreignFunction (op2 (||))),
       (qualifiedName ["Data", "HeytingAlgebra"] "boolNot", foreignFunction ((pure :: a -> Eval a) . not)),
       (qualifiedName ["Data", "Int"] "toNumber", foreignFunction ((pure :: Double -> Eval Double) . fromIntegral @Int)),
       (qualifiedName ["Data", "Int"] "fromNumberImpl", foreignFunction fromNumberImpl),
@@ -559,19 +569,28 @@ foreignFunctions =
       (qualifiedName ["Data", "Ord"] "ordNumberImpl", foreignFunction (ordImpl @Double)),
       (qualifiedName ["Data", "Ord"] "ordStringImpl", foreignFunction (ordImpl @Text)),
       (qualifiedName ["Data", "Ord"] "ordCharImpl", foreignFunction (ordImpl @Char)),
-      (qualifiedName ["Data", "Semiring"] "intAdd", foreignFunction (binOp ((+) @Int))),
-      (qualifiedName ["Data", "Semiring"] "intMul", foreignFunction (binOp ((*) @Int))),
-      (qualifiedName ["Data", "Semiring"] "numAdd", foreignFunction (binOp ((+) @Double))),
-      (qualifiedName ["Data", "Semiring"] "numMul", foreignFunction (binOp ((*) @Double))),
-      (qualifiedName ["Data", "Semigroup"] "concatString", foreignFunction (binOp ((<>) @Text))),
-      (qualifiedName ["Data", "Semigroup"] "concatArray", foreignFunction (binOp ((<>) @(Vector (Value EvalAnn))))),
-      (qualifiedName ["Data", "Ring"] "intSub", foreignFunction (binOp ((-) @Int))),
-      (qualifiedName ["Data", "Ring"] "numSub", foreignFunction (binOp ((-) @Double))),
+      (qualifiedName ["Data", "Ring"] "intSub", foreignFunction (op2 ((-) @Int))),
+      (qualifiedName ["Data", "Ring"] "numSub", foreignFunction (op2 ((-) @Double))),
+      (qualifiedName ["Data", "Semiring"] "intAdd", foreignFunction (op2 ((+) @Int))),
+      (qualifiedName ["Data", "Semiring"] "intMul", foreignFunction (op2 ((*) @Int))),
+      (qualifiedName ["Data", "Semiring"] "numAdd", foreignFunction (op2 ((+) @Double))),
+      (qualifiedName ["Data", "Semiring"] "numMul", foreignFunction (op2 ((*) @Double))),
+      (qualifiedName ["Data", "Semigroup"] "concatString", foreignFunction (op2 ((<>) @Text))),
+      (qualifiedName ["Data", "Semigroup"] "concatArray", foreignFunction (op2 ((<>) @(Vector (Value EvalAnn))))),
+      (qualifiedName ["Data", "String", "Common"] "replace", foreignFunction (op3 Text.replace)),
+      (qualifiedName ["Data", "String", "Common"] "split", foreignFunction (op2 Text.splitOn)),
+      (qualifiedName ["Data", "String", "Common"] "toLower", foreignFunction (op1 Text.toLower)),
+      (qualifiedName ["Data", "String", "Common"] "toUpper", foreignFunction (op1 Text.toUpper)),
+      (qualifiedName ["Data", "String", "Common"] "trim", foreignFunction (op1 Text.strip)),
+      (qualifiedName ["Data", "String", "Common"] "joinWith", foreignFunction (op2 Text.intercalate)),
       (qualifiedName ["Data", "Unfoldable"] "unfoldrArrayImpl", foreignFunction unfoldrArrayImpl),
       (qualifiedName ["Global"] "infinity", foreignFunction (pure (read "Infinity" :: Double) :: Eval Double)),
       (qualifiedName ["Global"] "nan", foreignFunction (pure (read "NaN" :: Double) :: Eval Double)),
-      (qualifiedName ["Math"] "floor", foreignFunction (unOp (fromIntegral @Int @Double . floor @Double @Int))),
-      (qualifiedName ["Math"] "remainder", foreignFunction (binOp (mod' @Double))),
+      (qualifiedName ["Global"] "isFinite", foreignFunction (op1 (not . isInfinite @Double))),
+      (qualifiedName ["Global"] "readFloat", foreignFunction (readAs Text.double)),
+      (qualifiedName ["Global"] "readInt", foreignFunction readInt),
+      (qualifiedName ["Math"] "floor", foreignFunction (op1 (fromIntegral @Int @Double . floor @Double @Int))),
+      (qualifiedName ["Math"] "remainder", foreignFunction (op2 (mod' @Double))),
       (qualifiedName ["Partial", "Unsafe"] "unsafePartial", foreignFunction unsafePartial)
     ]
   where
@@ -591,10 +610,19 @@ foreignFunctions =
     foldlArray = foldM
     foldrArray :: (b ~ Value EvalAnn, a ~ Value EvalAnn) => (a -> b -> Eval b) -> b -> Vector a -> Eval b
     foldrArray = foldrM
-    unOp :: (a -> b) -> a -> Eval b
-    unOp op = pure . op
-    binOp :: (a -> a -> b) -> a -> a -> Eval b
-    binOp op x y = pure (x `op` y)
+    op1 :: (a -> b) -> a -> Eval b
+    op1 op = pure . op
+    op2 :: (a -> b -> c) -> a -> b -> Eval c
+    op2 op x y = pure (op x y)
+    op3 :: (a -> b -> c -> d) -> a -> b -> c -> Eval d
+    op3 op x y z = pure (op x y z)
+    readAs :: StringConv s Text => (Text -> Either s (a, Text)) -> Text -> Eval a
+    readAs parse t = either (throwError . UnexpectedError Nothing . toS) (pure . fst) (parse t)
+    readInt :: Int -> Text -> Eval Int
+    readInt = \case
+      10 -> readAs Text.decimal
+      16 -> readAs Text.hexadecimal
+      radix -> const (throwError (ForeignFunctionError ("Unsupported radix for readInt: " <> show radix)))
     eqArray :: (a ~ Value EvalAnn, b ~ Bool) => (a -> a -> Eval b) -> Vector a -> Vector a -> Eval b
     eqArray pred' v1 v2
       | Vector.length v1 == Vector.length v2 = Vector.and <$> Vector.zipWithM pred' v1 v2

@@ -30,6 +30,7 @@ common shared-deps
                     , prettyprinter-ansi-terminal
                     , protolude
                     , purescript
+                    , process
                     , QuickCheck
                     , QuickCheck-GenT
                     , random

@@ -9,15 +9,16 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PackageImports #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module WTP.PureScript where
 
@@ -34,12 +35,12 @@ import Data.HashMap.Strict (HashMap)
 import qualified Data.HashSet as Set
 import qualified Data.Map as Map
 import qualified Data.Text as Text
-import qualified Data.Text.Read as Text
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Text
+import qualified Data.Text.Read as Text
 import qualified Data.Vector as Vector
 import Data.Vector (Vector)
-import Language.PureScript.AST (internalModuleSourceSpan, SourceSpan, displaySourceSpan, nullSourceSpan, spanName)
+import Language.PureScript.AST (SourceSpan, displaySourceSpan, internalModuleSourceSpan, nullSourceSpan, spanName)
 import Language.PureScript.CoreFn
 import Language.PureScript.CoreFn.FromJSON (moduleFromJSON)
 import Language.PureScript.Names
@@ -65,6 +66,7 @@ data EvalError
   | InvalidString SourceSpan
   | InvalidBuiltInFunctionApplication SourceSpan (Expr EvalAnn) (Expr EvalAnn)
   | ForeignFunctionError (Maybe SourceSpan) Text
+  | Undetermined
   deriving (Show, Generic)
 
 errorSourceSpan :: EvalError -> Maybe SourceSpan
@@ -77,6 +79,7 @@ errorSourceSpan = \case
   InvalidString ss -> Just ss
   InvalidBuiltInFunctionApplication ss _ _ -> Just ss
   ForeignFunctionError ss _ -> ss
+  Undetermined -> Nothing
 
 instance Pretty EvalError where
   pretty = \case
@@ -88,6 +91,7 @@ instance Pretty EvalError where
     InvalidString _ -> "Invalid string"
     InvalidBuiltInFunctionApplication _ _fn _param -> "Invalid function application"
     ForeignFunctionError _ t -> pretty t
+    Undetermined -> "The formula cannot be determined as there are not enough observed states"
 
 prettySourceSpan :: SourceSpan -> Doc ann
 prettySourceSpan ss = pretty (displaySourceSpan mempty ss)
@@ -118,7 +122,7 @@ sourceSpan = annSourceSpan . extractAnn
 
 require ::
   forall (ctor :: Symbol) s t a b ann.
-  (KnownSymbol ctor, AsConstructor ctor s t a b, ann ~ EvalAnn, s ~ Value ann, t ~ Value ann, a ~ b, Show ann) =>
+  (KnownSymbol ctor, AsConstructor ctor s t a b, ann ~ EvalAnn, s ~ Value ann, t ~ Value ann, a ~ b) =>
   SourceSpan ->
   Proxy ctor ->
   Value ann ->
@@ -204,95 +208,119 @@ toQueriedElements (WTP.ObservedState m) =
       WTP.VSet vs -> VArray <$> traverse fromValue (Vector.fromList (Set.toList vs))
       WTP.VFunction _ -> Nothing
 
-eval :: Env EvalAnn -> Expr EvalAnn -> Eval (Value EvalAnn)
-eval env = \case
-  Literal (EvalAnn ss _ _) lit -> case lit of
-    NumericLiteral n -> pure (either (VInt . fromInteger) (VNumber . realToFrac) n)
-    StringLiteral s -> VString <$> evalString ss s
-    CharLiteral c -> pure (VChar c)
-    BooleanLiteral b -> pure (VBool b)
-    ArrayLiteral xs -> VArray . Vector.fromList <$> traverse (eval env) xs
-    ObjectLiteral pairs -> do
-      pairs' <- for pairs $ \(field', value) ->
-        (,) <$> evalString ss field' <*> eval env value
-      pure (VObject (HashMap.fromList pairs'))
-  Constructor (EvalAnn ss (Just IsNewtype) _) _ _ _fieldNames -> do
-    pure (VFunction (Function mempty (Ident "value") (Var (EvalAnn ss Nothing Nothing) (qualifiedName [] "value"))))
-  Constructor ann _typeName ctorName fieldNames -> do
-    let body =
-          Literal
-            ann
-            ( ObjectLiteral
-                [ (mkString "constructor", Literal ann (StringLiteral (mkString (runProperName ctorName)))),
-                  (mkString "fields", Literal ann (ArrayLiteral (map (Var ann . Qualified Nothing) fieldNames)))
-                ]
-            )
-    eval env (foldr (Abs ann) body fieldNames)
-  Accessor (EvalAnn ss _ _) prop objExpr -> do
-    key <- evalString ss prop
-    obj <- require ss (Proxy @"VObject") =<< eval env objExpr
-    accessField ss key obj
-  ObjectUpdate (EvalAnn ss _ _) objExpr updates -> do
-    obj <- require ss (Proxy @"VObject") =<< eval env objExpr
-    updates' <- for updates $ \(field', expr') ->
-      (,) <$> evalString ss field' <*> eval env expr'
-    pure (VObject (obj <> HashMap.fromList updates'))
-  Abs _ann arg body -> pure (VFunction (Function env arg body))
-  App ann func param -> evalApp env ann func param
-  Var _ (Qualified (Just (ModuleName [ProperName "Prim"])) (Ident "undefined")) -> pure (VObject mempty)
-  Var (EvalAnn ss _ (Just applyForeign)) _ -> evalForeignApply ss env applyForeign
-  Var (EvalAnn ss _ Nothing) qn -> envLookupEval ss qn env
-  Case (EvalAnn ss _ _) exprs alts -> do
-    values <- traverse (eval env) exprs
-    evalCaseAlts ss env values alts
-  Let (EvalAnn _ss _ _) bindings body -> do
-    let bindingEnv env' = \case
-          NonRec _ name expr' -> do
-            value <- eval env' expr'
-            pure (env' <> envBindValue (Qualified Nothing name) value)
-          Rec binds -> do
-            rec recEnv <- fold <$> traverse (\((_, name), expr') -> envBindValue (Qualified Nothing name) <$> pure (VDefer (Defer (env' <> recEnv) expr'))) binds
-            pure recEnv
-    newEnv <- foldM bindingEnv env bindings
-    eval (env <> newEnv) body
+pattern BuiltIn :: Text -> a -> Expr a -> Expr a
+pattern BuiltIn name ann p <- App ann (Var _ (Qualified (Just (ModuleName [ProperName "DSL"])) (Ident name))) p
 
-evalApp :: Env EvalAnn -> EvalAnn -> Expr EvalAnn -> Expr EvalAnn -> Eval (Value EvalAnn)
-evalApp env ann func param = do
-  queriedElements <- ask
-  case (func, param, queriedElements) of
-    (asQualifiedVar -> Just (["DSL"], "always"), p, []) -> pure (VBool True)
-    (_, _, []) -> pure (VBool False)
-    (asQualifiedVar -> Just (["DSL"], "next"), p, (_ : rest)) ->
-      local (const rest) (eval env p)
-    (asQualifiedVar -> Just (["DSL"], "always"), p, _) -> eval env p -- TODO: handle temporal operators
-    (asQualifiedVar -> Just (["DSL"], "_property"), p, _) -> do
-      name <- require (sourceSpan p) (Proxy @"VString") =<< eval env p
-      pure (VElementState (Element.Property name))
-    (asQualifiedVar -> Just (["DSL"], "_attribute"), p, _) -> do
-      name <- require (sourceSpan p) (Proxy @"VString") =<< eval env p
-      pure (VElementState (Element.Attribute name))
-    (App _ (asQualifiedVar -> Just (["DSL"], "_queryAll")) p1, p2, (current : _)) -> do
-      selector <- require (sourceSpan p1) (Proxy @"VString") =<< eval env p1
-      wantedStates <- require (annSourceSpan ann) (Proxy @"VObject") =<< eval env p2
-      matchedElements <-
-        maybe
-          (throwError (ForeignFunctionError (Just (sourceSpan p1)) ("Selector not in observed state: " <> selector)))
-          pure
-          (HashMap.lookup (WTP.Selector selector) current)
-      mappedElements <- for (Vector.fromList matchedElements) $ \matchedElement -> do
-        mappings <- flip HashMap.traverseWithKey wantedStates $ \k s -> do
-          elementState <- require (annSourceSpan ann) (Proxy @"VElementState") s
-          case HashMap.lookup elementState matchedElement of
-            Just x -> pure x
-            Nothing ->
-              let msg = ("Element state (bound to ." <> k <> ") not in observed state for query `" <> selector <> "`: " <> show elementState)
-               in throwError (ForeignFunctionError (Just (sourceSpan p2)) msg)
-        pure (VObject mappings)
-      pure (VArray mappedElements)
-    _ -> do
-      func' <- require (sourceSpan func) (Proxy @"VFunction") =<< eval env func
-      param' <- eval env param
-      evalFunc func' param'
+pattern Always :: a -> Expr a -> Expr a
+pattern Always ann p <- BuiltIn "always" ann p
+
+pattern Next :: a -> Expr a -> Expr a
+pattern Next ann p <- BuiltIn "next" ann p
+
+eval :: Env EvalAnn -> Expr EvalAnn -> Eval (Value EvalAnn)
+eval env expr =
+  ask >>= \case
+    [] -> case expr of
+      Always _ _ -> pure (VBool True)
+      _ -> throwError Undetermined
+    (current : rest) -> case expr of
+      -- Special cases
+      Next _ p -> local (const rest) (eval env p)
+      Always ann p -> do
+        first' <- require (sourceSpan p) (Proxy @"VBool")
+          =<< eval env p `catchError` \case
+            Undetermined -> pure (VBool True)
+            e -> throwError e
+        rest' <-
+          require (annSourceSpan ann) (Proxy @"VBool")
+            =<< local (drop 1) (eval env expr)
+        pure (VBool (first' && rest'))
+      App _ (BuiltIn "_queryAll" _ p) q -> evalQuery env p q current
+      BuiltIn "_property" _ p -> do
+        name <- require (sourceSpan p) (Proxy @"VString") =<< eval env p
+        pure (VElementState (Element.Property name))
+      BuiltIn "_attribute" _ p -> do
+        name <- require (sourceSpan p) (Proxy @"VString") =<< eval env p
+        pure (VElementState (Element.Attribute name))
+      -- General cases
+      Literal (EvalAnn ss _ _) lit -> case lit of
+        NumericLiteral n -> pure (either (VInt . fromInteger) (VNumber . realToFrac) n)
+        StringLiteral s -> VString <$> evalString ss s
+        CharLiteral c -> pure (VChar c)
+        BooleanLiteral b -> pure (VBool b)
+        ArrayLiteral xs -> VArray . Vector.fromList <$> traverse (eval env) xs
+        ObjectLiteral pairs -> do
+          pairs' <- for pairs $ \(field', value) ->
+            (,) <$> evalString ss field' <*> eval env value
+          pure (VObject (HashMap.fromList pairs'))
+      Constructor (EvalAnn ss (Just IsNewtype) _) _ _ _fieldNames -> do
+        pure (VFunction (Function mempty (Ident "value") (Var (EvalAnn ss Nothing Nothing) (qualifiedName [] "value"))))
+      Constructor ann _typeName ctorName fieldNames -> do
+        let body =
+              Literal
+                ann
+                ( ObjectLiteral
+                    [ (mkString "constructor", Literal ann (StringLiteral (mkString (runProperName ctorName)))),
+                      (mkString "fields", Literal ann (ArrayLiteral (map (Var ann . Qualified Nothing) fieldNames)))
+                    ]
+                )
+        eval env (foldr (Abs ann) body fieldNames)
+      Accessor (EvalAnn ss _ _) prop objExpr -> do
+        key <- evalString ss prop
+        obj <- require ss (Proxy @"VObject") =<< eval env objExpr
+        accessField ss key obj
+      ObjectUpdate (EvalAnn ss _ _) objExpr updates -> do
+        obj <- require ss (Proxy @"VObject") =<< eval env objExpr
+        updates' <- for updates $ \(field', expr') ->
+          (,) <$> evalString ss field' <*> eval env expr'
+        pure (VObject (obj <> HashMap.fromList updates'))
+      Abs _ann arg body -> pure (VFunction (Function env arg body))
+      App _ func param -> do
+        func' <- require (sourceSpan func) (Proxy @"VFunction") =<< eval env func
+        param' <- eval env param
+        evalFunc func' param'
+      Var _ (Qualified (Just (ModuleName [ProperName "Prim"])) (Ident "undefined")) -> pure (VObject mempty)
+      Var (EvalAnn ss _ (Just applyForeign)) _ -> evalForeignApply ss env applyForeign
+      Var (EvalAnn ss _ Nothing) qn -> envLookupEval ss qn env
+      Case (EvalAnn ss _ _) exprs alts -> do
+        values <- traverse (eval env) exprs
+        evalCaseAlts ss env values alts
+      Let (EvalAnn _ss _ _) bindings body -> do
+        let bindingEnv env' = \case
+              NonRec _ name expr' -> do
+                value <- eval env' expr'
+                pure (env' <> envBindValue (Qualified Nothing name) value)
+              Rec binds -> do
+                rec recEnv <- fold <$> traverse (\((_, name), expr') -> envBindValue (Qualified Nothing name) <$> pure (VDefer (Defer (env' <> recEnv) expr'))) binds
+                pure recEnv
+        newEnv <- foldM bindingEnv env bindings
+        eval (env <> newEnv) body
+
+qnAlways :: Qualified Ident
+qnAlways = qualifiedName ["DSL"] "always"
+
+qnNext :: Qualified Ident
+qnNext = qualifiedName ["DSL"] "next"
+
+evalQuery :: Env EvalAnn -> Expr EvalAnn -> Expr EvalAnn -> QueriedElements -> Eval (Value EvalAnn)
+evalQuery env p1 p2 current = do
+  selector <- require (sourceSpan p1) (Proxy @"VString") =<< eval env p1
+  wantedStates <- require (sourceSpan p2) (Proxy @"VObject") =<< eval env p2
+  matchedElements <-
+    maybe
+      (throwError (ForeignFunctionError (Just (sourceSpan p1)) ("Selector not in observed state: " <> selector)))
+      pure
+      (HashMap.lookup (WTP.Selector selector) current)
+  mappedElements <- for (Vector.fromList matchedElements) $ \matchedElement -> do
+    mappings <- flip HashMap.traverseWithKey wantedStates $ \k s -> do
+      elementState <- require (sourceSpan p2) (Proxy @"VElementState") s
+      case HashMap.lookup elementState matchedElement of
+        Just x -> pure x
+        Nothing ->
+          let msg = ("Element state (bound to ." <> k <> ") not in observed state for query `" <> selector <> "`: " <> show elementState)
+           in throwError (ForeignFunctionError (Just (sourceSpan p2)) msg)
+    pure (VObject mappings)
+  pure (VArray mappedElements)
 
 evalFunc :: Function EvalAnn -> (Value EvalAnn) -> Eval (Value EvalAnn)
 evalFunc (Function fEnv arg body) param' =
@@ -507,7 +535,7 @@ instance (FromHaskellValue a, ToHaskellValue b) => ToHaskellValue (a -> Eval b) 
           toHaskellValue ss b
       )
 
-instance (Show a, Show b, FromHaskellValue a, FromHaskellValue b, ToHaskellValue c) => ToHaskellValue (a -> b -> Eval c) where
+instance (FromHaskellValue a, FromHaskellValue b, ToHaskellValue c) => ToHaskellValue (a -> b -> Eval c) where
   toHaskellValue ss fn = do
     pure
       ( \a b -> do
@@ -606,11 +634,11 @@ foreignFunctions =
     notSupported qn = (qn, ForeignFunction 0 (\ss _env _params -> throwError (ForeignFunctionNotSupported ss qn)))
     indexImpl :: a ~ (Value EvalAnn) => (a -> Eval (Value EvalAnn)) -> Value EvalAnn -> Vector a -> Int -> Eval (Value EvalAnn)
     indexImpl just nothing xs i = maybe (pure nothing) just (xs ^? ix (fromIntegral i))
-    fromNumberImpl :: a ~ (Value EvalAnn) => (Int -> Eval (Value EvalAnn)) -> Value EvalAnn -> Double -> Eval (Value EvalAnn)
+    fromNumberImpl :: (Int -> Eval (Value EvalAnn)) -> Value EvalAnn -> Double -> Eval (Value EvalAnn)
     fromNumberImpl just _ = just . round
     len :: Vector (Value EvalAnn) -> Eval Int
     len xs = pure (fromIntegral (Vector.length xs))
-    filterArray :: (a ~ Value EvalAnn, b ~ Bool) => (a -> Eval b) -> Vector a -> Eval (Vector a)
+    filterArray :: (Value EvalAnn -> Eval Bool) -> Vector (Value EvalAnn) -> Eval (Vector (Value EvalAnn))
     filterArray = Vector.filterM
     arrayMap :: (a ~ Value EvalAnn, b ~ Value EvalAnn) => (a -> Eval b) -> Vector a -> Eval (Vector b)
     arrayMap = Vector.mapM

@@ -1,7 +1,9 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module WTP.PureScriptTest where
 
@@ -31,56 +33,65 @@ loadProgram' = do
   callCommand "spago build -u '-g corefn'"
   fromRight undefined <$> loadProgram
 
-oneEmptyState :: [WTP.ObservedState]
-oneEmptyState = [mempty]
-
 spec_purescript :: Spec
 spec_purescript = beforeAll loadProgram' $ do
-  it "adds integers" $ \p -> do
-    let r = runEval oneEmptyState $ do
-          intAdd <- envLookupExpr (qualifiedName ["Data", "Semiring"] "intAdd")
-          eval initialEnv (app (app intAdd (intLit 1)) (intLit 2))
-    r `shouldSatisfy` \case
-      Right (VInt 3) -> True
-      _ -> False
-  it "maps over array" $ \p -> do
-    let r :: Either EvalError (Value EvalAnn)
-        r = runEval oneEmptyState $ do
-          arrayMap <- envLookupExpr (qualifiedName ["Data", "Functor"] "arrayMap")
-          intAdd <- envLookupExpr (qualifiedName ["Data", "Semiring"] "intAdd")
-          let incr = app intAdd (intLit 1)
-          let incrAll = (app arrayMap incr)
-          eval initialEnv (app incrAll (arrayLit [intLit 1, intLit 2, intLit 3]))
-    prettyText (either pretty pretty r) `shouldBe` "[2, 3, 4]"
-  it "supports mutually recursive top-level bindings" $ \p -> do
-    runWithEntryPoint oneEmptyState (qualifiedName ["WTP", "PureScriptTest"] "mutuallyRecTop") p `shouldReturn` Right (0 :: Int)
-  it "supports mutually recursive let bindings" $ \p -> do
-    runWithEntryPoint oneEmptyState (qualifiedName ["WTP", "PureScriptTest"] "mutuallyRecLet") p `shouldReturn` Right (0 :: Int)
-  it "unfoldr" $ \p -> do
-    runWithEntryPoint oneEmptyState (qualifiedName ["WTP", "PureScriptTest"] "unfoldrNumbers") p `shouldReturn` Right (Vector.reverse [1 .. 10 :: Int])
-  it "toNumber" $ \p -> do
-    runWithEntryPoint oneEmptyState (qualifiedName ["WTP", "PureScriptTest"] "convertNum") p `shouldReturn` Right (1.0 :: Double)
-  it "runs state monad" $ \p -> do
-    runWithEntryPoint oneEmptyState (qualifiedName ["WTP", "PureScriptTest"] "testState") p `shouldReturn` Right (0 :: Int)
-  let paragraphWithTextState t =
-        WTP.ObservedState
-          ( HashMap.singleton
-              (WTP.Get (WTP.Property "textContent") (WTP.ByCss "p"))
-              [WTP.VString t]
-          )
-  it "returns one queried element's state" $ \p -> do
-    runWithEntryPoint
-      [paragraphWithTextState "hello"]
-      (qualifiedName ["WTP", "PureScriptTest"] "testOneQuery")
-      p
-      `shouldReturn` Right ("hello" :: Text)
-  it "returns next one queried element's state" $ \p -> do
-    runWithEntryPoint
-      [paragraphWithTextState "foo", paragraphWithTextState "bar"]
-      (qualifiedName ["WTP", "PureScriptTest"] "testNextOneQuery")
-      p
-      `shouldReturn` Right ("bar" :: Text)
-  it "evaluates TodoMVC" $ \p -> do
+  describe "basics" $ do
+    it "adds integers" $ \p -> do
+      let r = runEval [mempty] $ do
+            intAdd <- envLookupExpr (qualifiedName ["Data", "Semiring"] "intAdd")
+            eval initialEnv (app (app intAdd (intLit 1)) (intLit 2))
+      r `shouldSatisfy` \case
+        Right (VInt 3) -> True
+        _ -> False
+    it "maps over array" $ \p -> do
+      let r :: Either EvalError (Value EvalAnn)
+          r = runEval [mempty] $ do
+            arrayMap <- envLookupExpr (qualifiedName ["Data", "Functor"] "arrayMap")
+            intAdd <- envLookupExpr (qualifiedName ["Data", "Semiring"] "intAdd")
+            let incr = app intAdd (intLit 1)
+            let incrAll = (app arrayMap incr)
+            eval initialEnv (app incrAll (arrayLit [intLit 1, intLit 2, intLit 3]))
+      prettyText (either pretty pretty r) `shouldBe` "[2, 3, 4]"
+    it "supports mutually recursive top-level bindings" $ \p -> do
+      runWithEntryPoint [mempty] (qualifiedName ["WTP", "PureScriptTest"] "mutuallyRecTop") p `shouldReturn` Right (0 :: Int)
+    it "supports mutually recursive let bindings" $ \p -> do
+      runWithEntryPoint [mempty] (qualifiedName ["WTP", "PureScriptTest"] "mutuallyRecLet") p `shouldReturn` Right (0 :: Int)
+    it "unfoldr" $ \p -> do
+      runWithEntryPoint [mempty] (qualifiedName ["WTP", "PureScriptTest"] "unfoldrNumbers") p `shouldReturn` Right (Vector.reverse [1 .. 10 :: Int])
+    it "toNumber" $ \p -> do
+      runWithEntryPoint [mempty] (qualifiedName ["WTP", "PureScriptTest"] "convertNum") p `shouldReturn` Right (1.0 :: Double)
+    it "runs state monad" $ \p -> do
+      runWithEntryPoint [mempty] (qualifiedName ["WTP", "PureScriptTest"] "testState") p `shouldReturn` Right (0 :: Int)
+    let paragraphWithTextState t =
+          WTP.ObservedState
+            ( HashMap.singleton
+                (WTP.Get (WTP.Property "textContent") (WTP.ByCss "p"))
+                [WTP.VString t]
+            )
+    it "returns one queried element's state" $ \p -> do
+      runWithEntryPoint
+        [paragraphWithTextState "hello"]
+        (qualifiedName ["WTP", "PureScriptTest"] "testOneQuery")
+        p
+        `shouldReturn` Right ("hello" :: Text)
+    it "returns next one queried element's state" $ \p -> do
+      runWithEntryPoint
+        [paragraphWithTextState "foo", paragraphWithTextState "bar"]
+        (qualifiedName ["WTP", "PureScriptTest"] "testNextOneQuery")
+        p
+        `shouldReturn` Right ("bar" :: Text)
+
+  describe "temporal logic" $ do
+    it "tla1" $ \p -> do
+      runWithEntryPoint [mempty, mempty] (qualifiedName ["WTP", "PureScriptTest"] "tla1") p `shouldReturn` Right True
+    it "tla2" $ \p -> do
+      runWithEntryPoint [mempty, mempty] (qualifiedName ["WTP", "PureScriptTest"] "tla2") p `shouldReturn` Right True
+    it "tla3" $ \p -> do
+      runWithEntryPoint [mempty] (qualifiedName ["WTP", "PureScriptTest"] "tla3") p >>= \case
+        Right (v :: Bool) -> expectationFailure ("Expected an error but got: " <> show v)
+        Left msg -> toS msg `shouldContain` "cannot be determined"
+
+  describe "TodoMVC" $ do
     let todoMvcState newTodo selected count todoItems =
           WTP.ObservedState
             ( HashMap.fromList
@@ -91,15 +102,26 @@ spec_purescript = beforeAll loadProgram' $ do
                   (WTP.Get (WTP.Property "textContent") (WTP.ByCss ".todoapp .todo-count strong"), [WTP.VString count])
                 ]
             )
-    runWithEntryPoint
-      [ todoMvcState "" "All" "0" [],
-        todoMvcState "Buy milk" "All" "0" [],
-        todoMvcState "" "All" "1" [("Buy milk", False)],
-        todoMvcState "" "All" "0" [("Buy milk", True)]
-      ]
-      (qualifiedName ["WTP", "PureScript", "TodoMVC"] "angularjs")
-      p
-      `shouldReturn` Right True
+    it "succeeds with correct states" $ \p -> do
+      runWithEntryPoint
+        [ todoMvcState "" "All" "0" [],
+          todoMvcState "Buy milk" "All" "0" [],
+          todoMvcState "" "All" "1" [("Buy milk", False)],
+          todoMvcState "" "All" "0" [("Buy milk", True)]
+        ]
+        (qualifiedName ["WTP", "PureScript", "TodoMVC"] "angularjs")
+        p
+        `shouldReturn` Right True
+
+    it "fails with incorrect action states" $ \p -> do
+      runWithEntryPoint
+        [ todoMvcState "" "All" "0" [],
+          todoMvcState "Buy milk" "All" "0" [],
+          todoMvcState "" "All" "1" [("Buy milk", True)] -- Count of 1 even though all are checked
+        ]
+        (qualifiedName ["WTP", "PureScript", "TodoMVC"] "angularjs")
+        p
+        `shouldReturn` Right False
 
 nullAnn :: EvalAnn
 nullAnn = (EvalAnn nullSourceSpan Nothing Nothing)

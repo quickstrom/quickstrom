@@ -89,3 +89,10 @@ testOneQuery = maybe "" _.text paragraph
 
 testNextOneQuery :: String
 testNextOneQuery = next testOneQuery
+
+
+tla1 = next false || true
+
+tla2 = true || next false
+
+tla3 = next true

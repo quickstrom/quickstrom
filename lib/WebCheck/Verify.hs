@@ -12,7 +12,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
-module WTP.Verify
+module WebCheck.Verify
   ( EvalError (..),
     eval,
     verify,
@@ -33,11 +33,11 @@ import qualified Data.Text.Read as Text
 import Data.Traversable (for)
 import qualified Data.Vector as Vector
 import GHC.TypeLits (Symbol, KnownSymbol, symbolVal)
-import WTP.Formula
-import WTP.Query
-import WTP.Result
-import WTP.Trace
-import WTP.Value
+import WebCheck.Formula
+import WebCheck.Query
+import WebCheck.Result
+import WebCheck.Trace
+import WebCheck.Value
 import Data.Bool (bool)
 import GHC.Generics (Generic)
 

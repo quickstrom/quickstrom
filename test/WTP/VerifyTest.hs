@@ -4,17 +4,17 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module WTP.VerifyTest where
+module WebCheck.VerifyTest where
 
 import Algebra.Lattice (bottom, top)
 import qualified Data.HashMap.Strict as HashMap
 import Test.Tasty.Hspec hiding (Selector)
-import WTP.Element
-import WTP.Result
-import WTP.Syntax
-import qualified WTP.Trace as Trace
-import WTP.Value
-import WTP.Verify
+import WebCheck.Element
+import WebCheck.Result
+import WebCheck.Syntax
+import qualified WebCheck.Trace as Trace
+import WebCheck.Value
+import WebCheck.Verify
 import Prelude hiding (Bool (..), all, length, map, seq)
 
 verify' :: Formula -> [Trace.ObservedState] -> Either EvalError Result

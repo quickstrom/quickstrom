@@ -1,4 +1,4 @@
-let Language = ./lib/WTP.dhall
+let Language = ./lib/WebCheck.dhall
 
 let Text/concatSep = https://prelude.dhall-lang.org/Text/concatSep
 

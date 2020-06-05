@@ -2,12 +2,12 @@
 {-# LANGUAGE TypeApplications #-}
 -- | 
 
-module WTP.TraceTest where
+module WebCheck.TraceTest where
 
 import Control.Lens
 import Test.QuickCheck ((===), forAll)
-import qualified WTP.Gen as Gen
-import WTP.Trace
+import qualified WebCheck.Gen as Gen
+import WebCheck.Trace
 
 prop_all_empty_are_stuttering = forAll Gen.trace $ \t -> do
   let t' = t & observedStates  .~ mempty

@@ -14,7 +14,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
-module WTP.Formula where
+module WebCheck.Formula where
 
 import Algebra.Heyting (Heyting (..))
 import Algebra.Lattice (BoundedJoinSemiLattice (..), BoundedMeetSemiLattice (..), Lattice (..))
@@ -22,8 +22,8 @@ import Data.HashSet (HashSet)
 import Data.String (IsString (..))
 import qualified Data.Text as Text
 import GHC.Exts (IsList (..))
-import WTP.Query
-import WTP.Value
+import WebCheck.Query
+import WebCheck.Value
 import Prelude hiding (not)
 
 type Set = HashSet

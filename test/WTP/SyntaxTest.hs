@@ -1,10 +1,10 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module WTP.SyntaxTest where
+module WebCheck.SyntaxTest where
 
-import WTP.Formula
-import WTP.Value
-import qualified WTP.Gen as Gen
+import WebCheck.Formula
+import WebCheck.Value
+import qualified WebCheck.Gen as Gen
 import Test.QuickCheck hiding ((===))
 
 prop_simple_connectives_reduce :: Property

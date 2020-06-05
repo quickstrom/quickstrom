@@ -10,7 +10,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 
-module WTP.Element where
+module WebCheck.Element where
 
 import Data.Aeson as JSON
 import Data.Aeson.Types (parseFail)

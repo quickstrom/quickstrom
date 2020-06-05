@@ -13,7 +13,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
-module WTP.Trace
+module WebCheck.Trace
   ( ObservedState (..),
     Trace (..),
     ActionResult (..),
@@ -50,10 +50,10 @@ import Data.Text.Prettyprint.Doc.Render.Terminal
 import Data.Text.Prettyprint.Doc.Symbols.Unicode (bullet)
 import qualified Data.Vector as Vector
 import GHC.Generics (Generic)
-import WTP.Element
-import WTP.Query
-import WTP.Specification (Action (..), Path (..), Selected (..))
-import WTP.Value
+import WebCheck.Element
+import WebCheck.Query
+import WebCheck.Specification (Action (..), Path (..), Selected (..))
+import WebCheck.Value
 import Prelude hiding (Bool (..), not)
 
 newtype ObservedState = ObservedState (HashMap Query [Value])

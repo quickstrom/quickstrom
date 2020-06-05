@@ -1,4 +1,4 @@
-module WTP.PureScriptTest where
+module WebCheck.PureScriptTest where
 
 import DSL
 

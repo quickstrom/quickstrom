@@ -7,13 +7,13 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TupleSections #-}
 
-module WTP.Specification where
+module WebCheck.Specification where
 
 import Data.String (IsString)
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import Test.QuickCheck
-import WTP.Element
+import WebCheck.Element
 
 newtype Path = Path Text
   deriving (Eq, Show, IsString, Generic)

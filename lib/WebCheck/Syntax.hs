@@ -11,7 +11,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
-module WTP.Syntax
+module WebCheck.Syntax
   ( Formula,
     Query,
     Element,
@@ -63,10 +63,10 @@ import Algebra.Heyting
 import Algebra.Lattice
 import Data.Scientific (Scientific)
 import Data.Text (Text)
-import WTP.Element
-import WTP.Formula
-import WTP.Query
-import WTP.Value
+import WebCheck.Element
+import WebCheck.Formula
+import WebCheck.Query
+import WebCheck.Value
 import Prelude ((.))
 
 -- * Constructing Terms

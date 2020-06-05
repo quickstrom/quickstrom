@@ -1,4 +1,4 @@
-module WTP.PureScript.TodoMVC where
+module WebCheck.PureScript.TodoMVC where
 
 import DSL
 

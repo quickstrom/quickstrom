@@ -1,4 +1,4 @@
-module WTP.TH where
+module WebCheck.TH where
 
 import Data.FileEmbed
 import Language.Haskell.TH.Syntax (qAddDependentFile, Q, Exp)

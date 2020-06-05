@@ -20,7 +20,7 @@
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
-module WTP.PureScript where
+module WebCheck.PureScript where
 
 import Control.Lens hiding (op)
 import Control.Monad.Fix (MonadFix)
@@ -49,13 +49,13 @@ import Protolude hiding (Meta, moduleName)
 import System.FilePath ((</>))
 import System.FilePath.Glob (glob)
 import Text.Read (read)
-import qualified WTP.Element as Element
-import qualified WTP.Element as WTP
-import WTP.PureScript.Value
-import qualified WTP.Query as WTP
-import qualified WTP.Specification as WTP
-import qualified WTP.Trace as WTP
-import qualified WTP.Value as WTP
+import qualified WebCheck.Element as Element
+import qualified WebCheck.Element as WebCheck
+import WebCheck.PureScript.Value
+import qualified WebCheck.Query as WebCheck
+import qualified WebCheck.Specification as WebCheck
+import qualified WebCheck.Trace as WebCheck
+import qualified WebCheck.Value as WebCheck
 
 data EvalError
   = UnexpectedError (Maybe SourceSpan) Text
@@ -114,7 +114,7 @@ evalAnnFromAnn (ss, _, _, meta) = EvalAnn ss meta Nothing
 newtype Eval a = Eval (ExceptT EvalError (Reader [(Int, QueriedElements)]) a)
   deriving (Functor, Applicative, Monad, MonadError EvalError, MonadFix, MonadReader [(Int, QueriedElements)])
 
-runEval :: [WTP.ObservedState] -> Eval a -> (Either EvalError a)
+runEval :: [WebCheck.ObservedState] -> Eval a -> (Either EvalError a)
 runEval observedStates (Eval ma) = runReader (runExceptT ma) (zip [1 ..] (map toQueriedElements observedStates))
 
 unexpectedType :: (MonadError EvalError m) => SourceSpan -> Text -> Value EvalAnn -> m a
@@ -195,27 +195,27 @@ accessField ss key obj =
     pure
     (HashMap.lookup key obj)
 
-type QueriedElements = HashMap WTP.Selector [HashMap WTP.ElementState (Value EvalAnn)]
+type QueriedElements = HashMap WebCheck.Selector [HashMap WebCheck.ElementState (Value EvalAnn)]
 
-toQueriedElements :: WTP.ObservedState -> QueriedElements
-toQueriedElements (WTP.ObservedState m) =
+toQueriedElements :: WebCheck.ObservedState -> QueriedElements
+toQueriedElements (WebCheck.ObservedState m) =
   HashMap.toList m
     & mapMaybe fromQueryAndValues
     & HashMap.fromListWith (<>)
   where
-    fromQueryAndValues :: (WTP.Query, [WTP.Value]) -> Maybe (WTP.Selector, [HashMap WTP.ElementState (Value EvalAnn)])
-    fromQueryAndValues (WTP.Get elementState (WTP.ByCss selector), values) =
+    fromQueryAndValues :: (WebCheck.Query, [WebCheck.Value]) -> Maybe (WebCheck.Selector, [HashMap WebCheck.ElementState (Value EvalAnn)])
+    fromQueryAndValues (WebCheck.Get elementState (WebCheck.ByCss selector), values) =
       Just (selector, [HashMap.singleton elementState v | v <- mapMaybe fromValue values])
     fromQueryAndValues _ = Nothing
     fromValue = \case
-      WTP.VNull -> Nothing
-      WTP.VBool b -> pure (VBool b)
-      WTP.VElement _ -> Nothing
-      WTP.VString t -> pure (VString t)
-      WTP.VNumber n -> pure (VNumber (realToFrac n))
-      WTP.VSeq vs -> VArray <$> traverse fromValue vs
-      WTP.VSet vs -> VArray <$> traverse fromValue (Vector.fromList (Set.toList vs))
-      WTP.VFunction _ -> Nothing
+      WebCheck.VNull -> Nothing
+      WebCheck.VBool b -> pure (VBool b)
+      WebCheck.VElement _ -> Nothing
+      WebCheck.VString t -> pure (VString t)
+      WebCheck.VNumber n -> pure (VNumber (realToFrac n))
+      WebCheck.VSeq vs -> VArray <$> traverse fromValue vs
+      WebCheck.VSet vs -> VArray <$> traverse fromValue (Vector.fromList (Set.toList vs))
+      WebCheck.VFunction _ -> Nothing
 
 pattern BuiltIn :: Text -> a -> Expr a -> Expr a
 pattern BuiltIn name ann p <- App ann (Var _ (Qualified (Just (ModuleName [ProperName "DSL"])) (Ident name))) p
@@ -329,7 +329,7 @@ evalQuery env p1 p2 current = do
     maybe
       (throwError (ForeignFunctionError (Just (sourceSpan p1)) ("Selector not in observed state: " <> selector)))
       pure
-      (HashMap.lookup (WTP.Selector selector) current)
+      (HashMap.lookup (WebCheck.Selector selector) current)
   mappedElements <- for (Vector.fromList matchedElements) $ \matchedElement -> do
     mappings <- flip HashMap.traverseWithKey wantedStates $ \k s -> do
       elementState <- require (sourceSpan p2) (Proxy @"VElementState") s
@@ -446,7 +446,7 @@ entrySS = internalModuleSourceSpan "<entry>"
 evalEntryPoint :: Qualified Ident -> Program -> Eval (Value EvalAnn)
 evalEntryPoint entryPoint prog = envLookupEval entrySS entryPoint (programEnv prog)
 
-runWithEntryPoint :: forall a. ToHaskellValue a => [WTP.ObservedState] -> Qualified Ident -> Program -> IO (Either Text a)
+runWithEntryPoint :: forall a. ToHaskellValue a => [WebCheck.ObservedState] -> Qualified Ident -> Program -> IO (Either Text a)
 runWithEntryPoint observedStates entry prog = runExceptT $ do
   case runEval observedStates (evalEntryPoint entry prog >>= toHaskellValue entrySS) of
     Right value -> pure value
@@ -456,7 +456,7 @@ runWithEntryPoint observedStates entry prog = runExceptT $ do
             Nothing -> "<no source information>" <> "error:"
        in throwError (prettyText (prefix <+> pretty err))
 
-test :: [WTP.ObservedState] -> Qualified Ident -> Program -> IO ()
+test :: [WebCheck.ObservedState] -> Qualified Ident -> Program -> IO ()
 test observedStates ep prog = runWithEntryPoint @Bool observedStates ep prog >>= \case
   Left err -> putStrLn err >> exitWith (ExitFailure 1)
   Right successful -> putStrLn (prettyText ("Result:" <+> pretty successful))
@@ -533,16 +533,16 @@ instance ToHaskellValue a => ToHaskellValue (Vector a) where
 instance ToHaskellValue a => ToHaskellValue [a] where
   toHaskellValue ss x = Vector.toList <$> toHaskellValue ss x
 
-instance ToHaskellValue (WTP.Action WTP.Selector) where
+instance ToHaskellValue (WebCheck.Action WebCheck.Selector) where
   toHaskellValue ss v = do
     obj <- require ss (Proxy @"VObject") v
     ctor <- require ss (Proxy @"VString") =<< accessField ss "constructor" obj
     value <- Vector.head <$> (require ss (Proxy @"VArray") =<< accessField ss "fields" obj)
     case ctor of
-      "Focus" -> WTP.Focus . WTP.Selector <$> toHaskellValue ss value
-      "KeyPress" -> WTP.KeyPress <$> toHaskellValue ss value
-      "Click" -> WTP.Click . WTP.Selector <$> toHaskellValue ss value
-      "Navigate" -> WTP.Navigate . WTP.Path <$> toHaskellValue ss value
+      "Focus" -> WebCheck.Focus . WebCheck.Selector <$> toHaskellValue ss value
+      "KeyPress" -> WebCheck.KeyPress <$> toHaskellValue ss value
+      "Click" -> WebCheck.Click . WebCheck.Selector <$> toHaskellValue ss value
+      "Navigate" -> WebCheck.Navigate . WebCheck.Path <$> toHaskellValue ss value
       _ -> throwError (ForeignFunctionError (Just ss) ("Unknown Action constructor: " <> ctor))
 
 instance (FromHaskellValue a, ToHaskellValue b) => ToHaskellValue (a -> Eval b) where

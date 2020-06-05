@@ -9,13 +9,13 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 
-module WTP.Query where
+module WebCheck.Query where
 
 import Data.Aeson as JSON
 import Data.Aeson.Types (parseFail)
 import Data.Hashable (Hashable (..))
 import Data.Text (Text)
-import WTP.Element
+import WebCheck.Element
 import GHC.Generics (Generic)
 
 data Query = ByCss Selector | Get ElementState Query

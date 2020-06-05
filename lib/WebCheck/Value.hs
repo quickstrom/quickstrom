@@ -3,9 +3,9 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DeriveGeneric #-}
-module WTP.Value where
+module WebCheck.Value where
 
-import WTP.Element
+import WebCheck.Element
 import Data.Text (Text)
 import Data.Scientific (Scientific)
 import Data.HashSet (HashSet)

@@ -48,19 +48,19 @@ common shared-deps
 
 library
   import:             shared-deps
-  exposed-modules:    WTP.Element
-                    , WTP.Formula
-                    , WTP.PureScript
-                    , WTP.PureScript.Value
-                    , WTP.Query
-                    , WTP.Result
-                    , WTP.Run
-                    , WTP.Specification
-                    , WTP.Syntax
-                    , WTP.TH
-                    , WTP.Trace
-                    , WTP.Value
-                    , WTP.Verify
+  exposed-modules:    WebCheck.Element
+                    , WebCheck.Formula
+                    , WebCheck.PureScript
+                    , WebCheck.PureScript.Value
+                    , WebCheck.Query
+                    , WebCheck.Result
+                    , WebCheck.Run
+                    , WebCheck.Specification
+                    , WebCheck.Syntax
+                    , WebCheck.TH
+                    , WebCheck.Trace
+                    , WebCheck.Value
+                    , WebCheck.Verify
   hs-source-dirs:     lib
   default-language:   Haskell2010
   ghc-options:        -Wall -Werror=incomplete-patterns -Wredundant-constraints
@@ -82,12 +82,12 @@ test-suite wtp-test
   type:               exitcode-stdio-1.0
   main-is:            Main.hs
   hs-source-dirs:     test
-  other-modules:      WTP.Gen
-                    , WTP.LogicTest
-                    , WTP.PureScriptTest
-                    , WTP.SyntaxTest
-                    , WTP.TraceTest
-                    , WTP.VerifyTest
+  other-modules:      WebCheck.Gen
+                    , WebCheck.LogicTest
+                    , WebCheck.PureScriptTest
+                    , WebCheck.SyntaxTest
+                    , WebCheck.TraceTest
+                    , WebCheck.VerifyTest
   build-depends:      base
                     , wtp
                     , tasty

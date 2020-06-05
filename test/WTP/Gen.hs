@@ -1,7 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module WTP.Gen where
+module WebCheck.Gen where
 
 import Algebra.Lattice (BoundedMeetSemiLattice (top), bottom)
 import qualified Data.List.NonEmpty as NonEmpty
@@ -10,10 +10,10 @@ import Data.String (IsString (fromString))
 import qualified Data.Text as Text
 import Data.Text (Text)
 import Test.QuickCheck hiding ((===), (==>))
-import WTP.Element
-import WTP.Specification
-import WTP.Syntax hiding (map)
-import WTP.Trace hiding (observedStates)
+import WebCheck.Element
+import WebCheck.Specification
+import WebCheck.Syntax hiding (map)
+import WebCheck.Trace hiding (observedStates)
 import Prelude hiding (Bool (..))
 
 selector :: Gen Selector

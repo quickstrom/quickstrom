@@ -11,8 +11,8 @@ where
 import Data.Text (Text)
 import Helpers
 import qualified Test.QuickCheck as QuickCheck
-import WTP.Specification
-import WTP.Syntax
+import WebCheck.Specification
+import WebCheck.Syntax
 import Prelude hiding ((<), (<=), (>), (>=), all, filter, head, init, last, length, null, not)
 
 spec :: Text -> Specification Formula

@@ -1,4 +1,4 @@
-module WTP.Result where
+module WebCheck.Result where
 
 import Algebra.Heyting
 import Algebra.Lattice

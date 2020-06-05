@@ -13,7 +13,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
-module WTP.Run
+module WebCheck.Run
   ( testSpecifications,
   )
 where
@@ -49,20 +49,20 @@ import qualified Pipes.Prelude as Pipes
 import qualified Test.QuickCheck as QuickCheck
 import qualified Test.Tasty as Tasty
 import Test.Tasty.HUnit (assertFailure, testCase)
-import WTP.Element
-import WTP.Formula
-import WTP.Query
-import WTP.Result
-import WTP.Specification
-import WTP.Trace
-import WTP.Verify
+import WebCheck.Element
+import WebCheck.Formula
+import WebCheck.Query
+import WebCheck.Result
+import WebCheck.Specification
+import WebCheck.Trace
+import WebCheck.Verify
 import Web.Api.WebDriver hiding (Action, Selector, assertFailure, hPutStrLn, runIsolated)
 
 type Runner = WebDriverTT IdentityT IO
 
 testSpecifications :: [(Text, Specification Formula)] -> Tasty.TestTree
 testSpecifications specs =
-  Tasty.testGroup "WTP specifications" [testCase (Text.unpack name) (check spec) | (name, spec) <- specs]
+  Tasty.testGroup "WebCheck specifications" [testCase (Text.unpack name) (check spec) | (name, spec) <- specs]
 
 data FailingTest = FailingTest {numShrinks :: Int, trace :: Trace TraceElementEffect, reason :: Maybe EvalError}
   deriving (Show, Generic)

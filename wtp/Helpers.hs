@@ -5,7 +5,7 @@ module Helpers where
 
 import Prelude hiding (all)
 import Data.Text (Text)
-import WTP.Syntax
+import WebCheck.Syntax
 
 inputValue :: Selector -> Formula
 inputValue sel = queryOne (property "value" (byCss sel))

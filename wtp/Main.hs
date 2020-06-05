@@ -15,9 +15,9 @@ import System.IO.Unsafe (unsafePerformIO)
 import qualified Test.QuickCheck as QuickCheck
 import qualified Test.Tasty as Tasty
 import qualified TodoMVC
-import qualified WTP.Run as WTP
-import WTP.Specification
-import WTP.Syntax
+import qualified WebCheck.Run as WebCheck
+import WebCheck.Specification
+import WebCheck.Syntax
 import Prelude hiding ((<), (<=), (>), (>=), all, init, length, tail, head)
 
 cwd :: FilePath
@@ -26,7 +26,7 @@ cwd = unsafePerformIO getCurrentDirectory
 main :: IO ()
 main =
   Tasty.defaultMain $
-    WTP.testSpecifications
+    WebCheck.testSpecifications
       [ ("button", buttonSpec),
         ("ajax", ajaxSpec),
         ("spinners", spinnersSpec),

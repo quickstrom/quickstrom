@@ -5,7 +5,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module WTP.PureScript.Value where
+module WebCheck.PureScript.Value where
 
 import Data.HashMap.Strict (HashMap)
 import qualified Data.Map as Map
@@ -14,7 +14,7 @@ import Data.Vector (Vector)
 import Language.PureScript.CoreFn
 import Language.PureScript.Names
 import Protolude hiding (list)
-import qualified WTP.Element as Element
+import qualified WebCheck.Element as Element
 import qualified Data.Vector as Vector
 import qualified Data.HashMap.Strict as HashMap
 

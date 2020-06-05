@@ -4,16 +4,16 @@
 {-# LANGUAGE Strict #-}
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 
-module WTP.LogicTest where
+module WebCheck.LogicTest where
 
 import Algebra.Lattice
 import Test.QuickCheck ((===), forAll, listOf)
 import Test.Tasty.Hspec
-import WTP.Formula
-import WTP.Syntax hiding ((===))
-import qualified WTP.Gen as Gen
-import WTP.Result
-import WTP.Verify
+import WebCheck.Formula
+import WebCheck.Syntax hiding ((===))
+import qualified WebCheck.Gen as Gen
+import WebCheck.Result
+import WebCheck.Verify
 import Prelude hiding (Bool (..), not)
 import qualified Data.List.NonEmpty as NonEmpty
 

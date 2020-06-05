@@ -104,20 +104,28 @@ spec_purescript = beforeAll loadProgram' $ do
             )
     it "succeeds with correct states" $ \p -> do
       runWithEntryPoint
-        [ todoMvcState "" "All" "0" [],
+        [ todoMvcState "" "All" "" [],
           todoMvcState "Buy milk" "All" "0" [],
-          todoMvcState "" "All" "1" [("Buy milk", False)],
-          todoMvcState "" "All" "0" [("Buy milk", True)]
+          todoMvcState "" "All" "1 left" [("Buy milk", False)],
+          todoMvcState "" "All" "0 left" [("Buy milk", True)]
         ]
         (qualifiedName ["WTP", "PureScript", "TodoMVC"] "angularjs")
         p
         `shouldReturn` Right True
 
+    it "fails with incorrect initial state" $ \p -> do
+      runWithEntryPoint
+        [ todoMvcState "" "All" "1 left" [("Buy milk", False)],
+          mempty
+        ]
+        (qualifiedName ["WTP", "PureScript", "TodoMVC"] "angularjs")
+        p
+        `shouldReturn` Right False
+
     it "fails with incorrect action states" $ \p -> do
       runWithEntryPoint
-        [ todoMvcState "" "All" "0" [],
-          todoMvcState "Buy milk" "All" "0" [],
-          todoMvcState "" "All" "1" [("Buy milk", True)] -- Count of 1 even though all are checked
+        [ todoMvcState "" "All" "" [],
+          todoMvcState "" "Active" "1 left" [("Buy milk", True)] -- Count of 1 even though all are checked
         ]
         (qualifiedName ["WTP", "PureScript", "TodoMVC"] "angularjs")
         p

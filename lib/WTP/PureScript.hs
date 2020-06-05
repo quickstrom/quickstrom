@@ -40,7 +40,7 @@ import Data.Text.Prettyprint.Doc.Render.Text
 import qualified Data.Text.Read as Text
 import qualified Data.Vector as Vector
 import Data.Vector (Vector)
-import Language.PureScript.AST (SourceSpan, displaySourceSpan, internalModuleSourceSpan, nullSourceSpan, spanName)
+import Language.PureScript.AST (SourceSpan, displaySourceSpan, internalModuleSourceSpan, nullSourceSpan, sourcePosColumn, sourcePosLine, spanEnd, spanName, spanStart)
 import Language.PureScript.CoreFn
 import Language.PureScript.CoreFn.FromJSON (moduleFromJSON)
 import Language.PureScript.Names
@@ -94,7 +94,16 @@ instance Pretty EvalError where
     Undetermined -> "The formula cannot be determined as there are not enough observed states"
 
 prettySourceSpan :: SourceSpan -> Doc ann
-prettySourceSpan ss = pretty (displaySourceSpan mempty ss)
+prettySourceSpan ss =
+  pretty (spanName ss)
+    <> colon
+    <> pretty (sourcePosLine (spanStart ss))
+    <> colon
+    <> pretty (sourcePosColumn (spanStart ss))
+    <> "-"
+    <> pretty (sourcePosLine (spanEnd ss))
+    <> colon
+    <> pretty (sourcePosColumn (spanEnd ss))
 
 data EvalAnn = EvalAnn {annSourceSpan :: SourceSpan, annMeta :: Maybe Meta, annApplyForeign :: Maybe ApplyForeign}
   deriving (Show, Generic)
@@ -102,11 +111,11 @@ data EvalAnn = EvalAnn {annSourceSpan :: SourceSpan, annMeta :: Maybe Meta, annA
 evalAnnFromAnn :: Ann -> EvalAnn
 evalAnnFromAnn (ss, _, _, meta) = EvalAnn ss meta Nothing
 
-newtype Eval a = Eval (ExceptT EvalError (Reader [QueriedElements]) a)
-  deriving (Functor, Applicative, Monad, MonadError EvalError, MonadFix, MonadReader [QueriedElements])
+newtype Eval a = Eval (ExceptT EvalError (Reader [(Int, QueriedElements)]) a)
+  deriving (Functor, Applicative, Monad, MonadError EvalError, MonadFix, MonadReader [(Int, QueriedElements)])
 
 runEval :: [WTP.ObservedState] -> Eval a -> (Either EvalError a)
-runEval observedStates (Eval ma) = runReader (runExceptT ma) (map toQueriedElements observedStates)
+runEval observedStates (Eval ma) = runReader (runExceptT ma) (zip [1 ..] (map toQueriedElements observedStates))
 
 unexpectedType :: (MonadError EvalError m) => SourceSpan -> Text -> Value EvalAnn -> m a
 unexpectedType ss typ v =
@@ -223,7 +232,7 @@ eval env expr =
     [] -> case expr of
       Always _ _ -> pure (VBool True)
       _ -> throwError Undetermined
-    (current : rest) -> case expr of
+    ((n, current) : rest) -> case expr of
       -- Special cases
       Next _ p -> local (const rest) (eval env p)
       Always ann p -> do
@@ -235,6 +244,16 @@ eval env expr =
           require (annSourceSpan ann) (Proxy @"VBool")
             =<< local (drop 1) (eval env expr)
         pure (VBool (first' && rest'))
+      App _ (BuiltIn "trace" _ label) p -> do
+        t <- require (sourceSpan label) (Proxy @"VString") =<< eval env label
+        traceM
+          ( prettyText
+              ( prettySourceSpan (sourceSpan expr) <> colon
+                  <+> parens ("state" <+> pretty n) <> colon
+                  <+> pretty t
+              )
+          )
+        eval env p
       App _ (BuiltIn "_queryAll" _ p) q -> evalQuery env p q current
       BuiltIn "_property" _ p -> do
         name <- require (sourceSpan p) (Proxy @"VString") =<< eval env p
@@ -599,6 +618,7 @@ foreignFunctions =
       (qualifiedName ["Data", "HeytingAlgebra"] "boolNot", foreignFunction ((pure :: a -> Eval a) . not)),
       (qualifiedName ["Data", "Int"] "toNumber", foreignFunction ((pure :: Double -> Eval Double) . fromIntegral @Int)),
       (qualifiedName ["Data", "Int"] "fromNumberImpl", foreignFunction fromNumberImpl),
+      (qualifiedName ["Data", "Int"] "fromStringAsImpl", foreignFunction fromStringAsImpl),
       (qualifiedName ["Data", "Ord"] "ordBooleanImpl", foreignFunction (ordImpl @Bool)),
       (qualifiedName ["Data", "Ord"] "ordIntImpl", foreignFunction (ordImpl @Int)),
       (qualifiedName ["Data", "Ord"] "ordNumberImpl", foreignFunction (ordImpl @Double)),
@@ -606,6 +626,9 @@ foreignFunctions =
       (qualifiedName ["Data", "Ord"] "ordCharImpl", foreignFunction (ordImpl @Char)),
       (qualifiedName ["Data", "Ring"] "intSub", foreignFunction (op2 ((-) @Int))),
       (qualifiedName ["Data", "Ring"] "numSub", foreignFunction (op2 ((-) @Double))),
+      (qualifiedName ["Data", "Show"] "showStringImpl", foreignFunction (op1 (show @Text @Text))),
+      (qualifiedName ["Data", "Show"] "showIntImpl", foreignFunction (op1 (show @Int @Text))),
+      (qualifiedName ["Data", "Show"] "showNumberImpl", foreignFunction (op1 (show @Double @Text))),
       (qualifiedName ["Data", "Semiring"] "intAdd", foreignFunction (op2 ((+) @Int))),
       (qualifiedName ["Data", "Semiring"] "intMul", foreignFunction (op2 ((*) @Int))),
       (qualifiedName ["Data", "Semiring"] "numAdd", foreignFunction (op2 ((+) @Double))),
@@ -636,6 +659,12 @@ foreignFunctions =
     indexImpl just nothing xs i = maybe (pure nothing) just (xs ^? ix (fromIntegral i))
     fromNumberImpl :: (Int -> Eval (Value EvalAnn)) -> Value EvalAnn -> Double -> Eval (Value EvalAnn)
     fromNumberImpl just _ = just . round
+    fromStringAsImpl :: (Int -> Eval (Value EvalAnn)) -> Value EvalAnn -> Int -> Text -> Eval (Value EvalAnn)
+    fromStringAsImpl just nothing radix t =
+      either (const (pure nothing)) (just . fst) $ case radix of
+        10 -> Text.decimal t
+        16 -> Text.hexadecimal t
+        _ -> Left mempty
     len :: Vector (Value EvalAnn) -> Eval Int
     len xs = pure (fromIntegral (Vector.length xs))
     filterArray :: (Value EvalAnn -> Eval Bool) -> Vector (Value EvalAnn) -> Eval (Vector (Value EvalAnn))

@@ -1,8 +1,10 @@
 module DSL (
-  implies,
-  (==>),
+  module Data.HeytingAlgebra,
   next,
   always,
+  trace,
+  traceShow,
+  traceShowLabelled,
   Property,
   value,
   textContent,
@@ -22,19 +24,23 @@ import Prelude
 
 import Data.Array (head)
 import Data.Maybe (Maybe)
+import Data.HeytingAlgebra (implies)
 import Data.Symbol (class IsSymbol, SProxy(..), reflectSymbol)
 import Prim.RowList (class RowToList, Cons, Nil, kind RowList)
 import DSL.Selector (Selector)
 import DSL.Spec (Action, Path, Spec, SpecialKey(..), asciiKeyPresses, clicks, foci, focus, keyPress, specialKeyPress) as Spec
 import Type.Prelude (class ListToRow, class TypeEquals)
 
-implies :: Boolean -> Boolean -> Boolean
-implies p q = q || not p
-
-infixl 1 implies as ==>
-
 foreign import next :: forall a. a -> a
 foreign import always :: Boolean -> Boolean
+
+foreign import trace :: forall a. String -> a -> a
+
+traceShow :: forall a. Show a => a -> a
+traceShow x = trace (show x) x
+
+traceShowLabelled :: forall a. Show a => String -> a -> a
+traceShowLabelled lbl x = trace (lbl <> ": " <> show x) x
 
 -- ## Properties
 

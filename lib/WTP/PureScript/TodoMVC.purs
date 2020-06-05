@@ -3,10 +3,9 @@ module WTP.PureScript.TodoMVC where
 import DSL
 
 import Data.Array (filter, head, last)
-import Data.Array as Array
 import Data.Foldable (length)
+import Data.Int as Int
 import Data.Maybe (Maybe(..))
-import Data.Number as Number
 import Data.String (Pattern(..), split)
 
 angularjs :: Boolean
@@ -21,14 +20,14 @@ spec name =
     origin : ("http://todomvc.com/examples/" <> name <> "/"),
     readyWhen : ".todoapp",
     actions: foci <> clicks <> pure (keyPress 'a'),
-    proposition : initial && (always (enterText || addNew || changeFilter || toggleAll))
+    proposition : initial && always (enterText || addNew || changeFilter || toggleAll)
   }
   where
 
     initial :: Boolean
     initial =
       (currentFilter == Nothing || currentFilter == Just "All")
-        && (numItems == 0.0)
+        && (numItems == 0)
         && (pendingText == "")
     
     enterText :: Boolean
@@ -39,19 +38,19 @@ spec name =
     
     changeFilter :: Boolean
     changeFilter =
-      currentFilter /= next currentFilter
-        && (currentFilter == Just "All") ==> (numItems >= next numItems)
+      (currentFilter /= next currentFilter)
+        && (currentFilter == Just "All") `implies` (numItems >= next numItems)
         && ( next
                 ( (currentFilter == Just "Active")
-                    ==> ( numItemsLeft == Just numUnchecked
-                            && numItems == numUnchecked
-                        )
+                  `implies` (numItemsLeft == Just numUnchecked && numItems == numUnchecked)
                 )
             )
         -- NOTE: AngularJS && Mithril implementations are
         -- inconsistent with the other JS implementations, in that
         -- they clear the input field when the filter is changed.
-        && not (name `Array.elem` ["angularjs", "mithril"]) ==> pendingText == next pendingText
+
+        -- && not (name `Array.elem` ["angularjs", "mithril"]) ==> pendingText == next pendingText
+        && pendingText == next pendingText
     
     addNew =
       Just pendingText == next lastItemText
@@ -61,11 +60,11 @@ spec name =
       Just pendingText == next lastItemText
         && currentFilter == next currentFilter
         && ( (currentFilter == Just "All")
-                ==> numItems == next numItems && next (numItems == numChecked)
+                `implies` (numItems == next numItems && next (numItems == numChecked))
             )
         && ( (currentFilter == Just "Active")
-                ==> ( numItems > 0.0 ==> next numItems == 0.0
-                        || (numItems == 0.0) ==> next numItems > 0.0
+                `implies` ( (numItems > 0) `implies` (next numItems == 0)
+                        || (numItems == 0) `implies` (next numItems > 0)
                     )
             )
     
@@ -81,14 +80,15 @@ spec name =
     
     lastItemText = last itemTexts
     
-    numItems :: Number
+    numItems :: Int
     numItems = length items
     
     checkboxes = queryAll ".todo-list li input[type=checkbox]" { checked: checked }
     
+    numUnchecked :: Int
     numUnchecked = length (filter _.checked checkboxes)
     
-    numChecked :: Number
+    numChecked :: Int
     numChecked = length (filter (not <<< _.checked) checkboxes)
     
     pendingText :: String
@@ -96,8 +96,8 @@ spec name =
       Just el ->  el.text
       Nothing -> ""
     
-    numItemsLeft :: Maybe Number
+    numItemsLeft :: Maybe Int
     numItemsLeft = do
       strong <- queryOne ".todoapp .todo-count strong" { text: textContent }
       first <- head (split (Pattern " ") strong.text)
-      Number.fromString first
+      Int.fromString first

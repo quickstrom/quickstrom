@@ -26,32 +26,43 @@ import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (fromJust)
 import Partial.Unsafe (unsafePartial)
 
+-- | A specification describes how to generate and run tests for a web page, and
+-- | how to verify its correctness using a proposition.
+type Spec = { origin :: Path, readyWhen :: Selector, proposition :: Boolean, actions :: Actions }
+
+-- | URL to a web page, or a relative path within a web site.
 type Path = String
 
+-- | A possible action to generate. WebCheck uses action values when searching the
+-- | DOM for possible actions to generate and perform.
 data Action = Focus Selector | KeyPress Char | Click Selector | Navigate Path
 
 type Actions = Array Action
 
+-- | Generate click actions on common clickable elements.
 clicks :: Actions
 clicks = [ Click "button", Click "input[type=button]", Click "a" ]
 
+-- | Generate focus actions on elements matching the given selector.
 focus :: Selector -> Action
 focus = Focus
 
+-- | Generate focus actions on common focusable elements.
 foci :: Actions
 foci = [ Focus "input", Focus "textarea" ]
 
+-- | Generate a key press action with the given character.
 keyPress :: Char -> Action
 keyPress = KeyPress
 
+-- | Generate key press actions with printable ASCII characters.
 asciiKeyPresses :: Actions
 asciiKeyPresses = KeyPress <<< unsafePartial fromJust <<< fromCharCode <$> range 32 126
 
+-- | Generate a key press action with the given special key.
 specialKeyPress :: SpecialKey -> Action
 specialKeyPress specialKey =
   KeyPress (specialKeyToChar specialKey)
-
-type Spec = { origin :: Path, readyWhen :: Selector, proposition :: Boolean, actions :: Actions }
 
 data SpecialKey
   = KeyAdd

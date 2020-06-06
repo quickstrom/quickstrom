@@ -39,6 +39,7 @@ common shared-deps
                     , tasty-hunit
                     , tasty-quickcheck
                     , template-haskell
+                    , temporary
                     , text
                     , transformers
                     , unordered-containers

@@ -58,7 +58,7 @@ data Defer ann = Defer (Env ann) (Expr ann)
 instance Pretty (Defer ann) where
   pretty (Defer _ _) = "<deferred>"
 
-newtype Env ann = Env { getEnv :: Map (Qualified Ident) (Either (Expr ann) (Value ann)) }
+newtype Env ann = Env { env :: Map (Qualified Ident) (Either (Expr ann) (Value ann)) }
   deriving (Show, Semigroup, Monoid)
 
 instance Functor Env where
@@ -74,4 +74,4 @@ withoutLocals :: Env ann -> Env ann
 withoutLocals (Env ms) = Env (Map.filterWithKey (\(Qualified modules _) _ -> isJust modules) ms)
 
 envLookup :: Qualified Ident -> Env ann -> Maybe (Either (Expr ann) (Value ann))
-envLookup qn (Env env) = Map.lookup qn env
+envLookup qn = Map.lookup qn . env

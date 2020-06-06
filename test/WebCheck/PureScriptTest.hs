@@ -13,15 +13,14 @@ import qualified Data.Vector as Vector
 import Data.Vector (Vector)
 import Language.PureScript (Ident, Qualified, nullSourceSpan)
 import Language.PureScript.CoreFn
+import System.IO.Temp (withSystemTempDirectory)
 import Protolude
 import System.Process (callCommand)
 import Test.Tasty.Hspec hiding (Selector)
 import qualified WebCheck.Element as WebCheck
 import WebCheck.PureScript
 import WebCheck.PureScript.Value
-import qualified WebCheck.Query as WebCheck
-import qualified WebCheck.Trace as WebCheck
-import qualified WebCheck.Value as WebCheck
+import System.Environment.Blank (getEnv)
 
 envLookupExpr :: Qualified Ident -> Eval (Expr EvalAnn)
 envLookupExpr qn =
@@ -29,22 +28,27 @@ envLookupExpr qn =
     Just (Left expr) -> pure expr
     _ -> throwError (NotInScope nullSourceSpan qn)
 
-loadProgram' :: IO Program
-loadProgram' = do
-  callCommand "spago build -u '-g corefn'"
-  fromRight undefined <$> loadProgram
+program :: ActionWith Program -> IO ()
+program spec =
+  withSystemTempDirectory "webcheck-compile" $ \d -> do
+    webcheckPursDir <- fromMaybe "." <$> getEnv "WEBCHECK_PURS"
+    callCommand ("cp -R --no-preserve=mode " <> webcheckPursDir <> "/* " <> d <> "/")
+    callCommand ("purs compile -g corefn " <> d <> "/src/**/*.purs lib/**/*.purs test/**/*.purs --output=" <> d <> "/output")
+    loadProgram >>= \case
+      Right p -> spec p
+      Left err -> expectationFailure (toS err)
 
 spec_purescript :: Spec
-spec_purescript = beforeAll loadProgram' $ do
+spec_purescript = around program $ do
   describe "basics" $ do
-    it "adds integers" $ \p -> do
+    it "adds integers" $ \_ -> do
       let r = runEval [mempty] $ do
             intAdd <- envLookupExpr (qualifiedName ["Data", "Semiring"] "intAdd")
             eval initialEnv (app (app intAdd (intLit 1)) (intLit 2))
       r `shouldSatisfy` \case
         Right (VInt 3) -> True
         _ -> False
-    it "maps over array" $ \p -> do
+    it "maps over array" $ \_ -> do
       let r :: Either EvalError (Value EvalAnn)
           r = runEval [mempty] $ do
             arrayMap <- envLookupExpr (qualifiedName ["Data", "Functor"] "arrayMap")

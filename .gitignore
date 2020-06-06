@@ -11,6 +11,8 @@ cabal.project.local
 tsconfig.tsbuildinfo
 /target
 /output
-/.spago
-.psc-ide-port
 /generated-docs
+
+.spago
+.spago2nix
+.psc-ide-port

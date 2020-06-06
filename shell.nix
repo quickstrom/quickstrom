@@ -17,14 +17,7 @@ let
     opensans-ttf
   ];
 
-  easy-ps = import (pkgs.fetchFromGitHub {
-    owner = "justinwoo";
-    repo = "easy-purescript-nix";
-    rev = "0ba91d9aa9f7421f6bfe4895677159a8a999bf20";
-    sha256 = "1baq7mmd3vjas87f0gzlq83n2l1h3dlqajjqr7fgaazpa9xgzs7q";
-  }) {
-    inherit pkgs;
-  };
+  easy-ps = import ./purescript-webcheck/easy-ps.nix { inherit pkgs; };
 
   wtp = pkgs.haskell.lib.justStaticExecutables (pkgs.haskell.lib.dontHaddock
     (haskellPackages.callCabal2nix "wtp" ./. {
@@ -47,9 +40,10 @@ in haskellPackages.shellFor {
     nodePackages.typescript
     nodePackages.browserify
     entr
-  ]) ++ (with easy-ps; [purs spago]);
+  ]) ++ (with easy-ps; [purs]);
   FONTCONFIG_FILE = pkgs.makeFontsConf {
     fontDirectories = fonts;
   };
+  WEBCHECK_PURS = "${./purescript-webcheck}";
 }
 

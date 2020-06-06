@@ -13,6 +13,7 @@ common shared-deps
                     , aeson
                     , bytestring
                     , containers
+                    , directory
                     , file-embed
                     , filepath
                     , generic-lens
@@ -72,7 +73,6 @@ executable webcheck
   other-modules:      Helpers
                     , TodoMVC
   build-depends:      base >= 4.12
-                    , directory
                     , WebCheck
   hs-source-dirs:     WebCheck
   default-language:   Haskell2010

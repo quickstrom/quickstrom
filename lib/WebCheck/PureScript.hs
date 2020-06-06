@@ -51,6 +51,9 @@ import Text.Read (read)
 import qualified WebCheck.Element as WebCheck
 import WebCheck.PureScript.Value
 import qualified WebCheck.Specification as WebCheck
+import System.EasyFile (createDirectory)
+import System.IO.Temp (withSystemTempDirectory)
+import System.Process (shell, callCommand)
 
 data EvalError
   = UnexpectedError (Maybe SourceSpan) Text
@@ -408,13 +411,24 @@ loadAllModulesEnv paths = do
 
 data Program = Program {programEnv :: Env EvalAnn}
 
-loadProgram :: IO (Either Text Program)
-loadProgram = runExceptT $ do
+loadProgram :: FilePath -> IO (Either Text Program)
+loadProgram outputDir = runExceptT $ do
   let coreFnPath :: Text -> FilePath
-      coreFnPath mn' = "output" </> toS mn' </> "corefn.json"
+      coreFnPath mn' = outputDir </> toS mn' </> "corefn.json"
   stdPaths <- liftIO (glob (coreFnPath "*") <&> filter (/= coreFnPath "Effect"))
-  env <- loadAllModulesEnv stdPaths
-  pure Program {programEnv = initialEnv <> env}
+  env' <- loadAllModulesEnv stdPaths
+  pure Program {programEnv = initialEnv <> env'}
+
+withProgram :: FilePath -> [FilePath] -> (Either Text Program -> IO a) -> IO a
+withProgram webcheckPursDir paths action = do
+  withSystemTempDirectory "webcheck-compile" $ \d -> do
+    let srcDir = d </> "src"
+        outDir = d </> "output"
+    callCommand ("cp -R --no-preserve=mode " <> webcheckPursDir <> "/* " <> d)
+    for_ paths $ \path -> 
+      callCommand ("cp -R --no-preserve=mode " <> path <> "/* " <> srcDir)
+    callCommand ("cd " <> d <> " && purs compile -g corefn \'src/**/*.purs\' --output=" <> outDir)
+    action =<< loadProgram outDir
 
 entrySS :: SourceSpan
 entrySS = internalModuleSourceSpan "<entry>"

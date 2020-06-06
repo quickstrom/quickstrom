@@ -19,7 +19,8 @@ let
       cd $out
       mkdir src
       cp --no-preserve=mode -R ${toString sourceDirs} src/
-      purs compile -g corefn ${toString sourceGlobs}
+      purs compile -g corefn 'src/**/*.purs' --output=output
+      ls -la output/WebCheck.DSL/
     '';
 
   in purescript-webcheck

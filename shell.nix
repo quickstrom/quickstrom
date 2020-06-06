@@ -19,6 +19,8 @@ let
 
   easy-ps = import ./purescript-webcheck/easy-ps.nix { inherit pkgs; };
 
+  purescript-webcheck = import ./purescript-webcheck { inherit pkgs; };
+
   wtp = pkgs.haskell.lib.justStaticExecutables (pkgs.haskell.lib.dontHaddock
     (haskellPackages.callCabal2nix "wtp" ./. {
     }));
@@ -44,6 +46,6 @@ in haskellPackages.shellFor {
   FONTCONFIG_FILE = pkgs.makeFontsConf {
     fontDirectories = fonts;
   };
-  WEBCHECK_PURS = "${./purescript-webcheck}";
+  WEBCHECK_PURS = "${purescript-webcheck}";
 }
 

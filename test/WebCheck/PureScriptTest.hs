@@ -13,14 +13,13 @@ import qualified Data.Vector as Vector
 import Data.Vector (Vector)
 import Language.PureScript (Ident, Qualified, nullSourceSpan)
 import Language.PureScript.CoreFn
-import System.IO.Temp (withSystemTempDirectory)
 import Protolude
-import System.Process (callCommand)
 import Test.Tasty.Hspec hiding (Selector)
 import qualified WebCheck.Element as WebCheck
 import WebCheck.PureScript
 import WebCheck.PureScript.Value
 import System.Environment.Blank (getEnv)
+import System.FilePath ((</>))
 
 envLookupExpr :: Qualified Ident -> Eval (Expr EvalAnn)
 envLookupExpr qn =
@@ -29,14 +28,11 @@ envLookupExpr qn =
     _ -> throwError (NotInScope nullSourceSpan qn)
 
 program :: ActionWith Program -> IO ()
-program spec =
-  withSystemTempDirectory "webcheck-compile" $ \d -> do
-    webcheckPursDir <- fromMaybe "." <$> getEnv "WEBCHECK_PURS"
-    callCommand ("cp -R --no-preserve=mode " <> webcheckPursDir <> "/* " <> d <> "/")
-    callCommand ("purs compile -g corefn " <> d <> "/src/**/*.purs lib/**/*.purs test/**/*.purs --output=" <> d <> "/output")
-    loadProgram >>= \case
-      Right p -> spec p
-      Left err -> expectationFailure (toS err)
+program spec = do
+  webcheckPursDir <- fromMaybe "." <$> getEnv "WEBCHECK_PURS"
+  withProgram webcheckPursDir ["./test", "./specs"] $ \case
+    Right p -> spec p
+    Left err -> expectationFailure (toS err)
 
 spec_purescript :: Spec
 spec_purescript = around program $ do

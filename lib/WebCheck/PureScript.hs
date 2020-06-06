@@ -391,8 +391,8 @@ toModuleEnv m =
 
 type AllModules = Map ModuleName (Module Ann)
 
-loadModule :: FilePath -> ExceptT Text IO (Module Ann)
-loadModule path = do
+loadModuleFromCoreFn :: FilePath -> ExceptT Text IO (Module Ann)
+loadModuleFromCoreFn path = do
   j <- liftIO (BS.readFile path)
   case JSON.decode j of
     Just val ->
@@ -404,22 +404,18 @@ loadModule path = do
     addNameToDecl :: Text -> Bind Ann -> Bind Ann
     addNameToDecl name = fmap (_1 . field @"spanName" .~ toS name)
 
-loadAllModulesEnv :: [FilePath] -> ExceptT Text IO (Env EvalAnn)
-loadAllModulesEnv paths = do
-  ms <- traverse loadModule paths
-  pure (foldMap toModuleEnv ms)
+data Modules = Modules {modulesEnv :: Env EvalAnn}
 
-data Program = Program {programEnv :: Env EvalAnn}
-
-loadProgram :: FilePath -> IO (Either Text Program)
-loadProgram outputDir = runExceptT $ do
+loadModulesFromCoreFn :: FilePath -> IO (Either Text Modules)
+loadModulesFromCoreFn outputDir = runExceptT $ do
   let coreFnPath :: Text -> FilePath
       coreFnPath mn' = outputDir </> toS mn' </> "corefn.json"
-  stdPaths <- liftIO (glob (coreFnPath "*") <&> filter (/= coreFnPath "Effect"))
-  env' <- loadAllModulesEnv stdPaths
-  pure Program {programEnv = initialEnv <> env'}
+  paths <- liftIO (glob (coreFnPath "*") <&> filter (/= coreFnPath "Effect"))
+  ms <- traverse loadModuleFromCoreFn paths
+  let env' = foldMap toModuleEnv ms
+  pure Modules {modulesEnv = initialEnv <> env'}
 
-withProgram :: FilePath -> [FilePath] -> (Either Text Program -> IO a) -> IO a
+withProgram :: FilePath -> [FilePath] -> (Either Text Modules -> IO a) -> IO a
 withProgram webcheckPursDir paths action = do
   withSystemTempDirectory "webcheck-compile" $ \d -> do
     let srcDir = d </> "src"
@@ -428,15 +424,15 @@ withProgram webcheckPursDir paths action = do
     for_ paths $ \path -> 
       callCommand ("cp -R --no-preserve=mode " <> path <> "/* " <> srcDir)
     callCommand ("cd " <> d <> " && purs compile -g corefn \'src/**/*.purs\' --output=" <> outDir)
-    action =<< loadProgram outDir
+    action =<< loadModulesFromCoreFn outDir
 
 entrySS :: SourceSpan
 entrySS = internalModuleSourceSpan "<entry>"
 
-evalEntryPoint :: Qualified Ident -> Program -> Eval (Value EvalAnn)
-evalEntryPoint entryPoint prog = envLookupEval entrySS entryPoint (programEnv prog)
+evalEntryPoint :: Qualified Ident -> Modules -> Eval (Value EvalAnn)
+evalEntryPoint entryPoint prog = envLookupEval entrySS entryPoint (modulesEnv prog)
 
-runWithEntryPoint :: forall a. ToHaskellValue a => [QueriedElements] -> Qualified Ident -> Program -> IO (Either Text a)
+runWithEntryPoint :: forall a. ToHaskellValue a => [QueriedElements] -> Qualified Ident -> Modules -> IO (Either Text a)
 runWithEntryPoint observedStates entry prog = runExceptT $ do
   case runEval observedStates (evalEntryPoint entry prog >>= toHaskellValue entrySS) of
     Right value -> pure value

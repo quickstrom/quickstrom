@@ -1,6 +1,6 @@
 cabal-version:        3.0
 
-name:                 wtp
+name:                 WebCheck
 version:              0.1.0.0
 license-file:         LICENSE
 author:               Oskar Wickström
@@ -65,19 +65,19 @@ library
   default-language:   Haskell2010
   ghc-options:        -Wall -Werror=incomplete-patterns -Wredundant-constraints
 
-executable wtp
+executable webcheck
   import:             shared-deps
   main-is:            Main.hs
   other-modules:      Helpers
                     , TodoMVC
   build-depends:      base >= 4.12
                     , directory
-                    , wtp
-  hs-source-dirs:     wtp
+                    , WebCheck
+  hs-source-dirs:     WebCheck
   default-language:   Haskell2010
   ghc-options:        -Wall
 
-test-suite wtp-test
+test-suite webcheck-test
   import:             shared-deps
   type:               exitcode-stdio-1.0
   main-is:            Main.hs
@@ -89,7 +89,7 @@ test-suite wtp-test
                     , WebCheck.TraceTest
                     , WebCheck.VerifyTest
   build-depends:      base
-                    , wtp
+                    , WebCheck
                     , tasty
                     , tasty-discover
                     , tasty-hspec

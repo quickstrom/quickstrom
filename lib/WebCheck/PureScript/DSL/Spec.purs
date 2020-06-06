@@ -1,4 +1,4 @@
-module DSL.Spec
+module WebCheck.DSL.Spec
  ( Path
  , Action
  , Actions
@@ -15,7 +15,7 @@ where
 
 import Prelude
 
-import DSL.Selector (Selector)
+import WebCheck.DSL.Selector (Selector)
 import Data.Array (range)
 import Data.Char (fromCharCode)
 import Data.Enum (class Enum)

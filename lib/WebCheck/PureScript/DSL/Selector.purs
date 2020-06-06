@@ -1,3 +1,3 @@
-module DSL.Selector where
+module WebCheck.DSL.Selector where
 
 type Selector = String

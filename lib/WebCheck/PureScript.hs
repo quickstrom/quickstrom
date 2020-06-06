@@ -32,7 +32,6 @@ import Data.Generics.Product (field)
 import Data.Generics.Sum (AsConstructor, _Ctor)
 import qualified Data.HashMap.Strict as HashMap
 import Data.HashMap.Strict (HashMap)
-import qualified Data.HashSet as Set
 import qualified Data.Map as Map
 import qualified Data.Text as Text
 import Data.Text.Prettyprint.Doc
@@ -40,7 +39,7 @@ import Data.Text.Prettyprint.Doc.Render.Text
 import qualified Data.Text.Read as Text
 import qualified Data.Vector as Vector
 import Data.Vector (Vector)
-import Language.PureScript.AST (SourceSpan, displaySourceSpan, internalModuleSourceSpan, nullSourceSpan, sourcePosColumn, sourcePosLine, spanEnd, spanName, spanStart)
+import Language.PureScript.AST (SourceSpan, internalModuleSourceSpan, nullSourceSpan, sourcePosColumn, sourcePosLine, spanEnd, spanName, spanStart)
 import Language.PureScript.CoreFn
 import Language.PureScript.CoreFn.FromJSON (moduleFromJSON)
 import Language.PureScript.Names
@@ -49,13 +48,9 @@ import Protolude hiding (Meta, moduleName)
 import System.FilePath ((</>))
 import System.FilePath.Glob (glob)
 import Text.Read (read)
-import qualified WebCheck.Element as Element
 import qualified WebCheck.Element as WebCheck
 import WebCheck.PureScript.Value
-import qualified WebCheck.Query as WebCheck
 import qualified WebCheck.Specification as WebCheck
-import qualified WebCheck.Trace as WebCheck
-import qualified WebCheck.Value as WebCheck
 
 data EvalError
   = UnexpectedError (Maybe SourceSpan) Text
@@ -114,8 +109,8 @@ evalAnnFromAnn (ss, _, _, meta) = EvalAnn ss meta Nothing
 newtype Eval a = Eval (ExceptT EvalError (Reader [(Int, QueriedElements)]) a)
   deriving (Functor, Applicative, Monad, MonadError EvalError, MonadFix, MonadReader [(Int, QueriedElements)])
 
-runEval :: [WebCheck.ObservedState] -> Eval a -> (Either EvalError a)
-runEval observedStates (Eval ma) = runReader (runExceptT ma) (zip [1 ..] (map toQueriedElements observedStates))
+runEval :: [QueriedElements] -> Eval a -> (Either EvalError a)
+runEval observedStates (Eval ma) = runReader (runExceptT ma) (zip [1 ..] observedStates)
 
 unexpectedType :: (MonadError EvalError m) => SourceSpan -> Text -> Value EvalAnn -> m a
 unexpectedType ss typ v =
@@ -197,28 +192,8 @@ accessField ss key obj =
 
 type QueriedElements = HashMap WebCheck.Selector [HashMap WebCheck.ElementState (Value EvalAnn)]
 
-toQueriedElements :: WebCheck.ObservedState -> QueriedElements
-toQueriedElements (WebCheck.ObservedState m) =
-  HashMap.toList m
-    & mapMaybe fromQueryAndValues
-    & HashMap.fromListWith (<>)
-  where
-    fromQueryAndValues :: (WebCheck.Query, [WebCheck.Value]) -> Maybe (WebCheck.Selector, [HashMap WebCheck.ElementState (Value EvalAnn)])
-    fromQueryAndValues (WebCheck.Get elementState (WebCheck.ByCss selector), values) =
-      Just (selector, [HashMap.singleton elementState v | v <- mapMaybe fromValue values])
-    fromQueryAndValues _ = Nothing
-    fromValue = \case
-      WebCheck.VNull -> Nothing
-      WebCheck.VBool b -> pure (VBool b)
-      WebCheck.VElement _ -> Nothing
-      WebCheck.VString t -> pure (VString t)
-      WebCheck.VNumber n -> pure (VNumber (realToFrac n))
-      WebCheck.VSeq vs -> VArray <$> traverse fromValue vs
-      WebCheck.VSet vs -> VArray <$> traverse fromValue (Vector.fromList (Set.toList vs))
-      WebCheck.VFunction _ -> Nothing
-
 pattern BuiltIn :: Text -> a -> Expr a -> Expr a
-pattern BuiltIn name ann p <- App ann (Var _ (Qualified (Just (ModuleName [ProperName "DSL"])) (Ident name))) p
+pattern BuiltIn name ann p <- App ann (Var _ (Qualified (Just (ModuleName [ProperName "WebCheck", ProperName "DSL"])) (Ident name))) p
 
 pattern Always :: a -> Expr a -> Expr a
 pattern Always ann p <- BuiltIn "always" ann p
@@ -249,7 +224,8 @@ eval env expr =
         traceM
           ( prettyText
               ( prettySourceSpan (sourceSpan expr) <> colon
-                  <+> parens ("state" <+> pretty n) <> colon
+                  <+> "trace: in state"
+                  <+> pretty n <> colon
                   <+> pretty t
               )
           )
@@ -257,13 +233,13 @@ eval env expr =
       App _ (BuiltIn "_queryAll" _ p) q -> evalQuery env p q current
       BuiltIn "_property" _ p -> do
         name <- require (sourceSpan p) (Proxy @"VString") =<< eval env p
-        pure (VElementState (Element.Property name))
+        pure (VElementState (WebCheck.Property name))
       BuiltIn "_attribute" _ p -> do
         name <- require (sourceSpan p) (Proxy @"VString") =<< eval env p
-        pure (VElementState (Element.Attribute name))
+        pure (VElementState (WebCheck.Attribute name))
       -- General cases
       Literal (EvalAnn ss _ _) lit -> case lit of
-        NumericLiteral n -> pure (either (VInt . fromInteger) (VNumber . realToFrac) n)
+        NumericLiteral n' -> pure (either (VInt . fromInteger) (VNumber . realToFrac) n')
         StringLiteral s -> VString <$> evalString ss s
         CharLiteral c -> pure (VChar c)
         BooleanLiteral b -> pure (VBool b)
@@ -307,19 +283,18 @@ eval env expr =
       Let (EvalAnn _ss _ _) bindings body -> do
         let bindingEnv env' = \case
               NonRec _ name expr' -> do
-                value <- eval env' expr'
-                pure (env' <> envBindValue (Qualified Nothing name) value)
+                pure (env' <> envBindValue (Qualified Nothing name) (VDefer (Defer env' expr')))
               Rec binds -> do
-                rec recEnv <- fold <$> traverse (\((_, name), expr') -> envBindValue (Qualified Nothing name) <$> pure (VDefer (Defer (env' <> recEnv) expr'))) binds
+                rec recEnv <-
+                      fold
+                        <$> traverse
+                          ( \((_, name), expr') ->
+                              envBindValue (Qualified Nothing name) <$> pure (VDefer (Defer (env' <> recEnv) expr'))
+                          )
+                          binds
                 pure recEnv
         newEnv <- foldM bindingEnv env bindings
         eval (env <> newEnv) body
-
-qnAlways :: Qualified Ident
-qnAlways = qualifiedName ["DSL"] "always"
-
-qnNext :: Qualified Ident
-qnNext = qualifiedName ["DSL"] "next"
 
 evalQuery :: Env EvalAnn -> Expr EvalAnn -> Expr EvalAnn -> QueriedElements -> Eval (Value EvalAnn)
 evalQuery env p1 p2 current = do
@@ -334,7 +309,8 @@ evalQuery env p1 p2 current = do
     mappings <- flip HashMap.traverseWithKey wantedStates $ \k s -> do
       elementState <- require (sourceSpan p2) (Proxy @"VElementState") s
       case HashMap.lookup elementState matchedElement of
-        Just x -> pure x
+        Just x ->
+          pure x
         Nothing ->
           let msg = ("Element state (bound to ." <> k <> ") not in observed state for query `" <> selector <> "`: " <> show elementState)
            in throwError (ForeignFunctionError (Just (sourceSpan p2)) msg)
@@ -446,7 +422,7 @@ entrySS = internalModuleSourceSpan "<entry>"
 evalEntryPoint :: Qualified Ident -> Program -> Eval (Value EvalAnn)
 evalEntryPoint entryPoint prog = envLookupEval entrySS entryPoint (programEnv prog)
 
-runWithEntryPoint :: forall a. ToHaskellValue a => [WebCheck.ObservedState] -> Qualified Ident -> Program -> IO (Either Text a)
+runWithEntryPoint :: forall a. ToHaskellValue a => [QueriedElements] -> Qualified Ident -> Program -> IO (Either Text a)
 runWithEntryPoint observedStates entry prog = runExceptT $ do
   case runEval observedStates (evalEntryPoint entry prog >>= toHaskellValue entrySS) of
     Right value -> pure value
@@ -455,11 +431,6 @@ runWithEntryPoint observedStates entry prog = runExceptT $ do
             Just ss -> prettySourceSpan ss <> ":" <> line <> "error:"
             Nothing -> "<no source information>" <> "error:"
        in throwError (prettyText (prefix <+> pretty err))
-
-test :: [WebCheck.ObservedState] -> Qualified Ident -> Program -> IO ()
-test observedStates ep prog = runWithEntryPoint @Bool observedStates ep prog >>= \case
-  Left err -> putStrLn err >> exitWith (ExitFailure 1)
-  Right successful -> putStrLn (prettyText ("Result:" <+> pretty successful))
 
 prettyText :: Doc ann -> Text
 prettyText x = renderStrict (layoutPretty defaultLayoutOptions x)
@@ -532,6 +503,9 @@ instance ToHaskellValue a => ToHaskellValue (Vector a) where
 
 instance ToHaskellValue a => ToHaskellValue [a] where
   toHaskellValue ss x = Vector.toList <$> toHaskellValue ss x
+
+instance ToHaskellValue a => ToHaskellValue (HashMap Text a) where
+  toHaskellValue ss = traverse (toHaskellValue ss) <=< require ss (Proxy @"VObject")
 
 instance ToHaskellValue (WebCheck.Action WebCheck.Selector) where
   toHaskellValue ss v = do
@@ -629,6 +603,8 @@ foreignFunctions =
       (qualifiedName ["Data", "Show"] "showStringImpl", foreignFunction (op1 (show @Text @Text))),
       (qualifiedName ["Data", "Show"] "showIntImpl", foreignFunction (op1 (show @Int @Text))),
       (qualifiedName ["Data", "Show"] "showNumberImpl", foreignFunction (op1 (show @Double @Text))),
+      (qualifiedName ["Data", "Show"] "cons", foreignFunction (op2 (Vector.cons @(Value EvalAnn)))),
+      (qualifiedName ["Data", "Show"] "join", foreignFunction (op2 Text.intercalate)),
       (qualifiedName ["Data", "Semiring"] "intAdd", foreignFunction (op2 ((+) @Int))),
       (qualifiedName ["Data", "Semiring"] "intMul", foreignFunction (op2 ((*) @Int))),
       (qualifiedName ["Data", "Semiring"] "numAdd", foreignFunction (op2 ((+) @Double))),
@@ -650,7 +626,8 @@ foreignFunctions =
       (qualifiedName ["Global"] "readInt", foreignFunction readInt),
       (qualifiedName ["Math"] "floor", foreignFunction (op1 (fromIntegral @Int @Double . floor @Double @Int))),
       (qualifiedName ["Math"] "remainder", foreignFunction (op2 (mod' @Double))),
-      (qualifiedName ["Partial", "Unsafe"] "unsafePartial", foreignFunction unsafePartial)
+      (qualifiedName ["Partial", "Unsafe"] "unsafePartial", foreignFunction unsafePartial),
+      (qualifiedName ["Record", "Unsafe"] "unsafeGet", foreignFunction (accessField nullSourceSpan))
     ]
   where
     notSupported :: Qualified Ident -> (Qualified Ident, ForeignFunction)

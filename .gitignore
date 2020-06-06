@@ -13,3 +13,4 @@ tsconfig.tsbuildinfo
 /output
 /.spago
 .psc-ide-port
+/generated-docs

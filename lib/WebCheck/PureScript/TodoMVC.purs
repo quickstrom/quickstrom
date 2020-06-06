@@ -1,6 +1,6 @@
 module WebCheck.PureScript.TodoMVC where
 
-import DSL
+import WebCheck.DSL
 
 import Data.Array (filter, head, last)
 import Data.Foldable (length)
@@ -17,10 +17,18 @@ actions = (spec "angularjs").actions
 spec :: String -> Spec
 spec name =
   {
-    origin : ("http://todomvc.com/examples/" <> name <> "/"),
-    readyWhen : ".todoapp",
+    origin: ("http://todomvc.com/examples/" <> name <> "/"),
+    readyWhen: ".todoapp",
     actions: foci <> clicks <> pure (keyPress 'a'),
-    proposition : initial && always (enterText || addNew || changeFilter || toggleAll)
+    proposition:
+      initial
+      && always (enterText
+                 || addNew
+                 || changeFilter
+                 || checkOne
+                 || uncheckOne
+                 || toggleAll
+                )
   }
   where
 
@@ -42,7 +50,7 @@ spec name =
         && (currentFilter == Just "All") `implies` (numItems >= next numItems)
         && ( next
                 ( (currentFilter == Just "Active")
-                  `implies` (numItemsLeft == Just numUnchecked && numItems == numUnchecked)
+                  `implies` (numItemsLeft == (Just numUnchecked) && numItems == numUnchecked)
                 )
             )
         -- NOTE: AngularJS && Mithril implementations are
@@ -55,6 +63,28 @@ spec name =
     addNew =
       Just pendingText == next lastItemText
         && next (pendingText == "")
+
+    checkOne =
+      pendingText == next pendingText
+        && currentFilter == next currentFilter
+        && (currentFilter /= Just "Completed")
+        && ( (currentFilter == Just "All")
+                `implies` (numItems == next numItems && numChecked < next numChecked)
+            )
+        && ( (currentFilter == Just "Active")
+                `implies` (numItems > next numItems && numItemsLeft > next numItemsLeft)
+            )
+
+    uncheckOne =
+      pendingText == next pendingText
+        && currentFilter == next currentFilter
+        && (currentFilter /= Just "Active")
+        && ( (currentFilter == Just "All")
+                `implies` (numItems == next numItems && numChecked > next numChecked)
+            )
+        && ( (currentFilter == Just "Completed")
+                `implies` (numItems > next numItems && numItemsLeft < next numItemsLeft)
+            )
     
     toggleAll =
       Just pendingText == next lastItemText
@@ -86,14 +116,14 @@ spec name =
     checkboxes = queryAll ".todo-list li input[type=checkbox]" { checked: checked }
     
     numUnchecked :: Int
-    numUnchecked = length (filter _.checked checkboxes)
+    numUnchecked = length (filter (not <<< _.checked) checkboxes)
     
     numChecked :: Int
-    numChecked = length (filter (not <<< _.checked) checkboxes)
+    numChecked = length (filter _.checked checkboxes)
     
     pendingText :: String
-    pendingText = case queryOne ".new-todo" { text: value } of
-      Just el ->  el.text
+    pendingText = case queryOne ".new-todo" { value: value } of
+      Just el -> el.value
       Nothing -> ""
     
     numItemsLeft :: Maybe Int

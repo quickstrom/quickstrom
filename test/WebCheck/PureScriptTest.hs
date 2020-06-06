@@ -1,8 +1,8 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 module WebCheck.PureScriptTest where
@@ -10,6 +10,7 @@ module WebCheck.PureScriptTest where
 import qualified Data.HashMap.Strict as HashMap
 import Data.Text.Prettyprint.Doc (Pretty (pretty))
 import qualified Data.Vector as Vector
+import Data.Vector (Vector)
 import Language.PureScript (Ident, Qualified, nullSourceSpan)
 import Language.PureScript.CoreFn
 import Protolude
@@ -62,12 +63,9 @@ spec_purescript = beforeAll loadProgram' $ do
       runWithEntryPoint [mempty] (qualifiedName ["WebCheck", "PureScriptTest"] "convertNum") p `shouldReturn` Right (1.0 :: Double)
     it "runs state monad" $ \p -> do
       runWithEntryPoint [mempty] (qualifiedName ["WebCheck", "PureScriptTest"] "testState") p `shouldReturn` Right (0 :: Int)
-    let paragraphWithTextState t =
-          WebCheck.ObservedState
-            ( HashMap.singleton
-                (WebCheck.Get (WebCheck.Property "textContent") (WebCheck.ByCss "p"))
-                [WebCheck.VString t]
-            )
+    let paragraphWithTextState :: Text -> QueriedElements
+        paragraphWithTextState t =
+          HashMap.singleton "p" [HashMap.singleton (WebCheck.Property "textContent") (VString t)]
     it "returns one queried element's state" $ \p -> do
       runWithEntryPoint
         [paragraphWithTextState "hello"]
@@ -80,7 +78,6 @@ spec_purescript = beforeAll loadProgram' $ do
         (qualifiedName ["WebCheck", "PureScriptTest"] "testNextOneQuery")
         p
         `shouldReturn` Right ("bar" :: Text)
-
   describe "temporal logic" $ do
     it "tla1" $ \p -> do
       runWithEntryPoint [mempty, mempty] (qualifiedName ["WebCheck", "PureScriptTest"] "tla1") p `shouldReturn` Right True
@@ -90,29 +87,34 @@ spec_purescript = beforeAll loadProgram' $ do
       runWithEntryPoint [mempty] (qualifiedName ["WebCheck", "PureScriptTest"] "tla3") p >>= \case
         Right (v :: Bool) -> expectationFailure ("Expected an error but got: " <> show v)
         Left msg -> toS msg `shouldContain` "cannot be determined"
-
   describe "TodoMVC" $ do
-    let todoMvcState newTodo selected count todoItems =
-          WebCheck.ObservedState
-            ( HashMap.fromList
-                [ (WebCheck.Get (WebCheck.Property "value") (WebCheck.ByCss ".new-todo"), [WebCheck.VString newTodo]),
-                  (WebCheck.Get (WebCheck.Property "textContent") (WebCheck.ByCss ".todoapp .filters .selected"), [WebCheck.VString selected]),
-                  (WebCheck.Get (WebCheck.Property "textContent") (WebCheck.ByCss ".todo-list li"), (map (WebCheck.VString . fst) todoItems)),
-                  (WebCheck.Get (WebCheck.Property "checked") (WebCheck.ByCss ".todo-list li input[type=checkbox]"), (map (WebCheck.VBool . snd) todoItems)),
-                  (WebCheck.Get (WebCheck.Property "textContent") (WebCheck.ByCss ".todoapp .todo-count strong"), [WebCheck.VString count])
-                ]
-            )
+    let todoMvcState :: Text -> Text -> Text -> Vector (Text, Bool) -> QueriedElements
+        todoMvcState newTodo selected count todoItems =
+          ( HashMap.fromList
+              [ (WebCheck.Selector ".new-todo", [HashMap.singleton (WebCheck.Property "value") (VString newTodo)]),
+                (WebCheck.Selector ".todoapp .filters .selected", [HashMap.singleton (WebCheck.Property "textContent") (VString selected)]),
+                ( WebCheck.Selector ".todo-list li",
+                  [HashMap.singleton (WebCheck.Property "textContent") (VString todo) | (todo, _) <- Vector.toList todoItems]
+                ),
+                ( WebCheck.Selector ".todo-list li input[type=checkbox]",
+                  [HashMap.singleton (WebCheck.Property "checked") (VBool checked) | (_, checked) <- Vector.toList todoItems]
+                ),
+                (WebCheck.Selector ".todoapp .todo-count strong", [HashMap.singleton (WebCheck.Property "textContent") (VString count)])
+              ]
+          )
     it "succeeds with correct states" $ \p -> do
       runWithEntryPoint
         [ todoMvcState "" "All" "" [],
-          todoMvcState "Buy milk" "All" "0" [],
+          todoMvcState "Buy milk" "All" "" [],
           todoMvcState "" "All" "1 left" [("Buy milk", False)],
-          todoMvcState "" "All" "0 left" [("Buy milk", True)]
+          todoMvcState "" "Active" "1 left" [("Buy milk", False)],
+          todoMvcState "" "Active" "0 left" [],
+          todoMvcState "" "Completed" "0 left" [("Buy milk", True)],
+          todoMvcState "" "Completed" "1 left" []
         ]
         (qualifiedName ["WebCheck", "PureScript", "TodoMVC"] "angularjs")
         p
         `shouldReturn` Right True
-
     it "fails with incorrect initial state" $ \p -> do
       runWithEntryPoint
         [ todoMvcState "" "All" "1 left" [("Buy milk", False)],
@@ -121,7 +123,6 @@ spec_purescript = beforeAll loadProgram' $ do
         (qualifiedName ["WebCheck", "PureScript", "TodoMVC"] "angularjs")
         p
         `shouldReturn` Right False
-
     it "fails with incorrect action states" $ \p -> do
       runWithEntryPoint
         [ todoMvcState "" "All" "" [],

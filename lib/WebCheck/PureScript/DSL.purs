@@ -1,5 +1,4 @@
-module DSL (
-  module Data.HeytingAlgebra,
+module WebCheck.DSL (
   next,
   always,
   trace,
@@ -10,13 +9,14 @@ module DSL (
   textContent,
   enabled,
   checked,
-  class StateToField,
-  class StatesToRecord,
-  Query,
   queryAll,
   queryOne,
-  module DSL.Selector,
+  Query,
+  class StateToField,
+  class StatesToRecord,
+  module WebCheck.DSL.Selector,
   module Spec,
+  module Data.HeytingAlgebra,
   module Prelude
   ) where
 
@@ -27,8 +27,8 @@ import Data.Maybe (Maybe)
 import Data.HeytingAlgebra (implies)
 import Data.Symbol (class IsSymbol, SProxy(..), reflectSymbol)
 import Prim.RowList (class RowToList, Cons, Nil, kind RowList)
-import DSL.Selector (Selector)
-import DSL.Spec (Action, Path, Spec, SpecialKey(..), asciiKeyPresses, clicks, foci, focus, keyPress, specialKeyPress) as Spec
+import WebCheck.DSL.Selector (Selector)
+import WebCheck.DSL.Spec (Action, Path, Spec, SpecialKey(..), asciiKeyPresses, clicks, foci, focus, keyPress, specialKeyPress) as Spec
 import Type.Prelude (class ListToRow, class TypeEquals)
 
 foreign import next :: forall a. a -> a

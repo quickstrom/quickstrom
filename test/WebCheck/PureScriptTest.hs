@@ -13,12 +13,12 @@ import Data.Vector (Vector)
 import Language.PureScript (Ident, Qualified, nullSourceSpan)
 import Language.PureScript.CoreFn
 import Protolude
+import Protolude.Error (error)
+import System.Environment.Blank (getEnv)
 import Test.Tasty.Hspec hiding (Selector)
 import qualified WebCheck.Element as WebCheck
 import WebCheck.PureScript
 import WebCheck.PureScript.Value
-import System.Environment.Blank (getEnv)
-import Protolude.Error (error)
 
 envLookupExpr :: Qualified Ident -> Eval (Expr EvalAnn)
 envLookupExpr qn =
@@ -107,8 +107,7 @@ spec_purescript = beforeAll loadModules $ do
         `shouldReturn` Right True
     it "fails with incorrect initial state" $ \p -> do
       runWithEntryPoint
-        [ todoMvcState "" "All" "1 left" [("Buy milk", False)],
-          mempty
+        [ todoMvcState "" "All" "1 left" [("Buy milk", False)]
         ]
         (qualifiedName "WebCheck.PureScript.TodoMVC" "angularjs")
         p

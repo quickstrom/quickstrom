@@ -24,6 +24,7 @@ module WebCheck.PureScript where
 
 import Control.Lens hiding (op)
 import Control.Monad.Fix (MonadFix)
+import Control.Monad.Trans.Writer.Strict (WriterT (runWriterT))
 import qualified Data.Aeson as JSON
 import qualified Data.Aeson.Types as JSON
 import qualified Data.ByteString.Lazy.Char8 as BS
@@ -39,8 +40,11 @@ import Data.Text.Prettyprint.Doc.Render.Text
 import qualified Data.Text.Read as Text
 import qualified Data.Vector as Vector
 import Data.Vector (Vector)
+import qualified Language.PureScript as P
 import Language.PureScript.AST (SourceSpan, internalModuleSourceSpan, nullSourceSpan, sourcePosColumn, sourcePosLine, spanEnd, spanName, spanStart)
+import qualified Language.PureScript.CST as CST
 import Language.PureScript.CoreFn
+import qualified Language.PureScript.CoreFn as CF
 import Language.PureScript.CoreFn.FromJSON (moduleFromJSON)
 import Language.PureScript.Names
 import Language.PureScript.PSString (PSString, decodeString, mkString)
@@ -51,9 +55,6 @@ import Text.Read (read)
 import qualified WebCheck.Element as WebCheck
 import WebCheck.PureScript.Value
 import qualified WebCheck.Specification as WebCheck
-import System.EasyFile (createDirectory)
-import System.IO.Temp (withSystemTempDirectory)
-import System.Process (shell, callCommand)
 
 data EvalError
   = UnexpectedError (Maybe SourceSpan) Text
@@ -167,23 +168,26 @@ initialEnv =
        in foldr (Abs (EvalAnn builtInSS Nothing Nothing)) (f names) names
 
 envLookupEval :: SourceSpan -> Qualified Ident -> Env EvalAnn -> Eval (Value EvalAnn)
-envLookupEval ss qn env =
-  case envLookup qn env of
-    Just r -> either (eval (withoutLocals env)) onValue r
+envLookupEval ss qn env' =
+  case envLookup qn env' of
+    Just r -> either (eval (withoutLocals env')) onValue r
     Nothing -> throwError (NotInScope ss qn)
   where
-    onValue (VDefer (Defer env' expr')) = eval env' expr'
+    onValue (VDefer (Defer env'' expr')) = eval env'' expr'
     onValue val = pure val
 
-qualifiedName :: [Text] -> Text -> Qualified Ident
-qualifiedName moduleNames localName = Qualified (Just (ModuleName (map ProperName moduleNames))) (Ident localName)
+qualifiedName :: Text -> Text -> Qualified Ident
+qualifiedName mn localName = Qualified (Just (ModuleName mn)) (Ident localName)
 
-asQualifiedVar :: Expr EvalAnn -> Maybe ([Text], Text)
+unqualifiedName :: Text -> Qualified Ident
+unqualifiedName localName = Qualified Nothing (Ident localName)
+
+asQualifiedVar :: Expr EvalAnn -> Maybe (Text, Text)
 asQualifiedVar (Var _ qn) = asQualifiedName qn
 asQualifiedVar _ = Nothing
 
-asQualifiedName :: Qualified Ident -> Maybe ([Text], Text)
-asQualifiedName (Qualified (Just (ModuleName pns)) n) = Just (map runProperName pns, runIdent n)
+asQualifiedName :: Qualified Ident -> Maybe (Text, Text)
+asQualifiedName (Qualified (Just (ModuleName mn)) n) = Just (mn, runIdent n)
 asQualifiedName _ = Nothing
 
 accessField :: SourceSpan -> Text -> HashMap Text (Value EvalAnn) -> Eval (Value EvalAnn)
@@ -196,7 +200,7 @@ accessField ss key obj =
 type QueriedElements = HashMap WebCheck.Selector [HashMap WebCheck.ElementState (Value EvalAnn)]
 
 pattern BuiltIn :: Text -> a -> Expr a -> Expr a
-pattern BuiltIn name ann p <- App ann (Var _ (Qualified (Just (ModuleName [ProperName "WebCheck", ProperName "DSL"])) (Ident name))) p
+pattern BuiltIn name ann p <- App ann (Var _ (Qualified (Just (ModuleName "WebCheck.DSL")) (Ident name))) p
 
 pattern Always :: a -> Expr a -> Expr a
 pattern Always ann p <- BuiltIn "always" ann p
@@ -252,7 +256,7 @@ eval env expr =
             (,) <$> evalString ss field' <*> eval env value
           pure (VObject (HashMap.fromList pairs'))
       Constructor (EvalAnn ss (Just IsNewtype) _) _ _ _fieldNames -> do
-        pure (VFunction (Function mempty (Ident "value") (Var (EvalAnn ss Nothing Nothing) (qualifiedName [] "value"))))
+        pure (VFunction (Function mempty (Ident "value") (Var (EvalAnn ss Nothing Nothing) (unqualifiedName "value"))))
       Constructor ann _typeName ctorName fieldNames -> do
         let body =
               Literal
@@ -277,7 +281,7 @@ eval env expr =
         func' <- require (sourceSpan func) (Proxy @"VFunction") =<< eval env func
         param' <- eval env param
         evalFunc func' param'
-      Var _ (Qualified (Just (ModuleName [ProperName "Prim"])) (Ident "undefined")) -> pure (VObject mempty)
+      Var _ (Qualified (Just (ModuleName "Prim")) (Ident "undefined")) -> pure (VObject mempty)
       Var (EvalAnn ss _ (Just applyForeign)) _ -> evalForeignApply ss env applyForeign
       Var (EvalAnn ss _ Nothing) qn -> envLookupEval ss qn env
       Case (EvalAnn ss _ _) exprs alts -> do
@@ -389,7 +393,23 @@ toModuleEnv m =
   where
     bindExpr name expr = envBindExpr (Qualified (Just (moduleName m)) name) (evalAnnFromAnn <$> expr)
 
-type AllModules = Map ModuleName (Module Ann)
+loadModuleFromSource :: Modules -> Text -> ExceptT Text IO (Module Ann)
+loadModuleFromSource modules input =
+    case CST.parseModuleFromFile "<file>" input >>= CST.resFull of
+      Left parseError ->
+        -- _ $ CST.toMultipleErrors "<file>" parseError
+        throwError (show parseError)
+      Right m -> do
+        (result, _) <- withExceptT show . runWriterT . flip runReaderT P.defaultOptions $ do
+          (P.Module ss coms moduleName elaborated exps, env) <- fmap fst . P.runSupplyT 0 $ do
+            desugared <- P.desugar (modulesNamesEnv modules) (modulesExterns modules) [P.importPrim m] >>= \case
+              [d] -> pure d
+              _ -> throwError (P.MultipleErrors mempty)
+            P.runCheck' (P.emptyCheckState (modulesInitEnv modules)) $ P.typeCheckModule desugared
+          regrouped <- P.createBindingGroups moduleName . P.collapseBindingGroups $ elaborated
+          let mod'' = P.Module ss coms moduleName regrouped exps
+          pure (CF.moduleToCoreFn env mod'')
+        pure result
 
 loadModuleFromCoreFn :: FilePath -> ExceptT Text IO (Module Ann)
 loadModuleFromCoreFn path = do
@@ -397,42 +417,81 @@ loadModuleFromCoreFn path = do
   case JSON.decode j of
     Just val ->
       case JSON.parse moduleFromJSON val of
-        JSON.Success (_, m) -> pure m {moduleDecls = map (addNameToDecl (toS (modulePath m))) (moduleDecls m)}
+        JSON.Success (_, m) -> do
+          putStrLn ("Loaded " <> runModuleName (moduleName m))
+          pure m {moduleDecls = map (addNameToDecl (toS (modulePath m))) (moduleDecls m)}
         JSON.Error e -> throwError (toS e)
     Nothing -> throwError "Couldn't read CoreFn file."
   where
     addNameToDecl :: Text -> Bind Ann -> Bind Ann
     addNameToDecl name = fmap (_1 . field @"spanName" .~ toS name)
 
-data Modules = Modules {modulesEnv :: Env EvalAnn}
+data Modules
+  = Modules
+      { modulesCoreFn :: [Module Ann],
+        modulesExterns :: [P.ExternsFile],
+        modulesNamesEnv :: P.Env,
+        modulesInitEnv :: P.Environment
+      }
+  deriving (Show)
 
-loadModulesFromCoreFn :: FilePath -> IO (Either Text Modules)
-loadModulesFromCoreFn outputDir = runExceptT $ do
-  let coreFnPath :: Text -> FilePath
+loadModulesFromCoreFn :: FilePath -> ExceptT Text IO [Module Ann]
+loadModulesFromCoreFn webcheckPursDir = do
+  let outputDir = webcheckPursDir </> "output"
+      coreFnPath :: Text -> FilePath
       coreFnPath mn' = outputDir </> toS mn' </> "corefn.json"
-  paths <- liftIO (glob (coreFnPath "*") <&> filter (/= coreFnPath "Effect"))
-  ms <- traverse loadModuleFromCoreFn paths
-  let env' = foldMap toModuleEnv ms
-  pure Modules {modulesEnv = initialEnv <> env'}
+  paths <- liftIO (glob (coreFnPath "*"))
+  traverse loadModuleFromCoreFn paths
 
-withProgram :: FilePath -> [FilePath] -> (Either Text Modules -> IO a) -> IO a
-withProgram webcheckPursDir paths action = do
-  withSystemTempDirectory "webcheck-compile" $ \d -> do
-    let srcDir = d </> "src"
-        outDir = d </> "output"
-    callCommand ("cp -R --no-preserve=mode " <> webcheckPursDir <> "/* " <> d)
-    for_ paths $ \path -> 
-      callCommand ("cp -R --no-preserve=mode " <> path <> "/* " <> srcDir)
-    callCommand ("cd " <> d <> " && purs compile -g corefn \'src/**/*.purs\' --output=" <> outDir)
-    action =<< loadModulesFromCoreFn outDir
+loadExterns :: ModuleName -> FilePath -> ExceptT Text IO P.ExternsFile
+loadExterns (ModuleName mn) webcheckPursDir = do
+  let path = webcheckPursDir </> "output" </> toS mn </> "externs.cbor"
+  withExceptT show (P.readExternsFile path) >>= \case
+    Just ext -> pure ext
+    Nothing -> throwError ("Could not read externs file: " <> toS path)
+
+loadLibraryModules :: FilePath -> IO (Either Text Modules)
+loadLibraryModules webcheckPursDir = runExceptT $ do
+  libModules <- loadModulesFromCoreFn webcheckPursDir
+  externs <- for libModules $ \m -> loadExterns (moduleName m) webcheckPursDir
+  sortedExterns <- withExceptT show . fmap fst $ P.sortModules externModuleSignature externs
+  namesEnv <- withExceptT show . fmap fst . runWriterT $ foldM P.externsEnv P.primEnv sortedExterns
+  let initEnv = foldl' (flip P.applyExternsFileToEnvironment) P.initEnvironment sortedExterns
+  pure (Modules libModules sortedExterns namesEnv initEnv)
+  where
+    externModuleSignature e =
+      P.ModuleSignature
+        (P.efSourceSpan e)
+        (P.efModuleName e)
+        (map ((,nullSourceSpan) . P.eiModule) (P.efImports e))
+
+data Program
+  = Program
+      { programLibraryModules :: Modules,
+        programMain :: Module Ann,
+        programEnv :: Env EvalAnn
+      }
+  deriving (Show)
+
+loadProgram :: Modules -> Text -> IO (Either Text Program)
+loadProgram ms input = runExceptT $ do
+  specModule <- loadModuleFromSource ms input
+  let env' = foldMap toModuleEnv (modulesCoreFn ms <> [specModule])
+  pure
+    ( Program
+        { programLibraryModules = ms,
+          programMain = specModule,
+          programEnv = initialEnv <> env'
+        }
+    )
 
 entrySS :: SourceSpan
 entrySS = internalModuleSourceSpan "<entry>"
 
-evalEntryPoint :: Qualified Ident -> Modules -> Eval (Value EvalAnn)
-evalEntryPoint entryPoint prog = envLookupEval entrySS entryPoint (modulesEnv prog)
+evalEntryPoint :: Qualified Ident -> Program -> Eval (Value EvalAnn)
+evalEntryPoint entryPoint prog = envLookupEval entrySS entryPoint (programEnv prog)
 
-runWithEntryPoint :: forall a. ToHaskellValue a => [QueriedElements] -> Qualified Ident -> Modules -> IO (Either Text a)
+runWithEntryPoint :: forall a. ToHaskellValue a => [QueriedElements] -> Qualified Ident -> Program -> IO (Either Text a)
 runWithEntryPoint observedStates entry prog = runExceptT $ do
   case runEval observedStates (evalEntryPoint entry prog >>= toHaskellValue entrySS) of
     Right value -> pure value
@@ -578,66 +637,66 @@ instance FromHaskellValue (Value EvalAnn) where
 foreignFunctions :: Map (Qualified Ident) ForeignFunction
 foreignFunctions =
   Map.fromList
-    [ (qualifiedName ["Control", "Bind"] "arrayBind", foreignFunction arrayBind),
-      (qualifiedName ["Data", "Array"] "indexImpl", foreignFunction indexImpl),
-      (qualifiedName ["Data", "Array"] "length", foreignFunction len),
-      (qualifiedName ["Data", "Array"] "filter", foreignFunction filterArray),
-      (qualifiedName ["Data", "Bounded"] "bottomInt", foreignFunction (pure minBound :: Eval Int)),
-      (qualifiedName ["Data", "Bounded"] "topInt", foreignFunction (pure maxBound :: Eval Int)),
-      (qualifiedName ["Data", "Eq"] "eqBooleanImpl", foreignFunction (op2 ((==) @Bool))),
-      (qualifiedName ["Data", "Eq"] "eqIntImpl", foreignFunction (op2 ((==) @Int))),
-      (qualifiedName ["Data", "Eq"] "eqNumberImpl", foreignFunction (op2 ((==) @Double))),
-      (qualifiedName ["Data", "Eq"] "eqCharImpl", foreignFunction (op2 ((==) @Char))),
-      (qualifiedName ["Data", "Eq"] "eqStringImpl", foreignFunction (op2 ((==) @Text))),
-      (qualifiedName ["Data", "Eq"] "eqArrayImpl", foreignFunction eqArray),
-      (qualifiedName ["Data", "EuclideanRing"] "intDegree", foreignFunction intDegree),
-      (qualifiedName ["Data", "EuclideanRing"] "intDiv", foreignFunction intDiv),
-      (qualifiedName ["Data", "EuclideanRing"] "intMod", foreignFunction intMod),
-      (qualifiedName ["Data", "EuclideanRing"] "numDiv", foreignFunction (op2 @Double (/))),
-      (qualifiedName ["Data", "Foldable"] "foldlArray", foreignFunction foldlArray),
-      (qualifiedName ["Data", "Foldable"] "foldrArray", foreignFunction foldrArray),
-      (qualifiedName ["Data", "Functor"] "arrayMap", foreignFunction arrayMap),
-      (qualifiedName ["Data", "HeytingAlgebra"] "boolConj", foreignFunction (op2 (&&))),
-      (qualifiedName ["Data", "HeytingAlgebra"] "boolDisj", foreignFunction (op2 (||))),
-      (qualifiedName ["Data", "HeytingAlgebra"] "boolNot", foreignFunction ((pure :: a -> Eval a) . not)),
-      (qualifiedName ["Data", "Int"] "toNumber", foreignFunction ((pure :: Double -> Eval Double) . fromIntegral @Int)),
-      (qualifiedName ["Data", "Int"] "fromNumberImpl", foreignFunction fromNumberImpl),
-      (qualifiedName ["Data", "Int"] "fromStringAsImpl", foreignFunction fromStringAsImpl),
-      (qualifiedName ["Data", "Ord"] "ordBooleanImpl", foreignFunction (ordImpl @Bool)),
-      (qualifiedName ["Data", "Ord"] "ordIntImpl", foreignFunction (ordImpl @Int)),
-      (qualifiedName ["Data", "Ord"] "ordNumberImpl", foreignFunction (ordImpl @Double)),
-      (qualifiedName ["Data", "Ord"] "ordStringImpl", foreignFunction (ordImpl @Text)),
-      (qualifiedName ["Data", "Ord"] "ordCharImpl", foreignFunction (ordImpl @Char)),
-      (qualifiedName ["Data", "Ring"] "intSub", foreignFunction (op2 ((-) @Int))),
-      (qualifiedName ["Data", "Ring"] "numSub", foreignFunction (op2 ((-) @Double))),
-      (qualifiedName ["Data", "Show"] "showStringImpl", foreignFunction (op1 (show @Text @Text))),
-      (qualifiedName ["Data", "Show"] "showIntImpl", foreignFunction (op1 (show @Int @Text))),
-      (qualifiedName ["Data", "Show"] "showNumberImpl", foreignFunction (op1 (show @Double @Text))),
-      (qualifiedName ["Data", "Show"] "cons", foreignFunction (op2 (Vector.cons @(Value EvalAnn)))),
-      (qualifiedName ["Data", "Show"] "join", foreignFunction (op2 Text.intercalate)),
-      (qualifiedName ["Data", "Semiring"] "intAdd", foreignFunction (op2 ((+) @Int))),
-      (qualifiedName ["Data", "Semiring"] "intMul", foreignFunction (op2 ((*) @Int))),
-      (qualifiedName ["Data", "Semiring"] "numAdd", foreignFunction (op2 ((+) @Double))),
-      (qualifiedName ["Data", "Semiring"] "numMul", foreignFunction (op2 ((*) @Double))),
-      (qualifiedName ["Data", "Semigroup"] "concatString", foreignFunction (op2 ((<>) @Text))),
-      (qualifiedName ["Data", "Semigroup"] "concatArray", foreignFunction (op2 ((<>) @(Vector (Value EvalAnn))))),
-      notSupported (qualifiedName ["Data", "String", "Common"] "_localeCompare"),
-      (qualifiedName ["Data", "String", "Common"] "replace", foreignFunction (op3 Text.replace)),
-      (qualifiedName ["Data", "String", "Common"] "split", foreignFunction (op2 Text.splitOn)),
-      (qualifiedName ["Data", "String", "Common"] "toLower", foreignFunction (op1 Text.toLower)),
-      (qualifiedName ["Data", "String", "Common"] "toUpper", foreignFunction (op1 Text.toUpper)),
-      (qualifiedName ["Data", "String", "Common"] "trim", foreignFunction (op1 Text.strip)),
-      (qualifiedName ["Data", "String", "Common"] "joinWith", foreignFunction (op2 Text.intercalate)),
-      (qualifiedName ["Data", "Unfoldable"] "unfoldrArrayImpl", foreignFunction unfoldrArrayImpl),
-      (qualifiedName ["Global"] "infinity", foreignFunction (pure (read "Infinity" :: Double) :: Eval Double)),
-      (qualifiedName ["Global"] "nan", foreignFunction (pure (read "NaN" :: Double) :: Eval Double)),
-      (qualifiedName ["Global"] "isFinite", foreignFunction (op1 (not . isInfinite @Double))),
-      (qualifiedName ["Global"] "readFloat", foreignFunction (readAs Text.double)),
-      (qualifiedName ["Global"] "readInt", foreignFunction readInt),
-      (qualifiedName ["Math"] "floor", foreignFunction (op1 (fromIntegral @Int @Double . floor @Double @Int))),
-      (qualifiedName ["Math"] "remainder", foreignFunction (op2 (mod' @Double))),
-      (qualifiedName ["Partial", "Unsafe"] "unsafePartial", foreignFunction unsafePartial),
-      (qualifiedName ["Record", "Unsafe"] "unsafeGet", foreignFunction (accessField nullSourceSpan))
+    [ (qualifiedName "Control.Bind" "arrayBind", foreignFunction arrayBind),
+      (qualifiedName "Data.Array" "indexImpl", foreignFunction indexImpl),
+      (qualifiedName "Data.Array" "length", foreignFunction len),
+      (qualifiedName "Data.Array" "filter", foreignFunction filterArray),
+      (qualifiedName "Data.Bounded" "bottomInt", foreignFunction (pure minBound :: Eval Int)),
+      (qualifiedName "Data.Bounded" "topInt", foreignFunction (pure maxBound :: Eval Int)),
+      (qualifiedName "Data.Eq" "eqBooleanImpl", foreignFunction (op2 ((==) @Bool))),
+      (qualifiedName "Data.Eq" "eqIntImpl", foreignFunction (op2 ((==) @Int))),
+      (qualifiedName "Data.Eq" "eqNumberImpl", foreignFunction (op2 ((==) @Double))),
+      (qualifiedName "Data.Eq" "eqCharImpl", foreignFunction (op2 ((==) @Char))),
+      (qualifiedName "Data.Eq" "eqStringImpl", foreignFunction (op2 ((==) @Text))),
+      (qualifiedName "Data.Eq" "eqArrayImpl", foreignFunction eqArray),
+      (qualifiedName "Data.EuclideanRing" "intDegree", foreignFunction intDegree),
+      (qualifiedName "Data.EuclideanRing" "intDiv", foreignFunction intDiv),
+      (qualifiedName "Data.EuclideanRing" "intMod", foreignFunction intMod),
+      (qualifiedName "Data.EuclideanRing" "numDiv", foreignFunction (op2 @Double (/))),
+      (qualifiedName "Data.Foldable" "foldlArray", foreignFunction foldlArray),
+      (qualifiedName "Data.Foldable" "foldrArray", foreignFunction foldrArray),
+      (qualifiedName "Data.Functor" "arrayMap", foreignFunction arrayMap),
+      (qualifiedName "Data.HeytingAlgebra" "boolConj", foreignFunction (op2 (&&))),
+      (qualifiedName "Data.HeytingAlgebra" "boolDisj", foreignFunction (op2 (||))),
+      (qualifiedName "Data.HeytingAlgebra" "boolNot", foreignFunction ((pure :: a -> Eval a) . not)),
+      (qualifiedName "Data.Int" "toNumber", foreignFunction ((pure :: Double -> Eval Double) . fromIntegral @Int)),
+      (qualifiedName "Data.Int" "fromNumberImpl", foreignFunction fromNumberImpl),
+      (qualifiedName "Data.Int" "fromStringAsImpl", foreignFunction fromStringAsImpl),
+      (qualifiedName "Data.Ord" "ordBooleanImpl", foreignFunction (ordImpl @Bool)),
+      (qualifiedName "Data.Ord" "ordIntImpl", foreignFunction (ordImpl @Int)),
+      (qualifiedName "Data.Ord" "ordNumberImpl", foreignFunction (ordImpl @Double)),
+      (qualifiedName "Data.Ord" "ordStringImpl", foreignFunction (ordImpl @Text)),
+      (qualifiedName "Data.Ord" "ordCharImpl", foreignFunction (ordImpl @Char)),
+      (qualifiedName "Data.Ring" "intSub", foreignFunction (op2 ((-) @Int))),
+      (qualifiedName "Data.Ring" "numSub", foreignFunction (op2 ((-) @Double))),
+      (qualifiedName "Data.Show" "showStringImpl", foreignFunction (op1 (show @Text @Text))),
+      (qualifiedName "Data.Show" "showIntImpl", foreignFunction (op1 (show @Int @Text))),
+      (qualifiedName "Data.Show" "showNumberImpl", foreignFunction (op1 (show @Double @Text))),
+      (qualifiedName "Data.Show" "cons", foreignFunction (op2 (Vector.cons @(Value EvalAnn)))),
+      (qualifiedName "Data.Show" "join", foreignFunction (op2 Text.intercalate)),
+      (qualifiedName "Data.Semiring" "intAdd", foreignFunction (op2 ((+) @Int))),
+      (qualifiedName "Data.Semiring" "intMul", foreignFunction (op2 ((*) @Int))),
+      (qualifiedName "Data.Semiring" "numAdd", foreignFunction (op2 ((+) @Double))),
+      (qualifiedName "Data.Semiring" "numMul", foreignFunction (op2 ((*) @Double))),
+      (qualifiedName "Data.Semigroup" "concatString", foreignFunction (op2 ((<>) @Text))),
+      (qualifiedName "Data.Semigroup" "concatArray", foreignFunction (op2 ((<>) @(Vector (Value EvalAnn))))),
+      notSupported (qualifiedName "Data.String.Common" "_localeCompare"),
+      (qualifiedName "Data.String.Common" "replace", foreignFunction (op3 Text.replace)),
+      (qualifiedName "Data.String.Common" "split", foreignFunction (op2 Text.splitOn)),
+      (qualifiedName "Data.String.Common" "toLower", foreignFunction (op1 Text.toLower)),
+      (qualifiedName "Data.String.Common" "toUpper", foreignFunction (op1 Text.toUpper)),
+      (qualifiedName "Data.String.Common" "trim", foreignFunction (op1 Text.strip)),
+      (qualifiedName "Data.String.Common" "joinWith", foreignFunction (op2 Text.intercalate)),
+      (qualifiedName "Data.Unfoldable" "unfoldrArrayImpl", foreignFunction unfoldrArrayImpl),
+      (qualifiedName "Global" "infinity", foreignFunction (pure (read "Infinity" :: Double) :: Eval Double)),
+      (qualifiedName "Global" "nan", foreignFunction (pure (read "NaN" :: Double) :: Eval Double)),
+      (qualifiedName "Global" "isFinite", foreignFunction (op1 (not . isInfinite @Double))),
+      (qualifiedName "Global" "readFloat", foreignFunction (readAs Text.double)),
+      (qualifiedName "Global" "readInt", foreignFunction readInt),
+      (qualifiedName "Math" "floor", foreignFunction (op1 (fromIntegral @Int @Double . floor @Double @Int))),
+      (qualifiedName "Math" "remainder", foreignFunction (op2 (mod' @Double))),
+      (qualifiedName "Partial.Unsafe" "unsafePartial", foreignFunction unsafePartial),
+      (qualifiedName "Record.Unsafe" "unsafeGet", foreignFunction (accessField nullSourceSpan))
     ]
   where
     notSupported :: Qualified Ident -> (Qualified Ident, ForeignFunction)

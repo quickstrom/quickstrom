@@ -9,7 +9,6 @@ module WebCheck.DSL.Spec
  , asciiKeyPresses
  , SpecialKey(..)
  , specialKeyPress
- , Spec
  )
 where
 
@@ -25,10 +24,6 @@ import Data.Generic.Rep.Ord (genericCompare)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (fromJust)
 import Partial.Unsafe (unsafePartial)
-
--- | A specification describes how to generate and run tests for a web page, and
--- | how to verify its correctness using a proposition.
-type Spec = { origin :: Path, readyWhen :: Selector, proposition :: Boolean, actions :: Actions }
 
 -- | URL to a web page, or a relative path within a web site.
 type Path = String

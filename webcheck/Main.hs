@@ -9,12 +9,10 @@
 module Main where
 
 import qualified Data.Text as Text
-import Helpers
 import System.Directory
 import System.IO.Unsafe (unsafePerformIO)
 import qualified Test.QuickCheck as QuickCheck
 import qualified Test.Tasty as Tasty
-import qualified TodoMVC
 import qualified WebCheck.Run as WebCheck
 import WebCheck.Specification
 import WebCheck.Syntax
@@ -25,22 +23,9 @@ cwd = unsafePerformIO getCurrentDirectory
 
 main :: IO ()
 main =
-  Tasty.defaultMain $
-    WebCheck.testSpecifications
-      [ ("button", buttonSpec),
-        ("ajax", ajaxSpec),
-        ("spinners", spinnersSpec),
-        ("toggle", toggleSpec),
-        ("comment form", commentFormSpec),
-        ("TodoMVC AngularJS", TodoMVC.spec "angularjs"),
-        ("TodoMVC Angular2", TodoMVC.spec "angular2"),
-        ("TodoMVC React", TodoMVC.spec "react"),
-        ("TodoMVC Vue.js", TodoMVC.spec "vue"),
-        ("TodoMVC Backbone.js", TodoMVC.spec "backbone"),
-        ("TodoMVC Mithril", TodoMVC.spec "mithril"),
-        ("TodoMVC Shpadoinkle", (TodoMVC.spec mempty) {origin = Path "http://fresheyeball.gitlab.io/Shpadoinkle/"}),
-        ("TodoMVC Moxie.rs", (TodoMVC.spec mempty) {origin = Path "https://moxie.rs/dom/examples/todo/index.html"})
-      ]
+  WebCheck.check _
+
+{-
 
 -- Simple example: a button that can be clicked, which then shows a message
 buttonSpec :: Specification Formula
@@ -129,3 +114,5 @@ commentIsValid :: Formula
 commentIsValid = commentLength (queryOne (text (byCss ".comment"))) >= num 3
   where
     commentLength t = apply length [apply strip [apply head [apply tail [apply splitOn [": ", t]]]]]
+
+-}

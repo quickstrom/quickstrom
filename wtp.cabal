@@ -70,8 +70,6 @@ library
 executable webcheck
   import:             shared-deps
   main-is:            Main.hs
-  other-modules:      Helpers
-                    , TodoMVC
   build-depends:      base >= 4.12
                     , WebCheck
   hs-source-dirs:     WebCheck

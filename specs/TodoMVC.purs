@@ -8,28 +8,25 @@ import Data.Int as Int
 import Data.Maybe (Maybe(..))
 import Data.String (Pattern(..), split)
 
-angularjs :: Boolean
-angularjs = (spec "angularjs").proposition
+origin :: Path
+origin = "http://todomvc.com/examples/angularjs/"
 
-actions :: Array Action
-actions = (spec "angularjs").actions
+readyWhen :: Selector
+readyWhen = ".todoapp"
 
-spec :: String -> Spec
-spec name =
-  {
-    origin: ("http://todomvc.com/examples/" <> name <> "/"),
-    readyWhen: ".todoapp",
-    actions: foci <> clicks <> pure (keyPress 'a'),
-    proposition:
-      initial
-      && always (enterText
-                 || addNew
-                 || changeFilter
-                 || checkOne
-                 || uncheckOne
-                 || toggleAll
-                )
-  }
+actions :: Actions
+actions = foci <> clicks <> pure (keyPress 'a')
+
+proposition :: Bool
+proposition =
+  initial
+  && always (enterText
+             || addNew
+             || changeFilter
+             || checkOne
+             || uncheckOne
+             || toggleAll
+            )
   where
 
     initial :: Boolean

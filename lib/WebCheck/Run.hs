@@ -14,7 +14,7 @@
 {-# LANGUAGE TypeOperators #-}
 
 module WebCheck.Run
-  ( testSpecifications,
+  ( check,
   )
 where
 
@@ -32,7 +32,6 @@ import Data.Functor (($>))
 import Data.Generics.Product (field)
 import qualified Data.HashMap.Strict as HashMap
 import Data.HashSet (HashSet)
-import qualified Data.HashSet as HashSet
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as Text
@@ -47,54 +46,44 @@ import Pipes ((>->), Consumer, Effect, Pipe, Producer)
 import qualified Pipes
 import qualified Pipes.Prelude as Pipes
 import qualified Test.QuickCheck as QuickCheck
-import qualified Test.Tasty as Tasty
-import Test.Tasty.HUnit (assertFailure, testCase)
+import Test.Tasty.HUnit (assertFailure)
+import Web.Api.WebDriver hiding (Action, Selector, assertFailure, hPutStrLn, runIsolated)
 import WebCheck.Element
-import WebCheck.Formula
 import WebCheck.Query
+import WebCheck.Path
 import WebCheck.Result
+import WebCheck.Pretty
 import WebCheck.Specification
 import WebCheck.Trace
-import WebCheck.Verify
-import Web.Api.WebDriver hiding (Action, Selector, assertFailure, hPutStrLn, runIsolated)
 
 type Runner = WebDriverTT IdentityT IO
 
-testSpecifications :: [(Text, Specification Formula)] -> Tasty.TestTree
-testSpecifications specs =
-  Tasty.testGroup "WebCheck specifications" [testCase (Text.unpack name) (check spec) | (name, spec) <- specs]
-
-data FailingTest = FailingTest {numShrinks :: Int, trace :: Trace TraceElementEffect, reason :: Maybe EvalError}
+data FailingTest
+  = FailingTest
+      { numShrinks :: Int,
+        trace :: Trace TraceElementEffect,
+        reason :: Maybe (Doc AnsiStyle)
+      }
   deriving (Show, Generic)
 
 data CheckResult = CheckSuccess | CheckFailure {failedAfter :: Int, failingTest :: FailingTest}
-  deriving (Show)
+  deriving (Show, Generic)
 
-check :: Specification Formula -> IO ()
+check :: Specification spec => spec -> IO ()
 check spec = do
   -- stdGen <- getStdGen
   let numTests = 10
   logInfo ("Running " <> show numTests <> " tests...")
-  result <- runWebDriver (Pipes.runEffect (runAll numTests spec'))
+  result <- runWebDriver (Pipes.runEffect (runAll numTests spec))
   case result of
     CheckFailure {failedAfter, failingTest} -> do
       logInfo . renderString $
         prettyTrace (withoutStutterStates (trace failingTest)) <> line
       case reason failingTest of
-        Just err -> logInfo (renderString (annotate (color Red) ("Verification failed with error:" <+> prettyEvalError err <> line)))
+        Just err -> logInfo (renderString (annotate (color Red) ("Verification failed with error:" <+> err <> line)))
         Nothing -> pure ()
       assertFailure ("Failed after " <> show failedAfter <> " tests and " <> show (numShrinks failingTest) <> " levels of shrinking.")
     CheckSuccess -> logInfo ("Passed " <> show numTests <> " tests.")
-  where
-    spec' = spec & field @"proposition" %~ simplify
-
-prettyEvalError :: EvalError -> Doc AnsiStyle
-prettyEvalError = \case
-  TypeError value type' -> prettyValue value <+> "is not a" <+> pretty type'
-  ApplyError f args -> prettyValue f <+> "cannot be applied to" <+> hsep (punctuate comma (map prettyValue args))
-  QueryError query -> "Query failed: " <+> prettyQuery query
-  RuntimeError t -> "Verification failed with error: " <+> pretty t
-  Undetermined -> "Verification failed with undetermination. There are too few observed states to satisfy the specification."
 
 elementsToTrace :: Producer (TraceElement ()) Runner () -> Runner (Trace ())
 elementsToTrace = fmap Trace . Pipes.toListM
@@ -115,7 +104,7 @@ select f = forever do
   x <- Pipes.await
   maybe (pure ()) Pipes.yield (f x)
 
-runSingle :: Specification Formula -> Int -> Runner (Either FailingTest ())
+runSingle :: Specification spec => spec -> Int -> Runner (Either FailingTest ())
 runSingle spec size = do
   let maxTries = size * 10
   result <-
@@ -136,14 +125,14 @@ runSingle spec size = do
       trace <- annotateStutteringSteps <$> inNewPrivateWindow do
         beforeRun spec
         elementsToTrace (producer >-> runActions' spec)
-      case verify (trace ^.. nonStutterStates) (proposition spec) of
+      case verify spec (trace ^.. nonStutterStates) of
         Right Accepted -> pure (Right ())
         Right Rejected -> pure (Left (FailingTest n trace Nothing))
         Left err -> pure (Left (FailingTest n trace (Just err)))
     runShrink (Shrink n actions) =
       runAndVerifyIsolated n (Pipes.each actions)
 
-runAll :: Int -> Specification Formula -> Effect Runner CheckResult
+runAll :: Specification spec => Int -> spec -> Effect Runner CheckResult
 runAll numTests spec' = (allTests $> CheckSuccess) >-> firstFailure
   where
     runSingle' :: Int -> Producer (Either FailingTest ()) Runner ()
@@ -162,16 +151,16 @@ firstFailure =
 sizes :: Functor m => Int -> Producer Int m ()
 sizes numSizes = Pipes.each (map (\n -> (n * 100 `div` numSizes)) [1 .. numSizes])
 
-beforeRun :: Specification Formula -> Runner ()
+beforeRun :: Specification spec => spec -> Runner ()
 beforeRun spec = do
   navigateToOrigin spec
   initializeScript
   awaitElement (readyWhen spec)
 
 observeManyStatesAfter :: HashSet Query -> ObservedState -> Action Selected -> Pipe a (TraceElement ()) Runner ObservedState
-observeManyStatesAfter queries initialState action = do
+observeManyStatesAfter queries' initialState action = do
   result <- lift (runAction action)
-  delta <- getNextOrFail =<< lift (registerNextStateObserver queries)
+  delta <- getNextOrFail =<< lift (registerNextStateObserver queries')
   Pipes.yield (TraceAction () action result)
   nonStutters <-
     (loop (delta <> initialState) >-> Pipes.takeWhile (/= initialState) >-> Pipes.take 10)
@@ -187,20 +176,20 @@ observeManyStatesAfter queries initialState action = do
     loop :: ObservedState -> Producer ObservedState Runner ()
     loop currentState = do
       Pipes.yield currentState
-      delta <- getNextOrFail =<< lift (registerNextStateObserver queries)
+      delta <- getNextOrFail =<< lift (registerNextStateObserver queries')
       loop (delta <> currentState)
 
 {-# SCC runActions' "runActions'" #-}
-runActions' :: Specification Formula -> Pipe (Action Selected) (TraceElement ()) Runner ()
+runActions' :: Specification spec => spec -> Pipe (Action Selected) (TraceElement ()) Runner ()
 runActions' spec = do
-  state1 <- lift (observeStates queries)
+  state1 <- lift (observeStates queries')
   Pipes.yield (TraceState () state1)
   loop state1
   where
-    queries = HashSet.fromList (runIdentity (withQueries pure (proposition spec)))
+    queries' = queries spec
     loop currentState = do
       action <- Pipes.await
-      newState <- observeManyStatesAfter queries currentState action
+      newState <- observeManyStatesAfter queries' currentState action
       loop newState
 
 data Shrink a = Shrink Int a
@@ -266,7 +255,7 @@ selectValidActions = forever do
     isClickable e =
       andM [isElementEnabled (toRef e), isElementVisible e]
 
-navigateToOrigin :: Specification formula -> Runner ()
+navigateToOrigin :: Specification spec => spec -> Runner ()
 navigateToOrigin spec = case origin spec of
   Path path -> (navigateTo (Text.unpack path))
 
@@ -405,18 +394,18 @@ executeAsyncScript' script args = do
     JSON.Error e -> fail e
 
 observeStates :: HashSet Query -> WebDriverT IO ObservedState
-observeStates queries =
-  executeScript' "return wtp.mapToArray(window.wtp.observeInitialStates(arguments[0]))" [JSON.toJSON queries]
+observeStates queries' =
+  executeScript' "return wtp.mapToArray(window.wtp.observeInitialStates(arguments[0]))" [JSON.toJSON queries']
 
 newtype StateObserver = StateObserver Text
   deriving (Eq, Show)
 
 registerNextStateObserver :: HashSet Query -> Runner StateObserver
-registerNextStateObserver queries =
+registerNextStateObserver queries' =
   StateObserver
     <$> executeScript'
       "return wtp.registerNextStateObserver(arguments[0])"
-      [JSON.toJSON queries]
+      [JSON.toJSON queries']
 
 getNextState :: StateObserver -> Runner (Either Text ObservedState)
 getNextState (StateObserver sid) =

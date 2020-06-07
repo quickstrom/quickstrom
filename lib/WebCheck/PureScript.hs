@@ -52,9 +52,12 @@ import Protolude hiding (Meta, moduleName)
 import System.FilePath ((</>))
 import System.FilePath.Glob (glob)
 import Text.Read (read)
+import qualified WebCheck.Action as WebCheck
 import qualified WebCheck.Element as WebCheck
+import qualified WebCheck.Path as WebCheck
 import WebCheck.PureScript.Value
 import qualified WebCheck.Specification as WebCheck
+import qualified Test.QuickCheck as QuickCheck
 
 data EvalError
   = UnexpectedError (Maybe SourceSpan) Text
@@ -395,21 +398,21 @@ toModuleEnv m =
 
 loadModuleFromSource :: Modules -> Text -> ExceptT Text IO (Module Ann)
 loadModuleFromSource modules input =
-    case CST.parseModuleFromFile "<file>" input >>= CST.resFull of
-      Left parseError ->
-        -- _ $ CST.toMultipleErrors "<file>" parseError
-        throwError (show parseError)
-      Right m -> do
-        (result, _) <- withExceptT show . runWriterT . flip runReaderT P.defaultOptions $ do
-          (P.Module ss coms moduleName elaborated exps, env) <- fmap fst . P.runSupplyT 0 $ do
-            desugared <- P.desugar (modulesNamesEnv modules) (modulesExterns modules) [P.importPrim m] >>= \case
-              [d] -> pure d
-              _ -> throwError (P.MultipleErrors mempty)
-            P.runCheck' (P.emptyCheckState (modulesInitEnv modules)) $ P.typeCheckModule desugared
-          regrouped <- P.createBindingGroups moduleName . P.collapseBindingGroups $ elaborated
-          let mod'' = P.Module ss coms moduleName regrouped exps
-          pure (CF.moduleToCoreFn env mod'')
-        pure result
+  case CST.parseModuleFromFile "<file>" input >>= CST.resFull of
+    Left parseError ->
+      -- _ $ CST.toMultipleErrors "<file>" parseError
+      throwError (show parseError)
+    Right m -> do
+      (result, _) <- withExceptT show . runWriterT . flip runReaderT P.defaultOptions $ do
+        (P.Module ss coms moduleName elaborated exps, env) <- fmap fst . P.runSupplyT 0 $ do
+          desugared <- P.desugar (modulesNamesEnv modules) (modulesExterns modules) [P.importPrim m] >>= \case
+            [d] -> pure d
+            _ -> throwError (P.MultipleErrors mempty)
+          P.runCheck' (P.emptyCheckState (modulesInitEnv modules)) $ P.typeCheckModule desugared
+        regrouped <- P.createBindingGroups moduleName . P.collapseBindingGroups $ elaborated
+        let mod'' = P.Module ss coms moduleName regrouped exps
+        pure (CF.moduleToCoreFn env mod'')
+      pure result
 
 loadModuleFromCoreFn :: FilePath -> ExceptT Text IO (Module Ann)
 loadModuleFromCoreFn path = do
@@ -474,6 +477,32 @@ data Program
 
 loadProgram :: Modules -> Text -> IO (Either Text Program)
 loadProgram ms input = runExceptT $ do
+  specModule <- loadModuleFromSource ms input
+  let env' = foldMap toModuleEnv (modulesCoreFn ms <> [specModule])
+  pure
+    ( Program
+        { programLibraryModules = ms,
+          programMain = specModule,
+          programEnv = initialEnv <> env'
+        }
+    )
+
+data SpecificationProgram
+  = SpecificationProgram
+      { specificationOrigin :: WebCheck.Path,
+        specificationReadyWhen :: WebCheck.Selector,
+        specificationActions :: [(Int, WebCheck.Action WebCheck.Selector)],
+        specificationProgram :: Program
+      }
+
+instance WebCheck.Specification SpecificationProgram where
+  origin = specificationOrigin
+  readyWhen = specificationReadyWhen
+  actions = QuickCheck.frequency . (traversed . _2 %~ pure) . specificationActions
+  verify = _
+
+loadSpecification :: Modules -> Text -> IO (Either Text Program)
+loadSpecification ms input = runExceptT $ do
   specModule <- loadModuleFromSource ms input
   let env' = foldMap toModuleEnv (modulesCoreFn ms <> [specModule])
   pure

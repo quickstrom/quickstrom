@@ -28,7 +28,7 @@ envLookupExpr qn =
 
 loadModules :: IO Modules
 loadModules = do
-  webcheckPursDir <- fromMaybe "." <$> getEnv "WEBCHECK_PURS"
+  webcheckPursDir <- fromMaybe "." <$> getEnv "PURESCRIPT_WEBCHECK"
   loadLibraryModules webcheckPursDir >>= \case
     Right ms -> pure ms
     Left err -> error ("Failed to load modules: " <> err)

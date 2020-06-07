@@ -46,6 +46,6 @@ in haskellPackages.shellFor {
   FONTCONFIG_FILE = pkgs.makeFontsConf {
     fontDirectories = fonts;
   };
-  WEBCHECK_PURS = "${purescript-webcheck}";
+  PURESCRIPT_WEBCHECK = "${purescript-webcheck}";
 }
 

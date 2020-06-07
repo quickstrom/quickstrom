@@ -30,7 +30,7 @@ First, install the packages in the Spago directory.
 $ nix-shell
 ...
 $ spago2nix install -j 100
-$ spago2nix build
+$ spago build -u '-g corefn'
 ```
 
 Now all dependencies should be in the standard Spago location, so that

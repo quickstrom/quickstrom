@@ -16,11 +16,7 @@ let
     buildInputs = [ easy-ps.purs-0_13_8 ];
   } ''
       mkdir $out
-      cd $out
-      mkdir src
-      cp --no-preserve=mode -R ${toString sourceDirs} src/
-      purs compile -g corefn 'src/**/*.purs' --output=output
-      ls -la output/WebCheck.DSL/
+      purs compile -g corefn ${toString sourceGlobs} --output=$out
     '';
 
   in purescript-webcheck

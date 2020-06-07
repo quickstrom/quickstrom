@@ -437,15 +437,14 @@ data Modules
 
 loadModulesFromCoreFn :: FilePath -> ExceptT Text IO [Module Ann]
 loadModulesFromCoreFn webcheckPursDir = do
-  let outputDir = webcheckPursDir </> "output"
-      coreFnPath :: Text -> FilePath
-      coreFnPath mn' = outputDir </> toS mn' </> "corefn.json"
+  let coreFnPath :: Text -> FilePath
+      coreFnPath mn' = webcheckPursDir </> toS mn' </> "corefn.json"
   paths <- liftIO (glob (coreFnPath "*"))
   traverse loadModuleFromCoreFn paths
 
 loadExterns :: ModuleName -> FilePath -> ExceptT Text IO P.ExternsFile
 loadExterns (ModuleName mn) webcheckPursDir = do
-  let path = webcheckPursDir </> "output" </> toS mn </> "externs.cbor"
+  let path = webcheckPursDir </> toS mn </> "externs.cbor"
   withExceptT show (P.readExternsFile path) >>= \case
     Just ext -> pure ext
     Nothing -> throwError ("Could not read externs file: " <> toS path)

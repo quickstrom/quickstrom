@@ -1,19 +1,19 @@
 cradle: 
   # cabal: 
   #   - path: "."
-  #     component: "lib:wtp"
+  #     component: "lib:webcheck"
   #   - path: "."
-  #     component: "exe:wtp"
+  #     component: "exe:webcheck"
   #   - path: "."
-  #     component: "test:wtp-test"
+  #     component: "test:webcheck-test"
   direct: 
     arguments:
       - -Wall
       - -Werror=incomplete-patterns
       - -ilib
       - -itest
-      - -iwtp
-      - wtp/Main.hs
+      - -iwebcheck
+      - webcheck/Main.hs
       - test/Main.hs
       - -idist/build/autogen
 

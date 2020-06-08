@@ -18,7 +18,7 @@ import Data.Text (Text)
 import WebCheck.Element
 import GHC.Generics (Generic)
 
-data Query = ByCss Selector | Get ElementState Query
+newtype Query = Query 
   deriving (Show, Eq, Ord, Generic, Hashable)
 
 instance FromJSON Query where

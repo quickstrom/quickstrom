@@ -31,7 +31,7 @@ module WebCheck.Trace
 where
 
 import Control.Lens
-import Data.Aeson (FromJSON (..), ToJSON (..))
+import Data.Aeson (FromJSON (..), ToJSON (..), Value)
 import Data.Generics.Product (position)
 import Data.Generics.Sum (_Ctor)
 import Data.HashMap.Strict (HashMap)
@@ -39,11 +39,10 @@ import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
 import GHC.Generics (Generic)
 import WebCheck.Action
-import WebCheck.Query
-import WebCheck.Value
+import WebCheck.Element
 import Prelude hiding (Bool (..), not)
 
-newtype ObservedState = ObservedState (HashMap Query [Value])
+newtype ObservedState = ObservedState (HashMap Selector [HashMap ElementState Value])
   deriving (Show, Eq, Generic, FromJSON, ToJSON)
 
 instance Semigroup ObservedState where

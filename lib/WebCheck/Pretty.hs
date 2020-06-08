@@ -5,26 +5,23 @@ module WebCheck.Pretty
   ( prettyAction,
     prettyActions,
     prettyTrace,
-    prettyQuery,
     prettyValue,
     prettySelected,
   )
 where
 
+import qualified Data.Aeson as JSON
 import Data.Function ((&))
 import qualified Data.HashMap.Strict as HashMap
-import qualified Data.HashSet as HashSet
 import qualified Data.List as List
 import Data.Ord (comparing)
+import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
 import Data.Text.Prettyprint.Doc.Symbols.Unicode (bullet)
 import qualified Data.Vector as Vector
 import WebCheck.Element
 import WebCheck.Path
-import WebCheck.Query
 import WebCheck.Trace
-import WebCheck.Value
-import Data.Text.Prettyprint.Doc
 
 prettyAction :: Action Selected -> Doc AnsiStyle
 prettyAction = \case
@@ -67,51 +64,41 @@ prettyObservedState (ObservedState state)
   | HashMap.null state = "(empty state)"
   | otherwise =
     vsep
-      ( withValues
-          ( \(query, values) ->
-              bullet <+> align (prettyQuery query <> line <> indent 2 (vsep (map (("-" <+>) . prettyValue) values)))
-          )
+      ( state
+          & HashMap.toList
+          & List.sortBy (comparing fst)
+          & map
+            ( \(selector, matchedElement) ->
+                bullet
+                  <+> align
+                    ( pretty selector
+                        <> line
+                        <> indent 2 (vsep (map prettyMatchedElement matchedElement))
+                    )
+            )
       )
   where
-    withValues :: ((Query, [Value]) -> s) -> [s]
-    withValues f =
-      state
-        & HashMap.toList
-        & List.sortBy (comparing fst)
-        & map f
+    prettyMatchedElement stateValues =
+      "-"
+        <> align
+          ( line
+              <> indent 2 (vsep (map prettyStateValue (HashMap.toList stateValues)))
+          )
+    prettyStateValue (state, value) = "-" <+> prettyState state <+> "=" <+> prettyValue value
 
-prettyQuery :: Query -> Doc AnsiStyle
-prettyQuery = \case
-  ByCss (Selector selector) -> "byCss" <+> pretty (show selector)
-  Get state' sub -> prettyState state' <+> parens (prettyQuery sub)
-
-prettyValue :: Value -> Doc AnsiStyle
+prettyValue :: JSON.Value -> Doc AnsiStyle
 prettyValue = \case
-  VNull -> "null"
-  VBool b -> pretty (show b)
-  VElement el -> pretty (ref el)
-  VString t -> pretty (show t)
-  VNumber n -> pretty (show n)
-  VSeq vs -> brackets (hsep (map prettyValue (Vector.toList vs)))
-  VSet vs -> braces (hsep (map prettyValue (HashSet.toList vs)))
-  VFunction (BuiltInFunction bif) -> prettyBuiltInFunction bif
-  where
-    prettyBuiltInFunction = \case
-      FAnd -> "and"
-      FOr -> "or"
-      FNot -> "not"
-      FIdentity -> "identity"
-      FIn -> "in"
-      FLength -> "length"
-      FFilter -> "filter"
-      FMap -> "map"
-      FHead -> "head"
-      FTail -> "tail"
-      FInit -> "init"
-      FLast -> "last"
-      FParseNumber -> "parseNumber"
-      FSplitOn -> "splitOn"
-      FStrip -> "strip"
+  JSON.Null -> "null"
+  JSON.Bool b -> pretty (show b)
+  JSON.String t -> pretty (show t)
+  JSON.Number n -> pretty (show n)
+  JSON.Array vs -> brackets (hsep (map prettyValue (Vector.toList vs)))
+  JSON.Object obj ->
+    encloseSep
+      lbrace
+      rbrace
+      (comma <> space)
+      (map (\(k, v) -> pretty k <> ":" <+> prettyValue v) (HashMap.toList obj))
 
 prettyState :: ElementState -> Doc AnsiStyle
 prettyState = \case

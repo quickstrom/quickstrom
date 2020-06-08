@@ -34,6 +34,7 @@ import Data.Generics.Sum (AsConstructor, _Ctor)
 import qualified Data.HashMap.Strict as HashMap
 import Data.HashMap.Strict (HashMap)
 import qualified Data.Map as Map
+import Data.Scientific
 import qualified Data.Text as Text
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Text
@@ -51,13 +52,15 @@ import Language.PureScript.PSString (PSString, decodeString, mkString)
 import Protolude hiding (Meta, moduleName)
 import System.FilePath ((</>))
 import System.FilePath.Glob (glob)
+import qualified Test.QuickCheck as QuickCheck
 import Text.Read (read)
 import qualified WebCheck.Action as WebCheck
 import qualified WebCheck.Element as WebCheck
 import qualified WebCheck.Path as WebCheck
 import WebCheck.PureScript.Value
+import qualified WebCheck.Result as WebCheck
 import qualified WebCheck.Specification as WebCheck
-import qualified Test.QuickCheck as QuickCheck
+import qualified WebCheck.Trace as WebCheck
 
 data EvalError
   = UnexpectedError (Maybe SourceSpan) Text
@@ -113,10 +116,10 @@ data EvalAnn = EvalAnn {annSourceSpan :: SourceSpan, annMeta :: Maybe Meta, annA
 evalAnnFromAnn :: Ann -> EvalAnn
 evalAnnFromAnn (ss, _, _, meta) = EvalAnn ss meta Nothing
 
-newtype Eval a = Eval (ExceptT EvalError (Reader [(Int, QueriedElements)]) a)
-  deriving (Functor, Applicative, Monad, MonadError EvalError, MonadFix, MonadReader [(Int, QueriedElements)])
+newtype Eval a = Eval (ExceptT EvalError (Reader [(Int, WebCheck.ObservedState)]) a)
+  deriving (Functor, Applicative, Monad, MonadError EvalError, MonadFix, MonadReader [(Int, WebCheck.ObservedState)])
 
-runEval :: [QueriedElements] -> Eval a -> (Either EvalError a)
+runEval :: [WebCheck.ObservedState] -> Eval a -> (Either EvalError a)
 runEval observedStates (Eval ma) = runReader (runExceptT ma) (zip [1 ..] observedStates)
 
 unexpectedType :: (MonadError EvalError m) => SourceSpan -> Text -> Value EvalAnn -> m a
@@ -200,8 +203,6 @@ accessField ss key obj =
     pure
     (HashMap.lookup key obj)
 
-type QueriedElements = HashMap WebCheck.Selector [HashMap WebCheck.ElementState (Value EvalAnn)]
-
 pattern BuiltIn :: Text -> a -> Expr a -> Expr a
 pattern BuiltIn name ann p <- App ann (Var _ (Qualified (Just (ModuleName "WebCheck.DSL")) (Ident name))) p
 
@@ -212,25 +213,25 @@ pattern Next :: a -> Expr a -> Expr a
 pattern Next ann p <- BuiltIn "next" ann p
 
 eval :: Env EvalAnn -> Expr EvalAnn -> Eval (Value EvalAnn)
-eval env expr =
+eval env' expr =
   ask >>= \case
     [] -> case expr of
       Always _ _ -> pure (VBool True)
       _ -> throwError Undetermined
     ((n, current) : rest) -> case expr of
       -- Special cases
-      Next _ p -> local (const rest) (eval env p)
+      Next _ p -> local (const rest) (eval env' p)
       Always ann p -> do
         first' <- require (sourceSpan p) (Proxy @"VBool")
-          =<< eval env p `catchError` \case
+          =<< eval env' p `catchError` \case
             Undetermined -> pure (VBool True)
             e -> throwError e
         rest' <-
           require (annSourceSpan ann) (Proxy @"VBool")
-            =<< local (drop 1) (eval env expr)
+            =<< local (drop 1) (eval env' expr)
         pure (VBool (first' && rest'))
       App _ (BuiltIn "trace" _ label) p -> do
-        t <- require (sourceSpan label) (Proxy @"VString") =<< eval env label
+        t <- require (sourceSpan label) (Proxy @"VString") =<< eval env' label
         traceM
           ( prettyText
               ( prettySourceSpan (sourceSpan expr) <> colon
@@ -239,13 +240,13 @@ eval env expr =
                   <+> pretty t
               )
           )
-        eval env p
-      App _ (BuiltIn "_queryAll" _ p) q -> evalQuery env p q current
+        eval env' p
+      App _ (BuiltIn "_queryAll" _ p) q -> evalQuery env' p q current
       BuiltIn "_property" _ p -> do
-        name <- require (sourceSpan p) (Proxy @"VString") =<< eval env p
+        name <- require (sourceSpan p) (Proxy @"VString") =<< eval env' p
         pure (VElementState (WebCheck.Property name))
       BuiltIn "_attribute" _ p -> do
-        name <- require (sourceSpan p) (Proxy @"VString") =<< eval env p
+        name <- require (sourceSpan p) (Proxy @"VString") =<< eval env' p
         pure (VElementState (WebCheck.Attribute name))
       -- General cases
       Literal (EvalAnn ss _ _) lit -> case lit of
@@ -253,10 +254,10 @@ eval env expr =
         StringLiteral s -> VString <$> evalString ss s
         CharLiteral c -> pure (VChar c)
         BooleanLiteral b -> pure (VBool b)
-        ArrayLiteral xs -> VArray . Vector.fromList <$> traverse (eval env) xs
+        ArrayLiteral xs -> VArray . Vector.fromList <$> traverse (eval env') xs
         ObjectLiteral pairs -> do
           pairs' <- for pairs $ \(field', value) ->
-            (,) <$> evalString ss field' <*> eval env value
+            (,) <$> evalString ss field' <*> eval env' value
           pure (VObject (HashMap.fromList pairs'))
       Constructor (EvalAnn ss (Just IsNewtype) _) _ _ _fieldNames -> do
         pure (VFunction (Function mempty (Ident "value") (Var (EvalAnn ss Nothing Nothing) (unqualifiedName "value"))))
@@ -269,47 +270,47 @@ eval env expr =
                       (mkString "fields", Literal ann (ArrayLiteral (map (Var ann . Qualified Nothing) fieldNames)))
                     ]
                 )
-        eval env (foldr (Abs ann) body fieldNames)
+        eval env' (foldr (Abs ann) body fieldNames)
       Accessor (EvalAnn ss _ _) prop objExpr -> do
         key <- evalString ss prop
-        obj <- require ss (Proxy @"VObject") =<< eval env objExpr
+        obj <- require ss (Proxy @"VObject") =<< eval env' objExpr
         accessField ss key obj
       ObjectUpdate (EvalAnn ss _ _) objExpr updates -> do
-        obj <- require ss (Proxy @"VObject") =<< eval env objExpr
+        obj <- require ss (Proxy @"VObject") =<< eval env' objExpr
         updates' <- for updates $ \(field', expr') ->
-          (,) <$> evalString ss field' <*> eval env expr'
+          (,) <$> evalString ss field' <*> eval env' expr'
         pure (VObject (obj <> HashMap.fromList updates'))
-      Abs _ann arg body -> pure (VFunction (Function env arg body))
+      Abs _ann arg body -> pure (VFunction (Function env' arg body))
       App _ func param -> do
-        func' <- require (sourceSpan func) (Proxy @"VFunction") =<< eval env func
-        param' <- eval env param
+        func' <- require (sourceSpan func) (Proxy @"VFunction") =<< eval env' func
+        param' <- eval env' param
         evalFunc func' param'
       Var _ (Qualified (Just (ModuleName "Prim")) (Ident "undefined")) -> pure (VObject mempty)
-      Var (EvalAnn ss _ (Just applyForeign)) _ -> evalForeignApply ss env applyForeign
-      Var (EvalAnn ss _ Nothing) qn -> envLookupEval ss qn env
+      Var (EvalAnn ss _ (Just applyForeign)) _ -> evalForeignApply ss env' applyForeign
+      Var (EvalAnn ss _ Nothing) qn -> envLookupEval ss qn env'
       Case (EvalAnn ss _ _) exprs alts -> do
-        values <- traverse (eval env) exprs
-        evalCaseAlts ss env values alts
+        values <- traverse (eval env') exprs
+        evalCaseAlts ss env' values alts
       Let (EvalAnn _ss _ _) bindings body -> do
-        let bindingEnv env' = \case
+        let bindingEnv env'' = \case
               NonRec _ name expr' -> do
-                pure (env' <> envBindValue (Qualified Nothing name) (VDefer (Defer env' expr')))
+                pure (env'' <> envBindValue (Qualified Nothing name) (VDefer (Defer env'' expr')))
               Rec binds -> do
                 rec recEnv <-
                       fold
                         <$> traverse
                           ( \((_, name), expr') ->
-                              envBindValue (Qualified Nothing name) <$> pure (VDefer (Defer (env' <> recEnv) expr'))
+                              envBindValue (Qualified Nothing name) <$> pure (VDefer (Defer (env'' <> recEnv) expr'))
                           )
                           binds
                 pure recEnv
-        newEnv <- foldM bindingEnv env bindings
-        eval (env <> newEnv) body
+        newEnv <- foldM bindingEnv env' bindings
+        eval (env' <> newEnv) body
 
-evalQuery :: Env EvalAnn -> Expr EvalAnn -> Expr EvalAnn -> QueriedElements -> Eval (Value EvalAnn)
-evalQuery env p1 p2 current = do
-  selector <- require (sourceSpan p1) (Proxy @"VString") =<< eval env p1
-  wantedStates <- require (sourceSpan p2) (Proxy @"VObject") =<< eval env p2
+evalQuery :: Env EvalAnn -> Expr EvalAnn -> Expr EvalAnn -> WebCheck.ObservedState -> Eval (Value EvalAnn)
+evalQuery env' p1 p2 (WebCheck.ObservedState current) = do
+  selector <- require (sourceSpan p1) (Proxy @"VString") =<< eval env' p1
+  wantedStates <- require (sourceSpan p2) (Proxy @"VObject") =<< eval env' p2
   matchedElements <-
     maybe
       (throwError (ForeignFunctionError (Just (sourceSpan p1)) ("Selector not in observed state: " <> selector)))
@@ -319,13 +320,20 @@ evalQuery env p1 p2 current = do
     mappings <- flip HashMap.traverseWithKey wantedStates $ \k s -> do
       elementState <- require (sourceSpan p2) (Proxy @"VElementState") s
       case HashMap.lookup elementState matchedElement of
-        Just x ->
-          pure x
+        Just x -> pure (fromValue x)
         Nothing ->
           let msg = ("Element state (bound to ." <> k <> ") not in observed state for query `" <> selector <> "`: " <> show elementState)
            in throwError (ForeignFunctionError (Just (sourceSpan p2)) msg)
     pure (VObject mappings)
   pure (VArray mappedElements)
+  where
+    fromValue = \case
+      JSON.Null -> VObject mempty
+      JSON.Bool b -> VBool b
+      JSON.String t -> VString t
+      JSON.Number n -> either VNumber VInt (floatingOrInteger n)
+      JSON.Array xs -> VArray (map fromValue xs)
+      JSON.Object xs -> VObject (map fromValue xs)
 
 evalFunc :: Function EvalAnn -> (Value EvalAnn) -> Eval (Value EvalAnn)
 evalFunc (Function fEnv arg body) param' =
@@ -334,22 +342,22 @@ evalFunc (Function fEnv arg body) param' =
 
 evalCaseAlts :: SourceSpan -> Env EvalAnn -> [(Value EvalAnn)] -> [CaseAlternative EvalAnn] -> Eval (Value EvalAnn)
 evalCaseAlts ss _ vals [] = throwError (UnexpectedError (Just ss) (prettyText ("Non-exhaustive case expression on values:" <+> pretty vals)))
-evalCaseAlts ss env values (CaseAlternative binders result : rest) =
+evalCaseAlts ss env' values (CaseAlternative binders result : rest) =
   case envFromBinders (zip binders values) of
     Just bindersEnv ->
       case result of
         Left guardedExprs ->
-          evalGuards (env <> bindersEnv) guardedExprs >>= \case
+          evalGuards (env' <> bindersEnv) guardedExprs >>= \case
             Just expr -> pure expr
-            Nothing -> evalCaseAlts ss env values rest
-        Right expr -> eval (env <> bindersEnv) expr
-    Nothing -> evalCaseAlts ss env values rest
+            Nothing -> evalCaseAlts ss env' values rest
+        Right expr -> eval (env' <> bindersEnv) expr
+    Nothing -> evalCaseAlts ss env' values rest
 
 evalGuards :: Env EvalAnn -> [(Guard EvalAnn, Expr EvalAnn)] -> Eval (Maybe (Value EvalAnn))
 evalGuards _ [] = pure Nothing
-evalGuards env ((guard', branch) : rest') = do
-  res <- require (sourceSpan guard') (Proxy @"VBool") =<< eval env guard'
-  if res then Just <$> eval env branch else evalGuards env rest'
+evalGuards env' ((guard', branch) : rest') = do
+  res <- require (sourceSpan guard') (Proxy @"VBool") =<< eval env' guard'
+  if res then Just <$> eval env' branch else evalGuards env' rest'
 
 envFromBinders :: [(Binder EvalAnn, (Value EvalAnn))] -> Maybe (Env EvalAnn)
 envFromBinders = fmap fold . traverse envFromBinder
@@ -404,14 +412,14 @@ loadModuleFromSource modules input =
       throwError (show parseError)
     Right m -> do
       (result, _) <- withExceptT show . runWriterT . flip runReaderT P.defaultOptions $ do
-        (P.Module ss coms moduleName elaborated exps, env) <- fmap fst . P.runSupplyT 0 $ do
+        (P.Module ss coms moduleName' elaborated exps, env') <- fmap fst . P.runSupplyT 0 $ do
           desugared <- P.desugar (modulesNamesEnv modules) (modulesExterns modules) [P.importPrim m] >>= \case
             [d] -> pure d
             _ -> throwError (P.MultipleErrors mempty)
           P.runCheck' (P.emptyCheckState (modulesInitEnv modules)) $ P.typeCheckModule desugared
-        regrouped <- P.createBindingGroups moduleName . P.collapseBindingGroups $ elaborated
-        let mod'' = P.Module ss coms moduleName regrouped exps
-        pure (CF.moduleToCoreFn env mod'')
+        regrouped <- P.createBindingGroups moduleName' . P.collapseBindingGroups $ elaborated
+        let mod'' = P.Module ss coms moduleName' regrouped exps
+        pure (CF.moduleToCoreFn env' mod'')
       pure result
 
 loadModuleFromCoreFn :: FilePath -> ExceptT Text IO (Module Ann)
@@ -475,6 +483,10 @@ data Program
       }
   deriving (Show)
 
+programQualifiedName :: Text -> Program -> Qualified Ident
+programQualifiedName name p = 
+  Qualified (Just (moduleName (programMain p))) (Ident name)
+
 loadProgram :: Modules -> Text -> IO (Either Text Program)
 loadProgram ms input = runExceptT $ do
   specModule <- loadModuleFromSource ms input
@@ -491,27 +503,40 @@ data SpecificationProgram
   = SpecificationProgram
       { specificationOrigin :: WebCheck.Path,
         specificationReadyWhen :: WebCheck.Selector,
-        specificationActions :: [(Int, WebCheck.Action WebCheck.Selector)],
+        specificationActions :: [WebCheck.Action WebCheck.Selector],
         specificationProgram :: Program
       }
 
 instance WebCheck.Specification SpecificationProgram where
   origin = specificationOrigin
   readyWhen = specificationReadyWhen
-  actions = QuickCheck.frequency . (traversed . _2 %~ pure) . specificationActions
-  verify = _
+  actions = QuickCheck.elements . specificationActions
+  verify sp states = (_Left %~ pretty) . runEval states $ do
+    let p = specificationProgram sp
+    let entry = programQualifiedName "proposition" p
+    valid <- require (moduleSourceSpan (programMain p)) (Proxy @"VBool") =<< evalEntryPoint entry p
+    if valid then pure WebCheck.Accepted else pure WebCheck.Rejected
 
-loadSpecification :: Modules -> Text -> IO (Either Text Program)
+loadSpecification :: Modules -> Text -> IO (Either Text SpecificationProgram)
 loadSpecification ms input = runExceptT $ do
-  specModule <- loadModuleFromSource ms input
-  let env' = foldMap toModuleEnv (modulesCoreFn ms <> [specModule])
-  pure
-    ( Program
-        { programLibraryModules = ms,
-          programMain = specModule,
-          programEnv = initialEnv <> env'
-        }
-    )
+  p <- ExceptT (loadProgram ms input)
+  either (throwError . prettyText . pretty) pure . runEval [mempty] $ do
+    let ss = (moduleSourceSpan (programMain p))
+    origin <- toHaskellValue ss =<< evalEntryPoint (programQualifiedName "origin" p) p
+    readyWhen <- toHaskellValue ss =<< evalEntryPoint (programQualifiedName "readyWhen" p) p
+    actions <- toHaskellValue ss =<< evalEntryPoint (programQualifiedName "proposition" p) p
+    pure
+        ( SpecificationProgram
+            { specificationOrigin = WebCheck.Path origin,
+            specificationReadyWhen = WebCheck.Selector readyWhen,
+            specificationActions = actions,
+            specificationProgram = p
+            }
+        )
+   
+
+loadSpecificationFile :: Modules -> FilePath -> IO (Either Text SpecificationProgram)
+loadSpecificationFile ms input = loadSpecification ms =<< readFile input
 
 entrySS :: SourceSpan
 entrySS = internalModuleSourceSpan "<entry>"
@@ -519,7 +544,7 @@ entrySS = internalModuleSourceSpan "<entry>"
 evalEntryPoint :: Qualified Ident -> Program -> Eval (Value EvalAnn)
 evalEntryPoint entryPoint prog = envLookupEval entrySS entryPoint (programEnv prog)
 
-runWithEntryPoint :: forall a. ToHaskellValue a => [QueriedElements] -> Qualified Ident -> Program -> IO (Either Text a)
+runWithEntryPoint :: forall a. ToHaskellValue a => [WebCheck.ObservedState] -> Qualified Ident -> Program -> IO (Either Text a)
 runWithEntryPoint observedStates entry prog = runExceptT $ do
   case runEval observedStates (evalEntryPoint entry prog >>= toHaskellValue entrySS) of
     Right value -> pure value
@@ -547,7 +572,7 @@ foreignFunction :: (EvalForeignFunction f, ForeignFunctionArity f) => f -> Forei
 foreignFunction (f :: f) =
   ForeignFunction
     (foreignFunctionArity (Proxy :: Proxy f))
-    (\ss env params -> evalForeignFunction ss env params f)
+    (\ss env' params -> evalForeignFunction ss env' params f)
 
 class ForeignFunctionArity f where
   foreignFunctionArity :: Proxy f -> Int
@@ -569,9 +594,9 @@ instance {-# OVERLAPPABLE #-} FromHaskellValue a => EvalForeignFunction (Eval a)
   evalForeignFunction ss _ _ _ = foreignFunctionArityMismatch ss
 
 instance {-# OVERLAPPING #-} (ToHaskellValue a, EvalForeignFunction b) => EvalForeignFunction (a -> b) where
-  evalForeignFunction ss env (v : vs) f = do
+  evalForeignFunction ss env' (v : vs) f = do
     a <- toHaskellValue ss v
-    evalForeignFunction ss env vs (f a)
+    evalForeignFunction ss env' vs (f a)
   evalForeignFunction ss _ [] _ = foreignFunctionArityMismatch ss
 
 class ToHaskellValue r where
@@ -807,8 +832,8 @@ foreignFunctions =
       eval fenv body
 
 evalForeignApply :: SourceSpan -> Env EvalAnn -> ApplyForeign -> Eval (Value EvalAnn)
-evalForeignApply ss env (ApplyForeign qn paramNames) = do
-  params <- for paramNames $ \n -> envLookupEval ss (Qualified Nothing n) env
+evalForeignApply ss env' (ApplyForeign qn paramNames) = do
+  params <- for paramNames $ \n -> envLookupEval ss (Qualified Nothing n) env'
   case Map.lookup qn foreignFunctions of
-    (Just f) -> evalFn f ss env params
+    (Just f) -> evalFn f ss env' params
     _ -> throwError (ForeignFunctionNotSupported ss qn)

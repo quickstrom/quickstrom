@@ -5,26 +5,34 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module Main where
 
+import Control.Monad.Except (ExceptT)
 import qualified Data.Text as Text
+import Protolude
 import System.Directory
 import System.IO.Unsafe (unsafePerformIO)
 import qualified Test.QuickCheck as QuickCheck
 import qualified Test.Tasty as Tasty
+import qualified WebCheck.PureScript as WebCheck
 import qualified WebCheck.Run as WebCheck
-import WebCheck.Specification
-import WebCheck.Syntax
-import Prelude hiding ((<), (<=), (>), (>=), all, init, length, tail, head)
+import qualified WebCheck.Specification as WebCheck
 
 cwd :: FilePath
 cwd = unsafePerformIO getCurrentDirectory
 
 main :: IO ()
 main =
-  WebCheck.check _
-
+  getArgs >>= \case
+    [libraryPath, specPath] -> do
+      specResult <- runExceptT $ do
+        modules <- ExceptT (WebCheck.loadLibraryModules libraryPath)
+        ExceptT (WebCheck.loadSpecificationFile modules specPath)
+      case specResult of
+        Left err -> pure ()
+        Right spec -> WebCheck.check spec
 {-
 
 -- Simple example: a button that can be clicked, which then shows a message

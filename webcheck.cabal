@@ -50,19 +50,16 @@ common shared-deps
 
 library
   import:             shared-deps
-  exposed-modules:    WebCheck.Element
-                    , WebCheck.Formula
+  exposed-modules:    WebCheck.Action
+                    , WebCheck.Element
+                    , WebCheck.Path
                     , WebCheck.PureScript
                     , WebCheck.PureScript.Value
-                    , WebCheck.Query
+                    , WebCheck.Pretty
                     , WebCheck.Result
                     , WebCheck.Run
                     , WebCheck.Specification
-                    , WebCheck.Syntax
-                    , WebCheck.TH
                     , WebCheck.Trace
-                    , WebCheck.Value
-                    , WebCheck.Verify
   hs-source-dirs:     lib
   default-language:   Haskell2010
   ghc-options:        -Wall -Werror=incomplete-patterns -Wredundant-constraints
@@ -72,7 +69,7 @@ executable webcheck
   main-is:            Main.hs
   build-depends:      base >= 4.12
                     , WebCheck
-  hs-source-dirs:     WebCheck
+  hs-source-dirs:     webcheck
   default-language:   Haskell2010
   ghc-options:        -Wall
 
@@ -82,11 +79,8 @@ test-suite webcheck-test
   main-is:            Main.hs
   hs-source-dirs:     test
   other-modules:      WebCheck.Gen
-                    , WebCheck.LogicTest
                     , WebCheck.PureScriptTest
-                    , WebCheck.SyntaxTest
                     , WebCheck.TraceTest
-                    , WebCheck.VerifyTest
   build-depends:      base
                     , WebCheck
                     , tasty

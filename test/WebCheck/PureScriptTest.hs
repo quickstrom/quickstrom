@@ -9,6 +9,7 @@ module WebCheck.PureScriptTest where
 
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Vector as Vector
+import qualified Data.Aeson as JSON
 import Data.Vector (Vector)
 import Language.PureScript (Ident, Qualified, nullSourceSpan)
 import Language.PureScript.CoreFn
@@ -17,6 +18,7 @@ import Protolude.Error (error)
 import System.Environment.Blank (getEnv)
 import Test.Tasty.Hspec hiding (Selector)
 import qualified WebCheck.Element as WebCheck
+import WebCheck.Trace (ObservedState (..))
 import WebCheck.PureScript
 import WebCheck.PureScript.Value
 
@@ -53,9 +55,9 @@ spec_purescript = beforeAll loadModules $ do
       runWithEntryPoint [mempty] (qualifiedName "WebCheck.PureScriptTest" "convertNum") p `shouldReturn` Right (1.0 :: Double)
     it "runs state monad" $ \p -> do
       runWithEntryPoint [mempty] (qualifiedName "WebCheck.PureScriptTest" "testState") p `shouldReturn` Right (0 :: Int)
-    let paragraphWithTextState :: Text -> QueriedElements
+    let paragraphWithTextState :: Text -> ObservedState
         paragraphWithTextState t =
-          HashMap.singleton "p" [HashMap.singleton (WebCheck.Property "textContent") (VString t)]
+          ObservedState (HashMap.singleton "p" [HashMap.singleton (WebCheck.Property "textContent") (JSON.String t)])
     it "returns one queried element's state" $ \p -> do
       runWithEntryPoint
         [paragraphWithTextState "hello"]
@@ -78,18 +80,18 @@ spec_purescript = beforeAll loadModules $ do
         Right (v :: Bool) -> expectationFailure ("Expected an error but got: " <> show v)
         Left msg -> toS msg `shouldContain` "cannot be determined"
   describe "TodoMVC" . beforeWith (loadProgram' "specs/TodoMVC.purs") $ do
-    let todoMvcState :: Text -> Text -> Text -> Vector (Text, Bool) -> QueriedElements
+    let todoMvcState :: Text -> Text -> Text -> Vector (Text, Bool) -> ObservedState
         todoMvcState newTodo selected count todoItems =
-          ( HashMap.fromList
-              [ (WebCheck.Selector ".new-todo", [HashMap.singleton (WebCheck.Property "value") (VString newTodo)]),
-                (WebCheck.Selector ".todoapp .filters .selected", [HashMap.singleton (WebCheck.Property "textContent") (VString selected)]),
+          ( ObservedState $ HashMap.fromList
+              [ (WebCheck.Selector ".new-todo", [HashMap.singleton (WebCheck.Property "value") (JSON.String newTodo)]),
+                (WebCheck.Selector ".todoapp .filters .selected", [HashMap.singleton (WebCheck.Property "textContent") (JSON.String selected)]),
                 ( WebCheck.Selector ".todo-list li",
-                  [HashMap.singleton (WebCheck.Property "textContent") (VString todo) | (todo, _) <- Vector.toList todoItems]
+                  [HashMap.singleton (WebCheck.Property "textContent") (JSON.String todo) | (todo, _) <- Vector.toList todoItems]
                 ),
                 ( WebCheck.Selector ".todo-list li input[type=checkbox]",
-                  [HashMap.singleton (WebCheck.Property "checked") (VBool checked) | (_, checked) <- Vector.toList todoItems]
+                  [HashMap.singleton (WebCheck.Property "checked") (JSON.Bool checked) | (_, checked) <- Vector.toList todoItems]
                 ),
-                (WebCheck.Selector ".todoapp .todo-count strong", [HashMap.singleton (WebCheck.Property "textContent") (VString count)])
+                (WebCheck.Selector ".todoapp .todo-count strong", [HashMap.singleton (WebCheck.Property "textContent") (JSON.String count)])
               ]
           )
     it "succeeds with correct states" $ \p -> do

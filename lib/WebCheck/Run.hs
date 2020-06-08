@@ -30,6 +30,7 @@ import qualified Data.Aeson as JSON
 import Data.Function ((&))
 import Data.Functor (($>))
 import Data.Generics.Product (field)
+import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
 import Data.HashSet (HashSet)
 import qualified Data.List.NonEmpty as NonEmpty
@@ -49,10 +50,9 @@ import qualified Test.QuickCheck as QuickCheck
 import Test.Tasty.HUnit (assertFailure)
 import Web.Api.WebDriver hiding (Action, Selector, assertFailure, hPutStrLn, runIsolated)
 import WebCheck.Element
-import WebCheck.Query
 import WebCheck.Path
-import WebCheck.Result
 import WebCheck.Pretty
+import WebCheck.Result
 import WebCheck.Specification
 import WebCheck.Trace
 
@@ -157,7 +157,9 @@ beforeRun spec = do
   initializeScript
   awaitElement (readyWhen spec)
 
-observeManyStatesAfter :: HashSet Query -> ObservedState -> Action Selected -> Pipe a (TraceElement ()) Runner ObservedState
+type Queries = HashMap Selector (HashSet ElementState)
+
+observeManyStatesAfter :: Queries -> ObservedState -> Action Selected -> Pipe a (TraceElement ()) Runner ObservedState
 observeManyStatesAfter queries' initialState action = do
   result <- lift (runAction action)
   delta <- getNextOrFail =<< lift (registerNextStateObserver queries')
@@ -393,14 +395,14 @@ executeAsyncScript' script args = do
     JSON.Success a -> pure a
     JSON.Error e -> fail e
 
-observeStates :: HashSet Query -> WebDriverT IO ObservedState
+observeStates :: Queries -> WebDriverT IO ObservedState
 observeStates queries' =
   executeScript' "return wtp.mapToArray(window.wtp.observeInitialStates(arguments[0]))" [JSON.toJSON queries']
 
 newtype StateObserver = StateObserver Text
   deriving (Eq, Show)
 
-registerNextStateObserver :: HashSet Query -> Runner StateObserver
+registerNextStateObserver :: Queries -> Runner StateObserver
 registerNextStateObserver queries' =
   StateObserver
     <$> executeScript'

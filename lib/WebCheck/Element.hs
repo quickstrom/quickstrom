@@ -26,10 +26,14 @@ newtype Element = Element {ref :: Text}
 instance JSON.ToJSON Element where
   toJSON (Element e) = JSON.object ["element-6066-11e4-a52e-4f735466cecf" JSON..= e]
 
+instance JSON.ToJSONKey Element
+
 instance JSON.FromJSON Element where
   parseJSON = withObject "Element" $ \o -> do
     e <- o JSON..: "element-6066-11e4-a52e-4f735466cecf"
     pure (Element e)
+
+instance JSON.FromJSONKey Element
 
 data ElementState
   = Attribute Text
@@ -55,6 +59,8 @@ instance JSON.ToJSON ElementState where
     Text -> JSON.object ["tag" .= ("text" :: Text)]
     Enabled -> JSON.object ["tag" .= ("enabled" :: Text)]
 
+instance JSON.ToJSONKey ElementState
+
 instance JSON.FromJSON ElementState where
   parseJSON = withObject "ElementState" $ \o -> do
     tag <- o JSON..: "tag"
@@ -66,5 +72,10 @@ instance JSON.FromJSON ElementState where
       "text" -> pure Text
       t -> parseFail ("Invalid tag: " <> t <> " in object: " <> show o)
 
+instance JSON.FromJSONKey ElementState
+
 newtype Selector = Selector Text
-  deriving (Eq, Ord, Show, IsString, Generic, Hashable, Pretty)
+  deriving (Eq, Ord, Show, IsString, Generic, Hashable, Pretty, FromJSON, ToJSON)
+
+instance JSON.FromJSONKey Selector
+instance JSON.ToJSONKey Selector

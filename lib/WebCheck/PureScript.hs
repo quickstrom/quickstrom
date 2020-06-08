@@ -23,6 +23,7 @@
 module WebCheck.PureScript where
 
 import Control.Lens hiding (op)
+import Control.Monad.Except (liftEither)
 import Control.Monad.Fix (MonadFix)
 import Control.Monad.Trans.Writer.Strict (WriterT (runWriterT))
 import qualified Data.Aeson as JSON
@@ -33,6 +34,8 @@ import Data.Generics.Product (field)
 import Data.Generics.Sum (AsConstructor, _Ctor)
 import qualified Data.HashMap.Strict as HashMap
 import Data.HashMap.Strict (HashMap)
+import qualified Data.HashSet as HashSet
+import Data.HashSet (HashSet)
 import qualified Data.Map as Map
 import Data.Scientific
 import qualified Data.Text as Text
@@ -90,9 +93,9 @@ instance Pretty EvalError where
   pretty = \case
     UnexpectedError _ t -> "Unexpected error:" <+> pretty t
     UnexpectedType _ t val -> "Expected value of type" <+> pretty t <+> "but got" <+> pretty val
-    EntryPointNotDefined qn -> "Entry point not in scope:" <+> pretty (showQualified runIdent qn)
-    NotInScope _ qn -> "Not in scope:" <+> pretty (showQualified runIdent qn)
-    ForeignFunctionNotSupported _ qn -> "Foreign function is not supported in WebCheck:" <+> pretty (showQualified runIdent qn)
+    EntryPointNotDefined qn -> "Entry point not in scope:" <+> prettyQualifiedIdent qn
+    NotInScope _ qn -> "Not in scope:" <+> prettyQualifiedIdent qn
+    ForeignFunctionNotSupported _ qn -> "Foreign function is not supported in WebCheck:" <+> prettyQualifiedIdent qn
     InvalidString _ -> "Invalid string"
     InvalidBuiltInFunctionApplication _ _fn _param -> "Invalid function application"
     ForeignFunctionError _ t -> pretty t
@@ -109,6 +112,16 @@ prettySourceSpan ss =
     <> pretty (sourcePosLine (spanEnd ss))
     <> colon
     <> pretty (sourcePosColumn (spanEnd ss))
+
+prettyEvalErrorWithSourceSpan :: EvalError -> Doc ann
+prettyEvalErrorWithSourceSpan err =
+  let prefix = case errorSourceSpan err of
+        Just ss -> prettySourceSpan ss <> ":" <> line <> "error:"
+        Nothing -> "<no source information>" <> "error:"
+   in prefix <+> pretty err
+
+prettyQualifiedIdent :: Qualified Ident -> Doc ann
+prettyQualifiedIdent qn = pretty (showQualified runIdent qn)
 
 data EvalAnn = EvalAnn {annSourceSpan :: SourceSpan, annMeta :: Maybe Meta, annApplyForeign :: Maybe ApplyForeign}
   deriving (Show, Generic)
@@ -484,7 +497,7 @@ data Program
   deriving (Show)
 
 programQualifiedName :: Text -> Program -> Qualified Ident
-programQualifiedName name p = 
+programQualifiedName name p =
   Qualified (Just (moduleName (programMain p))) (Ident name)
 
 loadProgram :: Modules -> Text -> IO (Either Text Program)
@@ -504,6 +517,7 @@ data SpecificationProgram
       { specificationOrigin :: WebCheck.Path,
         specificationReadyWhen :: WebCheck.Selector,
         specificationActions :: [WebCheck.Action WebCheck.Selector],
+        specificationQueries :: WebCheck.Queries,
         specificationProgram :: Program
       }
 
@@ -516,24 +530,62 @@ instance WebCheck.Specification SpecificationProgram where
     let entry = programQualifiedName "proposition" p
     valid <- require (moduleSourceSpan (programMain p)) (Proxy @"VBool") =<< evalEntryPoint entry p
     if valid then pure WebCheck.Accepted else pure WebCheck.Rejected
+  queries = specificationQueries
+
+extractQueries :: Program -> Either EvalError (HashMap WebCheck.Selector (HashSet WebCheck.ElementState))
+extractQueries prog =
+  let qn = programQualifiedName "proposition" prog
+   in runEval [mempty] (runReaderT (extractQualified qn) Nothing)
+  where
+    env' = programEnv prog
+    ss = moduleSourceSpan (programMain prog)
+    extractQualified :: Qualified Ident -> ReaderT (Maybe (Qualified Ident)) Eval WebCheck.Queries
+    extractQualified qn = do
+      current <- ask
+      if current == Just qn
+        then pure mempty
+        else case envLookup qn (programEnv prog) of
+          Just (Left expr) -> local (const (Just qn)) (extractFromExpr expr)
+          Just (Right (VDefer (Defer _ expr))) -> extractFromExpr expr
+          Just (Right _) -> throwError (UnexpectedError (Just ss) ("Expected proposition to be an expression: " <> showQualified runIdent qn))
+          Nothing -> pure mempty
+    extractFromExpr :: Expr EvalAnn -> ReaderT (Maybe (Qualified Ident)) Eval WebCheck.Queries
+    extractFromExpr = extract
+      where
+        (_, extract, _, _) =
+          everythingOnValues
+            (liftA2 (HashMap.unionWith (<>)))
+            (const (pure mempty))
+            ( \case
+                App _ (BuiltIn "_queryAll" _ p) q -> lift $ do
+                  selector <- require (sourceSpan p) (Proxy @"VString") =<< eval env' p
+                  wantedStates <- require (sourceSpan q) (Proxy @"VObject") =<< eval env' q
+                  elementStates <- for (HashMap.elems wantedStates) (require (sourceSpan q) (Proxy @"VElementState"))
+                  pure (HashMap.singleton (WebCheck.Selector selector) (HashSet.fromList elementStates))
+                Var _ qn -> extractQualified qn
+                _ -> pure mempty
+            )
+            (const (pure mempty))
+            (const (pure mempty))
 
 loadSpecification :: Modules -> Text -> IO (Either Text SpecificationProgram)
 loadSpecification ms input = runExceptT $ do
   p <- ExceptT (loadProgram ms input)
-  either (throwError . prettyText . pretty) pure . runEval [mempty] $ do
+  either (throwError . prettyText . prettyEvalErrorWithSourceSpan) pure . runEval [mempty] $ do
     let ss = (moduleSourceSpan (programMain p))
     origin <- toHaskellValue ss =<< evalEntryPoint (programQualifiedName "origin" p) p
     readyWhen <- toHaskellValue ss =<< evalEntryPoint (programQualifiedName "readyWhen" p) p
-    actions <- toHaskellValue ss =<< evalEntryPoint (programQualifiedName "proposition" p) p
+    actions <- toHaskellValue ss =<< evalEntryPoint (programQualifiedName "actions" p) p
+    queries <- liftEither (extractQueries p)
     pure
-        ( SpecificationProgram
-            { specificationOrigin = WebCheck.Path origin,
+      ( SpecificationProgram
+          { specificationOrigin = WebCheck.Path origin,
             specificationReadyWhen = WebCheck.Selector readyWhen,
             specificationActions = actions,
+            specificationQueries = queries,
             specificationProgram = p
-            }
-        )
-   
+          }
+      )
 
 loadSpecificationFile :: Modules -> FilePath -> IO (Either Text SpecificationProgram)
 loadSpecificationFile ms input = loadSpecification ms =<< readFile input
@@ -548,11 +600,7 @@ runWithEntryPoint :: forall a. ToHaskellValue a => [WebCheck.ObservedState] -> Q
 runWithEntryPoint observedStates entry prog = runExceptT $ do
   case runEval observedStates (evalEntryPoint entry prog >>= toHaskellValue entrySS) of
     Right value -> pure value
-    Left err ->
-      let prefix = case errorSourceSpan err of
-            Just ss -> prettySourceSpan ss <> ":" <> line <> "error:"
-            Nothing -> "<no source information>" <> "error:"
-       in throwError (prettyText (prefix <+> pretty err))
+    Left err -> throwError (prettyText (prettyEvalErrorWithSourceSpan err))
 
 prettyText :: Doc ann -> Text
 prettyText x = renderStrict (layoutPretty defaultLayoutOptions x)

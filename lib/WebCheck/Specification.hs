@@ -21,9 +21,11 @@ import WebCheck.Trace
 
 type ActionGenerator = Gen (Action Selector)
 
+type Queries = HashMap Selector (HashSet ElementState)
+
 class Specification s where
   origin :: s -> Path
   readyWhen :: s -> Selector
   actions :: s -> ActionGenerator
-  queries :: s -> HashMap Selector (HashSet ElementState)
-  verify :: s -> [ObservedState] -> Either (Doc AnsiStyle) Result
+  queries :: s -> Queries
+  verify :: s -> [ObservedState] -> Either (Doc ann) Result

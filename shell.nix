@@ -21,13 +21,13 @@ let
 
   purescript-webcheck = import ./purescript-webcheck { inherit pkgs; };
 
-  wtp = pkgs.haskell.lib.justStaticExecutables (pkgs.haskell.lib.dontHaddock
-    (haskellPackages.callCabal2nix "wtp" ./. {
+  webcheck = pkgs.haskell.lib.justStaticExecutables (pkgs.haskell.lib.dontHaddock
+    (haskellPackages.callCabal2nix "webcheck" ./. {
     }));
 
 in haskellPackages.shellFor {
   withHoogle = true;
-  packages = p: [wtp];
+  packages = p: [webcheck];
   buildInputs = (with pkgs;
   [
     # ghcid

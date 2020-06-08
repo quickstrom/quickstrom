@@ -31,8 +31,19 @@ main =
         modules <- ExceptT (WebCheck.loadLibraryModules libraryPath)
         ExceptT (WebCheck.loadSpecificationFile modules specPath)
       case specResult of
-        Left err -> pure ()
-        Right spec -> WebCheck.check spec
+        Left err -> do
+          hPutStrLn stderr err
+          exitWith (ExitFailure 1)
+        Right spec ->
+          putStrLn @Text ("We have a spec with queries: " <> show (WebCheck.specificationQueries spec))
+          -- WebCheck.check spec
+    [arg] | arg `elem` ["help", "--help", "-h"] -> usage
+    _ -> do
+      usage
+      exitWith (ExitFailure 1)
+  where
+    usage :: IO ()
+    usage = hPutStrLn stderr ("Usage: webcheck <LIBRARY_PATH> <SPEFICATION_PATH>" :: Text)
 {-
 
 -- Simple example: a button that can be clicked, which then shows a message

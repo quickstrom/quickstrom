@@ -157,8 +157,6 @@ beforeRun spec = do
   initializeScript
   awaitElement (readyWhen spec)
 
-type Queries = HashMap Selector (HashSet ElementState)
-
 observeManyStatesAfter :: Queries -> ObservedState -> Action Selected -> Pipe a (TraceElement ()) Runner ObservedState
 observeManyStatesAfter queries' initialState action = do
   result <- lift (runAction action)

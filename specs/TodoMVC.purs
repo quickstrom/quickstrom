@@ -14,10 +14,10 @@ origin = "http://todomvc.com/examples/angularjs/"
 readyWhen :: Selector
 readyWhen = ".todoapp"
 
-actions :: Actions
+actions :: Array Action
 actions = foci <> clicks <> pure (keyPress 'a')
 
-proposition :: Bool
+proposition :: Boolean
 proposition =
   initial
   && always (enterText

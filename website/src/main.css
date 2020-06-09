@@ -1,0 +1,104 @@
+body {
+    font-family: 'Open Sans', sans-serif;
+    margin: 0 auto;
+    line-height: 1.6;
+    font-size: 16px;
+}
+
+*, *:before, *:after {
+    box-sizing: border-box;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 500;
+}
+
+h1 {
+    font-size: 500%;
+    margin: 0;
+}
+
+a {
+    color: inherit;
+}
+
+.subtitle {
+    margin: 0;
+    font-size: 175%;
+}
+
+h2 {
+    font-size: 250%;
+    margin: 0 0 1rem 0;
+}
+
+h3 {
+    font-size: 150%;
+}
+
+section {
+    display: flex;
+    justify-content: center;
+    background: #eee;
+}
+
+section .inner {
+    flex: 0 1 800px;
+    padding: 8rem 3rem;
+    max-width: 1000px;
+}
+
+section ul {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+section li {
+    flex: 1 1 33%;
+    margin-right: 2em;
+}
+section li:last-child {
+    margin-right: 0;
+}
+
+section.header {
+    background: rgb(44,25,83);
+    background: linear-gradient(144deg, rgba(44,25,83,1) 0%, rgba(83,41,170,1) 100%);
+    color: #fff;
+}
+
+section.why-webcheck .inner {
+    flex-basis: 1200px;
+}
+
+section.sign-up {
+    background: #222;
+    color: #eee;
+}
+section.sign-up form {
+    display: flex;
+    margin: 2rem 0;
+}
+section.sign-up input {
+    flex: 1 1 auto;
+    font-size: 125%;
+    padding: .5em;
+}
+section.sign-up input[type=submit] {
+    flex: 0 1 auto;
+    margin-left: 4px;
+}
+section.sign-up .powered-by {
+    color: #666;
+}
+section.footer {
+    background: #111;
+    color: #444;
+}
+section.footer .inner {
+    padding: 1rem 3rem;
+}

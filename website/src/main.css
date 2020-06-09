@@ -3,6 +3,7 @@ body {
     margin: 0 auto;
     line-height: 1.6;
     font-size: 16px;
+    color: #111;
 }
 
 *, *:before, *:after {
@@ -63,6 +64,16 @@ section li {
 }
 section li:last-child {
     margin-right: 0;
+}
+
+@media screen and (max-width: 800px) {
+    section ul {
+        flex-wrap: wrap;
+    }
+    section li {
+        flex: 1 1 100%;
+        margin-right: 0;
+    }
 }
 
 section.header {

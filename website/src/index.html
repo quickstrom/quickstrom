@@ -20,56 +20,75 @@
           <ul>
             <li>
               <h3>Find complex bugs</h3>
-              <p>WebCheck simulates complex user behavior using
-                generative random testing. It automatically discovers
-                possible actions and reports back with minimal failing
-                examples.</p>
+              <p>WebCheck simulates thousands of complex user
+                behaviors using generative random testing. When the
+                specification is violated, WebCheck finds a minimal
+                failing example.</p>
             </li>
             <li>
               <h3>Understand your system</h3>
               <p>Focus on specifying your system, not on writing test
-                cases. Writing a specification not only let's you run
-                WebCheck, but also increases your team's understanding of the
+                cases. A formal specification lets you run WebCheck,
+                but can also increase your team's understanding of the
                 system.</p>
             </li>
             <li>
               <h3>Adopt gradually</h3>
-              <p>WebCheck works with any web application rendering DOM
-                elements. Start simple, and gradually refine your
+              <p>WebCheck works with any web application that renders
+                DOM elements. Start simple, and gradually refine your
                 specification to increase coverage and confidence.</p>
             </li>
           </ul>
-        </div>
-      </section>
-      <section class="sign-up">
-        <div class="inner">
-          <h2>Tell me more!</h2>
-          <p class="signup-message">Sign up for the newsletter to learn
-            more and get project updates.</p>
-          <form
-            action="https://buttondown.email/api/emails/embed-subscribe/webcheck"
-            method="post"
-            target="popupwindow"
-            onsubmit="window.open('https://buttondown.email/webcheck', 'popupwindow')"
-            class="embeddable-buttondown-form"
-            >
-            <input placeholder="Enter your email" type="email" name="email" id="bd-email">
-            <input type="hidden" value="1" name="embed"></input>
-            <input type="submit" value="Subscribe"></input>
-          </form>
-          <p class="powered-by">
-            The newsletter is powered
-            by <a href="https://buttondown.email/webcheck">ButtonDown</a>.
+          <h2>I'm interested!</h2>
+          <p>Great! WebCheck is currently in the making. Early
+            prototypes showed very promising results, and a simple
+            specification
+            found <a href="https://github.com/tastejs/todomvc/issues/2116">inconsistencies
+            in two mainstream implementations of TodoMVC</a>. The
+            upcoming implementation features a PureScript-based
+            specification language, inspired by TLA+.
           </p>
+          <p>The first publicly available version will likely be a
+            SaaS product, possibly with a free version for open-source
+            projects. Longer-term plans include an integrated online
+            editor for specifications, powerful debugging and
+            introspection tools for troubleshooting failed tests, and
+            tight integration with GitHub and CI services.</p>
+          <p>Subscribe to the newsletter below and get updates on the
+            project, and <a href="https://twitter.com/owickstrom">find
+            me on Twitter</a> and give feedback.</p>
         </div>
-      </section>
-      <section class="footer">
-        <div class="inner">
-          <p>Copyright 2020
-            &copy; <a href="https://wickstrom.tech/">Oskar
-              Wickström</a> </p>
-        </div>
-      </section>
-    </main>
-  </body>
+</div>
+</section>
+<section class="sign-up">
+  <div class="inner">
+    <h2>Stay Tuned</h2>
+    <p class="signup-message">Sign up for the newsletter to learn
+      more and get project updates. No spam, promise.</p>
+    <form
+      action="https://buttondown.email/api/emails/embed-subscribe/webcheck"
+      method="post"
+      target="popupwindow"
+      onsubmit="window.open('https://buttondown.email/webcheck', 'popupwindow')"
+      class="embeddable-buttondown-form"
+      >
+      <input placeholder="Enter your email" type="email" name="email" id="bd-email">
+      <input type="hidden" value="1" name="embed"></input>
+      <input type="submit" value="Subscribe"></input>
+    </form>
+    <p class="powered-by">
+      The newsletter is powered
+      by <a href="https://buttondown.email/webcheck">ButtonDown</a>.
+    </p>
+  </div>
+</section>
+<section class="footer">
+  <div class="inner">
+    <p>Copyright 2020
+      &copy; <a href="https://wickstrom.tech/">Oskar
+        Wickström</a> </p>
+  </div>
+</section>
+</main>
+</body>
 </html>

@@ -158,12 +158,19 @@ sourceSpan :: Expr EvalAnn -> SourceSpan
 sourceSpan = annSourceSpan . extractAnn
 
 require ::
-  forall (ctor :: Symbol) s t a b ann.
-  (KnownSymbol ctor, AsConstructor ctor s t a b, ann ~ EvalAnn, s ~ Value ann, t ~ Value ann, a ~ b) =>
+  forall (ctor :: Symbol) s t a b ann m.
+  ( KnownSymbol ctor,
+    AsConstructor ctor s t a b,
+    ann ~ EvalAnn,
+    s ~ Value ann,
+    t ~ Value ann,
+    a ~ b,
+    MonadError EvalError m
+  ) =>
   SourceSpan ->
   Proxy ctor ->
   Value ann ->
-  Eval b
+  m b
 require ss (ctor :: Proxy ctor) v = case v ^? _Ctor @ctor of
   Just x -> pure x
   Nothing -> unexpectedType ss (Text.drop 1 (Text.pack (symbolVal ctor))) v
@@ -222,7 +229,7 @@ asQualifiedName :: Qualified Ident -> Maybe (Text, Text)
 asQualifiedName (Qualified (Just (ModuleName mn)) n) = Just (mn, runIdent n)
 asQualifiedName _ = Nothing
 
-accessField :: SourceSpan -> Text -> HashMap Text (Value EvalAnn) -> Eval (Value EvalAnn)
+accessField :: MonadError EvalError m => SourceSpan -> Text -> HashMap Text (Value EvalAnn) -> m (Value EvalAnn)
 accessField ss key obj =
   maybe
     (throwError (UnexpectedError (Just ss) ("Key not present in object: " <> key)))
@@ -548,7 +555,7 @@ instance WebCheck.Specification SpecificationProgram where
   queries = specificationQueries
 
 extractQueries :: Program -> Either EvalError (HashMap WebCheck.Selector (HashSet WebCheck.ElementState))
-extractQueries prog = _
+extractQueries prog = pure mempty -- TODO
 
 {-
   let qn = programQualifiedName "proposition" prog
@@ -634,8 +641,8 @@ data ForeignFunction
         evalFn :: (SourceSpan -> [Value EvalAnn] -> Eval (Value EvalAnn))
       }
 
-foreignFunction :: (ForeignFunctionArity f, EvalForeignFunction f) => f -> ForeignFunction
-foreignFunction (f :: f) =
+foreignFunction :: (ForeignFunctionArity f, EvalForeignFunction m f) => Proxy m -> f -> ForeignFunction
+foreignFunction _ (f :: f) =
   ForeignFunction
     (foreignFunctionArity (Proxy :: Proxy f))
     (evalForeignFunction f)
@@ -649,24 +656,24 @@ instance ForeignFunctionArity b => ForeignFunctionArity (a -> b) where
 instance {-# OVERLAPPABLE #-} ForeignFunctionArity a where
   foreignFunctionArity _ = 0
 
-foreignFunctionArityMismatch :: SourceSpan -> Eval a
+foreignFunctionArityMismatch :: MonadError EvalError m => SourceSpan -> m a
 foreignFunctionArityMismatch ss = throwError (ForeignFunctionError (Just ss) "Foreign function arity mismatch")
 
-class EvalForeignFunction f where
-  evalForeignFunction :: f -> SourceSpan -> [Value EvalAnn] -> Eval (Value EvalAnn)
+class Monad m => EvalForeignFunction m f where
+  evalForeignFunction :: MonadError EvalError m => f -> SourceSpan -> [Value EvalAnn] -> m (Value EvalAnn)
 
-instance {-# OVERLAPPABLE #-} FromHaskellValue a => EvalForeignFunction (Eval a) where
-  evalForeignFunction x _ [] = fromHaskellValue <$> x
+instance {-# OVERLAPPABLE #-} FromHaskellValue a => EvalForeignFunction m a where
+  evalForeignFunction x _ [] = pure (fromHaskellValue x)
   evalForeignFunction _ ss _ = foreignFunctionArityMismatch ss
 
-instance {-# OVERLAPPING #-} (ToHaskellValue a, EvalForeignFunction b) => EvalForeignFunction (a -> b) where
+instance {-# OVERLAPPING #-} (ToHaskellValue a, EvalForeignFunction m b) => EvalForeignFunction m (a -> b) where
   evalForeignFunction f ss (v : vs) = do
     a <- toHaskellValue ss v
     evalForeignFunction (f a) ss vs
   evalForeignFunction _ ss [] = foreignFunctionArityMismatch ss
 
 class ToHaskellValue r where
-  toHaskellValue :: SourceSpan -> Value EvalAnn -> Eval r
+  toHaskellValue :: MonadError EvalError m => SourceSpan -> Value EvalAnn -> m r
 
 instance ToHaskellValue (Value EvalAnn) where
   toHaskellValue _ = pure
@@ -760,7 +767,7 @@ foreignFunctions =
       (qualifiedName "Data.Array" "indexImpl", foreignFunction indexImpl),
       (qualifiedName "Data.Array" "length", foreignFunction len),
       (qualifiedName "Data.Array" "filter", foreignFunction filterArray),
-      (qualifiedName "Data.Bounded" "bottomInt", foreignFunction (op0  @Int minBound)),
+      (qualifiedName "Data.Bounded" "bottomInt", foreignFunction (op0 @Int minBound)),
       (qualifiedName "Data.Bounded" "topInt", foreignFunction (op0 @Int maxBound)),
       (qualifiedName "Data.Eq" "eqBooleanImpl", foreignFunction (op2 ((==) @Bool))),
       (qualifiedName "Data.Eq" "eqIntImpl", foreignFunction (op2 ((==) @Int))),

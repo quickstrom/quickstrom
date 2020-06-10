@@ -3,6 +3,8 @@
   <head>
     <meta charset="UTF-8"/>
     <title>WebCheck</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Exploratory testing, automated." />
     <link href="main.css" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Oswald:wght@500&display=swap" rel="stylesheet"> 
   </head>
@@ -15,7 +17,11 @@
             <p class="subtitle">Exploratory testing, automated.</p>
           </div>
           <div class="project-image">
-            <img width="557" height="555" alt="WebCheck specification" src="code.png"/>
+            <picture>
+              <source srcset="example.webp" type="image/webp"/>
+              <source srcset="example.jpg" type="image/jpeg"/> 
+              <img width="557" height="555" alt="WebCheck specification" src="example.jpg"/>
+            </picture>
           </div>
         </div>
       </section>
@@ -49,7 +55,7 @@
             prototypes showed very promising results, and a simple
             specification
             found <a href="https://github.com/tastejs/todomvc/issues/2116">inconsistencies
-            in two mainstream implementations of TodoMVC</a>. The
+              in two mainstream implementations of TodoMVC</a>. The
             upcoming implementation features a PureScript-based
             specification language, inspired by TLA+.
           </p>
@@ -61,7 +67,7 @@
             tight integration with GitHub and CI services.</p>
           <p>Subscribe to the newsletter below and get updates on the
             project, and <a href="https://twitter.com/owickstrom">find
-            me on Twitter</a> and give feedback.</p>
+              me on Twitter</a> and give feedback.</p>
         </div>
 </div>
 </section>

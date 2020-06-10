@@ -15,40 +15,18 @@ h1, h2, h3, h4, h5, h6 {
     font-weight: 500;
 }
 
-h1 {
-    font-size: 500%;
-    margin: 0 0 1rem;
-    line-height: 1.1;
-}
-
-h1:after {
-    display: inline-block;
-    content: "Coming soon!";
-    text-transform: uppercase;
-    font-size: 16px;
-    vertical-align: top;
-    color: #dc0;
-    letter-spacing: 1px;
-    padding: .25em .5em;
-    border-radius: 2px;
-}
-
 a {
     color: inherit;
 }
 
-.subtitle {
-    margin: 0;
-    font-size: 175%;
-}
-
 h2 {
     font-size: 250%;
-    margin: 1.5rem 0;
+    margin: 1em 0 .5em 0;
 }
 
 h3 {
     font-size: 150%;
+    margin: 1em 0 0 0;
 }
 
 section {
@@ -61,6 +39,11 @@ section .inner {
     flex: 0 1 1200px;
     padding: 8rem 3rem;
     max-width: 1200px;
+}
+@media screen and (max-width: 800px) {
+    section .inner {
+        padding: 4rem 1rem;
+    }
 }
 
 section :first-child {
@@ -105,15 +88,57 @@ section.header .inner {
 }
 section.header .project-name {
     flex: 1 0 auto;
+    padding: 1rem 1rem 1rem 3rem;
+    font-size: 100%;
 }
-section.header .project-image {
+section.header .project-name h1 {
+    font-size: 500%;
+    margin: 0 0 1rem;
+    line-height: 1.1;
+}
+
+section.header .project-name .subtitle {
+    margin: 0;
+    font-size: 175%;
+}
+
+
+section.header .project-name h1:after {
+    display: inline-block;
+    content: "Coming soon!";
+    text-transform: uppercase;
+    font-size: 25%;
+    vertical-align: top;
+    color: #dc0;
+    letter-spacing: 1px;
+    padding: .25em .5em;
+    border-radius: 2px;
 }
 section.header img {
     opacity: 0.8;
     transition: 0.2s ease opacity;
+    width: 100%;
+    max-width: 557px;
+    height: auto;
 }
 section.header img:hover {
     opacity: 1;
+}
+@media screen and (max-width: 800px) {
+    section.header .project-name {
+        margin-top: 4rem;
+        padding: 1rem;
+        font-size: 75%;
+    }
+    section.header .subtitle {
+        font-size: 125%;
+    }
+    section.header .inner {
+        flex-direction: column;
+    }
+    section.header img {
+        opacity: 1;
+    }
 }
 
 section.why-webcheck .inner {
@@ -138,11 +163,22 @@ section.sign-up input[type=submit] {
     margin-left: 4px;
 }
 section.sign-up .powered-by {
-    color: #666;
+    color: #aaa;
 }
+@media screen and (max-width: 800px) {
+    section.sign-up form {
+        flex-direction: column;
+    }
+    section.sign-up input[type=submit] {
+        flex: 0 1 auto;
+        margin: 4px 0 0;
+    }
+}
+
+
 section.footer {
     background: #111;
-    color: #444;
+    color: #888;
 }
 section.footer .inner {
     padding: 1rem 3rem;

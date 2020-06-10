@@ -17,13 +17,6 @@
             <h1>WebCheck</h1>
             <p class="subtitle">Exploratory testing, automated.</p>
           </div>
-          <div class="project-image">
-            <picture>
-              <source srcset="example.webp" type="image/webp"/>
-              <source srcset="example.jpg" type="image/jpeg"/> 
-              <img width="557" height="555" alt="WebCheck specification" src="example.jpg"/>
-            </picture>
-          </div>
         </div>
       </section>
       <section class="why-webcheck">
@@ -37,9 +30,9 @@
               <div class="content">
                 <h3>Reduce testing effort</h3>
                 <p>Generate thousands of test cases instead of writing
-                them manually. Lower the maintenance burden of your
-                browser testing by writing concise specifications with
-                looser coupling.</p>
+                  them manually. Lower the maintenance burden of your
+                  browser testing by writing concise specifications with
+                  looser coupling to your implementation.</p>
               </div>
             </li>
             <li>
@@ -60,10 +53,10 @@
               </div>
               <div class="content">
                 <h3>Understand your system</h3>
-                <p>Focus on specifying your system, not on writing test
-                  cases. A formal specification lets you run WebCheck,
-                  but can also increase your team's understanding of the
-                  system.</p>
+                <p>Focus on specifying your system, not on writing
+                  test cases. A specification lets you run WebCheck,
+                  but can also increase your team's understanding of
+                  the system.</p>
               </div>
             </li>
             <li>
@@ -78,56 +71,109 @@
               </div>
             </li>
           </ul>
+        </div>
+      </section>
+      <section class="what-does-it-look-like">
+        <div class="inner">
+          <h2>What does it look like?</h2>
+          <p>The following specification (code on the left) tests a button that toggles between two states.</p>
+          <table class="code-sample">
+            <tbody>
+              <tr>
+                <td>
+                  <pre>origin = "example.com/toggle.html"</pre>
+                </td>
+                <td>The URL where the testing starts. WebCheck can navigate to different pages, but it always starts at the given origin.</td>
+              </tr>
+              <tr>
+                <td>
+                  <pre>readyWhen = "button"</pre>
+                </td>
+                <td>It waits for the "button" element to be ready before taking any action.</td>
+              </tr>
+              <tr>
+                <td>
+                  <pre>actions = clicks</pre>
+                </td>
+                <td>Actions are drawn from the <code>clicks</code> generator.</td>
+              </tr>
+              <tr>
+                <td>
+                  <pre>proposition =
+  <strong>let</strong> on = buttonText == Just "Turn me off"
+      off = buttonText == Just "Turn me on"
+      turnOn = off && <strong>next</strong> on
+      turnOff = on && <strong>next</strong> off
+  <strong>in</strong> off && <strong>always</strong> (turnOn || turnOff)</pre>
+                </td>
+                <td>The "proposition" is describes the correctness of a web application. This proposition says that we start in the "off" state, and always perform the actions "turnOn" or "turnOff".</td>
+              </tr>
+              <tr>
+                <td>
+                  <pre>buttonText = <strong>do</strong>
+  b <- queryOne "button" { text: textContent }
+  pure b.text</pre>
+                         </td>
+                <td>This helper definition queries the DOM for an optional button text.</td>
+              </tr>
+            </tbody>
+
+
+
+          </table>
+        </div>
+      </section>
+      <section class="interest">
+        <div class="inner">
           <h2>I'm interested!</h2>
           <p>Great! WebCheck is currently in the making. Early
             prototypes showed very promising results, and a simple
             specification
             found <a href="https://github.com/tastejs/todomvc/issues/2116">inconsistencies
-              in two mainstream implementations of TodoMVC</a>. The
-            upcoming implementation features a PureScript-based
-            specification language, inspired by TLA+.
+              in two mainstream implementations of TodoMVC</a>.
           </p>
           <p>The first publicly available version will likely be a
             SaaS product, possibly with a free version for open-source
-            projects. Longer-term plans include an integrated online
-            editor for specifications, powerful debugging and
-            introspection tools for troubleshooting failed tests, and
-            tight integration with GitHub and CI services.</p>
+            projects. Longer-term plans include:</p>
+          <ul>
+            <li>an integrated online editor for writing specifications</li>
+            <li>powerful debugging and introspection tools for troubleshooting failed tests</li>
+            <li>tight integration with GitHub, GitLab, and various CI services</li>
+          </ul>
           <p>Subscribe to the newsletter below and get updates on the
             project, and <a href="https://twitter.com/owickstrom">find
               me on Twitter</a> and give feedback.</p>
         </div>
-</div>
-</section>
-<section class="sign-up">
-  <div class="inner">
-    <h2>Stay Tuned</h2>
-    <p class="signup-message">Sign up for the newsletter to learn
-      more and get project updates. No spam, promise.</p>
-    <form
-      action="https://buttondown.email/api/emails/embed-subscribe/webcheck"
-      method="post"
-      target="popupwindow"
-      onsubmit="window.open('https://buttondown.email/webcheck', 'popupwindow')"
-      class="embeddable-buttondown-form"
-      >
-      <input placeholder="Enter your email" type="email" name="email" id="bd-email">
-      <input type="hidden" value="1" name="embed"></input>
-      <input type="submit" value="Subscribe"></input>
-    </form>
-    <p class="powered-by">
-      The newsletter is powered
-      by <a href="https://buttondown.email/webcheck">ButtonDown</a>.
-    </p>
-  </div>
-</section>
-<section class="footer">
-  <div class="inner">
-    <p>Copyright 2020
-      &copy; <a href="https://wickstrom.tech/">Oskar
-        Wickström</a> </p>
-  </div>
-</section>
-</main>
-</body>
+      </section>
+      <section class="sign-up">
+        <div class="inner">
+          <h2>Stay Tuned</h2>
+          <p class="signup-message">Sign up for the newsletter to learn
+            more and get project updates. No spam, promise.</p>
+          <form
+            action="https://buttondown.email/api/emails/embed-subscribe/webcheck"
+            method="post"
+            target="popupwindow"
+            onsubmit="window.open('https://buttondown.email/webcheck', 'popupwindow')"
+            class="embeddable-buttondown-form"
+            >
+            <input placeholder="Enter your email" type="email" name="email" id="bd-email">
+            <input type="hidden" value="1" name="embed"></input>
+            <input type="submit" value="Subscribe"></input>
+          </form>
+          <p class="powered-by">
+            The newsletter is powered
+            by <a href="https://buttondown.email/webcheck">ButtonDown</a>.
+          </p>
+        </div>
+      </section>
+      <section class="footer">
+        <div class="inner">
+          <p>Copyright 2020
+            &copy; <a href="https://wickstrom.tech/">Oskar
+              Wickström</a> </p>
+        </div>
+      </section>
+    </main>
+  </body>
 </html>

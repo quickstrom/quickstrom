@@ -29,6 +29,19 @@ h3 {
     margin: 1em 0 0 0;
 }
 
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+th, td {
+    text-align: left;
+    padding: .5em;
+    vertical-align: top;
+}
+th {
+    border-bottom: 2px solid #aaa;
+}
+
 section {
     display: flex;
     justify-content: center;
@@ -58,11 +71,9 @@ section.header {
 section.header .inner {
     display: flex;
     align-items: center;
-    padding: 0;
 }
 section.header .project-name {
     flex: 1 0 auto;
-    padding: 1rem 1rem 1rem 3rem;
     font-size: 100%;
 }
 section.header .project-name h1 {
@@ -88,16 +99,6 @@ section.header .project-name h1:after {
     padding: .25em .5em;
     border-radius: 2px;
 }
-section.header img {
-    opacity: 0.8;
-    transition: 0.2s ease opacity;
-    width: 100%;
-    max-width: 557px;
-    height: auto;
-}
-section.header img:hover {
-    opacity: 1;
-}
 @media screen and (max-width: 800px) {
     section.header .project-name {
         margin-top: 4rem;
@@ -109,9 +110,6 @@ section.header img:hover {
     }
     section.header .inner {
         flex-direction: column;
-    }
-    section.header img {
-        opacity: 1;
     }
 }
 
@@ -166,6 +164,26 @@ section.why-webcheck .content {
     }
 }
 
+section.what-does-it-look-like {
+    overflow-x: auto;
+    background: #fff;
+}
+section.what-does-it-look-like .inner {
+    overflow-x: auto;
+}
+table.code-sample {
+    width: 100%;
+    margin: 2em 0;
+    min-width: 800px;
+}
+table.code-sample td {
+    padding: 1em 0;
+}
+table.code-sample td:nth-child(2) {
+    color: #666;
+    font-style: italic;
+    padding-left: 2em;
+}
 
 section.sign-up {
     background: #222;

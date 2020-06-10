@@ -21,8 +21,11 @@ let
 
   purescript-webcheck = import ./purescript-webcheck { inherit pkgs; };
 
+
+  src = pkgs.nix-gitignore.gitignoreSource [] ./.;
+
   webcheck = pkgs.haskell.lib.justStaticExecutables (pkgs.haskell.lib.dontHaddock
-    (haskellPackages.callCabal2nix "webcheck" ./. {
+    (haskellPackages.callCabal2nix "webcheck" "${src}/webcheck.cabal" {
     }));
 
 in haskellPackages.shellFor {

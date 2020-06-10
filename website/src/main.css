@@ -187,6 +187,10 @@ section.what-does-it-look-like .inner {
     font-style: italic;
     padding-left: 2em;
 }
+.code-sample .error {
+    color: red;
+    font-weight: 600;
+}
 
 section.sign-up {
     background: #222;

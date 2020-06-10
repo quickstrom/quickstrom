@@ -99,17 +99,17 @@
               </tr>
               <tr>
                 <td>
-                  <pre>actions = clicks</pre>
-                </td>
-                <td>It generates only <code>click</code> actions.</td>
-              </tr>
-              <tr>
-                <td>
                   <pre>buttonText = <strong>do</strong>
   b <- queryOne ".play-pause" { textContent }
   pure b.textContent</pre>
                          </td>
                 <td>This helper definition finds an optional text for the play/pause button.</td>
+              </tr>
+              <tr>
+                <td>
+                  <pre>actions = clicks</pre>
+                </td>
+                <td>WebCheck generates <code>click</code> actions for all clickable elements.</td>
               </tr>
               <tr>
                 <td>
@@ -141,9 +141,9 @@ Test failed. Shrinking...
 4. click button[0]
 <span class="error">5. State
   • .play-pause
-      - textValue = "undefined"</span></pre>
+      - textContent = "undefined"</span></pre>
           </div>
-          <p>Looks like the pausing broke the record player!</p>
+          <p>Looks like pausing broke the record player!</p>
         </div>
       </section>
       <section class="roadmap">

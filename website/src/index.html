@@ -113,8 +113,8 @@
               <tr>
                 <td>
                   <pre>buttonText = <strong>do</strong>
-  b <- queryOne "button" { text: textContent }
-  pure b.text</pre>
+  b <- queryOne "button" { textContent }
+  pure b.textContent</pre>
                          </td>
                 <td>This helper definition finds an optional button text.</td>
               </tr>
@@ -127,11 +127,11 @@
 Test failed. Shrinking...
 1. State
   • button
-      - textValue = "Turn me on"
+      - textContent = "Turn me on"
 2. click button[0]
 3. State
   • button
-      - textValue = "Turn me off"
+      - textContent = "Turn me off"
 4. click button[0]
 5. State
   • button

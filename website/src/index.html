@@ -121,6 +121,24 @@
             </tbody>
           </table>
           </div>
+          <p>Now, let's run WebCheck with a broken implementation of <code>toggle.html</code>, and we get a minimal behavior that violates the specification:</p>
+          <div class="code-sample">
+          <pre>Running test with size: 10
+Test failed. Shrinking...
+1. State
+  • button
+      - textValue = "Turn me on"
+2. click button[0]
+3. State
+  • button
+      - textValue = "Turn me off"
+4. click button[0]
+5. State
+  • button
+      - textValue = "undefined"</pre>
+          </div>
+          <p>Looks like the toggling from <code>off</code>
+          to <code>on</code> button doesn't work that well!</p>
         </div>
       </section>
       <section class="roadmap">

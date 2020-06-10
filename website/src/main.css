@@ -84,7 +84,7 @@ section.header .project-name {
     margin: 4rem 0;
 }
 section.header .project-name h1 {
-    font-size: 500%;
+    font-size: 600%;
     margin: 1rem 0;
     line-height: 1.1;
 }
@@ -168,6 +168,7 @@ section.what-does-it-look-like .inner {
     overflow-x: hidden;
 }
 .code-sample {
+    background: #fffde4;
     width: 100%;
     overflow-x: auto;
     margin: 0 -1rem;

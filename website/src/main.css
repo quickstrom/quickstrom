@@ -170,21 +170,27 @@ section.why-webcheck .content {
 }
 
 section.what-does-it-look-like {
-    overflow-x: auto;
     background: #fff;
 }
 section.what-does-it-look-like .inner {
-    overflow-x: auto;
+    overflow-x: hidden;
 }
-table.code-sample {
+.code-sample {
+    width: 100%;
+    overflow-x: auto;
+    margin: 0 -1rem;
+    padding: 0 1rem;
+}
+.code-sample table {
     width: 100%;
     margin: 2em 0;
     min-width: 800px;
+    overflow-x: auto;
 }
-table.code-sample td {
+.code-sample td {
     padding: 1em 0;
 }
-table.code-sample td:nth-child(2) {
+.code-sample td:nth-child(2) {
     color: #666;
     font-style: italic;
     padding-left: 2em;
@@ -202,11 +208,15 @@ section.sign-up form {
 section.sign-up input {
     flex: 1 1 auto;
     font-size: 125%;
-    padding: .5em;
+    padding: .75em;
+    border: 0px;
+    border-radius: 0px;
 }
 section.sign-up input[type=submit] {
     flex: 0 1 auto;
     margin-left: 4px;
+    background: rgba(83,41,170,1);
+    color: #fff;
 }
 section.sign-up .powered-by {
     color: #aaaaa

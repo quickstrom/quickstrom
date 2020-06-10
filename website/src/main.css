@@ -50,32 +50,6 @@ section :first-child {
     margin-top: 0;
 }
 
-section ul {
-    display: flex;
-    align-items: flex-start;
-    justify-content: flex-start;
-    list-style-type: none;
-    padding: 0;
-    margin: 0 0 4em;
-}
-section li {
-    flex: 1 1 33%;
-    margin-right: 2em;
-}
-section li:last-child {
-    margin-right: 0;
-}
-
-@media screen and (max-width: 800px) {
-    section ul {
-        flex-wrap: wrap;
-    }
-    section li {
-        flex: 1 1 100%;
-        margin-right: 0;
-    }
-}
-
 section.header {
     background: rgb(44,25,83);
     background: linear-gradient(144deg, rgba(44,25,83,1) 0%, rgba(83,41,170,1) 100%);
@@ -144,6 +118,47 @@ section.header img:hover {
 section.why-webcheck .inner {
     flex-basis: 1200px;
 }
+section.why-webcheck ul {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    list-style-type: none;
+    padding: 0;
+    margin: 0 0 4em;
+}
+section.why-webcheck li {
+    flex: 0 1 50%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 1rem;
+}
+section.why-webcheck li:last-child {
+    margin-right: 0;
+}
+section.why-webcheck .icon {
+    flex: 0 0 6rem;
+    font-size: 400%;
+    color: #aaa;
+}
+section.why-webcheck .content {
+}
+
+@media screen and (max-width: 800px) {
+    section.why-webcheck ul {
+        flex-wrap: wrap;
+    }
+    section.why-webcheck li {
+        flex: 1 1 100%;
+        flex-direction: column;
+        margin: 1rem 0;
+    }
+    section.why-webcheck li h3 {
+        text-align: center;
+    }
+}
+
 
 section.sign-up {
     background: #222;
@@ -152,6 +167,7 @@ section.sign-up {
 section.sign-up form {
     display: flex;
     margin: 2rem 0;
+    max-width: 800px;
 }
 section.sign-up input {
     flex: 1 1 auto;
@@ -163,11 +179,15 @@ section.sign-up input[type=submit] {
     margin-left: 4px;
 }
 section.sign-up .powered-by {
-    color: #aaa;
+    color: #aaaaa
 }
 @media screen and (max-width: 800px) {
     section.sign-up form {
         flex-direction: column;
+    }
+    section.sign-up input {
+        width: 100%;
+        font-size: 100%;
     }
     section.sign-up input[type=submit] {
         flex: 0 1 auto;
@@ -179,9 +199,12 @@ section.sign-up .powered-by {
 section.footer {
     background: #111;
     color: #888;
+    font-size: 90%;
 }
 section.footer .inner {
-    padding: 1rem 3rem;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+    text-align: center;
 }
 section.footer p {
     margin: 1em 0;

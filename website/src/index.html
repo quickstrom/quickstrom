@@ -7,7 +7,7 @@
     <meta name="description" content="Exploratory testing, automated." />
     <link href="main.css" rel="stylesheet"/>
     <link href="font-awesome/css/all.css" rel="stylesheet"/>
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Oswald:wght@500&display=swap" rel="stylesheet"> 
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Oswald:wght@500&family=Inconsolata:wght@400;600&display=swap" rel="stylesheet"> 
   </head>
   <body>
     <main>
@@ -89,13 +89,13 @@
                 <td>
                   <pre>readyWhen = "button"</pre>
                 </td>
-                <td>It waits for the "button" element to be ready before taking any action.</td>
+                <td>It waits for a <code>&lt;button&gt;</code> DOM element to be ready before taking any action.</td>
               </tr>
               <tr>
                 <td>
                   <pre>actions = clicks</pre>
                 </td>
-                <td>Actions are drawn from the <code>clicks</code> generator.</td>
+                <td>It generates only <code>click</code> actions.</td>
               </tr>
               <tr>
                 <td>
@@ -106,7 +106,7 @@
       turnOff = on && <strong>next</strong> off
   <strong>in</strong> off && <strong>always</strong> (turnOn || turnOff)</pre>
                 </td>
-                <td>The "proposition" is describes the correctness of a web application. This proposition says that we start in the "off" state, and always perform the actions "turnOn" or "turnOff".</td>
+                <td>A proposition describes the correctness of a web application. Here we start in the <code>off</code> state, and a valid transition is either <code>turnOn</code> or <code>turnOff</code>.</td>
               </tr>
               <tr>
                 <td>
@@ -114,7 +114,7 @@
   b <- queryOne "button" { text: textContent }
   pure b.text</pre>
                          </td>
-                <td>This helper definition queries the DOM for an optional button text.</td>
+                <td>This helper definition finds an optional button text.</td>
               </tr>
             </tbody>
 

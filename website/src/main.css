@@ -78,12 +78,14 @@ section.header .inner {
     align-items: center;
 }
 section.header .project-name {
+    text-align: center;
     flex: 1 0 auto;
     font-size: 100%;
+    margin: 4rem 0;
 }
 section.header .project-name h1 {
     font-size: 500%;
-    margin: 0 0 1rem;
+    margin: 1rem 0;
     line-height: 1.1;
 }
 
@@ -93,21 +95,17 @@ section.header .project-name .subtitle {
 }
 
 
-section.header .project-name h1:after {
-    display: inline-block;
-    content: "Coming soon!";
+section.header .project-name .lead {
     text-transform: uppercase;
-    font-size: 25%;
-    vertical-align: top;
+    margin: 0;
     color: #dc0;
+    font-family: 'Oswald', sans-serif;
+    font-size: 125%;
+    font-weight: 600;
     letter-spacing: 1px;
-    padding: .25em .5em;
-    border-radius: 2px;
 }
 @media screen and (max-width: 800px) {
     section.header .project-name {
-        margin-top: 4rem;
-        padding: 1rem;
         font-size: 75%;
     }
     section.header .subtitle {
@@ -131,17 +129,22 @@ section.why-webcheck ul {
     margin: 0 0 4em;
 }
 section.why-webcheck li {
-    flex: 0 1 50%;
     display: flex;
-    flex-direction: row;
     align-items: center;
+    flex: 1 1 50%;
+    flex-direction: column;
     margin: 1rem 0;
+    padding: 1rem;
 }
+
 section.why-webcheck li:last-child {
     margin-right: 0;
 }
+section.why-webcheck li h3 {
+    text-align: center;
+}
 section.why-webcheck .icon {
-    flex: 0 0 8rem;
+    flex: 0 0 auto;
     font-size: 400%;
     color: #aaa;
     text-align: center;
@@ -153,19 +156,8 @@ section.why-webcheck .content {
 }
 
 @media screen and (max-width: 800px) {
-    section.why-webcheck ul {
-        flex-wrap: wrap;
-    }
     section.why-webcheck li {
-        flex: 1 1 100%;
-        flex-direction: column;
-        margin: 2rem 0;
-    }
-    section.why-webcheck li h3 {
-        text-align: center;
-    }
-    section.why-webcheck .icon {
-        flex: 0 0 auto;
+        flex-basis: 100%;
     }
 }
 

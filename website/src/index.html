@@ -99,9 +99,8 @@
               </tr>
               <tr>
                 <td>
-                  <pre>buttonText = <strong>do</strong>
-  b <- queryOne ".play-pause" { textContent }
-  pure b.textContent</pre>
+                  <pre>buttonText =
+  map _.textContent (queryOne ".play-pause" { textContent })</pre>
                          </td>
                 <td>This helper definition finds an optional text for the play/pause button.</td>
               </tr>

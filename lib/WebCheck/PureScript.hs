@@ -18,6 +18,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
@@ -62,68 +63,12 @@ import Text.Read (read)
 import qualified WebCheck.Action as WebCheck
 import qualified WebCheck.Element as WebCheck
 import qualified WebCheck.Path as WebCheck
+import WebCheck.PureScript.EvalError
+import WebCheck.PureScript.Pretty
 import WebCheck.PureScript.Value
 import qualified WebCheck.Result as WebCheck
 import qualified WebCheck.Specification as WebCheck
 import qualified WebCheck.Trace as WebCheck
-
-data EvalError
-  = UnexpectedError (Maybe SourceSpan) Text
-  | UnexpectedType (Maybe SourceSpan) Text (Value EvalAnn)
-  | EntryPointNotDefined (Qualified Ident)
-  | NotInScope SourceSpan (Qualified Ident)
-  | ForeignFunctionNotSupported SourceSpan (Qualified Ident)
-  | InvalidString SourceSpan
-  | InvalidBuiltInFunctionApplication SourceSpan (Expr EvalAnn) (Expr EvalAnn)
-  | ForeignFunctionError (Maybe SourceSpan) Text
-  | Undetermined
-  deriving (Show, Generic)
-
-errorSourceSpan :: EvalError -> Maybe SourceSpan
-errorSourceSpan = \case
-  UnexpectedError ss _ -> ss
-  UnexpectedType ss _ _ -> ss
-  EntryPointNotDefined _ -> Nothing
-  NotInScope ss _ -> Just ss
-  ForeignFunctionNotSupported ss _ -> Just ss
-  InvalidString ss -> Just ss
-  InvalidBuiltInFunctionApplication ss _ _ -> Just ss
-  ForeignFunctionError ss _ -> ss
-  Undetermined -> Nothing
-
-instance Pretty EvalError where
-  pretty = \case
-    UnexpectedError _ t -> "Unexpected error:" <+> pretty t
-    UnexpectedType _ t val -> "Expected value of type" <+> pretty t <+> "but got" <+> pretty val
-    EntryPointNotDefined qn -> "Entry point not in scope:" <+> prettyQualifiedIdent qn
-    NotInScope _ qn -> "Not in scope:" <+> prettyQualifiedIdent qn
-    ForeignFunctionNotSupported _ qn -> "Foreign function is not supported in WebCheck:" <+> prettyQualifiedIdent qn
-    InvalidString _ -> "Invalid string"
-    InvalidBuiltInFunctionApplication _ _fn _param -> "Invalid function application"
-    ForeignFunctionError _ t -> pretty t
-    Undetermined -> "The formula cannot be determined as there are not enough observed states"
-
-prettySourceSpan :: SourceSpan -> Doc ann
-prettySourceSpan ss =
-  pretty (spanName ss)
-    <> colon
-    <> pretty (sourcePosLine (spanStart ss))
-    <> colon
-    <> pretty (sourcePosColumn (spanStart ss))
-    <> "-"
-    <> pretty (sourcePosLine (spanEnd ss))
-    <> colon
-    <> pretty (sourcePosColumn (spanEnd ss))
-
-prettyEvalErrorWithSourceSpan :: EvalError -> Doc ann
-prettyEvalErrorWithSourceSpan err =
-  let prefix = case errorSourceSpan err of
-        Just ss -> prettySourceSpan ss <> ":" <> line <> "error:"
-        Nothing -> "<no source information>" <> "error:"
-   in prefix <+> pretty err
-
-prettyQualifiedIdent :: Qualified Ident -> Doc ann
-prettyQualifiedIdent qn = pretty (showQualified runIdent qn)
 
 data EvalAnn = EvalAnn {annSourceSpan :: SourceSpan, annMeta :: Maybe Meta, annApplyForeign :: Maybe ApplyForeign}
   deriving (Show, Generic)
@@ -139,13 +84,13 @@ data EvalEnv
       }
   deriving (Show, Generic)
 
-newtype Eval a = Eval (ExceptT EvalError (Reader EvalEnv) a)
-  deriving (Functor, Applicative, Monad, MonadError EvalError, MonadFix, MonadReader EvalEnv)
+newtype Eval a = Eval (ExceptT (EvalError EvalAnn) (Reader EvalEnv) a)
+  deriving (Functor, Applicative, Monad, MonadError (EvalError EvalAnn), MonadFix, MonadReader EvalEnv)
 
-runEval :: Env EvalAnn -> [WebCheck.ObservedState] -> Eval a -> Either EvalError a
+runEval :: Env EvalAnn -> [WebCheck.ObservedState] -> Eval a -> Either (EvalError EvalAnn) a
 runEval env observedStates (Eval ma) = runReader (runExceptT ma) (EvalEnv env (zip [1 ..] observedStates))
 
-unexpectedType :: (MonadError EvalError m) => SourceSpan -> Text -> Value EvalAnn -> m a
+unexpectedType :: (MonadError (EvalError EvalAnn) m) => SourceSpan -> Text -> Value EvalAnn -> m a
 unexpectedType ss typ v =
   throwError
     ( UnexpectedType
@@ -165,7 +110,7 @@ require ::
     s ~ Value ann,
     t ~ Value ann,
     a ~ b,
-    MonadError EvalError m
+    MonadError (EvalError EvalAnn) m
   ) =>
   SourceSpan ->
   Proxy ctor ->
@@ -196,7 +141,7 @@ initialEnv =
     bindForeignFunction :: Qualified Ident -> Int -> Env EvalAnn
     bindForeignFunction qn arity' =
       envBindExpr qn (wrap arity' (\names -> Var (EvalAnn builtInSS {spanName = toS (showQualified runIdent qn)} (Just IsForeign) (Just (ApplyForeign qn names))) qn))
-    bindForeignPair :: (Qualified Ident, ForeignFunction (Either EvalError)) -> Env EvalAnn
+    bindForeignPair :: (Qualified Ident, ForeignFunction (Either (EvalError EvalAnn))) -> Env EvalAnn
     bindForeignPair (qn, f) = bindForeignFunction qn (arity f)
     wrap :: Int -> ([Ident] -> Expr EvalAnn) -> Expr EvalAnn
     wrap arity' f =
@@ -229,7 +174,7 @@ asQualifiedName :: Qualified Ident -> Maybe (Text, Text)
 asQualifiedName (Qualified (Just (ModuleName mn)) n) = Just (mn, runIdent n)
 asQualifiedName _ = Nothing
 
-accessField :: MonadError EvalError m => SourceSpan -> Text -> HashMap Text (Value EvalAnn) -> m (Value EvalAnn)
+accessField :: MonadError (EvalError EvalAnn) m => SourceSpan -> Text -> HashMap Text (Value EvalAnn) -> m (Value EvalAnn)
 accessField ss key obj =
   maybe
     (throwError (UnexpectedError (Just ss) ("Key not present in object: " <> key)))
@@ -546,7 +491,7 @@ instance WebCheck.Specification SpecificationProgram where
   origin = specificationOrigin
   readyWhen = specificationReadyWhen
   actions = QuickCheck.elements . specificationActions
-  verify sp states = (_Left %~ pretty) . runEval (programEnv p) states $ do
+  verify sp states = (_Left %~ prettyEvalError) . runEval (programEnv p) states $ do
     valid <- require (moduleSourceSpan (programMain p)) (Proxy @"VBool") =<< evalEntryPoint entry p
     if valid then pure WebCheck.Accepted else pure WebCheck.Rejected
     where
@@ -554,7 +499,7 @@ instance WebCheck.Specification SpecificationProgram where
       entry = programQualifiedName "proposition" p
   queries = specificationQueries
 
-extractQueries :: Program -> Either EvalError (HashMap WebCheck.Selector (HashSet WebCheck.ElementState))
+extractQueries :: Program -> Either (EvalError EvalAnn) (HashMap WebCheck.Selector (HashSet WebCheck.ElementState))
 extractQueries prog = pure mempty -- TODO
 
 {-
@@ -634,282 +579,6 @@ prettyText x = renderStrict (layoutPretty defaultLayoutOptions x)
 
 data ApplyForeign = ApplyForeign (Qualified Ident) [Ident]
   deriving (Show, Generic)
-
-data ForeignFunction m
-  = ForeignFunction
-      { arity :: Int,
-        evalFn :: (SourceSpan -> [Value EvalAnn] -> m (Value EvalAnn))
-      }
-
-foreignFunction :: (MonadError EvalError m, ForeignFunctionArity f, EvalForeignFunction m f) => f -> ForeignFunction m
-foreignFunction (f :: f) =
-  ForeignFunction
-    (foreignFunctionArity (Proxy :: Proxy f))
-    (evalForeignFunction f)
-
-class ForeignFunctionArity f where
-  foreignFunctionArity :: Proxy f -> Int
-
-instance {-# OVERLAPPABLE #-} ForeignFunctionArity a where
-  foreignFunctionArity _ = 0
-
-instance {-# OVERLAPPING #-} ForeignFunctionArity b => ForeignFunctionArity (a -> b) where
-  foreignFunctionArity (_ :: Proxy (a -> b)) = succ (foreignFunctionArity (Proxy :: Proxy b))
-
-foreignFunctionArityMismatch :: MonadError EvalError m => SourceSpan -> m a
-foreignFunctionArityMismatch ss = throwError (ForeignFunctionError (Just ss) "Foreign function arity mismatch")
-
-class Monad m => EvalForeignFunction m f where
-  evalForeignFunction :: MonadError EvalError m => f -> SourceSpan -> [Value EvalAnn] -> m (Value EvalAnn)
-
-instance {-# OVERLAPPABLE #-} (Monad m, FromHaskellValue a) => EvalForeignFunction m a where
-  evalForeignFunction x _ [] = pure (fromHaskellValue x)
-  evalForeignFunction _ ss _ = foreignFunctionArityMismatch ss
-
-instance {-# OVERLAPPABLE #-} (Monad m, FromHaskellValue a) => EvalForeignFunction m (m a) where
-  evalForeignFunction x _ [] = fromHaskellValue <$> x
-  evalForeignFunction _ ss _ = foreignFunctionArityMismatch ss
-
-instance {-# OVERLAPPING #-} (ToHaskellValue a, EvalForeignFunction m b) => EvalForeignFunction m (a -> b) where
-  evalForeignFunction f ss (v : vs) = do
-    a <- toHaskellValue ss v
-    evalForeignFunction (f a) ss vs
-  evalForeignFunction _ ss [] = foreignFunctionArityMismatch ss
-
-class ToHaskellValue r where
-  toHaskellValue :: MonadError EvalError m => SourceSpan -> Value EvalAnn -> m r
-
-instance ToHaskellValue (Value EvalAnn) where
-  toHaskellValue _ = pure
-
-instance ToHaskellValue Bool where
-  toHaskellValue ss = require ss (Proxy @"VBool")
-
-instance ToHaskellValue Text where
-  toHaskellValue ss = require ss (Proxy @"VString")
-
-instance ToHaskellValue Char where
-  toHaskellValue ss = require ss (Proxy @"VChar")
-
-instance ToHaskellValue Int where
-  toHaskellValue ss = require ss (Proxy @"VInt")
-
-instance ToHaskellValue Double where
-  toHaskellValue ss = require ss (Proxy @"VNumber")
-
-instance ToHaskellValue a => ToHaskellValue (Vector a) where
-  toHaskellValue ss = traverse (toHaskellValue ss) <=< require ss (Proxy @"VArray")
-
-instance ToHaskellValue a => ToHaskellValue [a] where
-  toHaskellValue ss x = Vector.toList <$> toHaskellValue ss x
-
-instance ToHaskellValue a => ToHaskellValue (HashMap Text a) where
-  toHaskellValue ss = traverse (toHaskellValue ss) <=< require ss (Proxy @"VObject")
-
-instance ToHaskellValue (WebCheck.Action WebCheck.Selector) where
-  toHaskellValue ss v = do
-    obj <- require ss (Proxy @"VObject") v
-    ctor <- require ss (Proxy @"VString") =<< accessField ss "constructor" obj
-    value <- Vector.head <$> (require ss (Proxy @"VArray") =<< accessField ss "fields" obj)
-    case ctor of
-      "Focus" -> WebCheck.Focus . WebCheck.Selector <$> toHaskellValue ss value
-      "KeyPress" -> WebCheck.KeyPress <$> toHaskellValue ss value
-      "Click" -> WebCheck.Click . WebCheck.Selector <$> toHaskellValue ss value
-      "Navigate" -> WebCheck.Navigate . WebCheck.Path <$> toHaskellValue ss value
-      _ -> throwError (ForeignFunctionError (Just ss) ("Unknown Action constructor: " <> ctor))
-
-instance (FromHaskellValue a, ToHaskellValue b) => ToHaskellValue (a -> Eval b) where
-  toHaskellValue ss fn =
-    pure
-      ( \x -> do
-          fn' <- require ss (Proxy @"VFunction") fn
-          b <- evalFunc fn' (fromHaskellValue x)
-          toHaskellValue ss b
-      )
-
-instance (FromHaskellValue a, FromHaskellValue b, ToHaskellValue c) => ToHaskellValue (a -> b -> Eval c) where
-  toHaskellValue ss fn = do
-    pure
-      ( \a b -> do
-          fn' <- require ss (Proxy @"VFunction") fn
-          fn'' <- require ss (Proxy @"VFunction") =<< evalFunc fn' (fromHaskellValue a)
-          c <- evalFunc fn'' (fromHaskellValue b)
-          toHaskellValue ss c
-      )
-
-class FromHaskellValue a where
-  fromHaskellValue :: a -> Value EvalAnn
-
-instance FromHaskellValue Bool where
-  fromHaskellValue = VBool
-
-instance FromHaskellValue Int where
-  fromHaskellValue = VInt
-
-instance FromHaskellValue Double where
-  fromHaskellValue = VNumber
-
-instance FromHaskellValue Char where
-  fromHaskellValue = VChar
-
-instance FromHaskellValue Text where
-  fromHaskellValue = VString
-
-instance FromHaskellValue a => FromHaskellValue (Vector a) where
-  fromHaskellValue xs = VArray (fromHaskellValue <$> xs)
-
-instance FromHaskellValue a => FromHaskellValue [a] where
-  fromHaskellValue = fromHaskellValue . Vector.fromList
-
-instance FromHaskellValue (Value EvalAnn) where
-  fromHaskellValue = identity
-
-foreignFunctions :: MonadError EvalError m => Map (Qualified Ident) (ForeignFunction m)
-foreignFunctions =
-  Map.fromList
-    [ (qualifiedName "Control.Bind" "arrayBind", foreignFunction @m arrayBind)
-    -- ,
-    --   (qualifiedName "Data.Array" "indexImpl", foreignFunction indexImpl),
-    --   (qualifiedName "Data.Array" "length", foreignFunction len),
-    --   (qualifiedName "Data.Array" "filter", foreignFunction filterArray),
-    --   (qualifiedName "Data.Bounded" "bottomInt", foreignFunction (op0 @Int minBound)),
-    --   (qualifiedName "Data.Bounded" "topInt", foreignFunction (op0 @Int maxBound)),
-    --   (qualifiedName "Data.Eq" "eqBooleanImpl", foreignFunction (op2 ((==) @Bool))),
-    --   (qualifiedName "Data.Eq" "eqIntImpl", foreignFunction (op2 ((==) @Int))),
-    --   (qualifiedName "Data.Eq" "eqNumberImpl", foreignFunction (op2 ((==) @Double))),
-    --   (qualifiedName "Data.Eq" "eqCharImpl", foreignFunction (op2 ((==) @Char))),
-    --   (qualifiedName "Data.Eq" "eqStringImpl", foreignFunction (op2 ((==) @Text))),
-    --   (qualifiedName "Data.Eq" "eqArrayImpl", foreignFunction eqArray),
-    --   (qualifiedName "Data.EuclideanRing" "intDegree", foreignFunction intDegree),
-    --   (qualifiedName "Data.EuclideanRing" "intDiv", foreignFunction intDiv),
-    --   (qualifiedName "Data.EuclideanRing" "intMod", foreignFunction intMod),
-    --   (qualifiedName "Data.EuclideanRing" "numDiv", foreignFunction (op2 @Double (/))),
-    --   (qualifiedName "Data.Foldable" "foldlArray", foreignFunction foldlArray),
-    --   (qualifiedName "Data.Foldable" "foldrArray", foreignFunction foldrArray),
-    --   (qualifiedName "Data.Functor" "arrayMap", foreignFunction arrayMap),
-    --   (qualifiedName "Data.HeytingAlgebra" "boolConj", foreignFunction (op2 (&&))),
-    --   (qualifiedName "Data.HeytingAlgebra" "boolDisj", foreignFunction (op2 (||))),
-    --   (qualifiedName "Data.HeytingAlgebra" "boolNot", foreignFunction (op1 not)),
-    --   (qualifiedName "Data.Int" "toNumber", foreignFunction (op1 (fromIntegral @Int @Double))),
-    --   (qualifiedName "Data.Int" "fromNumberImpl", foreignFunction fromNumberImpl),
-    --   (qualifiedName "Data.Int" "fromStringAsImpl", foreignFunction fromStringAsImpl),
-    --   (qualifiedName "Data.Ord" "ordBooleanImpl", foreignFunction (ordImpl @Bool)),
-    --   (qualifiedName "Data.Ord" "ordIntImpl", foreignFunction (ordImpl @Int)),
-    --   (qualifiedName "Data.Ord" "ordNumberImpl", foreignFunction (ordImpl @Double)),
-    --   (qualifiedName "Data.Ord" "ordStringImpl", foreignFunction (ordImpl @Text)),
-    --   (qualifiedName "Data.Ord" "ordCharImpl", foreignFunction (ordImpl @Char)),
-    --   (qualifiedName "Data.Ring" "intSub", foreignFunction (op2 ((-) @Int))),
-    --   (qualifiedName "Data.Ring" "numSub", foreignFunction (op2 ((-) @Double))),
-    --   (qualifiedName "Data.Show" "showStringImpl", foreignFunction (op1 (show @Text @Text))),
-    --   (qualifiedName "Data.Show" "showIntImpl", foreignFunction (op1 (show @Int @Text))),
-    --   (qualifiedName "Data.Show" "showNumberImpl", foreignFunction (op1 (show @Double @Text))),
-    --   (qualifiedName "Data.Show" "cons", foreignFunction (op2 (Vector.cons @(Value EvalAnn)))),
-    --   (qualifiedName "Data.Show" "join", foreignFunction (op2 Text.intercalate)),
-    --   (qualifiedName "Data.Semiring" "intAdd", foreignFunction (op2 ((+) @Int))),
-    --   (qualifiedName "Data.Semiring" "intMul", foreignFunction (op2 ((*) @Int))),
-    --   (qualifiedName "Data.Semiring" "numAdd", foreignFunction (op2 ((+) @Double))),
-    --   (qualifiedName "Data.Semiring" "numMul", foreignFunction (op2 ((*) @Double))),
-    --   (qualifiedName "Data.Semigroup" "concatString", foreignFunction (op2 ((<>) @Text))),
-    --   (qualifiedName "Data.Semigroup" "concatArray", foreignFunction (op2 ((<>) @(Vector (Value EvalAnn))))),
-    --   notSupported (qualifiedName "Data.String.Common" "_localeCompare"),
-    --   (qualifiedName "Data.String.Common" "replace", foreignFunction (op3 Text.replace)),
-    --   (qualifiedName "Data.String.Common" "split", foreignFunction (op2 Text.splitOn)),
-    --   (qualifiedName "Data.String.Common" "toLower", foreignFunction (op1 Text.toLower)),
-    --   (qualifiedName "Data.String.Common" "toUpper", foreignFunction (op1 Text.toUpper)),
-    --   (qualifiedName "Data.String.Common" "trim", foreignFunction (op1 Text.strip)),
-    --   (qualifiedName "Data.String.Common" "joinWith", foreignFunction (op2 Text.intercalate)),
-    --   (qualifiedName "Data.Unfoldable" "unfoldrArrayImpl", foreignFunction unfoldrArrayImpl),
-    --   (qualifiedName "Global" "infinity", foreignFunction (op0 (read "Infinity" :: Double))),
-    --   (qualifiedName "Global" "nan", foreignFunction (op0 (read "NaN" :: Double))),
-    --   (qualifiedName "Global" "isFinite", foreignFunction (op1 (not . isInfinite @Double))),
-    --   (qualifiedName "Global" "readFloat", foreignFunction (readAs Text.double)),
-    --   (qualifiedName "Global" "readInt", foreignFunction readInt),
-    --   (qualifiedName "Math" "floor", foreignFunction (op1 (fromIntegral @Int @Double . floor @Double @Int))),
-    --   (qualifiedName "Math" "remainder", foreignFunction (op2 (mod' @Double))),
-    --   (qualifiedName "Partial.Unsafe" "unsafePartial", foreignFunction unsafePartial),
-    --   (qualifiedName "Record.Unsafe" "unsafeGet", foreignFunction (accessField nullSourceSpan))
-    ]
-  where
-    notSupported :: MonadError EvalError m => Qualified Ident -> (Qualified Ident, ForeignFunction m)
-    notSupported qn = (qn, ForeignFunction 0 (\ss _params -> throwError (ForeignFunctionNotSupported ss qn)))
-    indexImpl :: a ~ (Value EvalAnn) => (a -> Eval (Value EvalAnn)) -> Value EvalAnn -> Vector a -> Int -> Eval (Value EvalAnn)
-    indexImpl just nothing xs i = maybe (pure nothing) just (xs ^? ix (fromIntegral i))
-    fromNumberImpl :: (Int -> Eval (Value EvalAnn)) -> Value EvalAnn -> Double -> Eval (Value EvalAnn)
-    fromNumberImpl just _ = just . round
-    fromStringAsImpl :: (Int -> Eval (Value EvalAnn)) -> Value EvalAnn -> Int -> Text -> Eval (Value EvalAnn)
-    fromStringAsImpl just nothing radix t =
-      either (const (pure nothing)) (just . fst) $ case radix of
-        10 -> Text.decimal t
-        16 -> Text.hexadecimal t
-        _ -> Left mempty
-    len :: Vector (Value EvalAnn) -> Eval Int
-    len xs = pure (fromIntegral (Vector.length xs))
-    filterArray :: (Value EvalAnn -> Eval Bool) -> Vector (Value EvalAnn) -> Eval (Vector (Value EvalAnn))
-    filterArray = Vector.filterM
-    arrayMap :: (a ~ Value EvalAnn, b ~ Value EvalAnn) => (a -> Eval b) -> Vector a -> Eval (Vector b)
-    arrayMap = Vector.mapM
-    arrayBind :: (a ~ Value EvalAnn, b ~ Value EvalAnn) => Vector a -> (a -> Eval (Vector b)) -> Eval (Vector b)
-    arrayBind xs f = join <$> traverse f xs
-    foldlArray :: (b ~ Value EvalAnn, a ~ Value EvalAnn) => (b -> a -> Eval b) -> b -> Vector a -> Eval b
-    foldlArray = foldM
-    foldrArray :: (b ~ Value EvalAnn, a ~ Value EvalAnn) => (a -> b -> Eval b) -> b -> Vector a -> Eval b
-    foldrArray = foldrM
-    op0 :: forall a m. a -> Eval a
-    op0 = pure
-    op1 :: forall a b m. (a -> b) -> a -> Eval b
-    op1 op = pure . op
-    op2 :: forall a b c m. (a -> b -> c) -> a -> b -> Eval c
-    op2 op x y = pure (op x y)
-    op3 :: forall a b c d m. (a -> b -> c -> d) -> a -> b -> c -> Eval d
-    op3 op x y z = pure (op x y z)
-    readAs :: (StringConv s Text) => (Text -> Either s (a, Text)) -> Text -> Eval a
-    readAs parse t = either (throwError . ForeignFunctionError Nothing . toS) (pure . fst) (parse t)
-    readInt :: Int -> Text -> Eval Int
-    readInt = \case
-      10 -> readAs Text.decimal
-      16 -> readAs Text.hexadecimal
-      radix -> const (throwError (ForeignFunctionError Nothing ("Unsupported radix for readInt: " <> show radix)))
-    eqArray :: (a ~ Value EvalAnn, b ~ Bool) => (a -> a -> Eval b) -> Vector a -> Vector a -> Eval b
-    eqArray pred' v1 v2
-      | Vector.length v1 == Vector.length v2 = Vector.and <$> Vector.zipWithM pred' v1 v2
-      | otherwise = pure False
-    ordImpl :: forall a o. (Show a, Ord a, o ~ Value EvalAnn) => o -> o -> o -> a -> a -> Eval o
-    ordImpl lt eq gt x y = pure $ case x `compare` y of
-      LT -> lt
-      EQ -> eq
-      GT -> gt
-    intDegree :: Int -> Eval Int
-    intDegree n = pure (min (abs n) 2147483647)
-    intDiv :: Int -> Int -> Eval Int
-    intDiv x y
-      | y == 0 = pure 0
-      | otherwise = pure (x `div` y)
-    intMod :: Int -> Int -> Eval Int
-    intMod x y
-      | y == 0 = pure 0
-      | otherwise = let yy = abs y in pure ((x `mod` yy) + yy `mod` yy)
-    unfoldrArrayImpl ::
-      (Value EvalAnn -> Eval Bool) -> -- isNothing
-      (Value EvalAnn -> Eval (Value EvalAnn)) -> -- fromJust
-      (Value EvalAnn -> Eval (Value EvalAnn)) -> -- fst
-      (Value EvalAnn -> Eval (Value EvalAnn)) -> -- snd
-      (Value EvalAnn -> Eval (Value EvalAnn)) -> -- f
-      Value EvalAnn -> -- b
-      Eval (Vector (Value EvalAnn))
-    unfoldrArrayImpl isNothing' fromJust' fst' snd' f =
-      Vector.unfoldrM $ \b -> do
-        r <- f b
-        isNothing' r >>= \case
-          True -> pure Nothing
-          False -> do
-            tuple <- fromJust' r
-            a <- fst' tuple
-            b' <- snd' tuple
-            pure (Just (a, b'))
-    unsafePartial :: Value EvalAnn -> Eval (Value EvalAnn)
-    unsafePartial f = do
-      Function fenv _ body <- require nullSourceSpan (Proxy @"VFunction") f
-      withModifiedEnv (const fenv) (eval body)
 
 evalForeignApply :: SourceSpan -> ApplyForeign -> Eval (Value EvalAnn)
 evalForeignApply ss (ApplyForeign qn paramNames) = do

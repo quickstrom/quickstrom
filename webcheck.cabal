@@ -54,6 +54,9 @@ library
                     , WebCheck.Element
                     , WebCheck.Path
                     , WebCheck.PureScript
+                    , WebCheck.PureScript.EvalError
+                    , WebCheck.PureScript.ForeignFunction
+                    , WebCheck.PureScript.Pretty
                     , WebCheck.PureScript.Value
                     , WebCheck.Pretty
                     , WebCheck.Result

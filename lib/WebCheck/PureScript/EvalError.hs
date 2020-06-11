@@ -1,14 +1,27 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+
 module WebCheck.PureScript.EvalError where
 
-import Protolude
-import Language.PureScript.Names
-import WebCheck.PureScript.Value
-import Language.PureScript.CoreFn (Expr)
+import Data.Generics.Sum (AsConstructor, _Ctor)
+import qualified Data.Text as Text
 import Language.PureScript.AST (SourceSpan)
+import Language.PureScript.CoreFn (Expr)
+import Language.PureScript.Names
+import Protolude
+import WebCheck.PureScript.Value
+import Control.Lens ((^?))
+import Data.HashMap.Strict (HashMap)
+import qualified Data.HashMap.Strict as HashMap
 
 data EvalError ann
   = UnexpectedError (Maybe SourceSpan) Text
@@ -33,3 +46,36 @@ errorSourceSpan = \case
   InvalidBuiltInFunctionApplication ss _ _ -> Just ss
   ForeignFunctionError ss _ -> ss
   Undetermined -> Nothing
+
+unexpectedType :: (MonadError (EvalError ann) m) => SourceSpan -> Text -> Value ann -> m a
+unexpectedType ss typ v =
+  throwError
+    ( UnexpectedType
+        (Just ss)
+        typ
+        v
+    )
+
+require ::
+  forall (ctor :: Symbol) s t a b ann m.
+  ( KnownSymbol ctor,
+    AsConstructor ctor s t a b,
+    s ~ Value ann,
+    t ~ Value ann,
+    a ~ b,
+    MonadError (EvalError ann) m
+  ) =>
+  SourceSpan ->
+  Proxy ctor ->
+  Value ann ->
+  m b
+require ss (ctor :: Proxy ctor) v = case v ^? _Ctor @ctor of
+  Just x -> pure x
+  Nothing -> unexpectedType ss (Text.drop 1 (Text.pack (symbolVal ctor))) v
+
+accessField :: MonadError (EvalError ann) m => SourceSpan -> Text -> HashMap Text (Value ann) -> m (Value ann)
+accessField ss key obj =
+  maybe
+    (throwError (UnexpectedError (Just ss) ("Key not present in object: " <> key)))
+    pure
+    (HashMap.lookup key obj)

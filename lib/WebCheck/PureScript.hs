@@ -65,6 +65,7 @@ import qualified WebCheck.Element as WebCheck
 import qualified WebCheck.Path as WebCheck
 import WebCheck.PureScript.EvalError
 import WebCheck.PureScript.Pretty
+import WebCheck.PureScript.ForeignFunction
 import WebCheck.PureScript.Value
 import qualified WebCheck.Result as WebCheck
 import qualified WebCheck.Specification as WebCheck
@@ -90,35 +91,8 @@ newtype Eval a = Eval (ExceptT (EvalError EvalAnn) (Reader EvalEnv) a)
 runEval :: Env EvalAnn -> [WebCheck.ObservedState] -> Eval a -> Either (EvalError EvalAnn) a
 runEval env observedStates (Eval ma) = runReader (runExceptT ma) (EvalEnv env (zip [1 ..] observedStates))
 
-unexpectedType :: (MonadError (EvalError EvalAnn) m) => SourceSpan -> Text -> Value EvalAnn -> m a
-unexpectedType ss typ v =
-  throwError
-    ( UnexpectedType
-        (Just ss)
-        typ
-        v
-    )
-
 sourceSpan :: Expr EvalAnn -> SourceSpan
 sourceSpan = annSourceSpan . extractAnn
-
-require ::
-  forall (ctor :: Symbol) s t a b ann m.
-  ( KnownSymbol ctor,
-    AsConstructor ctor s t a b,
-    ann ~ EvalAnn,
-    s ~ Value ann,
-    t ~ Value ann,
-    a ~ b,
-    MonadError (EvalError EvalAnn) m
-  ) =>
-  SourceSpan ->
-  Proxy ctor ->
-  Value ann ->
-  m b
-require ss (ctor :: Proxy ctor) v = case v ^? _Ctor @ctor of
-  Just x -> pure x
-  Nothing -> unexpectedType ss (Text.drop 1 (Text.pack (symbolVal ctor))) v
 
 evalString :: SourceSpan -> PSString -> Eval Text
 evalString ss s =
@@ -141,7 +115,7 @@ initialEnv =
     bindForeignFunction :: Qualified Ident -> Int -> Env EvalAnn
     bindForeignFunction qn arity' =
       envBindExpr qn (wrap arity' (\names -> Var (EvalAnn builtInSS {spanName = toS (showQualified runIdent qn)} (Just IsForeign) (Just (ApplyForeign qn names))) qn))
-    bindForeignPair :: (Qualified Ident, ForeignFunction (Either (EvalError EvalAnn))) -> Env EvalAnn
+    bindForeignPair :: (Qualified Ident, ForeignFunction (Either (EvalError EvalAnn)) EvalAnn) -> Env EvalAnn
     bindForeignPair (qn, f) = bindForeignFunction qn (arity f)
     wrap :: Int -> ([Ident] -> Expr EvalAnn) -> Expr EvalAnn
     wrap arity' f =
@@ -173,13 +147,6 @@ asQualifiedVar _ = Nothing
 asQualifiedName :: Qualified Ident -> Maybe (Text, Text)
 asQualifiedName (Qualified (Just (ModuleName mn)) n) = Just (mn, runIdent n)
 asQualifiedName _ = Nothing
-
-accessField :: MonadError (EvalError EvalAnn) m => SourceSpan -> Text -> HashMap Text (Value EvalAnn) -> m (Value EvalAnn)
-accessField ss key obj =
-  maybe
-    (throwError (UnexpectedError (Just ss) ("Key not present in object: " <> key)))
-    pure
-    (HashMap.lookup key obj)
 
 pattern BuiltIn :: Text -> a -> Expr a -> Expr a
 pattern BuiltIn name ann p <- App ann (Var _ (Qualified (Just (ModuleName "WebCheck.DSL")) (Ident name))) p

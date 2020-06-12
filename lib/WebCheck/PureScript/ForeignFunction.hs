@@ -17,12 +17,13 @@ import qualified Data.Map as Map
 import Data.Map (Map)
 import Data.Vector (Vector)
 import qualified Data.Vector as Vector
-import Language.PureScript.AST (SourceSpan, sourcePosColumn, sourcePosLine, spanEnd, spanName, spanStart)
+import Language.PureScript.AST (SourceSpan)
 import Language.PureScript.Names
 import Protolude hiding (Selector)
 import WebCheck.Action (Action(..))
 import WebCheck.Element (Selector (..))
-import WebCheck.PureScript.EvalError
+import WebCheck.PureScript.Eval.Class
+import WebCheck.PureScript.Eval.Error
 import WebCheck.PureScript.Value
 import WebCheck.Path
 
@@ -32,7 +33,7 @@ data ForeignFunction m ann
         evalFn :: (SourceSpan -> [Value ann] -> m (Value ann))
       }
 
-foreignFunction :: (MonadError (EvalError ann) m, ForeignFunctionArity f, EvalForeignFunction m f) => f -> ForeignFunction m ann
+foreignFunction :: (MonadError EvalError m, ForeignFunctionArity f, EvalForeignFunction m ann f) => f -> ForeignFunction m ann
 foreignFunction (f :: f) =
   ForeignFunction
     (foreignFunctionArity (Proxy :: Proxy f))
@@ -47,21 +48,21 @@ instance {-# OVERLAPPABLE #-} ForeignFunctionArity a where
 instance {-# OVERLAPPING #-} ForeignFunctionArity b => ForeignFunctionArity (a -> b) where
   foreignFunctionArity (_ :: Proxy (a -> b)) = succ (foreignFunctionArity (Proxy :: Proxy b))
 
-foreignFunctionArityMismatch :: MonadError (EvalError ann) m => SourceSpan -> m a
+foreignFunctionArityMismatch :: MonadError EvalError m => SourceSpan -> m a
 foreignFunctionArityMismatch ss = throwError (ForeignFunctionError (Just ss) "Foreign function arity mismatch")
 
 type family BaseCase a where
   BaseCase (a -> b) = 'False
   BaseCase a = 'True
 
-class (Monad m, MonadError (EvalError ann) m) => EvalForeignFunction m ann f where
+class (Monad m, MonadError EvalError m) => EvalForeignFunction m ann f where
   evalForeignFunction :: f -> SourceSpan -> [Value ann] -> m (Value ann)
 
-instance {-# OVERLAPPABLE #-} (Monad m, FromHaskellValue a) => EvalForeignFunction m ann a where
+instance {-# OVERLAPPABLE #-} (MonadError EvalError m, FromHaskellValue a) => EvalForeignFunction m ann a where
   evalForeignFunction x _ [] = pure (fromHaskellValue x)
   evalForeignFunction _ ss _ = foreignFunctionArityMismatch ss
 
-instance {-# OVERLAPPABLE #-} (Monad m, FromHaskellValue a) => EvalForeignFunction m ann (m a) where
+instance {-# OVERLAPPABLE #-} (MonadError EvalError m, FromHaskellValue a) => EvalForeignFunction m ann (m a) where
   evalForeignFunction x _ [] = fromHaskellValue <$> x
   evalForeignFunction _ ss _ = foreignFunctionArityMismatch ss
 
@@ -72,7 +73,7 @@ instance {-# OVERLAPPING #-} (ToHaskellValue a ann, EvalForeignFunction m ann b)
   evalForeignFunction _ ss [] = foreignFunctionArityMismatch ss
 
 class ToHaskellValue r ann where
-  toHaskellValue :: MonadError (EvalError ann) m => SourceSpan -> Value ann -> m r
+  toHaskellValue :: MonadError EvalError m => SourceSpan -> Value ann -> m r
 
 instance ToHaskellValue (Value ann) ann where
   toHaskellValue _ = pure
@@ -113,7 +114,7 @@ instance ToHaskellValue (Action Selector) ann where
       "Navigate" -> Navigate . Path <$> toHaskellValue ss value
       _ -> throwError (ForeignFunctionError (Just ss) ("Unknown Action constructor: " <> ctor))
 
-instance (MonadError (EvalError ann) m, FromHaskellValue a, ToHaskellValue b ann) => ToHaskellValue (a -> m b) ann where
+instance (MonadEval m, ann ~ Ann m, FromHaskellValue a, ToHaskellValue b ann) => ToHaskellValue (a -> m b) ann where
   toHaskellValue ss fn =
     pure
       ( \x -> do
@@ -122,7 +123,7 @@ instance (MonadError (EvalError ann) m, FromHaskellValue a, ToHaskellValue b ann
           toHaskellValue ss b
       )
 
-instance (FromHaskellValue a, FromHaskellValue b, ToHaskellValue c ann) => ToHaskellValue (a -> b -> m c) ann where
+instance (MonadEval m, ann ~ Ann m, FromHaskellValue a, FromHaskellValue b, ToHaskellValue c ann) => ToHaskellValue (a -> b -> m c) ann where
   toHaskellValue ss fn = do
     pure
       ( \a b -> do
@@ -156,16 +157,16 @@ instance FromHaskellValue a => FromHaskellValue (Vector a) where
 instance FromHaskellValue a => FromHaskellValue [a] where
   fromHaskellValue = fromHaskellValue . Vector.fromList
 
-instance FromHaskellValue (Value ann) where
-  fromHaskellValue = identity
+-- instance FromHaskellValue (Value ann) where
+--   fromHaskellValue = identity
 
 qualifiedName :: Text -> Text -> Qualified Ident
 qualifiedName mn n = Qualified (Just (ModuleName mn)) (Ident n)
 
-foreignFunctions :: MonadError (EvalError ann) m => Map (Qualified Ident) (ForeignFunction m ann)
+foreignFunctions :: MonadError EvalError m => Map (Qualified Ident) (ForeignFunction m ann)
 foreignFunctions =
   Map.fromList
-    [ (qualifiedName "Control.Bind" "arrayBind", foreignFunction arrayBind :: ForeignFunction m ann)
+    [ (qualifiedName "Control.Bind" "arrayBind", foreignFunction arrayBind)
       -- ,
       --   (qualifiedName "Data.Array" "indexImpl", foreignFunction indexImpl),
       --   (qualifiedName "Data.Array" "length", foreignFunction len),

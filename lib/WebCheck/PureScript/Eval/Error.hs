@@ -10,7 +10,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
-module WebCheck.PureScript.EvalError where
+module WebCheck.PureScript.Eval.Error where
 
 import Data.Generics.Sum (AsConstructor, _Ctor)
 import qualified Data.Text as Text
@@ -23,19 +23,19 @@ import Control.Lens ((^?))
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
 
-data EvalError ann
+data EvalError
   = UnexpectedError (Maybe SourceSpan) Text
-  | UnexpectedType (Maybe SourceSpan) Text (Value ann)
+  | UnexpectedType (Maybe SourceSpan) Text (Value ())
   | EntryPointNotDefined (Qualified Ident)
   | NotInScope SourceSpan (Qualified Ident)
   | ForeignFunctionNotSupported SourceSpan (Qualified Ident)
   | InvalidString SourceSpan
-  | InvalidBuiltInFunctionApplication SourceSpan (Expr ann) (Expr ann)
+  | InvalidBuiltInFunctionApplication SourceSpan (Expr ()) (Expr ())
   | ForeignFunctionError (Maybe SourceSpan) Text
   | Undetermined
   deriving (Show, Generic)
 
-errorSourceSpan :: EvalError ann -> Maybe SourceSpan
+errorSourceSpan :: EvalError -> Maybe SourceSpan
 errorSourceSpan = \case
   UnexpectedError ss _ -> ss
   UnexpectedType ss _ _ -> ss
@@ -47,13 +47,13 @@ errorSourceSpan = \case
   ForeignFunctionError ss _ -> ss
   Undetermined -> Nothing
 
-unexpectedType :: (MonadError (EvalError ann) m) => SourceSpan -> Text -> Value ann -> m a
+unexpectedType :: (MonadError EvalError m) => SourceSpan -> Text -> Value ann -> m a
 unexpectedType ss typ v =
   throwError
     ( UnexpectedType
         (Just ss)
         typ
-        v
+        (void v)
     )
 
 require ::
@@ -63,7 +63,7 @@ require ::
     s ~ Value ann,
     t ~ Value ann,
     a ~ b,
-    MonadError (EvalError ann) m
+    MonadError (EvalError ) m
   ) =>
   SourceSpan ->
   Proxy ctor ->
@@ -73,7 +73,7 @@ require ss (ctor :: Proxy ctor) v = case v ^? _Ctor @ctor of
   Just x -> pure x
   Nothing -> unexpectedType ss (Text.drop 1 (Text.pack (symbolVal ctor))) v
 
-accessField :: MonadError (EvalError ann) m => SourceSpan -> Text -> HashMap Text (Value ann) -> m (Value ann)
+accessField :: MonadError (EvalError ) m => SourceSpan -> Text -> HashMap Text (Value ann) -> m (Value ann)
 accessField ss key obj =
   maybe
     (throwError (UnexpectedError (Just ss) ("Key not present in object: " <> key)))

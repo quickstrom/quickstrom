@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -9,6 +10,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module WebCheck.PureScript.ForeignFunction where
 
@@ -17,36 +20,40 @@ import qualified Data.Map as Map
 import Data.Map (Map)
 import Data.Vector (Vector)
 import qualified Data.Vector as Vector
+import GHC.TypeNats (type (+))
 import Language.PureScript.AST (SourceSpan)
 import Language.PureScript.Names
 import Protolude hiding (Selector)
-import WebCheck.Action (Action(..))
+import WebCheck.Action (Action (..))
 import WebCheck.Element (Selector (..))
+import WebCheck.Path
 import WebCheck.PureScript.Eval.Class
 import WebCheck.PureScript.Eval.Error
 import WebCheck.PureScript.Value
-import WebCheck.Path
 
-data ForeignFunction m ann
+data ForeignFunction m
   = ForeignFunction
       { arity :: Int,
-        evalFn :: (SourceSpan -> [Value ann] -> m (Value ann))
+        evalFn :: (SourceSpan -> [Value (Ann m)] -> m (Value (Ann m)))
       }
 
-foreignFunction :: (MonadError EvalError m, ForeignFunctionArity f, EvalForeignFunction m ann f) => f -> ForeignFunction m ann
-foreignFunction (f :: f) =
-  ForeignFunction
-    (foreignFunctionArity (Proxy :: Proxy f))
-    (evalForeignFunction f)
+-- class ForeignFunctionArity' (baseCase :: Bool) f where
+--   foreignFunctionArity' :: Proxy baseCase -> Proxy f -> Int
+--
+-- instance ForeignFunctionArity' (BaseCase b) b => ForeignFunctionArity' 'False (a -> b) where
+--   foreignFunctionArity' _ (_ :: Proxy (a -> b)) = succ (foreignFunctionArity (Proxy :: Proxy b))
+--
+-- instance ForeignFunctionArity' 'True a where
+--   foreignFunctionArity' _ = 0
+--
+-- type ForeignFunctionArity a = ForeignFunctionArity' (BaseCase a) a
 
-class ForeignFunctionArity f where
-  foreignFunctionArity :: Proxy f -> Int
+type family FunctionArity (f :: *) where
+  FunctionArity (a -> b) = FunctionArity b + 1
+  FunctionArity a = 0
 
-instance {-# OVERLAPPABLE #-} ForeignFunctionArity a where
-  foreignFunctionArity _ = 0
-
-instance {-# OVERLAPPING #-} ForeignFunctionArity b => ForeignFunctionArity (a -> b) where
-  foreignFunctionArity (_ :: Proxy (a -> b)) = succ (foreignFunctionArity (Proxy :: Proxy b))
+functionArity :: (KnownNat n, n ~ FunctionArity f) => Proxy f -> Int
+functionArity (_ :: Proxy f) = fromIntegral (natVal (Proxy :: Proxy (FunctionArity f)))
 
 foreignFunctionArityMismatch :: MonadError EvalError m => SourceSpan -> m a
 foreignFunctionArityMismatch ss = throwError (ForeignFunctionError (Just ss) "Foreign function arity mismatch")
@@ -58,15 +65,15 @@ type family BaseCase a where
 class (Monad m, MonadError EvalError m) => EvalForeignFunction m ann f where
   evalForeignFunction :: f -> SourceSpan -> [Value ann] -> m (Value ann)
 
-instance {-# OVERLAPPABLE #-} (MonadError EvalError m, FromHaskellValue a) => EvalForeignFunction m ann a where
-  evalForeignFunction x _ [] = pure (fromHaskellValue x)
-  evalForeignFunction _ ss _ = foreignFunctionArityMismatch ss
+-- instance {-# OVERLAPPABLE #-} (MonadError EvalError m, FromHaskellValue a) => EvalForeignFunction m ann a where
+--   evalForeignFunction x _ [] = pure (fromHaskellValue x)
+--   evalForeignFunction _ ss _ = foreignFunctionArityMismatch ss
 
 instance {-# OVERLAPPABLE #-} (MonadError EvalError m, FromHaskellValue a) => EvalForeignFunction m ann (m a) where
   evalForeignFunction x _ [] = fromHaskellValue <$> x
   evalForeignFunction _ ss _ = foreignFunctionArityMismatch ss
 
-instance {-# OVERLAPPING #-} (ToHaskellValue a ann, EvalForeignFunction m ann b) => EvalForeignFunction m ann (a -> b)  where
+instance {-# OVERLAPPING #-} (ToHaskellValue a ann, EvalForeignFunction m ann b) => EvalForeignFunction m ann (a -> b) where
   evalForeignFunction f ss (v : vs) = do
     a <- toHaskellValue ss v
     evalForeignFunction (f a) ss vs
@@ -163,72 +170,89 @@ instance FromHaskellValue a => FromHaskellValue [a] where
 qualifiedName :: Text -> Text -> Qualified Ident
 qualifiedName mn n = Qualified (Just (ModuleName mn)) (Ident n)
 
-foreignFunctions :: MonadError EvalError m => Map (Qualified Ident) (ForeignFunction m ann)
+foreignFunction ::
+  ( KnownNat (FunctionArity f) {-,
+    MonadError EvalError m,
+    EvalForeignFunction m ann f -}
+  ) =>
+  f ->
+  ForeignFunction m
+foreignFunction (f :: f) =
+  ForeignFunction
+    (functionArity (Proxy :: Proxy f))
+    _ -- (evalForeignFunction f)
+
+foo :: MonadEval m => ForeignFunction m
+foo = foreignFunction arrayBind
+
+foreignFunctions :: MonadEval m => Map (Qualified Ident) (ForeignFunction m)
 foreignFunctions =
   Map.fromList
-    [ (qualifiedName "Control.Bind" "arrayBind", foreignFunction arrayBind)
-      -- ,
-      --   (qualifiedName "Data.Array" "indexImpl", foreignFunction indexImpl),
-      --   (qualifiedName "Data.Array" "length", foreignFunction len),
-      --   (qualifiedName "Data.Array" "filter", foreignFunction filterArray),
-      --   (qualifiedName "Data.Bounded" "bottomInt", foreignFunction (op0 @Int minBound)),
-      --   (qualifiedName "Data.Bounded" "topInt", foreignFunction (op0 @Int maxBound)),
-      --   (qualifiedName "Data.Eq" "eqBooleanImpl", foreignFunction (op2 ((==) @Bool))),
-      --   (qualifiedName "Data.Eq" "eqIntImpl", foreignFunction (op2 ((==) @Int))),
-      --   (qualifiedName "Data.Eq" "eqNumberImpl", foreignFunction (op2 ((==) @Double))),
-      --   (qualifiedName "Data.Eq" "eqCharImpl", foreignFunction (op2 ((==) @Char))),
-      --   (qualifiedName "Data.Eq" "eqStringImpl", foreignFunction (op2 ((==) @Text))),
-      --   (qualifiedName "Data.Eq" "eqArrayImpl", foreignFunction eqArray),
-      --   (qualifiedName "Data.EuclideanRing" "intDegree", foreignFunction intDegree),
-      --   (qualifiedName "Data.EuclideanRing" "intDiv", foreignFunction intDiv),
-      --   (qualifiedName "Data.EuclideanRing" "intMod", foreignFunction intMod),
-      --   (qualifiedName "Data.EuclideanRing" "numDiv", foreignFunction (op2 @Double (/))),
-      --   (qualifiedName "Data.Foldable" "foldlArray", foreignFunction foldlArray),
-      --   (qualifiedName "Data.Foldable" "foldrArray", foreignFunction foldrArray),
-      --   (qualifiedName "Data.Functor" "arrayMap", foreignFunction arrayMap),
-      --   (qualifiedName "Data.HeytingAlgebra" "boolConj", foreignFunction (op2 (&&))),
-      --   (qualifiedName "Data.HeytingAlgebra" "boolDisj", foreignFunction (op2 (||))),
-      --   (qualifiedName "Data.HeytingAlgebra" "boolNot", foreignFunction (op1 not)),
-      --   (qualifiedName "Data.Int" "toNumber", foreignFunction (op1 (fromIntegral @Int @Double))),
-      --   (qualifiedName "Data.Int" "fromNumberImpl", foreignFunction fromNumberImpl),
-      --   (qualifiedName "Data.Int" "fromStringAsImpl", foreignFunction fromStringAsImpl),
-      --   (qualifiedName "Data.Ord" "ordBooleanImpl", foreignFunction (ordImpl @Bool)),
-      --   (qualifiedName "Data.Ord" "ordIntImpl", foreignFunction (ordImpl @Int)),
-      --   (qualifiedName "Data.Ord" "ordNumberImpl", foreignFunction (ordImpl @Double)),
-      --   (qualifiedName "Data.Ord" "ordStringImpl", foreignFunction (ordImpl @Text)),
-      --   (qualifiedName "Data.Ord" "ordCharImpl", foreignFunction (ordImpl @Char)),
-      --   (qualifiedName "Data.Ring" "intSub", foreignFunction (op2 ((-) @Int))),
-      --   (qualifiedName "Data.Ring" "numSub", foreignFunction (op2 ((-) @Double))),
-      --   (qualifiedName "Data.Show" "showStringImpl", foreignFunction (op1 (show @Text @Text))),
-      --   (qualifiedName "Data.Show" "showIntImpl", foreignFunction (op1 (show @Int @Text))),
-      --   (qualifiedName "Data.Show" "showNumberImpl", foreignFunction (op1 (show @Double @Text))),
-      --   (qualifiedName "Data.Show" "cons", foreignFunction (op2 (Vector.cons @(Value EvalAnn)))),
-      --   (qualifiedName "Data.Show" "join", foreignFunction (op2 Text.intercalate)),
-      --   (qualifiedName "Data.Semiring" "intAdd", foreignFunction (op2 ((+) @Int))),
-      --   (qualifiedName "Data.Semiring" "intMul", foreignFunction (op2 ((*) @Int))),
-      --   (qualifiedName "Data.Semiring" "numAdd", foreignFunction (op2 ((+) @Double))),
-      --   (qualifiedName "Data.Semiring" "numMul", foreignFunction (op2 ((*) @Double))),
-      --   (qualifiedName "Data.Semigroup" "concatString", foreignFunction (op2 ((<>) @Text))),
-      --   (qualifiedName "Data.Semigroup" "concatArray", foreignFunction (op2 ((<>) @(Vector (Value EvalAnn))))),
-      --   notSupported (qualifiedName "Data.String.Common" "_localeCompare"),
-      --   (qualifiedName "Data.String.Common" "replace", foreignFunction (op3 Text.replace)),
-      --   (qualifiedName "Data.String.Common" "split", foreignFunction (op2 Text.splitOn)),
-      --   (qualifiedName "Data.String.Common" "toLower", foreignFunction (op1 Text.toLower)),
-      --   (qualifiedName "Data.String.Common" "toUpper", foreignFunction (op1 Text.toUpper)),
-      --   (qualifiedName "Data.String.Common" "trim", foreignFunction (op1 Text.strip)),
-      --   (qualifiedName "Data.String.Common" "joinWith", foreignFunction (op2 Text.intercalate)),
-      --   (qualifiedName "Data.Unfoldable" "unfoldrArrayImpl", foreignFunction unfoldrArrayImpl),
-      --   (qualifiedName "Global" "infinity", foreignFunction (op0 (read "Infinity" :: Double))),
-      --   (qualifiedName "Global" "nan", foreignFunction (op0 (read "NaN" :: Double))),
-      --   (qualifiedName "Global" "isFinite", foreignFunction (op1 (not . isInfinite @Double))),
-      --   (qualifiedName "Global" "readFloat", foreignFunction (readAs Text.double)),
-      --   (qualifiedName "Global" "readInt", foreignFunction readInt),
-      --   (qualifiedName "Math" "floor", foreignFunction (op1 (fromIntegral @Int @Double . floor @Double @Int))),
-      --   (qualifiedName "Math" "remainder", foreignFunction (op2 (mod' @Double))),
-      --   (qualifiedName "Partial.Unsafe" "unsafePartial", foreignFunction unsafePartial),
-      --   (qualifiedName "Record.Unsafe" "unsafeGet", foreignFunction (accessField nullSourceSpan))
-    ]
+    []
   where
+
+-- (qualifiedName "Control.Bind" "arrayBind", foreignFunction arrayBind)
+-- ,
+--   (qualifiedName "Data.Array" "indexImpl", foreignFunction indexImpl),
+--   (qualifiedName "Data.Array" "length", foreignFunction len),
+--   (qualifiedName "Data.Array" "filter", foreignFunction filterArray),
+--   (qualifiedName "Data.Bounded" "bottomInt", foreignFunction (op0 @Int minBound)),
+--   (qualifiedName "Data.Bounded" "topInt", foreignFunction (op0 @Int maxBound)),
+--   (qualifiedName "Data.Eq" "eqBooleanImpl", foreignFunction (op2 ((==) @Bool))),
+--   (qualifiedName "Data.Eq" "eqIntImpl", foreignFunction (op2 ((==) @Int))),
+--   (qualifiedName "Data.Eq" "eqNumberImpl", foreignFunction (op2 ((==) @Double))),
+--   (qualifiedName "Data.Eq" "eqCharImpl", foreignFunction (op2 ((==) @Char))),
+--   (qualifiedName "Data.Eq" "eqStringImpl", foreignFunction (op2 ((==) @Text))),
+--   (qualifiedName "Data.Eq" "eqArrayImpl", foreignFunction eqArray),
+--   (qualifiedName "Data.EuclideanRing" "intDegree", foreignFunction intDegree),
+--   (qualifiedName "Data.EuclideanRing" "intDiv", foreignFunction intDiv),
+--   (qualifiedName "Data.EuclideanRing" "intMod", foreignFunction intMod),
+--   (qualifiedName "Data.EuclideanRing" "numDiv", foreignFunction (op2 @Double (/))),
+--   (qualifiedName "Data.Foldable" "foldlArray", foreignFunction foldlArray),
+--   (qualifiedName "Data.Foldable" "foldrArray", foreignFunction foldrArray),
+--   (qualifiedName "Data.Functor" "arrayMap", foreignFunction arrayMap),
+--   (qualifiedName "Data.HeytingAlgebra" "boolConj", foreignFunction (op2 (&&))),
+--   (qualifiedName "Data.HeytingAlgebra" "boolDisj", foreignFunction (op2 (||))),
+--   (qualifiedName "Data.HeytingAlgebra" "boolNot", foreignFunction (op1 not)),
+--   (qualifiedName "Data.Int" "toNumber", foreignFunction (op1 (fromIntegral @Int @Double))),
+--   (qualifiedName "Data.Int" "fromNumberImpl", foreignFunction fromNumberImpl),
+--   (qualifiedName "Data.Int" "fromStringAsImpl", foreignFunction fromStringAsImpl),
+--   (qualifiedName "Data.Ord" "ordBooleanImpl", foreignFunction (ordImpl @Bool)),
+--   (qualifiedName "Data.Ord" "ordIntImpl", foreignFunction (ordImpl @Int)),
+--   (qualifiedName "Data.Ord" "ordNumberImpl", foreignFunction (ordImpl @Double)),
+--   (qualifiedName "Data.Ord" "ordStringImpl", foreignFunction (ordImpl @Text)),
+--   (qualifiedName "Data.Ord" "ordCharImpl", foreignFunction (ordImpl @Char)),
+--   (qualifiedName "Data.Ring" "intSub", foreignFunction (op2 ((-) @Int))),
+--   (qualifiedName "Data.Ring" "numSub", foreignFunction (op2 ((-) @Double))),
+--   (qualifiedName "Data.Show" "showStringImpl", foreignFunction (op1 (show @Text @Text))),
+--   (qualifiedName "Data.Show" "showIntImpl", foreignFunction (op1 (show @Int @Text))),
+--   (qualifiedName "Data.Show" "showNumberImpl", foreignFunction (op1 (show @Double @Text))),
+--   (qualifiedName "Data.Show" "cons", foreignFunction (op2 (Vector.cons @(Value EvalAnn)))),
+--   (qualifiedName "Data.Show" "join", foreignFunction (op2 Text.intercalate)),
+--   (qualifiedName "Data.Semiring" "intAdd", foreignFunction (op2 ((+) @Int))),
+--   (qualifiedName "Data.Semiring" "intMul", foreignFunction (op2 ((*) @Int))),
+--   (qualifiedName "Data.Semiring" "numAdd", foreignFunction (op2 ((+) @Double))),
+--   (qualifiedName "Data.Semiring" "numMul", foreignFunction (op2 ((*) @Double))),
+--   (qualifiedName "Data.Semigroup" "concatString", foreignFunction (op2 ((<>) @Text))),
+--   (qualifiedName "Data.Semigroup" "concatArray", foreignFunction (op2 ((<>) @(Vector (Value EvalAnn))))),
+--   notSupported (qualifiedName "Data.String.Common" "_localeCompare"),
+--   (qualifiedName "Data.String.Common" "replace", foreignFunction (op3 Text.replace)),
+--   (qualifiedName "Data.String.Common" "split", foreignFunction (op2 Text.splitOn)),
+--   (qualifiedName "Data.String.Common" "toLower", foreignFunction (op1 Text.toLower)),
+--   (qualifiedName "Data.String.Common" "toUpper", foreignFunction (op1 Text.toUpper)),
+--   (qualifiedName "Data.String.Common" "trim", foreignFunction (op1 Text.strip)),
+--   (qualifiedName "Data.String.Common" "joinWith", foreignFunction (op2 Text.intercalate)),
+--   (qualifiedName "Data.Unfoldable" "unfoldrArrayImpl", foreignFunction unfoldrArrayImpl),
+--   (qualifiedName "Global" "infinity", foreignFunction (op0 (read "Infinity" :: Double))),
+--   (qualifiedName "Global" "nan", foreignFunction (op0 (read "NaN" :: Double))),
+--   (qualifiedName "Global" "isFinite", foreignFunction (op1 (not . isInfinite @Double))),
+--   (qualifiedName "Global" "readFloat", foreignFunction (readAs Text.double)),
+--   (qualifiedName "Global" "readInt", foreignFunction readInt),
+--   (qualifiedName "Math" "floor", foreignFunction (op1 (fromIntegral @Int @Double . floor @Double @Int))),
+--   (qualifiedName "Math" "remainder", foreignFunction (op2 (mod' @Double))),
+--   (qualifiedName "Partial.Unsafe" "unsafePartial", foreignFunction unsafePartial),
+--   (qualifiedName "Record.Unsafe" "unsafeGet", foreignFunction (accessField nullSourceSpan))
+
 --notSupported :: MonadError (EvalError EvalAnn) m => Qualified Ident -> (Qualified Ident, ForeignFunction m)
 --notSupported qn = (qn, ForeignFunction 0 (\ss _params -> throwError (ForeignFunctionNotSupported ss qn)))
 --indexImpl :: a ~ (Value EvalAnn) => (a -> Eval (Value EvalAnn)) -> Value EvalAnn -> Vector a -> Int -> Eval (Value EvalAnn)
@@ -245,10 +269,10 @@ foreignFunctions =
 --len xs = pure (fromIntegral (Vector.length xs))
 --filterArray :: (Value EvalAnn -> Eval Bool) -> Vector (Value EvalAnn) -> Eval (Vector (Value EvalAnn))
 --filterArray = Vector.filterM
+-- arrayBind :: MonadEval m => (a ~ Value ann, b ~ Value ann) => Vector a -> (a -> m (Vector b)) -> m (Vector b)
+-- arrayBind xs f = join <$> traverse f xs
 --arrayMap :: (a ~ Value EvalAnn, b ~ Value EvalAnn) => (a -> Eval b) -> Vector a -> Eval (Vector b)
 --arrayMap = Vector.mapM
---arrayBind :: (a ~ Value EvalAnn, b ~ Value EvalAnn) => Vector a -> (a -> Eval (Vector b)) -> Eval (Vector b)
---arrayBind xs f = join <$> traverse f xs
 --foldlArray :: (b ~ Value EvalAnn, a ~ Value EvalAnn) => (b -> a -> Eval b) -> b -> Vector a -> Eval b
 --foldlArray = foldM
 --foldrArray :: (b ~ Value EvalAnn, a ~ Value EvalAnn) => (a -> b -> Eval b) -> b -> Vector a -> Eval b
@@ -309,3 +333,6 @@ foreignFunctions =
 --unsafePartial f = do
 --  Function fenv _ body <- require nullSourceSpan (Proxy @"VFunction") f
 --  withModifiedEnv (const fenv) (eval body)
+
+arrayBind :: (a ~ Value ann, b ~ Value ann) => Vector a -> (a -> Vector b) -> Vector b
+arrayBind xs f = join (f <$> xs)

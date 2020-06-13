@@ -1,3 +1,4 @@
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -52,64 +53,87 @@ type family FunctionArity (f :: *) where
   FunctionArity (a -> b) = FunctionArity b + 1
   FunctionArity a = 0
 
-functionArity :: (KnownNat n, n ~ FunctionArity f) => Proxy f -> Int
+type family IsBaseCase (f :: *) where
+  IsBaseCase (a -> b) = 'False
+  IsBaseCase a = 'True
+
+functionArity :: (KnownNat (FunctionArity f)) => Proxy f -> Int
 functionArity (_ :: Proxy f) = fromIntegral (natVal (Proxy :: Proxy (FunctionArity f)))
 
 foreignFunctionArityMismatch :: MonadError EvalError m => SourceSpan -> m a
 foreignFunctionArityMismatch ss = throwError (ForeignFunctionError (Just ss) "Foreign function arity mismatch")
 
-type family BaseCase a where
-  BaseCase (a -> b) = 'False
-  BaseCase a = 'True
+newtype Ret a = Ret {unRet :: a}
 
-class (Monad m, MonadError EvalError m) => EvalForeignFunction m ann f where
-  evalForeignFunction :: f -> SourceSpan -> [Value ann] -> m (Value ann)
+class EvalForeignFunction' m (b :: Bool) f where
+  evalForeignFunction' :: Proxy b -> f -> SourceSpan -> [Value (Ann m)] -> m (Value (Ann m))
+
+instance
+  -- {-# OVERLAPPABLE #-}
+  ( MonadError EvalError m,
+    FromHaskellValue a,
+    f ~ m (Ret a)
+  ) =>
+  EvalForeignFunction' m 'True f
+  where
+  evalForeignFunction' _ x _ [] = fromHaskellValue . unRet <$> x
+  evalForeignFunction' _ _ ss _ = foreignFunctionArityMismatch ss
+
+instance
+  -- {-# OVERLAPPING #-}
+  ( MonadError EvalError m,
+    ToHaskellValue m a,
+    EvalForeignFunction' m (IsBaseCase b) (m b),
+    m ~ n
+  ) =>
+  EvalForeignFunction' m 'False (a -> n b)
+  where
+  evalForeignFunction' _ f ss (v : vs) = do
+    a <- toHaskellValue ss v
+    evalForeignFunction' (Proxy :: Proxy (IsBaseCase b)) (f a) ss vs
+  evalForeignFunction' _ _ ss [] = foreignFunctionArityMismatch ss
+
+class EvalForeignFunction m f where
+  evalForeignFunction :: f -> SourceSpan -> [Value (Ann m)] -> m (Value (Ann m))
+
+instance (EvalForeignFunction' m (IsBaseCase f) f) => EvalForeignFunction m f where
+  evalForeignFunction = evalForeignFunction' (Proxy :: Proxy (IsBaseCase f))
 
 -- instance {-# OVERLAPPABLE #-} (MonadError EvalError m, FromHaskellValue a) => EvalForeignFunction m ann a where
 --   evalForeignFunction x _ [] = pure (fromHaskellValue x)
 --   evalForeignFunction _ ss _ = foreignFunctionArityMismatch ss
 
-instance {-# OVERLAPPABLE #-} (MonadError EvalError m, FromHaskellValue a) => EvalForeignFunction m ann (m a) where
-  evalForeignFunction x _ [] = fromHaskellValue <$> x
-  evalForeignFunction _ ss _ = foreignFunctionArityMismatch ss
+class MonadError EvalError m => ToHaskellValue m r where
+  toHaskellValue :: SourceSpan -> Value (Ann m) -> m r
 
-instance {-# OVERLAPPING #-} (ToHaskellValue a ann, EvalForeignFunction m ann b) => EvalForeignFunction m ann (a -> b) where
-  evalForeignFunction f ss (v : vs) = do
-    a <- toHaskellValue ss v
-    evalForeignFunction (f a) ss vs
-  evalForeignFunction _ ss [] = foreignFunctionArityMismatch ss
-
-class ToHaskellValue r ann where
-  toHaskellValue :: MonadError EvalError m => SourceSpan -> Value ann -> m r
-
-instance ToHaskellValue (Value ann) ann where
+instance (MonadError EvalError m, ann ~ Ann m) => ToHaskellValue m (Value ann) where
   toHaskellValue _ = pure
 
-instance ToHaskellValue Bool ann where
+instance MonadError EvalError m => ToHaskellValue m Bool where
   toHaskellValue ss = require ss (Proxy @"VBool")
 
-instance ToHaskellValue Text ann where
+instance MonadError EvalError m => ToHaskellValue m Text where
   toHaskellValue ss = require ss (Proxy @"VString")
 
-instance ToHaskellValue Char ann where
+instance MonadError EvalError m => ToHaskellValue m Char where
   toHaskellValue ss = require ss (Proxy @"VChar")
 
-instance ToHaskellValue Int ann where
+instance MonadError EvalError m => ToHaskellValue m Int where
   toHaskellValue ss = require ss (Proxy @"VInt")
 
-instance ToHaskellValue Double ann where
+instance MonadError EvalError m => ToHaskellValue m Double where
   toHaskellValue ss = require ss (Proxy @"VNumber")
 
-instance ToHaskellValue a ann => ToHaskellValue (Vector a) ann where
+instance ToHaskellValue m a => ToHaskellValue m (Vector a) where
   toHaskellValue ss = traverse (toHaskellValue ss) <=< require ss (Proxy @"VArray")
 
-instance ToHaskellValue a ann => ToHaskellValue [a] ann where
+instance ToHaskellValue m a => ToHaskellValue m [a] where
   toHaskellValue ss x = Vector.toList <$> toHaskellValue ss x
 
-instance ToHaskellValue a ann => ToHaskellValue (HashMap Text a) ann where
+instance ToHaskellValue m a => ToHaskellValue m (HashMap Text a) where
   toHaskellValue ss = traverse (toHaskellValue ss) <=< require ss (Proxy @"VObject")
 
-instance ToHaskellValue (Action Selector) ann where
+instance MonadError EvalError m => ToHaskellValue m (Action Selector) where
   toHaskellValue ss v = do
     obj <- require ss (Proxy @"VObject") v
     ctor <- require ss (Proxy @"VString") =<< accessField ss "constructor" obj
@@ -121,7 +145,7 @@ instance ToHaskellValue (Action Selector) ann where
       "Navigate" -> Navigate . Path <$> toHaskellValue ss value
       _ -> throwError (ForeignFunctionError (Just ss) ("Unknown Action constructor: " <> ctor))
 
-instance (MonadEval m, ann ~ Ann m, FromHaskellValue a, ToHaskellValue b ann) => ToHaskellValue (a -> m b) ann where
+instance (MonadEval m, FromHaskellValue a, ToHaskellValue m b) => ToHaskellValue m (a -> m b) where
   toHaskellValue ss fn =
     pure
       ( \x -> do
@@ -130,6 +154,7 @@ instance (MonadEval m, ann ~ Ann m, FromHaskellValue a, ToHaskellValue b ann) =>
           toHaskellValue ss b
       )
 
+{-
 instance (MonadEval m, ann ~ Ann m, FromHaskellValue a, FromHaskellValue b, ToHaskellValue c ann) => ToHaskellValue (a -> b -> m c) ann where
   toHaskellValue ss fn = do
     pure
@@ -139,6 +164,7 @@ instance (MonadEval m, ann ~ Ann m, FromHaskellValue a, FromHaskellValue b, ToHa
           c <- evalFunc fn'' (fromHaskellValue b)
           toHaskellValue ss c
       )
+-}
 
 class FromHaskellValue a where
   fromHaskellValue :: a -> Value ann
@@ -171,19 +197,29 @@ qualifiedName :: Text -> Text -> Qualified Ident
 qualifiedName mn n = Qualified (Just (ModuleName mn)) (Ident n)
 
 foreignFunction ::
-  ( KnownNat (FunctionArity f) {-,
-    MonadError EvalError m,
-    EvalForeignFunction m ann f -}
-  ) =>
+  (KnownNat (FunctionArity f), EvalForeignFunction' m (IsBaseCase f) f) =>
+  Proxy m ->
   f ->
   ForeignFunction m
-foreignFunction (f :: f) =
+foreignFunction _ (f :: f) =
   ForeignFunction
     (functionArity (Proxy :: Proxy f))
-    _ -- (evalForeignFunction f)
+    (evalForeignFunction' (Proxy :: Proxy (IsBaseCase f)) f)
 
-foo :: MonadEval m => ForeignFunction m
-foo = foreignFunction arrayBind
+-- foo :: MonadEval m => ForeignFunction m
+-- foo = ForeignFunction 2 (evalForeignFunction arrayBind)
+
+arrayBind :: (MonadEval m, a ~ Value (Ann m), b ~ Value (Ann m)) => Vector a -> (a -> m (Vector b)) -> m (Vector b)
+arrayBind xs f = join <$> traverse f xs
+
+bar :: MonadEval m => Proxy m -> ForeignFunction m
+bar (Proxy :: Proxy m) = ForeignFunction 0 (evalForeignFunction bar2 :: SourceSpan -> [Value (Ann m)] -> m (Value (Ann m)))
+
+bar1 :: Monad m => m (Ret Int)
+bar1 = pure (Ret 1)
+
+bar2 :: Monad m => Int -> m (Ret Int)
+bar2 n = pure (Ret (succ n))
 
 foreignFunctions :: MonadEval m => Map (Qualified Ident) (ForeignFunction m)
 foreignFunctions =
@@ -333,6 +369,3 @@ foreignFunctions =
 --unsafePartial f = do
 --  Function fenv _ body <- require nullSourceSpan (Proxy @"VFunction") f
 --  withModifiedEnv (const fenv) (eval body)
-
-arrayBind :: (a ~ Value ann, b ~ Value ann) => Vector a -> (a -> Vector b) -> Vector b
-arrayBind xs f = join (f <$> xs)

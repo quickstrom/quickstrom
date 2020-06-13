@@ -8,7 +8,7 @@ import Data.Text.Prettyprint.Doc
 import Language.PureScript.AST (SourceSpan, sourcePosColumn, sourcePosLine, spanEnd, spanName, spanStart)
 import Language.PureScript.Names
 import Protolude
-import WebCheck.PureScript.EvalError
+import WebCheck.PureScript.Eval.Error
 
 prettySourceSpan :: SourceSpan -> Doc ann
 prettySourceSpan ss =
@@ -25,7 +25,7 @@ prettySourceSpan ss =
 prettyQualifiedIdent :: Qualified Ident -> Doc ann
 prettyQualifiedIdent qn = pretty (showQualified runIdent qn)
 
-prettyEvalError :: EvalError eann -> Doc ann
+prettyEvalError :: EvalError -> Doc ann
 prettyEvalError = \case
   UnexpectedError _ t -> "Unexpected error:" <+> pretty t
   UnexpectedType _ t val -> "Expected value of type" <+> pretty t <+> "but got" <+> pretty val
@@ -37,7 +37,7 @@ prettyEvalError = \case
   ForeignFunctionError _ t -> pretty t
   Undetermined -> "The formula cannot be determined as there are not enough observed states"
 
-prettyEvalErrorWithSourceSpan :: EvalError eann -> Doc ann
+prettyEvalErrorWithSourceSpan :: EvalError -> Doc ann
 prettyEvalErrorWithSourceSpan err =
   let prefix = case errorSourceSpan err of
         Just ss -> prettySourceSpan ss <> ":" <> line <> "error:"

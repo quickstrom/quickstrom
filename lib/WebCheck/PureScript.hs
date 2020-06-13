@@ -10,6 +10,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE PatternSynonyms #-}
@@ -20,7 +21,6 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 
 module WebCheck.PureScript where
 
@@ -63,9 +63,10 @@ import Text.Read (read)
 import qualified WebCheck.Action as WebCheck
 import qualified WebCheck.Element as WebCheck
 import qualified WebCheck.Path as WebCheck
-import WebCheck.PureScript.EvalError
-import WebCheck.PureScript.Pretty
+import WebCheck.PureScript.Eval.Class
+import WebCheck.PureScript.Eval.Error
 import WebCheck.PureScript.ForeignFunction
+import WebCheck.PureScript.Pretty
 import WebCheck.PureScript.Value
 import qualified WebCheck.Result as WebCheck
 import qualified WebCheck.Specification as WebCheck
@@ -74,7 +75,7 @@ import qualified WebCheck.Trace as WebCheck
 data EvalAnn = EvalAnn {annSourceSpan :: SourceSpan, annMeta :: Maybe Meta, annApplyForeign :: Maybe ApplyForeign}
   deriving (Show, Generic)
 
-evalAnnFromAnn :: Ann -> EvalAnn
+evalAnnFromAnn :: CF.Ann -> EvalAnn
 evalAnnFromAnn (ss, _, _, meta) = EvalAnn ss meta Nothing
 
 data EvalEnv
@@ -85,10 +86,10 @@ data EvalEnv
       }
   deriving (Show, Generic)
 
-newtype Eval a = Eval (ExceptT (EvalError EvalAnn) (Reader EvalEnv) a)
-  deriving (Functor, Applicative, Monad, MonadError (EvalError EvalAnn), MonadFix, MonadReader EvalEnv)
+newtype Eval a = Eval (ExceptT EvalError (Reader EvalEnv) a)
+  deriving (Functor, Applicative, Monad, MonadError EvalError, MonadFix, MonadReader EvalEnv)
 
-runEval :: Env EvalAnn -> [WebCheck.ObservedState] -> Eval a -> Either (EvalError EvalAnn) a
+runEval :: Env EvalAnn -> [WebCheck.ObservedState] -> Eval a -> Either EvalError a
 runEval env observedStates (Eval ma) = runReader (runExceptT ma) (EvalEnv env (zip [1 ..] observedStates))
 
 sourceSpan :: Expr EvalAnn -> SourceSpan
@@ -109,13 +110,13 @@ evalStringExpr expr = throwError (InvalidString (annSourceSpan (extractAnn expr)
 
 initialEnv :: Env EvalAnn
 initialEnv =
-  foldMap bindForeignPair (Map.toList foreignFunctions)
+  foldMap bindForeignPair (Map.toList (foreignFunctions @Eval))
   where
     builtInSS = internalModuleSourceSpan "<builtin>"
     bindForeignFunction :: Qualified Ident -> Int -> Env EvalAnn
     bindForeignFunction qn arity' =
       envBindExpr qn (wrap arity' (\names -> Var (EvalAnn builtInSS {spanName = toS (showQualified runIdent qn)} (Just IsForeign) (Just (ApplyForeign qn names))) qn))
-    bindForeignPair :: (Qualified Ident, ForeignFunction (Either (EvalError EvalAnn)) EvalAnn) -> Env EvalAnn
+    bindForeignPair :: (Qualified Ident, ForeignFunction m) -> Env EvalAnn
     bindForeignPair (qn, f) = bindForeignFunction qn (arity f)
     wrap :: Int -> ([Ident] -> Expr EvalAnn) -> Expr EvalAnn
     wrap arity' f =
@@ -157,101 +158,107 @@ pattern Always ann p <- BuiltIn "always" ann p
 pattern Next :: a -> Expr a -> Expr a
 pattern Next ann p <- BuiltIn "next" ann p
 
-eval :: Expr EvalAnn -> Eval (Value EvalAnn)
-eval expr = do
-  EvalEnv {env, observedStates} <- ask
-  case observedStates of
-    [] -> case expr of
-      Always _ _ -> pure (VBool True)
-      _ -> throwError Undetermined
-    ((n, current) : rest) -> case expr of
-      -- Special cases
-      Next _ p -> local (field @"observedStates" .~ rest) (eval p)
-      Always ann p -> do
-        first' <- require (sourceSpan p) (Proxy @"VBool")
-          =<< eval p `catchError` \case
-            Undetermined -> pure (VBool True)
-            e -> throwError e
-        rest' <-
-          require (annSourceSpan ann) (Proxy @"VBool")
-            =<< local (field @"observedStates" %~ drop 1) (eval expr)
-        pure (VBool (first' && rest'))
-      App _ (BuiltIn "trace" _ label) p -> do
-        t <- require (sourceSpan label) (Proxy @"VString") =<< eval label
-        traceM
-          ( prettyText
-              ( prettySourceSpan (sourceSpan expr) <> colon
-                  <+> "trace: in state"
-                  <+> pretty n <> colon
-                  <+> pretty t
-              )
-          )
-        eval p
-      App _ (BuiltIn "_queryAll" _ p) q -> evalQuery p q current
-      BuiltIn "_property" _ p -> do
-        name <- require (sourceSpan p) (Proxy @"VString") =<< eval p
-        pure (VElementState (WebCheck.Property name))
-      BuiltIn "_attribute" _ p -> do
-        name <- require (sourceSpan p) (Proxy @"VString") =<< eval p
-        pure (VElementState (WebCheck.Attribute name))
-      -- General cases
-      Literal (EvalAnn ss _ _) lit -> case lit of
-        NumericLiteral n' -> pure (either (VInt . fromInteger) (VNumber . realToFrac) n')
-        StringLiteral s -> VString <$> evalString ss s
-        CharLiteral c -> pure (VChar c)
-        BooleanLiteral b -> pure (VBool b)
-        ArrayLiteral xs -> VArray . Vector.fromList <$> traverse eval xs
-        ObjectLiteral pairs -> do
-          pairs' <- for pairs $ \(field', value) ->
-            (,) <$> evalString ss field' <*> eval value
-          pure (VObject (HashMap.fromList pairs'))
-      Constructor (EvalAnn ss (Just IsNewtype) _) _ _ _fieldNames -> do
-        pure (VFunction (Function mempty (Ident "value") (Var (EvalAnn ss Nothing Nothing) (unqualifiedName "value"))))
-      Constructor ann _typeName ctorName fieldNames -> do
-        let body =
-              Literal
-                ann
-                ( ObjectLiteral
-                    [ (mkString "constructor", Literal ann (StringLiteral (mkString (runProperName ctorName)))),
-                      (mkString "fields", Literal ann (ArrayLiteral (map (Var ann . Qualified Nothing) fieldNames)))
-                    ]
+instance MonadEval Eval where
+  type Ann Eval = EvalAnn
+  eval expr = do
+    EvalEnv {env, observedStates} <- ask
+    case observedStates of
+      [] -> case expr of
+        Always _ _ -> pure (VBool True)
+        _ -> throwError Undetermined
+      ((n, current) : rest) -> case expr of
+        -- Special cases
+        Next _ p -> local (field @"observedStates" .~ rest) (eval p)
+        Always ann p -> do
+          first' <- require (sourceSpan p) (Proxy @"VBool")
+            =<< eval p `catchError` \case
+              Undetermined -> pure (VBool True)
+              e -> throwError e
+          rest' <-
+            require (annSourceSpan ann) (Proxy @"VBool")
+              =<< local (field @"observedStates" %~ drop 1) (eval expr)
+          pure (VBool (first' && rest'))
+        App _ (BuiltIn "trace" _ label) p -> do
+          t <- require (sourceSpan label) (Proxy @"VString") =<< eval label
+          traceM
+            ( prettyText
+                ( prettySourceSpan (sourceSpan expr) <> colon
+                    <+> "trace: in state"
+                    <+> pretty n <> colon
+                    <+> pretty t
                 )
-        eval (foldr (Abs ann) body fieldNames)
-      Accessor (EvalAnn ss _ _) prop objExpr -> do
-        key <- evalString ss prop
-        obj <- require ss (Proxy @"VObject") =<< eval objExpr
-        accessField ss key obj
-      ObjectUpdate (EvalAnn ss _ _) objExpr updates -> do
-        obj <- require ss (Proxy @"VObject") =<< eval objExpr
-        updates' <- for updates $ \(field', expr') ->
-          (,) <$> evalString ss field' <*> eval expr'
-        pure (VObject (obj <> HashMap.fromList updates'))
-      Abs _ann arg body -> pure (VFunction (Function env arg body))
-      App _ func param -> do
-        func' <- require (sourceSpan func) (Proxy @"VFunction") =<< eval func
-        param' <- eval param
-        evalFunc func' param'
-      Var _ (Qualified (Just (ModuleName "Prim")) (Ident "undefined")) -> pure (VObject mempty)
-      Var (EvalAnn ss _ (Just applyForeign)) _ -> evalForeignApply ss applyForeign
-      Var (EvalAnn ss _ Nothing) qn -> envLookupEval ss qn
-      Case (EvalAnn ss _ _) exprs alts -> do
-        values <- traverse eval exprs
-        evalCaseAlts ss values alts
-      Let (EvalAnn _ss _ _) bindings body -> do
-        let bindingEnv env'' = \case
-              NonRec _ name expr' -> do
-                pure (env'' <> envBindValue (Qualified Nothing name) (VDefer (Defer env'' expr')))
-              Rec binds -> do
-                rec recEnv <-
-                      fold
-                        <$> traverse
-                          ( \((_, name), expr') ->
-                              envBindValue (Qualified Nothing name) <$> pure (VDefer (Defer (env'' <> recEnv) expr'))
-                          )
-                          binds
-                pure recEnv
-        newEnv <- foldM bindingEnv env bindings
-        withModifiedEnv (<> newEnv) (eval body)
+            )
+          eval p
+        App _ (BuiltIn "_queryAll" _ p) q -> evalQuery p q current
+        BuiltIn "_property" _ p -> do
+          name <- require (sourceSpan p) (Proxy @"VString") =<< eval p
+          pure (VElementState (WebCheck.Property name))
+        BuiltIn "_attribute" _ p -> do
+          name <- require (sourceSpan p) (Proxy @"VString") =<< eval p
+          pure (VElementState (WebCheck.Attribute name))
+        -- General cases
+        Literal (EvalAnn ss _ _) lit -> case lit of
+          NumericLiteral n' -> pure (either (VInt . fromInteger) (VNumber . realToFrac) n')
+          StringLiteral s -> VString <$> evalString ss s
+          CharLiteral c -> pure (VChar c)
+          BooleanLiteral b -> pure (VBool b)
+          ArrayLiteral xs -> VArray . Vector.fromList <$> traverse eval xs
+          ObjectLiteral pairs -> do
+            pairs' <- for pairs $ \(field', value) ->
+              (,) <$> evalString ss field' <*> eval value
+            pure (VObject (HashMap.fromList pairs'))
+        Constructor (EvalAnn ss (Just IsNewtype) _) _ _ _fieldNames -> do
+          pure (VFunction (Function mempty (Ident "value") (Var (EvalAnn ss Nothing Nothing) (unqualifiedName "value"))))
+        Constructor ann _typeName ctorName fieldNames -> do
+          let body =
+                Literal
+                  ann
+                  ( ObjectLiteral
+                      [ (mkString "constructor", Literal ann (StringLiteral (mkString (runProperName ctorName)))),
+                        (mkString "fields", Literal ann (ArrayLiteral (map (Var ann . Qualified Nothing) fieldNames)))
+                      ]
+                  )
+          eval (foldr (Abs ann) body fieldNames)
+        Accessor (EvalAnn ss _ _) prop objExpr -> do
+          key <- evalString ss prop
+          obj <- require ss (Proxy @"VObject") =<< eval objExpr
+          accessField ss key obj
+        ObjectUpdate (EvalAnn ss _ _) objExpr updates -> do
+          obj <- require ss (Proxy @"VObject") =<< eval objExpr
+          updates' <- for updates $ \(field', expr') ->
+            (,) <$> evalString ss field' <*> eval expr'
+          pure (VObject (obj <> HashMap.fromList updates'))
+        Abs _ann arg body -> pure (VFunction (Function env arg body))
+        App _ func param -> do
+          func' <- require (sourceSpan func) (Proxy @"VFunction") =<< eval func
+          param' <- eval param
+          evalFunc func' param'
+        Var _ (Qualified (Just (ModuleName "Prim")) (Ident "undefined")) -> pure (VObject mempty)
+        Var (EvalAnn ss _ (Just applyForeign)) _ -> evalForeignApply ss applyForeign
+        Var (EvalAnn ss _ Nothing) qn -> envLookupEval ss qn
+        Case (EvalAnn ss _ _) exprs alts -> do
+          values <- traverse eval exprs
+          evalCaseAlts ss values alts
+        Let (EvalAnn _ss _ _) bindings body -> do
+          let bindingEnv env'' = \case
+                NonRec _ name expr' -> do
+                  pure (env'' <> envBindValue (Qualified Nothing name) (VDefer (Defer env'' expr')))
+                Rec binds -> do
+                  rec recEnv <-
+                        fold
+                          <$> traverse
+                            ( \((_, name), expr') ->
+                                envBindValue (Qualified Nothing name) <$> pure (VDefer (Defer (env'' <> recEnv) expr'))
+                            )
+                            binds
+                  pure recEnv
+          newEnv <- foldM bindingEnv env bindings
+          withModifiedEnv (<> newEnv) (eval body)
+
+  evalFunc (Function fEnv arg body) param' =
+    let newEnv = (fEnv <> envBindValue (Qualified Nothing arg) param')
+    in withModifiedEnv (const newEnv) (eval body)
+
 
 evalQuery :: Expr EvalAnn -> Expr EvalAnn -> WebCheck.ObservedState -> Eval (Value EvalAnn)
 evalQuery p1 p2 (WebCheck.ObservedState current) = do
@@ -280,11 +287,6 @@ evalQuery p1 p2 (WebCheck.ObservedState current) = do
       JSON.Number n -> either VNumber VInt (floatingOrInteger n)
       JSON.Array xs -> VArray (map fromValue xs)
       JSON.Object xs -> VObject (map fromValue xs)
-
-evalFunc :: Function EvalAnn -> (Value EvalAnn) -> Eval (Value EvalAnn)
-evalFunc (Function fEnv arg body) param' =
-  let newEnv = (fEnv <> envBindValue (Qualified Nothing arg) param')
-   in withModifiedEnv (const newEnv) (eval body)
 
 evalCaseAlts :: SourceSpan -> [(Value EvalAnn)] -> [CaseAlternative EvalAnn] -> Eval (Value EvalAnn)
 evalCaseAlts ss vals [] = throwError (UnexpectedError (Just ss) (prettyText ("Non-exhaustive case expression on values:" <+> pretty vals)))
@@ -341,7 +343,7 @@ envFromBinders = fmap fold . traverse envFromBinder
           then envFromBinders (zip bs (Vector.toList fields))
           else Nothing
 
-toModuleEnv :: Module Ann -> Env EvalAnn
+toModuleEnv :: Module CF.Ann -> Env EvalAnn
 toModuleEnv m =
   let addDecl = \case
         NonRec _ name expr -> bindExpr name expr
@@ -350,7 +352,7 @@ toModuleEnv m =
   where
     bindExpr name expr = envBindExpr (Qualified (Just (moduleName m)) name) (evalAnnFromAnn <$> expr)
 
-loadModuleFromSource :: Modules -> Text -> ExceptT Text IO (Module Ann)
+loadModuleFromSource :: Modules -> Text -> ExceptT Text IO (Module CF.Ann)
 loadModuleFromSource modules input =
   case CST.parseModuleFromFile "<file>" input >>= CST.resFull of
     Left parseError ->
@@ -368,7 +370,7 @@ loadModuleFromSource modules input =
         pure (CF.moduleToCoreFn env' mod'')
       pure result
 
-loadModuleFromCoreFn :: FilePath -> ExceptT Text IO (Module Ann)
+loadModuleFromCoreFn :: FilePath -> ExceptT Text IO (Module CF.Ann)
 loadModuleFromCoreFn path = do
   j <- liftIO (BS.readFile path)
   case JSON.decode j of
@@ -380,19 +382,19 @@ loadModuleFromCoreFn path = do
         JSON.Error e -> throwError (toS e)
     Nothing -> throwError "Couldn't read CoreFn file."
   where
-    addNameToDecl :: Text -> Bind Ann -> Bind Ann
+    addNameToDecl :: Text -> Bind CF.Ann -> Bind CF.Ann
     addNameToDecl name = fmap (_1 . field @"spanName" .~ toS name)
 
 data Modules
   = Modules
-      { modulesCoreFn :: [Module Ann],
+      { modulesCoreFn :: [Module CF.Ann],
         modulesExterns :: [P.ExternsFile],
         modulesNamesEnv :: P.Env,
         modulesInitEnv :: P.Environment
       }
   deriving (Show)
 
-loadModulesFromCoreFn :: FilePath -> ExceptT Text IO [Module Ann]
+loadModulesFromCoreFn :: FilePath -> ExceptT Text IO [Module CF.Ann]
 loadModulesFromCoreFn webcheckPursDir = do
   let coreFnPath :: Text -> FilePath
       coreFnPath mn' = webcheckPursDir </> toS mn' </> "corefn.json"
@@ -424,7 +426,7 @@ loadLibraryModules webcheckPursDir = runExceptT $ do
 data Program
   = Program
       { programLibraryModules :: Modules,
-        programMain :: Module Ann,
+        programMain :: Module CF.Ann,
         programEnv :: Env EvalAnn
       }
   deriving (Show)
@@ -455,18 +457,23 @@ data SpecificationProgram
       }
 
 instance WebCheck.Specification SpecificationProgram where
+
   origin = specificationOrigin
+
   readyWhen = specificationReadyWhen
+
   actions = QuickCheck.elements . specificationActions
+
   verify sp states = (_Left %~ prettyEvalError) . runEval (programEnv p) states $ do
     valid <- require (moduleSourceSpan (programMain p)) (Proxy @"VBool") =<< evalEntryPoint entry p
     if valid then pure WebCheck.Accepted else pure WebCheck.Rejected
     where
       p = specificationProgram sp
       entry = programQualifiedName "proposition" p
+
   queries = specificationQueries
 
-extractQueries :: Program -> Either (EvalError EvalAnn) (HashMap WebCheck.Selector (HashSet WebCheck.ElementState))
+extractQueries :: Program -> Either EvalError (HashMap WebCheck.Selector (HashSet WebCheck.ElementState))
 extractQueries prog = pure mempty -- TODO
 
 {-
@@ -533,7 +540,7 @@ entrySS = internalModuleSourceSpan "<entry>"
 evalEntryPoint :: Qualified Ident -> Program -> Eval (Value EvalAnn)
 evalEntryPoint entryPoint prog = envLookupEval entrySS entryPoint
 
-runWithEntryPoint :: forall a. ToHaskellValue a => [WebCheck.ObservedState] -> Qualified Ident -> Program -> IO (Either Text a)
+runWithEntryPoint :: forall a. ToHaskellValue a EvalAnn => [WebCheck.ObservedState] -> Qualified Ident -> Program -> IO (Either Text a)
 runWithEntryPoint observedStates entry prog = runExceptT $ do
   case runEval (programEnv prog) observedStates (evalEntryPoint entry prog >>= toHaskellValue entrySS) of
     Right value -> pure value

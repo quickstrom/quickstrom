@@ -33,17 +33,17 @@ import WebCheck.PureScript.Eval.Class
 import WebCheck.PureScript.Eval.Error
 import WebCheck.PureScript.Value
 
-data ForeignFunction m
-  = ForeignFunction
-      { arity :: Int,
-        evalFn :: (SourceSpan -> [Value (Ann m)] -> m (Value (Ann m)))
-      }
+data ForeignFunction m where
+  Base :: FromHaskellValue (Ann m) a => m a -> ForeignFunction m
+  Ind :: ToHaskellValue m a => (a -> ForeignFunction m) -> ForeignFunction m
 
-data ForeignFunction' m where
-  ForeignFunction' ::
-    EvalForeignFunction' m (FunctionArity f) f =>
-    f ->
-    ForeignFunction' m
+evalForeignFunction :: MonadError EvalError m => ForeignFunction m -> SourceSpan -> [Value (Ann m)] -> m (Value (Ann m))
+evalForeignFunction (Base x) _ [] = fromHaskellValue <$> x
+evalForeignFunction (Ind f) ss (arg:args) = do
+   ff <- f <$> toHaskellValue ss arg
+   evalForeignFunction ff ss args
+evalForeignFunction _ ss _ = foreignFunctionArityMismatch ss
+ 
 
 -- class ForeignFunctionArity' (baseCase :: Bool) f where
 --   foreignFunctionArity' :: Proxy baseCase -> Proxy f -> Int
@@ -72,46 +72,43 @@ foreignFunctionArityMismatch ss = throwError (ForeignFunctionError (Just ss) "Fo
 
 newtype Ret a = Ret {unRet :: a}
 
-class EvalForeignFunction' m (a :: Nat) f where
-  evalForeignFunction' :: Proxy a -> f -> SourceSpan -> [Value (Ann m)] -> m (Value (Ann m))
+class ToForeignFunction m (a :: Nat) f where
+  toForeignFunction :: Proxy a -> f -> ForeignFunction m
 
 instance
   ( MonadError EvalError m,
     FromHaskellValue (Ann m) a,
     m ~ n
   ) =>
-  EvalForeignFunction' m 0 (n (Ret a))
+  ToForeignFunction m 0 (n (Ret a))
   where
-  evalForeignFunction' _ x _ [] = fromHaskellValue . unRet <$> x
-  evalForeignFunction' _ _ ss _ = foreignFunctionArityMismatch ss
+  toForeignFunction _ x = Base (unRet <$> x)
 
 instance
   ( MonadError EvalError m,
     ToHaskellValue m a,
-    EvalForeignFunction' n 0 (n b),
+    ToForeignFunction n 0 b,
     m ~ n
   ) =>
-  EvalForeignFunction' m 1 (a -> n b)
+  ToForeignFunction m 1 (a -> b)
   where
-  evalForeignFunction' _ f ss (v : vs) = do
-    a <- toHaskellValue ss v
-    evalForeignFunction' (Proxy :: Proxy 0) (f a) ss vs
-  evalForeignFunction' _ _ ss [] = foreignFunctionArityMismatch ss
+  toForeignFunction _ f = Ind $ \a -> do
+    toForeignFunction (Proxy :: Proxy 0) (f a)
 
-instance
-  ( MonadError EvalError m,
-    ToHaskellValue m a,
-    ToHaskellValue n b,
-    EvalForeignFunction' n 0 (n c),
-    EvalForeignFunction' n 1 (b -> n c),
-    m ~ n
-  ) =>
-  EvalForeignFunction' m 2 (a -> b -> n c)
-  where
-  evalForeignFunction' _ f ss (v : vs) = do
-    a <- toHaskellValue ss v
-    evalForeignFunction' (Proxy :: Proxy 1) (f a) ss vs
-  evalForeignFunction' _ _ ss [] = foreignFunctionArityMismatch ss
+-- instance
+--   ( MonadError EvalError m,
+--     ToHaskellValue m a,
+--     ToHaskellValue n b,
+--     EvalForeignFunction' n 0 (n c),
+--     EvalForeignFunction' n 1 (b -> n c),
+--     m ~ n
+--   ) =>
+--   EvalForeignFunction' m 2 (a -> b -> n c)
+--   where
+--   evalForeignFunction' _ f ss (v : vs) = do
+--     a <- toHaskellValue ss v
+--     evalForeignFunction' (Proxy :: Proxy 1) (f a) ss vs
+--   evalForeignFunction' _ _ ss [] = foreignFunctionArityMismatch ss
 
 {-
 class EvalForeignFunction m f where
@@ -218,19 +215,6 @@ instance FromHaskellValue ann (Value ann) where
 qualifiedName :: Text -> Text -> Qualified Ident
 qualifiedName mn n = Qualified (Just (ModuleName mn)) (Ident n)
 
-foreignFunction ::
-  ( a ~ FunctionArity f,
-    KnownNat a,
-    EvalForeignFunction' m a f
-  ) =>
-  Proxy m ->
-  f ->
-  ForeignFunction m
-foreignFunction (Proxy :: Proxy m) (f :: f) =
-  ForeignFunction
-    (functionArity (Proxy :: Proxy f))
-    (evalForeignFunction' (Proxy :: Proxy (FunctionArity f)) f)
-
 -- foo :: MonadEval m => ForeignFunction m
 -- foo = ForeignFunction 1 (evalForeignFunction arrayBind)
 
@@ -248,6 +232,9 @@ bar2 n = pure (Ret (succ n))
 
 bar3 :: Monad m => Int -> Int -> m (Ret Int)
 bar3 x y = pure (Ret (x + y))
+
+foreignFunction :: ToForeignFunction m (FunctionArity f) f => f -> ForeignFunction m
+foreignFunction (f :: f) = toForeignFunction (Proxy @(FunctionArity f)) f
 
 foreignFunctions :: MonadEval m => Map (Qualified Ident) (ForeignFunction m)
 foreignFunctions =

@@ -26,10 +26,7 @@ module WebCheck.PureScript where
 
 import Control.Lens hiding (op)
 import Control.Monad.Fix (MonadFix)
-import Control.Monad.Trans.Writer.Strict (WriterT (runWriterT))
 import qualified Data.Aeson as JSON
-import qualified Data.Aeson.Types as JSON
-import qualified Data.ByteString.Lazy.Char8 as BS
 import Data.Fixed (mod')
 import Data.Generics.Product (field)
 import qualified Data.HashMap.Strict as HashMap
@@ -41,17 +38,12 @@ import Data.Text.Prettyprint.Doc.Render.Text
 import qualified Data.Text.Read as Text
 import qualified Data.Vector as Vector
 import Data.Vector (Vector)
-import qualified Language.PureScript as P
 import Language.PureScript.AST (SourceSpan, internalModuleSourceSpan, nullSourceSpan, spanName)
-import qualified Language.PureScript.CST as CST
 import Language.PureScript.CoreFn hiding (Ann)
 import qualified Language.PureScript.CoreFn as CF
-import Language.PureScript.CoreFn.FromJSON (moduleFromJSON)
 import Language.PureScript.Names
 import Language.PureScript.PSString (PSString, decodeString, mkString)
 import Protolude hiding (Meta, moduleName)
-import System.FilePath ((</>))
-import System.FilePath.Glob (glob)
 import qualified Test.QuickCheck as QuickCheck
 import Text.Read (read)
 import qualified WebCheck.Action as WebCheck
@@ -61,6 +53,8 @@ import WebCheck.PureScript.Eval.Class
 import WebCheck.PureScript.Eval.Error
 import WebCheck.PureScript.ForeignFunction
 import WebCheck.PureScript.Pretty
+import WebCheck.PureScript.Program
+import qualified WebCheck.PureScript.Queries as Queries
 import WebCheck.PureScript.Value
 import qualified WebCheck.Result as WebCheck
 import qualified WebCheck.Specification as WebCheck
@@ -145,7 +139,9 @@ asQualifiedName (Qualified (Just (ModuleName mn)) n) = Just (mn, runIdent n)
 asQualifiedName _ = Nothing
 
 instance MonadEval Eval where
+
   type Ann Eval = EvalAnn
+
   eval expr = do
     EvalEnv {env, observedStates} <- ask
     case observedStates of
@@ -243,8 +239,7 @@ instance MonadEval Eval where
 
   evalFunc (Function fEnv arg body) param' =
     let newEnv = (fEnv <> envBindValue (Qualified Nothing arg) param')
-    in withModifiedEnv (const newEnv) (eval body)
-
+     in withModifiedEnv (const newEnv) (eval body)
 
 evalQuery :: Expr EvalAnn -> Expr EvalAnn -> WebCheck.ObservedState -> Eval (Value EvalAnn)
 evalQuery p1 p2 (WebCheck.ObservedState current) = do
@@ -338,90 +333,7 @@ toModuleEnv m =
   where
     bindExpr name expr = envBindExpr (Qualified (Just (moduleName m)) name) (evalAnnFromAnn <$> expr)
 
-loadModuleFromSource :: Modules -> Text -> ExceptT Text IO (Module CF.Ann)
-loadModuleFromSource modules input =
-  case CST.parseModuleFromFile "<file>" input >>= CST.resFull of
-    Left parseError ->
-      -- _ $ CST.toMultipleErrors "<file>" parseError
-      throwError (show parseError)
-    Right m -> do
-      (result, _) <- withExceptT show . runWriterT . flip runReaderT P.defaultOptions $ do
-        (P.Module ss coms moduleName' elaborated exps, env') <- fmap fst . P.runSupplyT 0 $ do
-          desugared <- P.desugar (modulesNamesEnv modules) (modulesExterns modules) [P.importPrim m] >>= \case
-            [d] -> pure d
-            _ -> throwError (P.MultipleErrors mempty)
-          P.runCheck' (P.emptyCheckState (modulesInitEnv modules)) $ P.typeCheckModule desugared
-        regrouped <- P.createBindingGroups moduleName' . P.collapseBindingGroups $ elaborated
-        let mod'' = P.Module ss coms moduleName' regrouped exps
-        pure (CF.moduleToCoreFn env' mod'')
-      pure result
-
-loadModuleFromCoreFn :: FilePath -> ExceptT Text IO (Module CF.Ann)
-loadModuleFromCoreFn path = do
-  j <- liftIO (BS.readFile path)
-  case JSON.decode j of
-    Just val ->
-      case JSON.parse moduleFromJSON val of
-        JSON.Success (_, m) -> do
-          putStrLn ("Loaded " <> runModuleName (moduleName m))
-          pure m {moduleDecls = map (addNameToDecl (toS (modulePath m))) (moduleDecls m)}
-        JSON.Error e -> throwError (toS e)
-    Nothing -> throwError "Couldn't read CoreFn file."
-  where
-    addNameToDecl :: Text -> Bind CF.Ann -> Bind CF.Ann
-    addNameToDecl name = fmap (_1 . field @"spanName" .~ toS name)
-
-data Modules
-  = Modules
-      { modulesCoreFn :: [Module CF.Ann],
-        modulesExterns :: [P.ExternsFile],
-        modulesNamesEnv :: P.Env,
-        modulesInitEnv :: P.Environment
-      }
-  deriving (Show)
-
-loadModulesFromCoreFn :: FilePath -> ExceptT Text IO [Module CF.Ann]
-loadModulesFromCoreFn webcheckPursDir = do
-  let coreFnPath :: Text -> FilePath
-      coreFnPath mn' = webcheckPursDir </> toS mn' </> "corefn.json"
-  paths <- liftIO (glob (coreFnPath "*"))
-  traverse loadModuleFromCoreFn paths
-
-loadExterns :: ModuleName -> FilePath -> ExceptT Text IO P.ExternsFile
-loadExterns (ModuleName mn) webcheckPursDir = do
-  let path = webcheckPursDir </> toS mn </> "externs.cbor"
-  withExceptT show (P.readExternsFile path) >>= \case
-    Just ext -> pure ext
-    Nothing -> throwError ("Could not read externs file: " <> toS path)
-
-loadLibraryModules :: FilePath -> IO (Either Text Modules)
-loadLibraryModules webcheckPursDir = runExceptT $ do
-  libModules <- loadModulesFromCoreFn webcheckPursDir
-  externs <- for libModules $ \m -> loadExterns (moduleName m) webcheckPursDir
-  sortedExterns <- withExceptT show . fmap fst $ P.sortModules externModuleSignature externs
-  namesEnv <- withExceptT show . fmap fst . runWriterT $ foldM P.externsEnv P.primEnv sortedExterns
-  let initEnv = foldl' (flip P.applyExternsFileToEnvironment) P.initEnvironment sortedExterns
-  pure (Modules libModules sortedExterns namesEnv initEnv)
-  where
-    externModuleSignature e =
-      P.ModuleSignature
-        (P.efSourceSpan e)
-        (P.efModuleName e)
-        (map ((,nullSourceSpan) . P.eiModule) (P.efImports e))
-
-data Program
-  = Program
-      { programLibraryModules :: Modules,
-        programMain :: Module CF.Ann,
-        programEnv :: Env EvalAnn
-      }
-  deriving (Show)
-
-programQualifiedName :: Text -> Program -> Qualified Ident
-programQualifiedName name p =
-  Qualified (Just (moduleName (programMain p))) (Ident name)
-
-loadProgram :: Modules -> Text -> IO (Either Text Program)
+loadProgram :: Modules -> Text -> IO (Either Text (Program EvalAnn))
 loadProgram ms input = runExceptT $ do
   specModule <- loadModuleFromSource ms input
   let env' = foldMap toModuleEnv (modulesCoreFn ms <> [specModule])
@@ -439,7 +351,7 @@ data SpecificationProgram
         specificationReadyWhen :: WebCheck.Selector,
         specificationActions :: [WebCheck.Action WebCheck.Selector],
         specificationQueries :: WebCheck.Queries,
-        specificationProgram :: Program
+        specificationProgram :: Program EvalAnn
       }
 
 instance WebCheck.Specification SpecificationProgram where
@@ -451,7 +363,7 @@ instance WebCheck.Specification SpecificationProgram where
   actions = QuickCheck.elements . specificationActions
 
   verify sp states = (_Left %~ prettyEvalError) . runEval (programEnv p) states $ do
-    valid <- require (moduleSourceSpan (programMain p)) (Proxy @"VBool") =<< evalEntryPoint entry p
+    valid <- require (moduleSourceSpan (programMain p)) (Proxy @"VBool") =<< evalEntryPoint entry
     if valid then pure WebCheck.Accepted else pure WebCheck.Rejected
     where
       p = specificationProgram sp
@@ -464,10 +376,10 @@ loadSpecification ms input = runExceptT $ do
   p <- ExceptT (loadProgram ms input)
   either (throwError . prettyText . prettyEvalErrorWithSourceSpan) pure . runEval (programEnv p) [mempty] $ do
     let ss = (moduleSourceSpan (programMain p))
-    origin <- toHaskellValue ss =<< evalEntryPoint (programQualifiedName "origin" p) p
-    readyWhen <- toHaskellValue ss =<< evalEntryPoint (programQualifiedName "readyWhen" p) p
-    actions <- toHaskellValue ss =<< evalEntryPoint (programQualifiedName "actions" p) p
-    queries <- pure mempty -- liftEither (extractQueries p)
+    origin <- toHaskellValue ss =<< evalEntryPoint (programQualifiedName "origin" p)
+    readyWhen <- toHaskellValue ss =<< evalEntryPoint (programQualifiedName "readyWhen" p)
+    actions <- toHaskellValue ss =<< evalEntryPoint (programQualifiedName "actions" p)
+    queries <- Queries.extractQueries p
     pure
       ( SpecificationProgram
           { specificationOrigin = WebCheck.Path origin,
@@ -484,12 +396,12 @@ loadSpecificationFile ms input = loadSpecification ms =<< readFile input
 entrySS :: SourceSpan
 entrySS = internalModuleSourceSpan "<entry>"
 
-evalEntryPoint :: Qualified Ident -> Program -> Eval (Value EvalAnn)
-evalEntryPoint entryPoint prog = envLookupEval entrySS entryPoint
+evalEntryPoint :: Qualified Ident -> Eval (Value EvalAnn)
+evalEntryPoint entryPoint = envLookupEval entrySS entryPoint
 
-runWithEntryPoint :: forall a. ToHaskellValue Eval a => [WebCheck.ObservedState] -> Qualified Ident -> Program -> IO (Either Text a)
+runWithEntryPoint :: forall a. ToHaskellValue Eval a => [WebCheck.ObservedState] -> Qualified Ident -> Program EvalAnn -> IO (Either Text a)
 runWithEntryPoint observedStates entry prog = runExceptT $ do
-  case runEval (programEnv prog) observedStates (evalEntryPoint entry prog >>= toHaskellValue entrySS) of
+  case runEval (programEnv prog) observedStates (evalEntryPoint entry >>= toHaskellValue entrySS) of
     Right value -> pure value
     Left err -> throwError (prettyText (prettyEvalErrorWithSourceSpan err))
 
@@ -632,7 +544,7 @@ foreignFunctions =
       | y == 0 = pure 0
       | otherwise = let yy = abs y in pure ((x `mod` yy) + yy `mod` yy)
     unfoldrArrayImpl ::
-      Monad m => 
+      Monad m =>
       (Value (Ann m) -> m Bool) -> -- isNothing
       (Value (Ann m) -> m (Value (Ann m))) -> -- fromJust
       (Value (Ann m) -> m (Value (Ann m))) -> -- fst
@@ -641,17 +553,17 @@ foreignFunctions =
       Value (Ann m) -> -- b
       Ret m (Vector (Value (Ann m)))
     unfoldrArrayImpl isNothing' fromJust' fst' snd' f =
-      Ret . (
-      Vector.unfoldrM $ \b -> do
-        r <- f b
-        isNothing' r >>= \case
-          True -> pure Nothing
-          False -> do
-            tuple <- fromJust' r
-            a <- fst' tuple
-            b' <- snd' tuple
-            pure (Just (a, b'))
-      )
+      Ret
+        . ( Vector.unfoldrM $ \b -> do
+              r <- f b
+              isNothing' r >>= \case
+                True -> pure Nothing
+                False -> do
+                  tuple <- fromJust' r
+                  a <- fst' tuple
+                  b' <- snd' tuple
+                  pure (Just (a, b'))
+          )
     unsafePartial :: m ~ Eval => Value (Ann m) -> Ret m (Value (Ann m))
     unsafePartial f = Ret $ do
       Function fenv _ body <- require nullSourceSpan (Proxy @"VFunction") f

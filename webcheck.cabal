@@ -58,6 +58,8 @@ library
                     , WebCheck.PureScript.Eval.Class
                     , WebCheck.PureScript.ForeignFunction
                     , WebCheck.PureScript.Pretty
+                    , WebCheck.PureScript.Program
+                    , WebCheck.PureScript.Queries
                     , WebCheck.PureScript.Value
                     , WebCheck.Pretty
                     , WebCheck.Result

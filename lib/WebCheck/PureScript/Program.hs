@@ -22,16 +22,6 @@ import Language.PureScript.Names
 import System.FilePath ((</>))
 import System.FilePath.Glob (glob)
 import WebCheck.PureScript.Value
-import WebCheck.PureScript.Eval.Ann
-
-toModuleEnv :: Module CF.Ann -> Env EvalAnn
-toModuleEnv m =
-  let addDecl = \case
-        NonRec _ name expr -> bindExpr name expr
-        Rec binds -> foldMap (\((_, name), expr) -> bindExpr name expr) binds
-   in foldMap addDecl (moduleDecls m)
-  where
-    bindExpr name expr = envBindExpr (Qualified (Just (moduleName m)) name) (evalAnnFromAnn <$> expr)
 
 loadModuleFromSource :: Modules -> Text -> ExceptT Text IO (Module CF.Ann)
 loadModuleFromSource modules input =

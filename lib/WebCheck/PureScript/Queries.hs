@@ -36,7 +36,7 @@ instance MonadEval m => MonadEval (Extract m) where
 
   evalFunc f = lift . evalFunc f
 
-extractQueries :: MonadEval m => Program -> m (HashMap Selector (HashSet ElementState))
+extractQueries :: MonadEval m => Program (Ann m) -> m (HashMap Selector (HashSet ElementState))
 extractQueries prog = runExtract $ do
   let qn = programQualifiedName "proposition" prog
   case envLookup qn (programEnv prog) of

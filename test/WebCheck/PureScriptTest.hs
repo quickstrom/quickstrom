@@ -21,6 +21,7 @@ import qualified WebCheck.Element as WebCheck
 import WebCheck.Trace (ObservedState (..))
 import WebCheck.PureScript
 import WebCheck.PureScript.Value
+import WebCheck.PureScript.Eval.Error
 
 envLookupExpr :: Qualified Ident -> Eval (Expr EvalAnn)
 envLookupExpr qn =

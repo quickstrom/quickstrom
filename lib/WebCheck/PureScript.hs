@@ -27,17 +27,14 @@ module WebCheck.PureScript where
 import Control.Lens hiding (op)
 import Control.Monad.Except (liftEither)
 import Control.Monad.Fix (MonadFix)
-import Control.Monad.Trans (MonadTrans (..))
 import Control.Monad.Trans.Writer.Strict (WriterT (runWriterT))
 import qualified Data.Aeson as JSON
 import qualified Data.Aeson.Types as JSON
 import qualified Data.ByteString.Lazy.Char8 as BS
 import Data.Fixed (mod')
 import Data.Generics.Product (field)
-import Data.Generics.Sum (AsConstructor, _Ctor)
 import qualified Data.HashMap.Strict as HashMap
 import Data.HashMap.Strict (HashMap)
-import qualified Data.HashSet as HashSet
 import Data.HashSet (HashSet)
 import qualified Data.Map as Map
 import Data.Scientific
@@ -48,9 +45,9 @@ import qualified Data.Text.Read as Text
 import qualified Data.Vector as Vector
 import Data.Vector (Vector)
 import qualified Language.PureScript as P
-import Language.PureScript.AST (SourceSpan, internalModuleSourceSpan, nullSourceSpan, sourcePosColumn, sourcePosLine, spanEnd, spanName, spanStart)
+import Language.PureScript.AST (SourceSpan, internalModuleSourceSpan, nullSourceSpan, spanName)
 import qualified Language.PureScript.CST as CST
-import Language.PureScript.CoreFn
+import Language.PureScript.CoreFn hiding (Ann)
 import qualified Language.PureScript.CoreFn as CF
 import Language.PureScript.CoreFn.FromJSON (moduleFromJSON)
 import Language.PureScript.Names
@@ -110,14 +107,14 @@ evalStringExpr expr = throwError (InvalidString (annSourceSpan (extractAnn expr)
 
 initialEnv :: Env EvalAnn
 initialEnv =
-  foldMap bindForeignPair (Map.toList (foreignFunctions @Eval))
+  foldMap bindForeignPair (Map.toList foreignFunctions)
   where
     builtInSS = internalModuleSourceSpan "<builtin>"
     bindForeignFunction :: Qualified Ident -> Int -> Env EvalAnn
     bindForeignFunction qn arity' =
       envBindExpr qn (wrap arity' (\names -> Var (EvalAnn builtInSS {spanName = toS (showQualified runIdent qn)} (Just IsForeign) (Just (ApplyForeign qn names))) qn))
-    bindForeignPair :: (Qualified Ident, ForeignFunction m) -> Env EvalAnn
-    bindForeignPair (qn, f) = bindForeignFunction qn (arity f)
+    bindForeignPair :: (Qualified Ident, SomeForeignFunction m) -> Env EvalAnn
+    bindForeignPair (qn, SomeForeignFunction f) = bindForeignFunction qn (foreignFunctionArity f)
     wrap :: Int -> ([Ident] -> Expr EvalAnn) -> Expr EvalAnn
     wrap arity' f =
       let names = [Ident ("x" <> show n) | n <- [1 .. arity']]
@@ -540,7 +537,7 @@ entrySS = internalModuleSourceSpan "<entry>"
 evalEntryPoint :: Qualified Ident -> Program -> Eval (Value EvalAnn)
 evalEntryPoint entryPoint prog = envLookupEval entrySS entryPoint
 
-runWithEntryPoint :: forall a. ToHaskellValue a EvalAnn => [WebCheck.ObservedState] -> Qualified Ident -> Program -> IO (Either Text a)
+runWithEntryPoint :: forall a. ToHaskellValue Eval a => [WebCheck.ObservedState] -> Qualified Ident -> Program -> IO (Either Text a)
 runWithEntryPoint observedStates entry prog = runExceptT $ do
   case runEval (programEnv prog) observedStates (evalEntryPoint entry prog >>= toHaskellValue entrySS) of
     Right value -> pure value
@@ -558,5 +555,154 @@ evalForeignApply :: SourceSpan -> ApplyForeign -> Eval (Value EvalAnn)
 evalForeignApply ss (ApplyForeign qn paramNames) = do
   params <- for paramNames $ \n -> envLookupEval ss (Qualified Nothing n)
   case Map.lookup qn foreignFunctions of
-    (Just (ForeignFunction {evalFn})) -> evalFn ss params
+    (Just (SomeForeignFunction f)) -> evalForeignFunction f ss params
     _ -> throwError (ForeignFunctionNotSupported ss qn)
+
+foreignFunctions :: Map (Qualified Ident) (SomeForeignFunction Eval)
+foreignFunctions =
+  Map.fromList
+    [ (qualifiedName "Control.Bind" "arrayBind", foreignFunction arrayBind),
+      (qualifiedName "Data.Array" "indexImpl", foreignFunction indexImpl),
+      (qualifiedName "Data.Array" "length", foreignFunction len),
+      (qualifiedName "Data.Array" "filter", foreignFunction filterArray),
+      (qualifiedName "Data.Bounded" "bottomInt", foreignFunction (op0 @Int minBound)),
+      (qualifiedName "Data.Bounded" "topInt", foreignFunction (op0 @Int maxBound)),
+      (qualifiedName "Data.Eq" "eqBooleanImpl", foreignFunction (op2 ((==) @Bool))),
+      (qualifiedName "Data.Eq" "eqIntImpl", foreignFunction (op2 ((==) @Int))),
+      (qualifiedName "Data.Eq" "eqNumberImpl", foreignFunction (op2 ((==) @Double))),
+      (qualifiedName "Data.Eq" "eqCharImpl", foreignFunction (op2 ((==) @Char))),
+      (qualifiedName "Data.Eq" "eqStringImpl", foreignFunction (op2 ((==) @Text))),
+      (qualifiedName "Data.Eq" "eqArrayImpl", foreignFunction eqArray),
+      (qualifiedName "Data.EuclideanRing" "intDegree", foreignFunction intDegree),
+      (qualifiedName "Data.EuclideanRing" "intDiv", foreignFunction intDiv),
+      (qualifiedName "Data.EuclideanRing" "intMod", foreignFunction intMod),
+      (qualifiedName "Data.EuclideanRing" "numDiv", foreignFunction (op2 @Double (/))),
+      (qualifiedName "Data.Foldable" "foldlArray", foreignFunction foldlArray),
+      (qualifiedName "Data.Foldable" "foldrArray", foreignFunction foldrArray),
+      (qualifiedName "Data.Functor" "arrayMap", foreignFunction arrayMap),
+      (qualifiedName "Data.HeytingAlgebra" "boolConj", foreignFunction (op2 (&&))),
+      (qualifiedName "Data.HeytingAlgebra" "boolDisj", foreignFunction (op2 (||))),
+      (qualifiedName "Data.HeytingAlgebra" "boolNot", foreignFunction (op1 not)),
+      (qualifiedName "Data.Int" "toNumber", foreignFunction (op1 (fromIntegral @Int @Double))),
+      (qualifiedName "Data.Int" "fromNumberImpl", foreignFunction fromNumberImpl),
+      (qualifiedName "Data.Int" "fromStringAsImpl", foreignFunction fromStringAsImpl),
+      (qualifiedName "Data.Ord" "ordBooleanImpl", foreignFunction (ordImpl @Bool)),
+      (qualifiedName "Data.Ord" "ordIntImpl", foreignFunction (ordImpl @Int)),
+      (qualifiedName "Data.Ord" "ordNumberImpl", foreignFunction (ordImpl @Double)),
+      (qualifiedName "Data.Ord" "ordStringImpl", foreignFunction (ordImpl @Text)),
+      (qualifiedName "Data.Ord" "ordCharImpl", foreignFunction (ordImpl @Char)),
+      (qualifiedName "Data.Ring" "intSub", foreignFunction (op2 ((-) @Int))),
+      (qualifiedName "Data.Ring" "numSub", foreignFunction (op2 ((-) @Double))),
+      (qualifiedName "Data.Show" "showStringImpl", foreignFunction (op1 (show @Text @Text))),
+      (qualifiedName "Data.Show" "showIntImpl", foreignFunction (op1 (show @Int @Text))),
+      (qualifiedName "Data.Show" "showNumberImpl", foreignFunction (op1 (show @Double @Text))),
+      (qualifiedName "Data.Show" "cons", foreignFunction (op2 Vector.cons :: forall m a. Monad m => a ~ Value (Ann m) => a -> Vector a -> Ret m (Vector a))),
+      (qualifiedName "Data.Show" "join", foreignFunction (op2 Text.intercalate)),
+      (qualifiedName "Data.Semiring" "intAdd", foreignFunction (op2 ((+) @Int))),
+      (qualifiedName "Data.Semiring" "intMul", foreignFunction (op2 ((*) @Int))),
+      (qualifiedName "Data.Semiring" "numAdd", foreignFunction (op2 ((+) @Double))),
+      (qualifiedName "Data.Semiring" "numMul", foreignFunction (op2 ((*) @Double))),
+      (qualifiedName "Data.Semigroup" "concatString", foreignFunction (op2 ((<>) @Text))),
+      (qualifiedName "Data.Semigroup" "concatArray", foreignFunction (op2 (<>) :: forall m a. Monad m => a ~ Value (Ann m) => Vector a -> Vector a -> Ret m (Vector a))),
+      notSupported (qualifiedName "Data.String.Common" "_localeCompare"),
+      (qualifiedName "Data.String.Common" "replace", foreignFunction (op3 Text.replace)),
+      (qualifiedName "Data.String.Common" "split", foreignFunction (op2 Text.splitOn)),
+      (qualifiedName "Data.String.Common" "toLower", foreignFunction (op1 Text.toLower)),
+      (qualifiedName "Data.String.Common" "toUpper", foreignFunction (op1 Text.toUpper)),
+      (qualifiedName "Data.String.Common" "trim", foreignFunction (op1 Text.strip)),
+      (qualifiedName "Data.String.Common" "joinWith", foreignFunction (op2 Text.intercalate)),
+      (qualifiedName "Data.Unfoldable" "unfoldrArrayImpl", foreignFunction unfoldrArrayImpl),
+      (qualifiedName "Global" "infinity", foreignFunction (op0 (read "Infinity" :: Double))),
+      (qualifiedName "Global" "nan", foreignFunction (op0 (read "NaN" :: Double))),
+      (qualifiedName "Global" "isFinite", foreignFunction (op1 (not . isInfinite @Double))),
+      (qualifiedName "Global" "readFloat", foreignFunction (readAs Text.double)),
+      (qualifiedName "Global" "readInt", foreignFunction readInt),
+      (qualifiedName "Math" "floor", foreignFunction (op1 (fromIntegral @Int @Double . floor @Double @Int))),
+      (qualifiedName "Math" "remainder", foreignFunction (op2 (mod' @Double))),
+      (qualifiedName "Partial.Unsafe" "unsafePartial", foreignFunction unsafePartial),
+      (qualifiedName "Record.Unsafe" "unsafeGet", foreignFunction (\k xs -> Ret (accessField nullSourceSpan k xs)))
+    ]
+  where
+    notSupported :: MonadError EvalError m => Qualified Ident -> (Qualified Ident, SomeForeignFunction m)
+    notSupported qn = (qn, SomeForeignFunction (NotSupported qn))
+    indexImpl :: Monad m => a ~ (Value (Ann m)) => (a -> m (Value (Ann m))) -> Value (Ann m) -> Vector a -> Int -> Ret m (Value (Ann m))
+    indexImpl just nothing xs i = Ret (maybe (pure nothing) just (xs ^? ix (fromIntegral i)))
+    fromNumberImpl :: (Int -> m (Value (Ann m))) -> Value (Ann m) -> Double -> Ret m (Value (Ann m))
+    fromNumberImpl just _ x = Ret (just (round x))
+    fromStringAsImpl :: Monad m => (Int -> m (Value (Ann m))) -> Value (Ann m) -> Int -> Text -> Ret m (Value (Ann m))
+    fromStringAsImpl just nothing radix t =
+      Ret . either (const (pure nothing)) (just . fst) $ case radix of
+        10 -> Text.decimal t
+        16 -> Text.hexadecimal t
+        _ -> Left mempty
+    len :: Monad m => Vector (Value (Ann m)) -> Ret m Int
+    len xs = pure (fromIntegral (Vector.length xs))
+    filterArray :: Monad m => (Value (Ann m) -> m Bool) -> Vector (Value (Ann m)) -> Ret m (Vector (Value (Ann m)))
+    filterArray f xs = Ret (Vector.filterM f xs)
+    arrayBind :: MonadEval m => (a ~ Value ann, b ~ Value ann) => Vector a -> (a -> m (Vector b)) -> Ret m (Vector b)
+    arrayBind xs f = Ret (join <$> traverse f xs)
+    arrayMap :: Monad m => (a ~ Value (Ann m), b ~ Value (Ann m)) => (a -> m b) -> Vector a -> Ret m (Vector b)
+    arrayMap f xs = Ret (Vector.mapM f xs)
+    foldlArray :: Monad m => (b ~ Value (Ann m), a ~ Value (Ann m)) => (b -> a -> m b) -> b -> Vector a -> Ret m b
+    foldlArray f s xs = Ret (foldM f s xs)
+    foldrArray :: Monad m => (b ~ Value (Ann m), a ~ Value (Ann m)) => (a -> b -> m b) -> b -> Vector a -> Ret m b
+    foldrArray f s xs = Ret (foldrM f s xs)
+    op0 :: forall a m. Monad m => a -> Ret m a
+    op0 = pure
+    op1 :: forall a b m. Monad m => (a -> b) -> a -> Ret m b
+    op1 op = pure . op
+    op2 :: forall a b c m. Monad m => (a -> b -> c) -> a -> b -> Ret m c
+    op2 op x y = pure (op x y)
+    op3 :: forall a b c d m. Monad m => (a -> b -> c -> d) -> a -> b -> c -> Ret m d
+    op3 op x y z = pure (op x y z)
+    readAs :: (MonadEval m, StringConv s Text) => (Text -> Either s (a, Text)) -> Text -> Ret m a
+    readAs parse t = Ret (either (throwError . ForeignFunctionError Nothing . toS) (pure . fst) (parse t))
+    readInt :: MonadEval m => Int -> Text -> Ret m Int
+    readInt = \case
+      10 -> readAs Text.decimal
+      16 -> readAs Text.hexadecimal
+      radix -> const (Ret $ throwError (ForeignFunctionError Nothing ("Unsupported radix for readInt: " <> show radix)))
+    eqArray :: Monad m => (a ~ Value (Ann m), b ~ Bool) => (a -> a -> m b) -> Vector a -> Vector a -> Ret m b
+    eqArray pred' v1 v2
+      | Vector.length v1 == Vector.length v2 = Ret (Vector.and <$> Vector.zipWithM pred' v1 v2)
+      | otherwise = pure False
+    ordImpl :: forall a o m. Monad m => (Show a, Ord a, o ~ Value (Ann m)) => o -> o -> o -> a -> a -> Ret m o
+    ordImpl lt eq gt x y = pure $ case x `compare` y of
+      LT -> lt
+      EQ -> eq
+      GT -> gt
+    intDegree :: Monad m => Int -> Ret m Int
+    intDegree n = pure (min (abs n) 2147483647)
+    intDiv :: Monad m => Int -> Int -> Ret m Int
+    intDiv x y
+      | y == 0 = pure 0
+      | otherwise = pure (x `div` y)
+    intMod :: Monad m => Int -> Int -> Ret m Int
+    intMod x y
+      | y == 0 = pure 0
+      | otherwise = let yy = abs y in pure ((x `mod` yy) + yy `mod` yy)
+    unfoldrArrayImpl ::
+      Monad m => 
+      (Value (Ann m) -> m Bool) -> -- isNothing
+      (Value (Ann m) -> m (Value (Ann m))) -> -- fromJust
+      (Value (Ann m) -> m (Value (Ann m))) -> -- fst
+      (Value (Ann m) -> m (Value (Ann m))) -> -- snd
+      (Value (Ann m) -> m (Value (Ann m))) -> -- f
+      Value (Ann m) -> -- b
+      Ret m (Vector (Value (Ann m)))
+    unfoldrArrayImpl isNothing' fromJust' fst' snd' f =
+      Ret . (
+      Vector.unfoldrM $ \b -> do
+        r <- f b
+        isNothing' r >>= \case
+          True -> pure Nothing
+          False -> do
+            tuple <- fromJust' r
+            a <- fst' tuple
+            b' <- snd' tuple
+            pure (Just (a, b'))
+      )
+    unsafePartial :: m ~ Eval => Value (Ann m) -> Ret m (Value (Ann m))
+    unsafePartial f = Ret $ do
+      Function fenv _ body <- require nullSourceSpan (Proxy @"VFunction") f
+      withModifiedEnv (const fenv) (eval body)

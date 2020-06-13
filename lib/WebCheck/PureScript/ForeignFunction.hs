@@ -33,11 +33,11 @@ import WebCheck.PureScript.Eval.Class
 import WebCheck.PureScript.Eval.Error
 import WebCheck.PureScript.Value
 
-data ForeignFunction m where
-  Base :: FromHaskellValue (Ann m) a => m a -> ForeignFunction m
-  Ind :: ToHaskellValue m a => (a -> ForeignFunction m) -> ForeignFunction m
+data ForeignFunction m arity where
+  Base :: FromHaskellValue (Ann m) a => m a -> ForeignFunction m 0
+  Ind :: ToHaskellValue m a => (a -> ForeignFunction m n) -> ForeignFunction m (n + 1)
 
-evalForeignFunction :: MonadError EvalError m => ForeignFunction m -> SourceSpan -> [Value (Ann m)] -> m (Value (Ann m))
+evalForeignFunction :: MonadError EvalError m => ForeignFunction m arity -> SourceSpan -> [Value (Ann m)] -> m (Value (Ann m))
 evalForeignFunction (Base x) _ [] = fromHaskellValue <$> x
 evalForeignFunction (Ind f) ss (arg:args) = do
    ff <- f <$> toHaskellValue ss arg
@@ -72,28 +72,42 @@ foreignFunctionArityMismatch ss = throwError (ForeignFunctionError (Just ss) "Fo
 
 newtype Ret a = Ret {unRet :: a}
 
-class ToForeignFunction m (a :: Nat) f where
-  toForeignFunction :: Proxy a -> f -> ForeignFunction m
+class ToForeignFunction m arity f | f -> m arity where
+  toForeignFunction :: f -> ForeignFunction m arity
 
 instance
-  ( MonadError EvalError m,
-    FromHaskellValue (Ann m) a,
+  -- {-# OVERLAPPABLE #-}
+  ( Functor m, 
+    FromHaskellValue (Ann n) a,
     m ~ n
   ) =>
-  ToForeignFunction m 0 (n (Ret a))
+  ToForeignFunction m 0 (Ret (m a))
   where
-  toForeignFunction _ x = Base (unRet <$> x)
+  toForeignFunction x = Base (unRet x)
 
 instance
+  -- {-# OVERLAPS #-}
   ( MonadError EvalError m,
     ToHaskellValue m a,
-    ToForeignFunction n 0 b,
-    m ~ n
+    FromHaskellValue (Ann m) b
   ) =>
-  ToForeignFunction m 1 (a -> b)
+  ToForeignFunction m 1 (a -> Ret (m b))
   where
-  toForeignFunction _ f = Ind $ \a -> do
-    toForeignFunction (Proxy :: Proxy 0) (f a)
+  toForeignFunction f = Ind $ \a -> do
+    toForeignFunction (f a)
+
+instance
+  -- {-# OVERLAPS #-}
+  ( MonadError EvalError m,
+    ToHaskellValue m a,
+    ToHaskellValue m b,
+    FromHaskellValue (Ann m) c
+  ) =>
+  ToForeignFunction m 2 (a -> b -> Ret (m c))
+  where
+  toForeignFunction f = Ind $ \a -> Ind $ \b -> do
+    toForeignFunction (f a b)
+
 
 -- instance
 --   ( MonadError EvalError m,
@@ -218,25 +232,28 @@ qualifiedName mn n = Qualified (Just (ModuleName mn)) (Ident n)
 -- foo :: MonadEval m => ForeignFunction m
 -- foo = ForeignFunction 1 (evalForeignFunction arrayBind)
 
-arrayBind :: (MonadEval m, a ~ Value (Ann m), b ~ Value (Ann m)) => Vector a -> (a -> m (Vector b)) -> m (Ret (Vector b))
-arrayBind xs f = Ret . join <$> traverse f xs
+arrayBind :: (MonadEval m, a ~ Value (Ann m), b ~ Value (Ann m)) => Vector a -> (a -> m (Vector b)) -> Ret (m (Vector b))
+arrayBind xs f = Ret $ join <$> traverse f xs
 
 -- bar :: MonadEval m => Proxy m -> ForeignFunction m
 -- bar (Proxy :: Proxy m) = ForeignFunction 0 (evalForeignFunction bar2 :: SourceSpan -> [Value (Ann m)] -> m (Value (Ann m)))
 
-bar1 :: Monad m => m (Ret Int)
-bar1 = pure (Ret 1)
+bar1 :: Monad m => Ret (m Int)
+bar1 = Ret (pure 1)
 
-bar2 :: Monad m => Int -> m (Ret Int)
-bar2 n = pure (Ret (succ n))
+bar2 :: Monad m => Int -> Ret (m Int)
+bar2 n = Ret (pure (succ n))
+
+bar22 :: MonadError EvalError m => ForeignFunction m 1
+bar22 = Ind $ \n -> Base (pure (n + 1 :: Int))
 
 bar3 :: Monad m => Int -> Int -> m (Ret Int)
 bar3 x y = pure (Ret (x + y))
 
-foreignFunction :: ToForeignFunction m (FunctionArity f) f => f -> ForeignFunction m
-foreignFunction (f :: f) = toForeignFunction (Proxy @(FunctionArity f)) f
+foreignFunction :: ToForeignFunction m arity f => f -> ForeignFunction m arity
+foreignFunction (f :: f) = toForeignFunction f
 
-foreignFunctions :: MonadEval m => Map (Qualified Ident) (ForeignFunction m)
+foreignFunctions :: MonadEval m => Map (Qualified Ident) (ForeignFunction m arity)
 foreignFunctions =
   Map.fromList
     [ -- (qualifiedName "Control.Bind" "arrayBind", ForeignFunction 2 (evalForeignFunction' (Proxy @2) arrayBind))

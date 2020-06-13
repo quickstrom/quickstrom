@@ -25,7 +25,6 @@
 module WebCheck.PureScript where
 
 import Control.Lens hiding (op)
-import Control.Monad.Except (liftEither)
 import Control.Monad.Fix (MonadFix)
 import Control.Monad.Trans.Writer.Strict (WriterT (runWriterT))
 import qualified Data.Aeson as JSON
@@ -34,8 +33,6 @@ import qualified Data.ByteString.Lazy.Char8 as BS
 import Data.Fixed (mod')
 import Data.Generics.Product (field)
 import qualified Data.HashMap.Strict as HashMap
-import Data.HashMap.Strict (HashMap)
-import Data.HashSet (HashSet)
 import qualified Data.Map as Map
 import Data.Scientific
 import qualified Data.Text as Text
@@ -130,6 +127,7 @@ envLookupEval ss qn = do
     onValue (VDefer (Defer env'' expr')) = local (field @"env" .~ env'') (eval expr')
     onValue val = pure val
 
+withModifiedEnv :: (Env EvalAnn -> Env EvalAnn) -> Eval a -> Eval a
 withModifiedEnv f = local (field @"env" %~ f)
 
 qualifiedName :: Text -> Text -> Qualified Ident
@@ -145,15 +143,6 @@ asQualifiedVar _ = Nothing
 asQualifiedName :: Qualified Ident -> Maybe (Text, Text)
 asQualifiedName (Qualified (Just (ModuleName mn)) n) = Just (mn, runIdent n)
 asQualifiedName _ = Nothing
-
-pattern BuiltIn :: Text -> a -> Expr a -> Expr a
-pattern BuiltIn name ann p <- App ann (Var _ (Qualified (Just (ModuleName "WebCheck.DSL")) (Ident name))) p
-
-pattern Always :: a -> Expr a -> Expr a
-pattern Always ann p <- BuiltIn "always" ann p
-
-pattern Next :: a -> Expr a -> Expr a
-pattern Next ann p <- BuiltIn "next" ann p
 
 instance MonadEval Eval where
   type Ann Eval = EvalAnn
@@ -470,45 +459,6 @@ instance WebCheck.Specification SpecificationProgram where
 
   queries = specificationQueries
 
-extractQueries :: Program -> Either EvalError (HashMap WebCheck.Selector (HashSet WebCheck.ElementState))
-extractQueries prog = pure mempty -- TODO
-
-{-
-  let qn = programQualifiedName "proposition" prog
-   in runEval (programEnv prog) [mempty] (runReaderT (extractQualified qn) Nothing)
-  where
-    env' = programEnv prog
-    ss = moduleSourceSpan (programMain prog)
-    extractQualified :: Qualified Ident -> ReaderT (Maybe (Qualified Ident)) (Eval) WebCheck.Queries
-    extractQualified qn = do
-      current <- ask
-      if current == Just qn
-        then pure mempty
-        else case envLookup qn (programEnv prog) of
-          Just (Left expr) -> local (const (Just qn)) (extractFromExpr expr)
-          Just (Right (VDefer (Defer _ expr))) -> extractFromExpr expr
-          Just (Right _) -> throwError (UnexpectedError (Just ss) ("Expected proposition to be an expression: " <> showQualified runIdent qn))
-          Nothing -> pure mempty
-    extractFromExpr :: Expr EvalAnn -> ReaderT (Maybe (Qualified Ident)) (Eval) WebCheck.Queries
-    extractFromExpr = extract
-      where
-        (_, extract, _, _) =
-          everythingOnValues
-            (liftA2 (HashMap.unionWith (<>)))
-            (const (pure mempty))
-            ( \case
-                App _ (BuiltIn "_queryAll" _ p) q -> lift $ do
-                  selector <- require (sourceSpan p) (Proxy @"VString") =<< eval env' p
-                  wantedStates <- require (sourceSpan q) (Proxy @"VObject") =<< eval env' q
-                  elementStates <- for (HashMap.elems wantedStates) (require (sourceSpan q) (Proxy @"VElementState"))
-                  pure (HashMap.singleton (WebCheck.Selector selector) (HashSet.fromList elementStates))
-                Var _ qn -> extractQualified qn
-                _ -> pure mempty
-            )
-            (const (pure mempty))
-            (const (pure mempty))
--}
-
 loadSpecification :: Modules -> Text -> IO (Either Text SpecificationProgram)
 loadSpecification ms input = runExceptT $ do
   p <- ExceptT (loadProgram ms input)
@@ -517,7 +467,7 @@ loadSpecification ms input = runExceptT $ do
     origin <- toHaskellValue ss =<< evalEntryPoint (programQualifiedName "origin" p) p
     readyWhen <- toHaskellValue ss =<< evalEntryPoint (programQualifiedName "readyWhen" p) p
     actions <- toHaskellValue ss =<< evalEntryPoint (programQualifiedName "actions" p) p
-    queries <- liftEither (extractQueries p)
+    queries <- pure mempty -- liftEither (extractQueries p)
     pure
       ( SpecificationProgram
           { specificationOrigin = WebCheck.Path origin,

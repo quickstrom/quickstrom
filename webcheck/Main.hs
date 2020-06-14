@@ -12,7 +12,7 @@ module Main where
 import Protolude
 import System.Directory
 import System.IO.Unsafe (unsafePerformIO)
-import qualified WebCheck.PureScript as WebCheck
+import qualified WebCheck.PureScript.Eval as WebCheck
 import qualified WebCheck.PureScript.Program as WebCheck
 import qualified WebCheck.Run as WebCheck
 import qualified WebCheck.Specification as WebCheck

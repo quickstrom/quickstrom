@@ -73,7 +73,7 @@ require ss (ctor :: Proxy ctor) v = case v ^? _Ctor @ctor of
   Just x -> pure x
   Nothing -> unexpectedType ss (Text.drop 1 (Text.pack (symbolVal ctor))) v
 
-accessField :: MonadError (EvalError ) m => SourceSpan -> Text -> HashMap Text (Value ann) -> m (Value ann)
+accessField :: MonadError EvalError m => SourceSpan -> Text -> HashMap Text (Value ann) -> m (Value ann)
 accessField ss key obj =
   maybe
     (throwError (UnexpectedError (Just ss) ("Key not present in object: " <> key)))

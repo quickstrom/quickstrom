@@ -12,7 +12,6 @@ module WebCheck.Specification where
 import Data.HashMap.Strict (HashMap)
 import Data.HashSet (HashSet)
 import Data.Text.Prettyprint.Doc (Doc)
-import Data.Text.Prettyprint.Doc.Render.Terminal (AnsiStyle)
 import Test.QuickCheck (Gen)
 import WebCheck.Element
 import WebCheck.Path

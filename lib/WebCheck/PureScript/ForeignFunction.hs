@@ -28,16 +28,16 @@ import Protolude hiding (Selector)
 import WebCheck.Action (Action (..))
 import WebCheck.Element (Selector (..))
 import WebCheck.Path
-import WebCheck.PureScript.Eval.Class
+import WebCheck.PureScript.Eval
 import WebCheck.PureScript.Eval.Error
 import WebCheck.PureScript.Value
 
 data ForeignFunction m arity where
-  Base :: FromHaskellValue (Ann m) a => m a -> ForeignFunction m 0
+  Base :: FromHaskellValue a => m a -> ForeignFunction m 0
   Ind :: ToHaskellValue m a => (a -> ForeignFunction m n) -> ForeignFunction m (n + 1)
   NotSupported :: Qualified Ident -> ForeignFunction m 0
 
-evalForeignFunction :: MonadError EvalError m => ForeignFunction m arity -> SourceSpan -> [Value (Ann m)] -> m (Value (Ann m))
+evalForeignFunction :: MonadError EvalError m => ForeignFunction m arity -> SourceSpan -> [Value EvalAnn] -> m (Value EvalAnn)
 evalForeignFunction (Base x) _ [] = fromHaskellValue <$> x
 evalForeignFunction (Ind f) ss (arg : args) = do
   ff <- f <$> toHaskellValue ss arg
@@ -70,7 +70,7 @@ class ToForeignFunction m arity f | f -> m arity where
 
 instance
   ( Functor m,
-    FromHaskellValue (Ann n) a,
+    FromHaskellValue a,
     m ~ n
   ) =>
   ToForeignFunction m 0 (Ret m a)
@@ -80,7 +80,7 @@ instance
 instance
   ( MonadError EvalError m,
     ToHaskellValue m a,
-    FromHaskellValue (Ann m) b
+    FromHaskellValue b
   ) =>
   ToForeignFunction m 1 (a -> Ret m b)
   where
@@ -91,7 +91,7 @@ instance
   ( MonadError EvalError m,
     ToHaskellValue m a,
     ToHaskellValue m b,
-    FromHaskellValue (Ann m) c
+    FromHaskellValue c
   ) =>
   ToForeignFunction m 2 (a -> b -> Ret m c)
   where
@@ -103,7 +103,7 @@ instance
     ToHaskellValue m a,
     ToHaskellValue m b,
     ToHaskellValue m c,
-    FromHaskellValue (Ann m) d
+    FromHaskellValue d
   ) =>
   ToForeignFunction m 3 (a -> b -> c -> Ret m d)
   where
@@ -116,7 +116,7 @@ instance
     ToHaskellValue m b,
     ToHaskellValue m c,
     ToHaskellValue m d,
-    FromHaskellValue (Ann m) e
+    FromHaskellValue e
   ) =>
   ToForeignFunction m 4 (a -> b -> c -> d -> Ret m e)
   where
@@ -130,7 +130,7 @@ instance
     ToHaskellValue m c,
     ToHaskellValue m d,
     ToHaskellValue m e,
-    FromHaskellValue (Ann m) f
+    FromHaskellValue f
   ) =>
   ToForeignFunction m 5 (a -> b -> c -> d -> e-> Ret m f)
   where
@@ -145,7 +145,7 @@ instance
     ToHaskellValue m d,
     ToHaskellValue m e,
     ToHaskellValue m f,
-    FromHaskellValue (Ann m) g
+    FromHaskellValue g
   ) =>
   ToForeignFunction m 6 (a -> b -> c -> d -> e -> f -> Ret m g)
   where
@@ -153,9 +153,9 @@ instance
     toForeignFunction (f' a b c d e f)
 
 class MonadError EvalError m => ToHaskellValue m r where
-  toHaskellValue :: SourceSpan -> Value (Ann m) -> m r
+  toHaskellValue :: SourceSpan -> Value EvalAnn -> m r
 
-instance (MonadError EvalError m, ann ~ Ann m) => ToHaskellValue m (Value ann) where
+instance (MonadError EvalError m) => ToHaskellValue m (Value EvalAnn) where
   toHaskellValue _ = pure
 
 instance MonadError EvalError m => ToHaskellValue m Bool where
@@ -194,7 +194,7 @@ instance MonadError EvalError m => ToHaskellValue m (Action Selector) where
       "Navigate" -> Navigate . Path <$> toHaskellValue ss value
       _ -> throwError (ForeignFunctionError (Just ss) ("Unknown Action constructor: " <> ctor))
 
-instance (MonadEval m, FromHaskellValue (Ann m) a, ToHaskellValue m b) => ToHaskellValue m (a -> m b) where
+instance (MonadEval m, FromHaskellValue a, ToHaskellValue m b) => ToHaskellValue m (a -> m b) where
   toHaskellValue ss fn =
     pure
       ( \x -> do
@@ -203,7 +203,7 @@ instance (MonadEval m, FromHaskellValue (Ann m) a, ToHaskellValue m b) => ToHask
           toHaskellValue ss b
       )
 
-instance (MonadEval m, FromHaskellValue (Ann m) a, FromHaskellValue (Ann m) b, ToHaskellValue m c) => ToHaskellValue m (a -> b -> m c) where
+instance (MonadEval m, FromHaskellValue a, FromHaskellValue b, ToHaskellValue m c) => ToHaskellValue m (a -> b -> m c) where
   toHaskellValue ss fn = do
     pure
       ( \a b -> do
@@ -213,41 +213,41 @@ instance (MonadEval m, FromHaskellValue (Ann m) a, FromHaskellValue (Ann m) b, T
           toHaskellValue ss c
       )
 
-class FromHaskellValue ann a where
-  fromHaskellValue :: a -> Value ann
+class FromHaskellValue a where
+  fromHaskellValue :: a -> Value EvalAnn
 
-instance FromHaskellValue ann Bool where
+instance FromHaskellValue Bool where
   fromHaskellValue = VBool
 
-instance FromHaskellValue ann Int where
+instance FromHaskellValue Int where
   fromHaskellValue = VInt
 
-instance FromHaskellValue ann Double where
+instance FromHaskellValue Double where
   fromHaskellValue = VNumber
 
-instance FromHaskellValue ann Char where
+instance FromHaskellValue Char where
   fromHaskellValue = VChar
 
-instance FromHaskellValue ann Text where
+instance FromHaskellValue Text where
   fromHaskellValue = VString
 
-instance FromHaskellValue ann a => FromHaskellValue ann (Vector a) where
+instance FromHaskellValue a => FromHaskellValue (Vector a) where
   fromHaskellValue xs = VArray (fromHaskellValue <$> xs)
 
-instance FromHaskellValue ann a => FromHaskellValue ann [a] where
+instance FromHaskellValue a => FromHaskellValue [a] where
   fromHaskellValue = fromHaskellValue . Vector.fromList
 
-instance FromHaskellValue ann (Value ann) where
+instance FromHaskellValue (Value EvalAnn) where
   fromHaskellValue = identity
 
 -- foo :: MonadEval m => ForeignFunction m
 -- foo = ForeignFunction 1 (evalForeignFunction arrayBind)
 
--- arrayBind :: (MonadEval m, a ~ Value (Ann m), b ~ Value (Ann m)) => Vector a -> (a -> m (Vector b)) -> Ret (m (Vector b))
+-- arrayBind :: (MonadEval m, a ~ Value EvalAnn, b ~ Value EvalAnn) => Vector a -> (a -> m (Vector b)) -> Ret (m (Vector b))
 -- arrayBind xs f = Ret $ join <$> traverse f xs
 
 -- bar :: MonadEval m => Proxy m -> ForeignFunction m
--- bar (Proxy :: Proxy m) = ForeignFunction 0 (evalForeignFunction bar2 :: SourceSpan -> [Value (Ann m)] -> m (Value (Ann m)))
+-- bar (Proxy :: Proxy m) = ForeignFunction 0 (evalForeignFunction bar2 :: SourceSpan -> [Value EvalAnn] -> m (Value EvalAnn))
 
 bar1 :: Monad m => Ret m Int
 bar1 = Ret (pure 1)

@@ -44,12 +44,16 @@ import qualified WebCheck.Element as WebCheck
 import WebCheck.PureScript.Eval.Error
 import WebCheck.PureScript.Value
 import qualified WebCheck.Trace as WebCheck
+import Control.Monad.Trans.Class (MonadTrans)
 
 class (MonadError EvalError m, MonadFix m) => MonadEval m where
   getEnv :: env ~ Env EvalAnn => m env
   modifyEnv :: env ~ Env EvalAnn => (env -> env) -> m a -> m a
 
   eval :: MonadEval m => Expr EvalAnn -> m (Value EvalAnn)
+
+class (MonadError EvalError m, MonadFix m) => MonadQueries m where
+  evalQuery :: Expr EvalAnn -> Expr EvalAnn -> WebCheck.ObservedState -> m (Value EvalAnn)
 
 pattern BuiltIn :: Text -> a -> Expr a -> Expr a
 pattern BuiltIn name ann p <- CF.App ann (CF.Var _ (Qualified (Just (ModuleName "WebCheck.DSL")) (Ident name))) p
@@ -90,7 +94,10 @@ runEval ::
   m (Either EvalError a)
 runEval env observedStates ffs (Eval ma) = runReaderT (runExceptT ma) (EvalEnv env (zip [1 ..] observedStates) ffs)
 
-instance (Monad m, MonadFix m) => MonadEval (Eval m) where
+instance (MonadQueries m) => MonadQueries (Eval m) where
+  evalQuery p q s = Eval (lift (lift (evalQuery p q s)))
+
+instance (MonadQueries m, Monad m, MonadFix m) => MonadEval (Eval m) where
 
   getEnv = asks (view (field @"env"))
   modifyEnv f = local (field @"env" %~ f)
@@ -237,33 +244,38 @@ evalFunc (Function fEnv arg body) param' =
   let newEnv = (fEnv <> envBindValue (Qualified Nothing arg) param')
    in modifyEnv (const newEnv) (eval body)
 
-evalQuery :: MonadFix m => Expr EvalAnn -> Expr EvalAnn -> WebCheck.ObservedState -> Eval m (Value EvalAnn)
-evalQuery p1 p2 (WebCheck.ObservedState current) = do
-  selector <- require (exprSourceSpan p1) (Proxy @"VString") =<< eval p1
-  wantedStates <- require (exprSourceSpan p2) (Proxy @"VObject") =<< eval p2
-  matchedElements <-
-    maybe
-      (throwError (ForeignFunctionError (Just (exprSourceSpan p1)) ("Selector not in observed state: " <> selector)))
-      pure
-      (HashMap.lookup (WebCheck.Selector selector) current)
-  mappedElements <- for (Vector.fromList matchedElements) $ \matchedElement -> do
-    mappings <- flip HashMap.traverseWithKey wantedStates $ \k s -> do
-      elementState <- require (exprSourceSpan p2) (Proxy @"VElementState") s
-      case HashMap.lookup elementState matchedElement of
-        Just x -> pure (fromValue x)
-        Nothing ->
-          let msg = ("Element state (bound to ." <> k <> ") not in observed state for query `" <> selector <> "`: " <> show elementState)
-           in throwError (ForeignFunctionError (Just (exprSourceSpan p2)) msg)
-    pure (VObject mappings)
-  pure (VArray mappedElements)
-  where
-    fromValue = \case
-      JSON.Null -> VObject mempty
-      JSON.Bool b -> VBool b
-      JSON.String t -> VString t
-      JSON.Number n -> either VNumber VInt (floatingOrInteger n)
-      JSON.Array xs -> VArray (map fromValue xs)
-      JSON.Object xs -> VObject (map fromValue xs)
+
+-- TODO: put ObservedStates in a Reader here
+newtype WithObservedQueries a = WithObservedQueries (Either EvalError a)
+  deriving (Functor, Applicative, Monad, MonadError EvalError, MonadFix)
+
+instance MonadQueries WithObservedQueries where
+  evalQuery p1 p2 (WebCheck.ObservedState current) = do
+    selector <- require (exprSourceSpan p1) (Proxy @"VString") =<< eval p1
+    wantedStates <- require (exprSourceSpan p2) (Proxy @"VObject") =<< eval p2
+    matchedElements <-
+      maybe
+        (throwError (ForeignFunctionError (Just (exprSourceSpan p1)) ("Selector not in observed state: " <> selector)))
+        pure
+        (HashMap.lookup (WebCheck.Selector selector) current)
+    mappedElements <- for (Vector.fromList matchedElements) $ \matchedElement -> do
+      mappings <- flip HashMap.traverseWithKey wantedStates $ \k s -> do
+        elementState <- require (exprSourceSpan p2) (Proxy @"VElementState") s
+        case HashMap.lookup elementState matchedElement of
+          Just x -> pure (fromValue x)
+          Nothing ->
+            let msg = ("Element state (bound to ." <> k <> ") not in observed state for query `" <> selector <> "`: " <> show elementState)
+            in throwError (ForeignFunctionError (Just (exprSourceSpan p2)) msg)
+      pure (VObject mappings)
+    pure (VArray mappedElements)
+    where
+      fromValue = \case
+        JSON.Null -> VObject mempty
+        JSON.Bool b -> VBool b
+        JSON.String t -> VString t
+        JSON.Number n -> either VNumber VInt (floatingOrInteger n)
+        JSON.Array xs -> VArray (map fromValue xs)
+        JSON.Object xs -> VObject (map fromValue xs)
 
 evalCaseAlts :: MonadEval m => SourceSpan -> [(Value EvalAnn)] -> [CaseAlternative EvalAnn] -> m (Value EvalAnn)
 evalCaseAlts ss vals [] = throwError (UnexpectedError (Just ss) (prettyText ("Non-exhaustive case expression on values:" <+> pretty vals)))

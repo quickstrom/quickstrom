@@ -232,7 +232,7 @@ entrySS = P.internalModuleSourceSpan "<entry>"
 evalEntryPoint :: MonadEval m => Qualified Ident -> m (Value EvalAnn)
 evalEntryPoint entryPoint = envLookupEval entrySS entryPoint
 
-runWithEntryPoint :: ToHaskellValue (Eval Identity) a => [WebCheck.ObservedState] -> Qualified Ident -> Program (Eval Identity) -> IO (Either Text a)
+runWithEntryPoint :: ToHaskellValue (Eval Identity) a => [WebCheck.ObservedState] -> Qualified Ident -> Program (Eval m) -> IO (Either Text a)
 runWithEntryPoint observedStates entry prog = runExceptT $ do
   case runIdentity (runEval (programEnv prog) observedStates (programForeignFunctions prog) (evalEntryPoint entry >>= toHaskellValue entrySS)) of
     Right value -> pure value

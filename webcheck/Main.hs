@@ -31,9 +31,9 @@ main =
         Left err -> do
           hPutStrLn stderr err
           exitWith (ExitFailure 1)
-        Right spec ->
+        Right spec -> do
           putStrLn @Text ("We have a spec with queries: " <> show (WebCheck.specificationQueries spec))
-          -- WebCheck.check spec
+          WebCheck.check spec
     [arg] | arg `elem` ["help", "--help", "-h"] -> usage
     _ -> do
       usage

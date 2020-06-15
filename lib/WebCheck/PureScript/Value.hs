@@ -8,15 +8,14 @@
 module WebCheck.PureScript.Value where
 
 import Data.HashMap.Strict (HashMap)
-import qualified Data.Map as Map
+import qualified Data.HashMap.Strict as HashMap
 import Data.Text.Prettyprint.Doc
 import Data.Vector (Vector)
+import qualified Data.Vector as Vector
 import Language.PureScript.CoreFn
 import Language.PureScript.Names
 import Protolude hiding (list)
 import qualified WebCheck.Element as Element
-import qualified Data.Vector as Vector
-import qualified Data.HashMap.Strict as HashMap
 
 data Value ann
   = VNull
@@ -46,32 +45,22 @@ instance Pretty (Value ann) where
     VFunction f -> pretty f
     VDefer f -> pretty f
 
-data Function ann = Function (Env ann) Ident (Expr ann)
-  deriving (Show, Generic, Functor)
+type ClosureEnv ann = Map (Qualified Ident) (Either (Expr ann) (Value ann))
+
+data Function ann = Function (ClosureEnv ann) Ident (Expr ann)
+  deriving (Show, Generic)
+
+instance Functor Function where
+  fmap f (Function env ident expr) = Function (fmap (bimap (fmap f) (fmap f)) env) ident (fmap f expr)
 
 instance Pretty (Function ann) where
   pretty (Function _ arg _) = parens (backslash <> pretty (runIdent arg) <+> "->" <+> "<body>")
 
-data Defer ann = Defer (Env ann) (Expr ann)
-  deriving (Show, Generic, Functor)
+data Defer ann = Defer (ClosureEnv ann) (Expr ann)
+  deriving (Show, Generic)
+
+instance Functor Defer where
+  fmap f (Defer env expr) = Defer (fmap (bimap (fmap f) (fmap f)) env) (fmap f expr)
 
 instance Pretty (Defer ann) where
   pretty (Defer _ _) = "<deferred>"
-
-newtype Env ann = Env { envBindings :: Map (Qualified Ident) (Either (Expr ann) (Value ann)) }
-  deriving (Show, Semigroup, Monoid)
-
-instance Functor Env where
-  fmap f (Env m) = Env (Map.map (bimap (fmap f) (fmap f)) m)
-
-envBindValue :: Qualified Ident -> Value ann -> Env ann
-envBindValue qn expr = Env (Map.singleton qn (Right expr))
-
-envBindExpr :: Qualified Ident -> Expr ann -> Env ann
-envBindExpr qn expr = Env (Map.singleton qn (Left expr))
-
-withoutLocals :: Env ann -> Env ann
-withoutLocals (Env ms) = Env (Map.filterWithKey (\(Qualified modules _) _ -> isJust modules) ms)
-
-envLookup :: Qualified Ident -> Env ann -> Maybe (Either (Expr ann) (Value ann))
-envLookup qn = Map.lookup qn . envBindings

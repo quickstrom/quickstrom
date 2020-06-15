@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
@@ -29,8 +30,10 @@ import WebCheck.Action (Action (..))
 import WebCheck.Element (Selector (..))
 import WebCheck.Path
 import WebCheck.PureScript.Eval
+import WebCheck.PureScript.Eval.Ann
 import WebCheck.PureScript.Eval.Error
 import WebCheck.PureScript.Value
+import Control.Monad.Writer.Strict (MonadWriter)
 
 data ForeignFunction m arity where
   Base :: FromHaskellValue a => m a -> ForeignFunction m 0
@@ -63,7 +66,7 @@ foreignFunctionArityMismatch :: MonadError EvalError m => SourceSpan -> m a
 foreignFunctionArityMismatch ss = throwError (ForeignFunctionError (Just ss) "Foreign function arity mismatch")
 
 newtype Ret m a = Ret {unRet :: m a}
-  deriving (Functor, Applicative, Monad)
+  deriving (Generic, Functor, Applicative, Monad, MonadReader r, MonadWriter w, MonadError e)
 
 class ToForeignFunction m arity f | f -> m arity where
   toForeignFunction :: f -> ForeignFunction m arity
@@ -194,19 +197,19 @@ instance MonadError EvalError m => ToHaskellValue m (Action Selector) where
       "Navigate" -> Navigate . Path <$> toHaskellValue ss value
       _ -> throwError (ForeignFunctionError (Just ss) ("Unknown Action constructor: " <> ctor))
 
-instance (MonadEval m, FromHaskellValue a, ToHaskellValue m b) => ToHaskellValue m (a -> m b) where
+instance (Eval r m, FromHaskellValue a, ToHaskellValue m b) => ToHaskellValue m (a -> Ret m b) where
   toHaskellValue ss fn =
     pure
-      ( \x -> do
+      ( \x -> Ret $ do
           fn' <- require ss (Proxy @"VFunction") fn
           b <- evalFunc fn' (fromHaskellValue x)
           toHaskellValue ss b
       )
 
-instance (MonadEval m, FromHaskellValue a, FromHaskellValue b, ToHaskellValue m c) => ToHaskellValue m (a -> b -> m c) where
+instance (Eval r m, FromHaskellValue a, FromHaskellValue b, ToHaskellValue m c) => ToHaskellValue m (a -> b -> Ret m c) where
   toHaskellValue ss fn = do
     pure
-      ( \a b -> do
+      ( \a b -> Ret $ do
           fn' <- require ss (Proxy @"VFunction") fn
           fn'' <- require ss (Proxy @"VFunction") =<< evalFunc fn' (fromHaskellValue a)
           c <- evalFunc fn'' (fromHaskellValue b)
@@ -239,27 +242,6 @@ instance FromHaskellValue a => FromHaskellValue [a] where
 
 instance FromHaskellValue (Value EvalAnn) where
   fromHaskellValue = identity
-
--- foo :: MonadEval m => ForeignFunction m
--- foo = ForeignFunction 1 (evalForeignFunction arrayBind)
-
--- arrayBind :: (MonadEval m, a ~ Value EvalAnn, b ~ Value EvalAnn) => Vector a -> (a -> m (Vector b)) -> Ret (m (Vector b))
--- arrayBind xs f = Ret $ join <$> traverse f xs
-
--- bar :: MonadEval m => Proxy m -> ForeignFunction m
--- bar (Proxy :: Proxy m) = ForeignFunction 0 (evalForeignFunction bar2 :: SourceSpan -> [Value EvalAnn] -> m (Value EvalAnn))
-
-bar1 :: Monad m => Ret m Int
-bar1 = Ret (pure 1)
-
-bar2 :: Monad m => Int -> Ret m Int
-bar2 n = Ret (pure (succ n))
-
-bar22 :: MonadError EvalError m => ForeignFunction m 1
-bar22 = Ind $ \n -> Base (pure (n + 1 :: Int))
-
-bar3 :: Monad m => Int -> Int -> Ret m Int
-bar3 x y = pure (x + y)
 
 data SomeForeignFunction m where
   SomeForeignFunction :: KnownNat arity => ForeignFunction m arity -> SomeForeignFunction m

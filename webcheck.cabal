@@ -53,8 +53,9 @@ library
   exposed-modules:    WebCheck.Action
                     , WebCheck.Element
                     , WebCheck.Path
-                    , WebCheck.PureScript.Ann
                     , WebCheck.PureScript.Eval
+                    , WebCheck.PureScript.Eval.Ann
+                    , WebCheck.PureScript.Eval.Env
                     , WebCheck.PureScript.Eval.Error
                     , WebCheck.PureScript.Eval.Class
                     , WebCheck.PureScript.ForeignFunction

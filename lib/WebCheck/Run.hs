@@ -5,6 +5,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -19,11 +20,12 @@ module WebCheck.Run
 where
 
 import Control.Lens hiding (each)
-import Control.Monad ((>=>), forever, void, when)
+import Control.Monad (fail, (>=>), forever, void, when)
 import Control.Monad (filterM)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Loops (andM)
 import Control.Monad.Trans.Class (MonadTrans)
+import Data.String (fromString, String)
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import Control.Monad.Trans.Identity (IdentityT)
 import qualified Data.Aeson as JSON
@@ -46,6 +48,7 @@ import qualified Network.Wreq as Wreq
 import Pipes ((>->), Consumer, Effect, Pipe, Producer)
 import qualified Pipes
 import qualified Pipes.Prelude as Pipes
+import Protolude hiding (trace, Selector, catchError, throwError, check)
 import qualified Test.QuickCheck as QuickCheck
 import Test.Tasty.HUnit (assertFailure)
 import Web.Api.WebDriver hiding (Action, Selector, assertFailure, hPutStrLn, runIsolated)
@@ -89,7 +92,7 @@ elementsToTrace :: Producer (TraceElement ()) Runner () -> Runner (Trace ())
 elementsToTrace = fmap Trace . Pipes.toListM
 
 minBy :: (Monad m, Ord b) => (a -> b) -> Producer a m () -> m (Maybe a)
-minBy f = Pipes.fold step Nothing id
+minBy f = Pipes.fold step Nothing identity
   where
     step x a = Just $ case x of
       Nothing -> a
@@ -351,10 +354,7 @@ setSessionId x st = st {_userState = (_userState st) {_sessionId = x}}
 
 findSelected :: Selected -> Runner (Maybe Element)
 findSelected (Selected s i) =
-  findAll s >>= \case
-    es
-      | length es > i -> pure (Just (es !! i))
-      | otherwise -> pure Nothing
+  findAll s >>= \es -> pure ((es ^? ix i))
 
 findAll :: Selector -> Runner [Element]
 findAll (Selector s) = map fromRef <$> findElements CssSelector (Text.unpack s)
@@ -373,11 +373,11 @@ logInfoWD = liftWebDriverTT . logInfo
 
 isElementVisible :: Element -> Runner Bool
 isElementVisible el =
-  (== JSON.Bool True) <$> executeScript "return window.wtp.isElementVisible(arguments[0])" [JSON.toJSON el]
+  (== JSON.Bool True) <$> executeScript "return window.webcheck.isElementVisible(arguments[0])" [JSON.toJSON el]
 
 awaitElement :: Selector -> WebDriverT IO ()
 awaitElement (Selector sel) =
-  void (executeAsyncScript "window.wtp.awaitElement(arguments[0], arguments[1])" [JSON.toJSON sel])
+  void (executeAsyncScript "window.webcheck.awaitElement(arguments[0], arguments[1])" [JSON.toJSON sel])
 
 executeScript' :: JSON.FromJSON r => Script -> [JSON.Value] -> Runner r
 executeScript' script args = do
@@ -395,7 +395,7 @@ executeAsyncScript' script args = do
 
 observeStates :: Queries -> WebDriverT IO ObservedState
 observeStates queries' =
-  executeScript' "return wtp.mapToArray(window.wtp.observeInitialStates(arguments[0]))" [JSON.toJSON queries']
+  executeScript' "return window.webcheck.observeInitialStates(arguments[0])" [JSON.toJSON queries']
 
 newtype StateObserver = StateObserver Text
   deriving (Eq, Show)
@@ -404,22 +404,22 @@ registerNextStateObserver :: Queries -> Runner StateObserver
 registerNextStateObserver queries' =
   StateObserver
     <$> executeScript'
-      "return wtp.registerNextStateObserver(arguments[0])"
+      "return window.webcheck.registerNextStateObserver(arguments[0])"
       [JSON.toJSON queries']
 
 getNextState :: StateObserver -> Runner (Either Text ObservedState)
 getNextState (StateObserver sid) =
   executeAsyncScript'
-    "wtp.runPromiseEither(wtp.getNextState(arguments[0]).then(wtp.mapToArray), arguments[1])"
+    "window.webcheck.runPromiseEither(webcheck.getNextState(arguments[0]), arguments[1])"
     [JSON.toJSON sid]
 
 renderString :: Doc AnsiStyle -> String
 renderString = Text.unpack . renderStrict . layoutPretty defaultLayoutOptions
 
-wtpJs :: Runner Script
-wtpJs = liftWebDriverTT (lift (readFile "target/index.js"))
+webcheckJs :: Runner Script
+webcheckJs = liftWebDriverTT (lift (fromString . toS <$> readFile "target/webcheck-bundle.js"))
 
 initializeScript :: Runner ()
 initializeScript = do
-  js <- wtpJs
+  js <- webcheckJs
   void (executeScript js [])

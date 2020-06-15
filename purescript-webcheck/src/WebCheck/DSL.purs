@@ -28,7 +28,7 @@ import Data.HeytingAlgebra (implies)
 import Data.Symbol (class IsSymbol, SProxy(..), reflectSymbol)
 import Prim.RowList (class RowToList, Cons, Nil, kind RowList)
 import WebCheck.DSL.Selector (Selector)
-import WebCheck.DSL.Spec (Action, Path, SpecialKey(..), asciiKeyPresses, clicks, foci, focus, keyPress, specialKeyPress) as Spec
+import WebCheck.DSL.Spec (Action(..), Path, SpecialKey(..), asciiKeyPresses, clicks, foci, focus, keyPress, specialKeyPress) as Spec
 import Type.Prelude (class ListToRow, class TypeEquals)
 
 foreign import next :: forall a. a -> a

@@ -33,6 +33,7 @@ main =
           exitWith (ExitFailure 1)
         Right spec -> do
           putStrLn @Text ("We have a spec with queries: " <> show (WebCheck.specificationQueries spec))
+          putStrLn @Text ("And actions: " <> show (WebCheck.specificationActions spec))
           WebCheck.check spec
     [arg] | arg `elem` ["help", "--help", "-h"] -> usage
     _ -> do

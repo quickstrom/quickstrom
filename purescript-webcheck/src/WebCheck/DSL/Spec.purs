@@ -1,6 +1,6 @@
 module WebCheck.DSL.Spec
  ( Path
- , Action
+ , Action (..)
  , Actions
  , clicks
  , focus

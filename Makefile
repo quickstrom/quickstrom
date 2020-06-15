@@ -5,19 +5,19 @@ PANDOC_OPTS=-V"date=$(shell date --iso)" \
 
 all: webcheck.html webcheck.pdf build
 
-build: target/index.js
+build: target/webcheck-bundle.js
 
 clean:
 	rm -rf webcheck.pdf webcheck.html target
 
-target/wtp.js: $(TS_SOURCES)
-	tsc --incremental
+target/webcheck.js: $(TS_SOURCES)
+	tsc
 
-target/index.js: target/wtp.js
-	browserify -s wtp target/wtp.js -o target/index.js
+target/webcheck-bundle.js: target/webcheck.js
+	browserify -s webcheck target/webcheck.js -o target/webcheck-bundle.js
 
 watch:
-	echo $(TS_SOURCES) | entr make target/index.js
+	echo $(TS_SOURCES) | entr make target/webcheck-bundle.js
 
 %.pdf: %.md
 	pandoc \

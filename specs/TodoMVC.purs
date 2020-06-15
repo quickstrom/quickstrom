@@ -15,7 +15,10 @@ readyWhen :: Selector
 readyWhen = ".todoapp"
 
 actions :: Array Action
-actions = foci <> clicks <> pure (keyPress 'a')
+actions = appFoci <> appClicks <> pure (keyPress 'a')
+  where
+    appClicks = [ Click ".todoapp button", Click ".todoapp input[type=button]", Click ".todoapp a" ]
+    appFoci = [ Focus ".todoapp input", Focus ".todoapp textarea" ]
 
 proposition :: Boolean
 proposition =

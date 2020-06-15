@@ -7,6 +7,7 @@ import Data.Foldable (length)
 import Data.Int as Int
 import Data.Maybe (Maybe(..))
 import Data.String (Pattern(..), split)
+import Data.Tuple (Tuple(..))
 
 origin :: Path
 origin = "http://todomvc.com/examples/angularjs/"
@@ -14,11 +15,20 @@ origin = "http://todomvc.com/examples/angularjs/"
 readyWhen :: Selector
 readyWhen = ".todoapp"
 
-actions :: Array Action
-actions = appFoci <> appClicks <> pure (keyPress 'a')
+actions :: Actions
+actions = appFoci <> appClicks <> appKeyPresses 
   where
-    appClicks = [ Click ".todoapp button", Click ".todoapp input[type=button]", Click ".todoapp a" ]
-    appFoci = [ Focus ".todoapp input", Focus ".todoapp textarea" ]
+    appClicks = 
+      [ Tuple 5 (Click ".todoapp .filters a:not(.selected)")
+      , Tuple 1 (Click ".todoapp .filters a.selected")
+      , Tuple 1 (Click ".todoapp label[for=toggle-all]")
+      , Tuple 1 (Click ".todoapp .destroy")
+      ]
+    appFoci = [ Tuple 5 (Focus ".todoapp .new-todo") ]
+    appKeyPresses =
+      [ Tuple 5 (keyPress 'a')
+      , Tuple 5 (specialKeyPress KeyEnter)
+      ]
 
 proposition :: Boolean
 proposition =
@@ -104,7 +114,7 @@ proposition =
       pure f.text
     
     items :: Array { text :: String }
-    items = queryAll ".todo-list li" { text: textContent }
+    items = queryAll ".todo-list li label" { text: textContent }
     
     itemTexts = map _.text items
     

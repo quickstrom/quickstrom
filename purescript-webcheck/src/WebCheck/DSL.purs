@@ -9,6 +9,8 @@ module WebCheck.DSL (
   textContent,
   enabled,
   checked,
+  CssValue,
+  cssValue,
   queryAll,
   queryOne,
   Query,
@@ -28,7 +30,7 @@ import Data.HeytingAlgebra (implies)
 import Data.Symbol (class IsSymbol, SProxy(..), reflectSymbol)
 import Prim.RowList (class RowToList, Cons, Nil, kind RowList)
 import WebCheck.DSL.Selector (Selector)
-import WebCheck.DSL.Spec (Action(..), Path, SpecialKey(..), asciiKeyPresses, clicks, foci, focus, keyPress, specialKeyPress) as Spec
+import WebCheck.DSL.Spec (Actions, Action(..), Path, SpecialKey(..), asciiKeyPresses, clicks, foci, focus, keyPress, specialKeyPress) as Spec
 import Type.Prelude (class ListToRow, class TypeEquals)
 
 foreign import next :: forall a. a -> a
@@ -75,6 +77,12 @@ attribute name = _attribute (reflectSymbol name)
 id :: Attribute "id"
 id = attribute (SProxy :: SProxy "id")
 
+-- ## CSS values
+
+foreign import data CssValue :: Type
+
+foreign import cssValue :: String -> CssValue
+
 -- ## Queries
 
 class StateToField (state :: Type) (field :: Type) | state -> field
@@ -82,6 +90,8 @@ class StateToField (state :: Type) (field :: Type) | state -> field
 instance stateToFieldProperty :: TypeEquals ptype typ => StateToField (Property name ptype) typ
 
 instance stateToFieldAttribute :: StateToField (Attribute name) String
+
+instance stateToFieldCssValue :: StateToField CssValue String
 
 class StatesToRecord (states :: RowList) (out :: RowList) | states -> out
 

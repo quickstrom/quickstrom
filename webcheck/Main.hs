@@ -28,8 +28,8 @@ main =
         modules <- ExceptT (WebCheck.loadLibraryModules libraryPath)
         ExceptT (WebCheck.loadSpecificationFile modules specPath)
       case specResult of
-        Left err -> do
-          hPutStrLn stderr err
+        Left _err -> do
+          hPutStrLn @Text stderr "There were errors in loading the spec."
           exitWith (ExitFailure 1)
         Right spec -> do
           putStrLn @Text ("We have a spec with queries: " <> show (WebCheck.specificationQueries spec))

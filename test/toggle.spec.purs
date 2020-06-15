@@ -1,8 +1,9 @@
 module ToggleSpecification where
 
 import WebCheck.DSL
+import Data.Maybe (Maybe(..))
 
-origin = "example.com/toggle.html"
+origin = "file:///home/owi/projects/haskell/webcheck/test/toggle.html"
 
 readyWhen = "button"
 
@@ -15,6 +16,4 @@ proposition =
       turnOff = on && next off
   in off && always (turnOn || turnOff)
 
-buttonText = do
-    b <- queryOne "button" { text: textContent }
-    pure b.text
+buttonText = map _.textContent (queryOne "button" { textContent })

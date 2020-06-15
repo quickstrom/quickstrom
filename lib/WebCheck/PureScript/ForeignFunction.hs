@@ -185,6 +185,19 @@ instance ToHaskellValue m a => ToHaskellValue m [a] where
 instance ToHaskellValue m a => ToHaskellValue m (HashMap Text a) where
   toHaskellValue ss = traverse (toHaskellValue ss) <=< require ss (Proxy @"VObject")
 
+instance (MonadError EvalError m, ToHaskellValue m a, ToHaskellValue m b) => ToHaskellValue m (a, b) where
+  toHaskellValue ss v = do
+    obj <- require ss (Proxy @"VObject") v
+    ctor <- require ss (Proxy @"VString") =<< accessField ss "constructor" obj
+    case ctor of
+      "Tuple" -> do
+        values <- Vector.take 2 <$> (require ss (Proxy @"VArray") =<< accessField ss "fields" obj)
+        a <- toHaskellValue ss (values Vector.! 0)
+        b <- toHaskellValue ss (values Vector.! 1)
+        pure (a, b)
+      _ -> throwError (ForeignFunctionError (Just ss) ("Cannot be converted to tuple: " <> ctor))
+
+
 instance MonadError EvalError m => ToHaskellValue m (Action Selector) where
   toHaskellValue ss v = do
     obj <- require ss (Proxy @"VObject") v

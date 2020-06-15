@@ -58,9 +58,8 @@ instance MonadEvalQuery Extract where
     tell (HashMap.singleton (Selector selector) (HashSet.fromList wantedStates))
     pure (VArray mempty)
 
-  evalNext = eval
-
-  evalAlways = eval
+  evalNext _ = eval
+  evalAlways _ = eval
 
 data WithObservedStatesEnv
   = WithObservedStatesEnv
@@ -108,20 +107,19 @@ instance MonadEvalQuery WithObservedStates where
             JSON.Array xs -> VArray (map fromValue xs)
             JSON.Object xs -> VObject (map fromValue xs)
 
-  evalNext p =
+  evalNext _ p =
     view (field @"observedStates") >>= \case
-      [] -> throwError Undetermined
-      _ : rest -> local (field @"observedStates" .~ rest) (eval p)
+      (_ : rest ) | not (null rest) -> local (field @"observedStates" .~ rest) (eval p)
+      _ -> throwError Undetermined
 
-  evalAlways p =
+  evalAlways ann p =
     view (field @"observedStates") >>= \case
       [] -> pure (VBool True)
       _ -> do
-        first' <- require (exprSourceSpan p) (Proxy @"VBool")
-          =<< eval p `catchError` \case
-            Undetermined -> pure (VBool True)
-            e -> throwError e
+        first' <- require (exprSourceSpan p) (Proxy @"VBool") =<< eval p `catchError` \case
+          Undetermined -> pure (VBool True)
+          e -> throwError e
         rest' <-
-          require (exprSourceSpan p) (Proxy @"VBool")
-            =<< local (field @"observedStates" %~ drop 1) (eval p)
+          require (exprSourceSpan p) (Proxy @"VBool") 
+          =<< local (field @"observedStates" %~ drop 1) (evalAlways ann p)
         pure (VBool (first' && rest'))

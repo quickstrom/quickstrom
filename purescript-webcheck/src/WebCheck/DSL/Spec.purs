@@ -15,6 +15,7 @@ where
 import Prelude
 
 import WebCheck.DSL.Selector (Selector)
+import Data.Tuple (Tuple(..))
 import Data.Array (range)
 import Data.Char (fromCharCode)
 import Data.Enum (class Enum)
@@ -32,11 +33,11 @@ type Path = String
 -- | DOM for possible actions to generate and perform.
 data Action = Focus Selector | KeyPress Char | Click Selector | Navigate Path
 
-type Actions = Array Action
+type Actions = Array (Tuple Int Action)
 
 -- | Generate click actions on common clickable elements.
 clicks :: Actions
-clicks = [ Click "button", Click "input[type=button]", Click "a" ]
+clicks = [ Tuple 1 (Click "button"), Tuple 1 (Click "input[type=button]"), Tuple 1 (Click "a") ]
 
 -- | Generate focus actions on elements matching the given selector.
 focus :: Selector -> Action
@@ -44,7 +45,7 @@ focus = Focus
 
 -- | Generate focus actions on common focusable elements.
 foci :: Actions
-foci = [ Focus "input", Focus "textarea" ]
+foci = [ Tuple 1 (Focus "input"), Tuple 1 (Focus "textarea") ]
 
 -- | Generate a key press action with the given character.
 keyPress :: Char -> Action
@@ -52,7 +53,7 @@ keyPress = KeyPress
 
 -- | Generate key press actions with printable ASCII characters.
 asciiKeyPresses :: Actions
-asciiKeyPresses = KeyPress <<< unsafePartial fromJust <<< fromCharCode <$> range 32 126
+asciiKeyPresses = Tuple 1 <<< KeyPress <<< unsafePartial fromJust <<< fromCharCode <$> range 32 126
 
 -- | Generate a key press action with the given special key.
 specialKeyPress :: SpecialKey -> Action

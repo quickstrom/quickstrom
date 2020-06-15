@@ -96,3 +96,9 @@ tla1 = next false || true
 tla2 = true || next false
 
 tla3 = next true
+
+tla4 = true && always true
+
+tla5 = always (next true)
+
+tla6 = always (next false || next true)

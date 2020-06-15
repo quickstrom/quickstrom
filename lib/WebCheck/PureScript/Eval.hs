@@ -84,12 +84,13 @@ type Eval r m =
 -- instance (MonadQueries m) => MonadQueries (Eval r m) where
 --   evalQuery p q s = Eval (lift (lift (evalQuery p q s)))
 
+{-# SCC eval "eval" #-}
 eval :: Eval r m => Expr EvalAnn -> m (Value EvalAnn)
 eval expr = do
   env <- view (field @"env") <$> ask
   case expr of
-    Next _ p -> evalNext p
-    Always _ p -> evalAlways p
+    Next ann p -> evalNext ann p
+    Always ann p -> evalAlways ann p
     App _ (BuiltIn "_queryAll" _ p) q -> evalQuery p q
     App _ (BuiltIn "trace" _ label) p -> do
       _t <- require (exprSourceSpan label) (Proxy @"VString") =<< eval label
@@ -150,7 +151,7 @@ eval expr = do
       params <- for names $ \n -> envLookupEval ss (Qualified Nothing n)
       case Map.lookup qn (envForeignFunctions env) of
         Just f -> f ss params
-        _ -> traceShowM (Map.keys $ envForeignFunctions env) >> throwError (ForeignFunctionNotSupported ss qn)
+        _ -> throwError (ForeignFunctionNotSupported ss qn)
     Var (EvalAnn ss _ Nothing) qn -> envLookupEval ss qn
     Case (EvalAnn ss _ _) exprs alts -> do
       values <- traverse eval exprs

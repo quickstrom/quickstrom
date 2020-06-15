@@ -19,5 +19,5 @@ import Control.Monad.Fix (MonadFix)
 
 class (MonadError EvalError m, MonadFix m) => MonadEvalQuery m where
   evalQuery :: Expr EvalAnn -> Expr EvalAnn -> m (Value EvalAnn)
-  evalNext ::  Expr EvalAnn -> m (Value EvalAnn)
-  evalAlways ::  Expr EvalAnn -> m (Value EvalAnn)
+  evalNext ::  EvalAnn -> Expr EvalAnn -> m (Value EvalAnn)
+  evalAlways ::  EvalAnn -> Expr EvalAnn -> m (Value EvalAnn)

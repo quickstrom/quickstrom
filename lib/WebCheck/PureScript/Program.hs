@@ -179,7 +179,7 @@ data SpecificationProgram
   = SpecificationProgram
       { specificationOrigin :: WebCheck.Path,
         specificationReadyWhen :: WebCheck.Selector,
-        specificationActions :: [WebCheck.Action WebCheck.Selector],
+        specificationActions :: [(Int, WebCheck.Action WebCheck.Selector)],
         specificationQueries :: WebCheck.Queries,
         specificationProgram :: Program Queries.WithObservedStates
       }
@@ -190,7 +190,7 @@ instance WebCheck.Specification SpecificationProgram where
 
   readyWhen = specificationReadyWhen
 
-  actions = QuickCheck.elements . specificationActions
+  actions = QuickCheck.frequency . map (_2 %~ pure) . specificationActions
 
   verify sp states = (_Left %~ prettyEvalError) . Queries.runWithObservedStates (programEnv p) states $ do
     valid <- require (moduleSourceSpan (programMain p)) (Proxy @"VBool") =<< evalEntryPoint entry

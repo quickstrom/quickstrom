@@ -247,6 +247,9 @@ instance FromHaskellValue Char where
 instance FromHaskellValue Text where
   fromHaskellValue = VString
 
+instance FromHaskellValue () where
+  fromHaskellValue _ = VObject mempty
+
 instance FromHaskellValue a => FromHaskellValue (Vector a) where
   fromHaskellValue xs = VArray (fromHaskellValue <$> xs)
 

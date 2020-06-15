@@ -2,12 +2,12 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module WebCheck.PureScript.Program where
 
@@ -30,7 +30,7 @@ import Language.PureScript.CoreFn hiding (Ann)
 import qualified Language.PureScript.CoreFn as CF
 import Language.PureScript.CoreFn.FromJSON (moduleFromJSON)
 import Language.PureScript.Names
-import Protolude hiding (HasField, moduleName)
+import Protolude hiding (HasField, moduleName, uncons)
 import System.FilePath ((</>))
 import System.FilePath.Glob (glob)
 import qualified Test.QuickCheck as QuickCheck
@@ -68,11 +68,9 @@ initialEnv =
 loadModuleFromSource :: Modules -> Text -> ExceptT Text IO (Module CF.Ann)
 loadModuleFromSource modules input =
   case CST.parseModuleFromFile "<file>" input >>= CST.resFull of
-    Left parseError ->
-      -- _ $ CST.toMultipleErrors "<file>" parseError
-      throwError (show parseError)
+    Left parseError -> throwError (printErrors (CST.toMultipleErrors "<file>" parseError))
     Right m -> do
-      (result, _) <- withExceptT show . runWriterT . flip runReaderT P.defaultOptions $ do
+      (result, _) <- withExceptT printErrors . runWriterT . flip runReaderT P.defaultOptions $ do
         (P.Module ss coms moduleName' elaborated exps, env') <- fmap fst . P.runSupplyT 0 $ do
           desugared <- P.desugar (modulesNamesEnv modules) (modulesExterns modules) [P.importPrim m] >>= \case
             [d] -> pure d
@@ -82,6 +80,9 @@ loadModuleFromSource modules input =
         let mod'' = P.Module ss coms moduleName' regrouped exps
         pure (CF.moduleToCoreFn env' mod'')
       pure result
+  where
+    printErrors :: P.MultipleErrors -> Text
+    printErrors errs = toS (P.prettyPrintMultipleErrors P.defaultPPEOptions (errs))
 
 loadModuleFromCoreFn :: FilePath -> ExceptT Text IO (Module CF.Ann)
 loadModuleFromCoreFn path = do
@@ -185,7 +186,6 @@ data SpecificationProgram
       }
 
 instance WebCheck.Specification SpecificationProgram where
-
   origin = specificationOrigin
 
   readyWhen = specificationReadyWhen
@@ -257,8 +257,16 @@ foreignFunctions =
       (qualifiedName "Data.Array" "indexImpl", foreignFunction indexImpl),
       (qualifiedName "Data.Array" "length", foreignFunction len),
       (qualifiedName "Data.Array" "filter", foreignFunction filterArray),
+      (qualifiedName "Data.Array" "uncons'", foreignFunction arrayUncons),
+      (qualifiedName "Data.Array" "range", foreignFunction arrayRange),
       (qualifiedName "Data.Bounded" "bottomInt", foreignFunction (op0 @Int minBound)),
       (qualifiedName "Data.Bounded" "topInt", foreignFunction (op0 @Int maxBound)),
+      (qualifiedName "Data.Bounded" "bottomChar", foreignFunction (op0 @Char minBound)),
+      (qualifiedName "Data.Bounded" "topChar", foreignFunction (op0 @Char maxBound)),
+      (qualifiedName "Data.Bounded" "bottomNumber", foreignFunction (op0 @Double 9007199254740991)), -- Number.MAX_SAFE_INTEGER in JS
+      (qualifiedName "Data.Bounded" "topNumber", foreignFunction (op0 @Double (-9007199254740991))),-- Number.MIN_SAFE_INTEGER in JS
+      (qualifiedName "Data.Enum" "toCharCode", foreignFunction (op1 ord)),
+      (qualifiedName "Data.Enum" "fromCharCode", foreignFunction (op1 chr)),
       (qualifiedName "Data.Eq" "eqBooleanImpl", foreignFunction (op2 ((==) @Bool))),
       (qualifiedName "Data.Eq" "eqIntImpl", foreignFunction (op2 ((==) @Int))),
       (qualifiedName "Data.Eq" "eqNumberImpl", foreignFunction (op2 ((==) @Double))),
@@ -296,6 +304,8 @@ foreignFunctions =
       (qualifiedName "Data.Semiring" "numMul", foreignFunction (op2 ((*) @Double))),
       (qualifiedName "Data.Semigroup" "concatString", foreignFunction (op2 ((<>) @Text))),
       (qualifiedName "Data.Semigroup" "concatArray", foreignFunction (op2 ((<>) @(Vector (Value EvalAnn))))),
+      (qualifiedName "Data.String.CodePoints" "_unsafeCodePointAt0", foreignFunction unsafeCodePointAt0),
+      (qualifiedName "Data.String.CodePoints" "_toCodePointArray", foreignFunction toCodePointArray),
       notSupported (qualifiedName "Data.String.Common" "_localeCompare"),
       (qualifiedName "Data.String.Common" "replace", foreignFunction (op3 Text.replace)),
       (qualifiedName "Data.String.Common" "split", foreignFunction (op2 Text.splitOn)),
@@ -331,6 +341,12 @@ foreignFunctions =
     len xs = pure (fromIntegral (Vector.length xs))
     filterArray :: Monad m => (Value EvalAnn -> Ret m Bool) -> Vector (Value EvalAnn) -> Ret m (Vector (Value EvalAnn))
     filterArray f xs = Vector.filterM f xs
+    arrayUncons :: Monad m => (() -> Ret m (Value EvalAnn)) -> (Value EvalAnn -> Vector (Value EvalAnn) -> Ret m (Value EvalAnn)) -> Vector (Value EvalAnn) -> Ret m (Value EvalAnn)
+    arrayUncons empty' next xs = maybe (empty' ()) (uncurry next) (uncons xs)
+    arrayRange :: Monad m => Int -> Int -> Ret m (Vector Int)
+    arrayRange start end = 
+      let step = if start < end then 1 else (-1)
+      in pure (Vector.enumFromStepN start step end)
     arrayBind :: Monad m => (a ~ Value EvalAnn, b ~ Value EvalAnn) => Vector a -> (a -> Ret m (Vector b)) -> Ret m (Vector b)
     arrayBind xs f = join <$> traverse f xs
     arrayMap :: Monad m => (a ~ Value EvalAnn, b ~ Value EvalAnn) => (a -> Ret m b) -> Vector a -> Ret m (Vector b)
@@ -399,3 +415,7 @@ foreignFunctions =
       local (field @"env" .~ Env fenv (envForeignFunctions env)) (eval body)
     unsafeGet :: MonadError EvalError m => Text -> HashMap Text (Value EvalAnn) -> Ret m (Value EvalAnn)
     unsafeGet k xs = Ret (accessField P.nullSourceSpan k xs)
+    toCodePointArray :: Monad m => Value EvalAnn -> Value EvalAnn -> Text -> Ret m (Vector Int)
+    toCodePointArray _ _ t = pure (Vector.map ord (Vector.fromList (toS t)))
+    unsafeCodePointAt0 :: Monad m => Value EvalAnn -> Text -> Ret m Int
+    unsafeCodePointAt0 _ t = pure (ord (Text.index t 0))

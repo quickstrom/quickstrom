@@ -8,6 +8,10 @@ cabal.project.local
 /webcheck.tex
 /webcheck.html
 
+# profiling/flamegraph
+webcheck.prof
+webcheck.svg
+
 tsconfig.tsbuildinfo
 /target
 /output

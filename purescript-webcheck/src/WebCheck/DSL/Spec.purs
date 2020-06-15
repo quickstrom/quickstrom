@@ -37,7 +37,7 @@ type Actions = Array (Tuple Int Action)
 
 -- | Generate click actions on common clickable elements.
 clicks :: Actions
-clicks = [ Tuple 1 (Click "button"), Tuple 1 (Click "input[type=button]"), Tuple 1 (Click "a") ]
+clicks = [ Tuple 1 (Click "button"), Tuple 1 (Click "input[type=submit]"), Tuple 1 (Click "a") ]
 
 -- | Generate focus actions on elements matching the given selector.
 focus :: Selector -> Action

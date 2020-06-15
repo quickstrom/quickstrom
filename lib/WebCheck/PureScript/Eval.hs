@@ -109,6 +109,9 @@ eval expr = do
     BuiltIn "_attribute" _ p -> do
       name <- require (exprSourceSpan p) (Proxy @"VString") =<< eval p
       pure (VElementState (WebCheck.Attribute name))
+    BuiltIn "cssValue" _ p -> do
+      name <- require (exprSourceSpan p) (Proxy @"VString") =<< eval p
+      pure (VElementState (WebCheck.CssValue name))
     -- General cases
     Literal (EvalAnn ss _ _) lit -> case lit of
       NumericLiteral n' -> pure (either (VInt . fromInteger) (VNumber . realToFrac) n')

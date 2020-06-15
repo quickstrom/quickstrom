@@ -6,7 +6,6 @@ import Data.Array (head, tail)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String (Pattern(..), length, split, trim)
 import Data.Tuple (Tuple(..))
-import WebCheck.DSL.Spec (keyPress)
 
 origin :: String
 origin = "file:///home/owi/projects/haskell/webcheck/test/comment-form.html"
@@ -15,7 +14,7 @@ readyWhen :: String
 readyWhen = "form"
 
 actions :: Actions
-actions = clicks <> foci <> pure (Tuple 1 (keyPress 'a'))
+actions = clicks <> foci <> [Tuple 1 (KeyPress ' '), Tuple 1 (KeyPress 'a')]
 
 proposition :: Boolean
 proposition =

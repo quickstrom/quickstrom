@@ -49,7 +49,14 @@ runExtract env' (Extract ma) = runExcept (execWriterT (runReaderT ma (ExtractEnv
 instance MonadEvalQuery Extract where
 
   -- TODO
-  evalQuery _p1 _p2 = pure (VArray mempty)
+  evalQuery p1 p2 = do
+    selector <- require (exprSourceSpan p1) (Proxy @"VString") =<< eval p1
+    wantedStates <-
+      traverse (require (exprSourceSpan p2) (Proxy @"VElementState")) . HashMap.elems
+        =<< require (exprSourceSpan p2) (Proxy @"VObject")
+        =<< eval p2
+    tell (HashMap.singleton (Selector selector) (HashSet.fromList wantedStates))
+    pure (VArray mempty)
 
   evalNext = eval
 

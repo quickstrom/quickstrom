@@ -192,12 +192,11 @@ instance WebCheck.Specification SpecificationProgram where
 
   actions = QuickCheck.frequency . map (_2 %~ pure) . specificationActions
 
-  verify sp states = (_Left %~ prettyEvalError) . Queries.runWithObservedStates (programEnv p) states $ do
-    valid <- require (moduleSourceSpan (programMain p)) (Proxy @"VBool") =<< evalEntryPoint entry
+  verify sp states = (_Left %~ prettyEvalError)  $ do
+    valid <- toHaskellValue (moduleSourceSpan (programMain p)) =<< evalWithObservedStates p "proposition" states
     if valid then pure WebCheck.Accepted else pure WebCheck.Rejected
     where
       p = specificationProgram sp
-      entry = programQualifiedName "proposition" p
 
   queries = specificationQueries
 

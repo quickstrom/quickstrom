@@ -12,8 +12,6 @@ cabal.project.local
 webcheck.prof
 webcheck.svg
 
-tsconfig.tsbuildinfo
-/target
 /output
 /generated-docs
 

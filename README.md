@@ -80,6 +80,23 @@ cabal run webcheck -- purescript-webcheck/specs/TodoMVC.purs
 failure and WebCheck tries to shrink to the minimal failing trace.
 Optimizations are due, but for now it's _slow_.
 
+### No WebDriver Session
+
+If you get the following error:
+
+```
+webcheck: user error (E NoSession)
+```
+
+It's probably because the WebDriver package in WebCheck failed to clean up
+its session. This is a known bug. To work around it, restart Geckodriver:
+
+```
+geckodriver 2>&1 > /dev/null
+```
+
+And rerun your WebCheck command.
+
 ### Help
 
 There are various flags and options for the `webcheck` executable. Run with

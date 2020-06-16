@@ -57,6 +57,7 @@ import WebCheck.Pretty
 import WebCheck.Result
 import WebCheck.Specification
 import WebCheck.Trace
+import System.Environment (lookupEnv)
 
 type Runner = WebDriverTT (ReaderT CheckOptions) IO
 
@@ -418,7 +419,10 @@ renderString :: Doc AnsiStyle -> String
 renderString = Text.unpack . renderStrict . layoutPretty defaultLayoutOptions
 
 webcheckJs :: Runner Script
-webcheckJs = liftWebDriverTT (lift (fromString . toS <$> readFile "target/webcheck-bundle.js"))
+webcheckJs = liftWebDriverTT . lift $ do
+  let key = "WEBCHECK_CLIENT_SIDE_BUNDLE"
+  bundlePath <- maybe (fail (key <> " environment variable not set")) pure =<< lookupEnv key
+  fromString . toS <$> readFile bundlePath
 
 initializeScript :: Runner ()
 initializeScript = do

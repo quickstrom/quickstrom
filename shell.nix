@@ -20,7 +20,7 @@ let
   easy-ps = import ./purescript-webcheck/easy-ps.nix { inherit pkgs; };
 
   purescript-webcheck = import ./purescript-webcheck { inherit pkgs; };
-
+  client-side = import ./client-side { inherit pkgs; };
 
   src = pkgs.nix-gitignore.gitignoreSource [] ./.;
 
@@ -33,6 +33,7 @@ in haskellPackages.shellFor {
   packages = p: [webcheck];
   buildInputs = (with pkgs;
   [
+    nixfmt
     # ghcid
     ghcide
     cabal-install
@@ -41,14 +42,12 @@ in haskellPackages.shellFor {
     geckodriver
     # chromium
     # chromedriver
-    nodejs
-    nodePackages.typescript
-    nodePackages.browserify
     entr
   ]) ++ (with easy-ps; [purs]);
   FONTCONFIG_FILE = pkgs.makeFontsConf {
     fontDirectories = fonts;
   };
   WEBCHECK_LIBRARY_DIR = "${purescript-webcheck}";
+  WEBCHECK_CLIENT_SIDE_BUNDLE = "${client-side}/webcheck-client-side.js";
 }
 

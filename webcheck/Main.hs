@@ -34,7 +34,7 @@ optParser =
       ( strOption
           ( short 'l'
               <> long "library-directory"
-              <> help "Directory containing compiled PureScript libraries used by WebCheck"
+              <> help "Directory containing compiled PureScript libraries used by WebCheck (falls back to the WEBCHECK_LIBRARY_DIR environment variable)"
           )
       )
     <*> option

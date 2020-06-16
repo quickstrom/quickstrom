@@ -17,7 +17,6 @@ import Language.PureScript (Ident, Qualified, nullSourceSpan)
 import Language.PureScript.CoreFn
 import Protolude
 import Protolude.Error (error)
-import System.Environment.Blank (getEnv)
 import Test.Tasty.Hspec hiding (Selector)
 import qualified WebCheck.Element as WebCheck
 import WebCheck.PureScript.Eval
@@ -30,20 +29,25 @@ import qualified WebCheck.PureScript.Queries as Queries
 import WebCheck.PureScript.Value
 import WebCheck.PureScript.Pretty
 import WebCheck.Trace (ObservedState (..))
+import System.Environment (lookupEnv)
+import Control.Monad (Monad(fail))
 
 loadModules :: IO Modules
 loadModules = do
-  webcheckPursDir <- fromMaybe "." <$> getEnv "PURESCRIPT_WEBCHECK"
+  let key = "WEBCHECK_LIBRARY_DIR"
+  webcheckPursDir <- 
+    maybe (fail (key <> " environment variable is not set")) pure 
+      =<< lookupEnv key
   loadLibraryModules webcheckPursDir >>= \case
     Right ms -> pure ms
-    Left err -> error ("Failed to load modules: " <> err)
+    Left err -> fail ("Failed to load modules: " <> toS err)
 
 loadProgram' :: Eval r m => FilePath -> Modules -> IO (Program m)
 loadProgram' path modules = do
   code <- readFile path
   loadProgram modules code >>= \case
     Right p -> pure p
-    Left err -> error ("Failed to load program: " <> err)
+    Left err -> fail ("Failed to load program: " <> toS err)
 
 eval' ::
   ToHaskellValue (Either EvalError) b =>
@@ -107,7 +111,7 @@ spec_purescript = beforeAll loadModules $ do
               HashMap.fromList
                 [ (WebCheck.Selector ".new-todo", [HashMap.singleton (WebCheck.Property "value") (JSON.String newTodo)]),
                   (WebCheck.Selector ".todoapp .filters .selected", [HashMap.singleton (WebCheck.Property "textContent") (JSON.String selected)]),
-                  ( WebCheck.Selector ".todo-list li",
+                  ( WebCheck.Selector ".todo-list li label",
                     [HashMap.singleton (WebCheck.Property "textContent") (JSON.String todo) | (todo, _) <- Vector.toList todoItems]
                   ),
                   ( WebCheck.Selector ".todo-list li input[type=checkbox]",

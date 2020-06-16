@@ -13,20 +13,15 @@ import qualified Data.Aeson as JSON
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Vector as Vector
 import Data.Vector (Vector)
-import Language.PureScript (Ident, Qualified, nullSourceSpan)
-import Language.PureScript.CoreFn
+import Language.PureScript (nullSourceSpan)
 import Protolude
-import Protolude.Error (error)
 import Test.Tasty.Hspec hiding (Selector)
 import qualified WebCheck.Element as WebCheck
 import WebCheck.PureScript.Eval
-import WebCheck.PureScript.Eval.Ann
-import WebCheck.PureScript.Eval.Env
 import WebCheck.PureScript.Eval.Error
 import WebCheck.PureScript.ForeignFunction
 import WebCheck.PureScript.Program
 import qualified WebCheck.PureScript.Queries as Queries
-import WebCheck.PureScript.Value
 import WebCheck.PureScript.Pretty
 import WebCheck.Trace (ObservedState (..))
 import System.Environment (lookupEnv)
@@ -148,15 +143,3 @@ spec_purescript = beforeAll loadModules $ do
         "proposition"
         p
         `shouldBe` Right False
-
-nullAnn :: EvalAnn
-nullAnn = (EvalAnn nullSourceSpan Nothing Nothing)
-
-app :: Expr EvalAnn -> Expr EvalAnn -> Expr EvalAnn
-app = App nullAnn
-
-intLit :: Integer -> Expr EvalAnn
-intLit n = Literal nullAnn (NumericLiteral (Left n))
-
-arrayLit :: [Expr EvalAnn] -> Expr EvalAnn
-arrayLit xs = Literal nullAnn (ArrayLiteral xs)

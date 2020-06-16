@@ -44,12 +44,10 @@
 .spago/math/v2.1.1/src/Math.purs:foreign import sqrt2 :: Number
 .spago/partial/v2.0.1/src/Partial.purs:foreign import crashWith :: forall a. Partial => String -> a
 .spago/arrays/v5.3.1/src/Data/Array.purs:foreign import fromFoldableImpl
-.spago/arrays/v5.3.1/src/Data/Array.purs:foreign import range :: Int -> Int -> Array Int
 .spago/arrays/v5.3.1/src/Data/Array.purs:foreign import replicate :: forall a. Int -> a -> Array a
 .spago/arrays/v5.3.1/src/Data/Array.purs:foreign import length :: forall a. Array a -> Int
 .spago/arrays/v5.3.1/src/Data/Array.purs:foreign import cons :: forall a. a -> Array a -> Array a
 .spago/arrays/v5.3.1/src/Data/Array.purs:foreign import snoc :: forall a. Array a -> a -> Array a
-.spago/arrays/v5.3.1/src/Data/Array.purs:foreign import uncons'
 .spago/arrays/v5.3.1/src/Data/Array.purs:foreign import indexImpl
 .spago/arrays/v5.3.1/src/Data/Array.purs:foreign import findIndexImpl
 .spago/arrays/v5.3.1/src/Data/Array.purs:foreign import findLastIndexImpl
@@ -79,8 +77,6 @@
 .spago/globals/v4.1.0/src/Global/Unsafe.purs:foreign import unsafeEncodeURI :: String -> String
 .spago/globals/v4.1.0/src/Global/Unsafe.purs:foreign import unsafeDecodeURIComponent :: String -> String
 .spago/globals/v4.1.0/src/Global/Unsafe.purs:foreign import unsafeEncodeURIComponent :: String -> String
-.spago/enums/v4.0.1/src/Data/Enum.purs:foreign import toCharCode :: Char -> Int
-.spago/enums/v4.0.1/src/Data/Enum.purs:foreign import fromCharCode :: Int -> Char
 .spago/integers/v4.0.0/src/Data/Int.purs:foreign import toNumber :: Int -> Number
 .spago/integers/v4.0.0/src/Data/Int.purs:foreign import quot :: Int -> Int -> Int
 .spago/integers/v4.0.0/src/Data/Int.purs:foreign import rem :: Int -> Int -> Int
@@ -95,31 +91,14 @@
 .spago/prelude/v4.1.1/src/Data/Unit.purs:foreign import data Unit :: Type
 .spago/prelude/v4.1.1/src/Data/Unit.purs:foreign import unit :: Unit
 .spago/prelude/v4.1.1/src/Data/Ord.purs:foreign import ordArrayImpl :: forall a. (a -> a -> Int) -> Array a -> Array a -> Int
-.spago/prelude/v4.1.1/src/Data/Bounded.purs:foreign import topInt :: Int
-.spago/prelude/v4.1.1/src/Data/Bounded.purs:foreign import bottomInt :: Int
-.spago/prelude/v4.1.1/src/Data/Bounded.purs:foreign import topChar :: Char
-.spago/prelude/v4.1.1/src/Data/Bounded.purs:foreign import bottomChar :: Char
-.spago/prelude/v4.1.1/src/Data/Bounded.purs:foreign import topNumber :: Number
-.spago/prelude/v4.1.1/src/Data/Bounded.purs:foreign import bottomNumber :: Number
-.spago/prelude/v4.1.1/src/Data/Show.purs:foreign import showIntImpl :: Int -> String
-.spago/prelude/v4.1.1/src/Data/Show.purs:foreign import showNumberImpl :: Number -> String
 .spago/prelude/v4.1.1/src/Data/Show.purs:foreign import showCharImpl :: Char -> String
-.spago/prelude/v4.1.1/src/Data/Show.purs:foreign import showStringImpl :: String -> String
 .spago/prelude/v4.1.1/src/Data/Show.purs:foreign import showArrayImpl :: forall a. (a -> String) -> Array a -> String
-.spago/prelude/v4.1.1/src/Data/Show.purs:foreign import cons :: forall a. a -> Array a -> Array a
-.spago/prelude/v4.1.1/src/Data/Show.purs:foreign import join :: String -> Array String -> String
 .spago/prelude/v4.1.1/src/Control/Apply.purs:foreign import arrayApply :: forall a b. Array (a -> b) -> Array a -> Array b
-.spago/prelude/v4.1.1/src/Data/Semigroup.purs:foreign import concatString :: String -> String -> String
-.spago/prelude/v4.1.1/src/Data/Semigroup.purs:foreign import concatArray :: forall a. Array a -> Array a -> Array a
-.spago/prelude/v4.1.1/src/Data/HeytingAlgebra.purs:foreign import boolConj :: Boolean -> Boolean -> Boolean
-.spago/prelude/v4.1.1/src/Data/HeytingAlgebra.purs:foreign import boolDisj :: Boolean -> Boolean -> Boolean
-.spago/prelude/v4.1.1/src/Data/HeytingAlgebra.purs:foreign import boolNot :: Boolean -> Boolean
 .spago/refs/v4.1.0/src/Effect/Ref.purs:foreign import data Ref :: Type -> Type
 .spago/refs/v4.1.0/src/Effect/Ref.purs:foreign import new :: forall s. s -> Effect (Ref s)
 .spago/refs/v4.1.0/src/Effect/Ref.purs:foreign import read :: forall s. Ref s -> Effect s
 .spago/refs/v4.1.0/src/Effect/Ref.purs:foreign import modify' :: forall s b. (s -> { state :: s, value :: b }) -> Ref s -> Effect b
 .spago/refs/v4.1.0/src/Effect/Ref.purs:foreign import write :: forall s. s -> Ref s -> Effect Unit
-.spago/unfoldable/v4.1.0/src/Data/Unfoldable.purs:foreign import unfoldrArrayImpl
 .spago/unfoldable/v4.1.0/src/Data/Unfoldable1.purs:foreign import unfoldr1ArrayImpl
 .spago/arrays/v5.3.1/src/Data/Array/ST.purs:foreign import data STArray :: Region -> Type -> Type
 .spago/arrays/v5.3.1/src/Data/Array/ST.purs:foreign import unsafeFreeze :: forall h a. STArray h a -> ST h (Array a)
@@ -207,20 +186,12 @@
 .spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import _slice :: Int -> Int -> String -> String
 .spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import splitAt :: Int -> String -> { before :: String, after :: String }
 .spago/strings/v4.0.1/src/Data/String/Common.purs:foreign import _localeCompare
-.spago/strings/v4.0.1/src/Data/String/Common.purs:foreign import replace :: Pattern -> Replacement -> String -> String
 .spago/strings/v4.0.1/src/Data/String/Common.purs:foreign import replaceAll :: Pattern -> Replacement -> String -> String
-.spago/strings/v4.0.1/src/Data/String/Common.purs:foreign import split :: Pattern -> String -> Array String
-.spago/strings/v4.0.1/src/Data/String/Common.purs:foreign import toLower :: String -> String
-.spago/strings/v4.0.1/src/Data/String/Common.purs:foreign import toUpper :: String -> String
-.spago/strings/v4.0.1/src/Data/String/Common.purs:foreign import trim :: String -> String
-.spago/strings/v4.0.1/src/Data/String/Common.purs:foreign import joinWith :: String -> Array String -> String
 .spago/strings/v4.0.1/src/Data/String/CodePoints.purs:foreign import _singleton
 .spago/strings/v4.0.1/src/Data/String/CodePoints.purs:foreign import _fromCodePointArray
-.spago/strings/v4.0.1/src/Data/String/CodePoints.purs:foreign import _toCodePointArray
 .spago/strings/v4.0.1/src/Data/String/CodePoints.purs:foreign import _codePointAt
 .spago/strings/v4.0.1/src/Data/String/CodePoints.purs:foreign import _countPrefix
 .spago/strings/v4.0.1/src/Data/String/CodePoints.purs:foreign import _take :: (Int -> String -> String) -> Int -> String -> String
-.spago/strings/v4.0.1/src/Data/String/CodePoints.purs:foreign import _unsafeCodePointAt0
 .spago/arrays/v5.3.1/src/Data/Array/NonEmpty/Internal.purs:foreign import fold1Impl :: forall a. (a -> a -> a) -> NonEmptyArray a -> a
 .spago/arrays/v5.3.1/src/Data/Array/NonEmpty/Internal.purs:foreign import traverse1Impl
 .spago/arrays/v5.3.1/src/Data/Array/ST/Partial.purs:foreign import peekImpl :: forall h a. Int -> STArray h a -> ST h a

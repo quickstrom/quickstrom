@@ -30,12 +30,20 @@ First, install the packages in the Spago directory.
 $ nix-shell
 ...
 $ spago2nix install -j 100
-$ spago build -u '-g corefn'
 ```
 
 Now all dependencies should be in the standard Spago location, so that
 Spago and the PureScript IDE works as usual. Launch your editor and use
 this package as the project root, and it should work nicely!
+
+You can build the WebCheck libraries manually with spago. This is useful if
+you're hacking on these modules (or the specifications in `specs/`) and want
+to run WebCheck against your working copy (see `WEBCHECK_LIBRARY_DIR` in the
+root README).
+
+```
+$ spago build -u '-g corefn'
+```
 
 ## Generating Spago Packages
 

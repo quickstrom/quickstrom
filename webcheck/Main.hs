@@ -1,47 +1,88 @@
-{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 module Main where
 
-import Protolude
-import System.Directory
-import System.IO.Unsafe (unsafePerformIO)
-import qualified WebCheck.PureScript.Eval as WebCheck
+import Options.Applicative
+import Protolude hiding (option)
+import System.Environment (lookupEnv)
 import qualified WebCheck.PureScript.Program as WebCheck
 import qualified WebCheck.Run as WebCheck
-import qualified WebCheck.Specification as WebCheck
 
-cwd :: FilePath
-cwd = unsafePerformIO getCurrentDirectory
+data WebCheckOptions
+  = WebCheckOptions
+      { specPath :: FilePath,
+        libraryPath :: Maybe FilePath,
+        tests :: Int,
+        shrinkLevels :: Int
+      }
+
+optParser :: Parser WebCheckOptions
+optParser =
+  WebCheckOptions
+    <$> argument
+      str
+      ( metavar "SPECIFICATION_FILE"
+          <> help "A specification file to check"
+      )
+    <*> optional
+      ( strOption
+          ( short 'l'
+              <> long "library-directory"
+              <> help "Directory containing compiled PureScript libraries used by WebCheck"
+          )
+      )
+    <*> option
+      auto
+      ( short 'n'
+          <> value 10
+          <> long "tests"
+          <> help "How many tests to run"
+      )
+    <*> option
+      auto
+      ( short 's'
+          <> value 10
+          <> long "shrink-levels"
+          <> help "How many levels to shrink the generated actions after a failed test"
+      )
+
+optsInfo :: ParserInfo WebCheckOptions
+optsInfo =
+  info
+    (optParser <**> helper)
+    ( fullDesc
+        <> header "WebCheck: High-confidence browser testing"
+    )
 
 main :: IO ()
-main =
-  getArgs >>= \case
-    [libraryPath, specPath] -> do
-      specResult <- runExceptT $ do
-        modules <- ExceptT (WebCheck.loadLibraryModules libraryPath)
-        ExceptT (WebCheck.loadSpecificationFile modules specPath)
-      case specResult of
-        Left err -> do
-          hPutStrLn @Text stderr err
-          exitWith (ExitFailure 1)
-        Right spec -> do
-          putStrLn @Text ("We have a spec with queries: " <> show (WebCheck.specificationQueries spec))
-          putStrLn @Text ("And actions: " <> show (WebCheck.specificationActions spec))
-          WebCheck.check spec
-    [arg] | arg `elem` ["help", "--help", "-h"] -> usage
-    _ -> do
-      usage
+main = do
+  WebCheckOptions {..} <- execParser optsInfo
+  specResult <- runExceptT $ do
+    libPath <- maybe libraryPathFromEnvironment pure libraryPath
+    modules <- ExceptT (WebCheck.loadLibraryModules libPath)
+    ExceptT (WebCheck.loadSpecificationFile modules specPath)
+  case specResult of
+    Left err -> do
+      hPutStrLn @Text stderr err
       exitWith (ExitFailure 1)
+    Right spec ->
+      WebCheck.check
+        WebCheck.CheckOptions {checkTests = tests, checkShrinkLevels = shrinkLevels}
+        spec
+
+libraryPathFromEnvironment :: ExceptT Text IO FilePath
+libraryPathFromEnvironment = do
+  liftIO (lookupEnv (toS key)) >>= \case
+    Just p -> pure p
+    Nothing -> throwError (key <> "is not set and command-line option is not provided")
   where
-    usage :: IO ()
-    usage = hPutStrLn stderr ("Usage: webcheck <LIBRARY_PATH> <SPEFICATION_PATH>" :: Text)
+    key = "WEBCHECK_LIBRARY_DIR"
 {-
 
 -- Simple example: a button that can be clicked, which then shows a message
@@ -77,31 +118,6 @@ ajaxSpec =
          in buttonIsEnabled /\ always (launch \/ impactOrNoImpact)
     }
 
-spinnersSpec :: Specification Formula
-spinnersSpec =
-  Specification
-    { origin = Path ("file://" <> Text.pack cwd <> "/test/spinners.html"),
-      readyWhen = "body",
-      actions = clicks,
-      proposition =
-        let numberOfActiveSpinners = apply length [queryAll (byCss ".spinner.active")]
-         in numberOfActiveSpinners === num 0 /\ always (numberOfActiveSpinners <= num 1)
-    }
-
-toggleSpec :: Specification Formula
-toggleSpec =
-  Specification
-    { origin = Path ("file://" <> Text.pack cwd <> "/test/toggle.html"),
-      readyWhen = "button",
-      actions = clicks,
-      proposition =
-        let on = "button" `hasText` "Turn me off"
-            off = "button" `hasText` "Turn me on"
-            turnOn = off /\ next on
-            turnOff = on /\ next off
-         in off /\ always (turnOn \/ turnOff)
-    }
-
 draftsSpec :: Specification Formula
 draftsSpec =
   Specification
@@ -110,26 +126,4 @@ draftsSpec =
       actions = clicks,
       proposition = top
     }
-
-commentFormSpec :: Specification Formula
-commentFormSpec =
-  Specification
-    { origin = Path ("file://" <> Text.pack cwd <> "/test/comment-form.html"),
-      readyWhen = "form",
-      actions = QuickCheck.oneof [clicks, asciiKeyPresses, foci],
-      proposition =
-        let commentPosted = isVisible ".comment-display" /\ commentIsValid /\ neg (isVisible "form")
-            invalidComment = neg (isVisible ".comment-display") /\ isVisible "form"
-            postComment = isVisible "form" /\ next (commentPosted \/ invalidComment)
-         in isVisible "form" /\ always postComment
-    }
-
-buttonIsEnabled :: Formula
-buttonIsEnabled = queryOne (enabled (byCss "button")) === top
-
-commentIsValid :: Formula
-commentIsValid = commentLength (queryOne (text (byCss ".comment"))) >= num 3
-  where
-    commentLength t = apply length [apply strip [apply head [apply tail [apply splitOn [": ", t]]]]]
-
 -}

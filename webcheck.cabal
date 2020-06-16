@@ -26,6 +26,7 @@ common shared-deps
                     , monad-loops
                     , mtl
                     , natural-transformation
+                    , optparse-applicative
                     , pipes
                     , prettyprinter
                     , prettyprinter-ansi-terminal

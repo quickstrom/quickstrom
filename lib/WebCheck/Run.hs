@@ -5,38 +5,37 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE Strict #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module WebCheck.Run
-  ( check,
+  ( CheckOptions (..),
+    check,
   )
 where
 
 import Control.Lens hiding (each)
-import Control.Monad (fail, (>=>), forever, void, when)
+import Control.Monad ((>=>), fail, forever, void, when)
 import Control.Monad (filterM)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Loops (andM)
 import Control.Monad.Trans.Class (MonadTrans)
-import Data.String (fromString, String)
 import Control.Monad.Trans.Class (MonadTrans (lift))
-import Control.Monad.Trans.Identity (IdentityT)
 import qualified Data.Aeson as JSON
 import Data.Function ((&))
 import Data.Functor (($>))
 import Data.Generics.Product (field)
-import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
-import Data.HashSet (HashSet)
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.Maybe (fromMaybe)
+import Data.String (String, fromString)
 import qualified Data.Text as Text
 import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
@@ -48,7 +47,7 @@ import qualified Network.Wreq as Wreq
 import Pipes ((>->), Consumer, Effect, Pipe, Producer)
 import qualified Pipes
 import qualified Pipes.Prelude as Pipes
-import Protolude hiding (trace, Selector, catchError, throwError, check)
+import Protolude hiding (Selector, catchError, check, throwError, trace)
 import qualified Test.QuickCheck as QuickCheck
 import Test.Tasty.HUnit (assertFailure)
 import Web.Api.WebDriver hiding (Action, Selector, assertFailure, hPutStrLn, runIsolated)
@@ -59,7 +58,7 @@ import WebCheck.Result
 import WebCheck.Specification
 import WebCheck.Trace
 
-type Runner = WebDriverTT IdentityT IO
+type Runner = WebDriverTT (ReaderT CheckOptions) IO
 
 data FailingTest
   = FailingTest
@@ -72,12 +71,13 @@ data FailingTest
 data CheckResult = CheckSuccess | CheckFailure {failedAfter :: Int, failingTest :: FailingTest}
   deriving (Show, Generic)
 
-check :: Specification spec => spec -> IO ()
-check spec = do
+data CheckOptions = CheckOptions {checkTests :: Int, checkShrinkLevels :: Int}
+
+check :: Specification spec => CheckOptions -> spec -> IO ()
+check opts@CheckOptions {checkTests} spec = do
   -- stdGen <- getStdGen
-  let numTests = 10
-  logInfo ("Running " <> show numTests <> " tests...")
-  result <- runWebDriver (Pipes.runEffect (runAll numTests spec))
+  logInfo ("Running " <> show checkTests <> " tests...")
+  result <- runWebDriver opts (Pipes.runEffect (runAll checkTests spec))
   case result of
     CheckFailure {failedAfter, failingTest} -> do
       logInfo . renderString $
@@ -86,7 +86,7 @@ check spec = do
         Just err -> logInfo (renderString (annotate (color Red) ("Verification failed with error:" <+> err <> line)))
         Nothing -> pure ()
       assertFailure ("Failed after " <> show failedAfter <> " tests and " <> show (numShrinks failingTest) <> " levels of shrinking.")
-    CheckSuccess -> logInfo ("Passed " <> show numTests <> " tests.")
+    CheckSuccess -> logInfo ("Passed " <> show checkTests <> " tests.")
 
 elementsToTrace :: Producer (TraceElement ()) Runner () -> Runner (Trace ())
 elementsToTrace = fmap Trace . Pipes.toListM
@@ -109,10 +109,9 @@ select f = forever do
 
 runSingle :: Specification spec => spec -> Int -> Runner (Either FailingTest ())
 runSingle spec size = do
-  let maxTries = size * 10
   result <-
     generateActions (actions spec)
-      >-> Pipes.take maxTries
+      >-> Pipes.take (size * 10)
       >-> selectValidActions
       >-> Pipes.take size
       & runAndVerifyIsolated 0
@@ -121,7 +120,7 @@ runSingle spec size = do
     f@(Left (FailingTest _ trace _)) -> do
       logInfoWD "Test failed. Shrinking..."
       let shrinks = shrinkForest (QuickCheck.shrinkList shrinkAction) (trace ^.. traceActions)
-      shrunk <- minBy (lengthOf (field @"trace" . traceElements)) (traverseShrinks runShrink shrinks >-> select (preview _Left) >-> Pipes.take 10)
+      shrunk <- minBy (lengthOf (field @"trace" . traceElements)) (traverseShrinks runShrink shrinks >-> select (preview _Left) >-> Pipes.take 5)
       pure (fromMaybe f (Left <$> shrunk))
   where
     runAndVerifyIsolated n producer = do
@@ -132,8 +131,9 @@ runSingle spec size = do
         Right Accepted -> pure (Right ())
         Right Rejected -> pure (Left (FailingTest n trace Nothing))
         Left err -> pure (Left (FailingTest n trace (Just err)))
-    runShrink (Shrink n actions) =
-      runAndVerifyIsolated n (Pipes.each actions)
+    runShrink (Shrink n actions') = do
+      logInfoWD ("Running shrunk test at level " <> show n <> "...")
+      runAndVerifyIsolated n (Pipes.each actions')
 
 runAll :: Specification spec => Int -> spec -> Effect Runner CheckResult
 runAll numTests spec' = (allTests $> CheckSuccess) >-> firstFailure
@@ -162,11 +162,12 @@ beforeRun spec = do
 
 observeManyStatesAfter :: Queries -> ObservedState -> Action Selected -> Pipe a (TraceElement ()) Runner ObservedState
 observeManyStatesAfter queries' initialState action = do
+  CheckOptions {checkShrinkLevels} <- lift (liftWebDriverTT ask)
   result <- lift (runAction action)
   delta <- getNextOrFail =<< lift (registerNextStateObserver queries')
   Pipes.yield (TraceAction () action result)
   nonStutters <-
-    (loop (delta <> initialState) >-> Pipes.takeWhile (/= initialState) >-> Pipes.take 10)
+    (loop (delta <> initialState) >-> Pipes.takeWhile (/= initialState) >-> Pipes.take checkShrinkLevels)
       & Pipes.toListM
       & lift
       & fmap (fromMaybe (pure initialState) . NonEmpty.nonEmpty)
@@ -285,12 +286,12 @@ runAction = \case
   Click s -> click s
   Navigate (Path path) -> tryAction (ActionSuccess <$ navigateTo (Text.unpack path))
 
-runWebDriver :: Runner a -> IO a
-runWebDriver ma = do
+runWebDriver :: CheckOptions -> Runner a -> IO a
+runWebDriver opts ma = do
   mgr <- Http.newManager defaultManagerSettings
   let httpOptions :: Wreq.Options
       httpOptions = Wreq.defaults & Wreq.manager .~ Right mgr
-  execWebDriverT (reconfigure defaultWebDriverConfig httpOptions) ma >>= \case
+  runReaderT (execWebDriverTT (reconfigure defaultWebDriverConfig httpOptions) ma) opts >>= \case
     (Right x, _, _) -> pure x
     (Left err, _, _) -> fail (show err)
   where
@@ -375,7 +376,7 @@ isElementVisible :: Element -> Runner Bool
 isElementVisible el =
   (== JSON.Bool True) <$> executeScript "return window.webcheck.isElementVisible(arguments[0])" [JSON.toJSON el]
 
-awaitElement :: Selector -> WebDriverT IO ()
+awaitElement :: Selector -> Runner ()
 awaitElement (Selector sel) =
   void (executeAsyncScript "window.webcheck.awaitElement(arguments[0], arguments[1])" [JSON.toJSON sel])
 
@@ -393,7 +394,7 @@ executeAsyncScript' script args = do
     JSON.Success a -> pure a
     JSON.Error e -> fail e
 
-observeStates :: Queries -> WebDriverT IO ObservedState
+observeStates :: Queries -> Runner ObservedState
 observeStates queries' =
   executeScript' "return window.webcheck.observeInitialStates(arguments[0])" [JSON.toJSON queries']
 

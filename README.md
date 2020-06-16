@@ -1,4 +1,4 @@
-<div style="text-align: center;">
+<div align=center>
 <h1>WebCheck</h1>
 <p>High-confidence browser testing</p>
 </div>
@@ -32,8 +32,7 @@
 <hr>
 
 **NOTE:** The WebCheck project is in a very early phase, so documentation is
-*scarce.
-The situation will improve.
+scarce. The situation will improve.
 
 ## Getting Started
 

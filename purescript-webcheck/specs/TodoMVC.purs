@@ -2,15 +2,18 @@ module WebCheck.PureScript.TodoMVC where
 
 import WebCheck.DSL
 
-import Data.Array (filter, head, last)
+import Data.Array (elem, filter, head, last)
 import Data.Foldable (length)
 import Data.Int as Int
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String (Pattern(..), split)
 import Data.Tuple (Tuple(..))
 
+name :: String
+name = "angularjs"
+
 origin :: Path
-origin = "http://todomvc.com/examples/angularjs/"
+origin = "http://todomvc.com/examples/" <> name <> "/"
 
 readyWhen :: Selector
 readyWhen = ".todoapp"
@@ -67,8 +70,8 @@ proposition =
         -- inconsistent with the other JS implementations, in that
         -- they clear the input field when the filter is changed.
 
-        -- && not (name `Array.elem` ["angularjs", "mithril"]) ==> pendingText == next pendingText
-        && pendingText == next pendingText
+        && not (name `elem` ["angularjs", "mithril"]) `implies` (pendingText == next pendingText)
+        -- && pendingText == next pendingText
     
     addNew =
       Just pendingText == next lastItemText
@@ -105,6 +108,10 @@ proposition =
         && ( (currentFilter == Just "Active")
                 `implies` ( (numItems > 0) `implies` (next numItems == 0)
                         || (numItems == 0) `implies` (next numItems > 0)
+                    )
+            )
+        && ( (currentFilter == Just "Completed")
+                `implies` ( numItems + fromMaybe 0 numItemsLeft == (next numItems)
                     )
             )
     

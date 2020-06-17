@@ -4,7 +4,7 @@ name:                 WebCheck
 version:              0.1.0.0
 license-file:         LICENSE
 author:               Oskar Wickström
-maintainer:           oskar.wickstrom@ingka.com
+maintainer:           oskar@wickstrom.tech
 build-type:           Simple
 extra-source-files:   CHANGELOG.md
 

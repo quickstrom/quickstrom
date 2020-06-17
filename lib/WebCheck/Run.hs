@@ -49,8 +49,7 @@ import qualified Pipes
 import qualified Pipes.Prelude as Pipes
 import Protolude hiding (Selector, catchError, check, throwError, trace)
 import qualified Test.QuickCheck as QuickCheck
-import Test.Tasty.HUnit (assertFailure)
-import Web.Api.WebDriver hiding (Action, Selector, assertFailure, hPutStrLn, runIsolated)
+import Web.Api.WebDriver hiding (Action, Selector, runIsolated, hPutStrLn)
 import WebCheck.Element
 import WebCheck.Path
 import WebCheck.Pretty
@@ -86,7 +85,8 @@ check opts@CheckOptions {checkTests} spec = do
       case reason failingTest of
         Just err -> logInfo (renderString (annotate (color Red) ("Verification failed with error:" <+> err <> line)))
         Nothing -> pure ()
-      assertFailure ("Failed after " <> show failedAfter <> " tests and " <> show (numShrinks failingTest) <> " levels of shrinking.")
+      logInfo (renderString (annotate (color Red) ("Failed after " <> pretty failedAfter <> " tests and " <> pretty (numShrinks failingTest) <> " levels of shrinking.")))
+      exitFailure
     CheckSuccess -> logInfo ("Passed " <> show checkTests <> " tests.")
 
 elementsToTrace :: Producer (TraceElement ()) Runner () -> Runner (Trace ())
@@ -368,7 +368,7 @@ fromRef :: ElementRef -> Element
 fromRef (ElementRef ref) = Element (Text.pack ref)
 
 logInfo :: MonadIO m => String -> m ()
-logInfo = liftIO . putStrLn
+logInfo = liftIO . hPutStrLn stderr
 
 logInfoWD :: String -> Runner ()
 logInfoWD = liftWebDriverTT . logInfo

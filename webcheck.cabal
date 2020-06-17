@@ -14,15 +14,12 @@ common shared-deps
                     , bytestring
                     , containers
                     , directory
-                    , file-embed
                     , filepath
                     , generic-lens
                     , Glob
                     , hashable
                     , http-client
-                    , lattices
                     , lens
-                    , mmorph
                     , monad-loops
                     , mtl
                     , natural-transformation
@@ -34,13 +31,8 @@ common shared-deps
                     , purescript
                     , process
                     , QuickCheck
-                    , QuickCheck-GenT
                     , random
                     , scientific
-                    , tasty
-                    , tasty-quickcheck
-                    , template-haskell
-                    , temporary
                     , text
                     , transformers
                     , unordered-containers

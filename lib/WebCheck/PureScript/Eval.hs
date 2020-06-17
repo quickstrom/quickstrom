@@ -29,7 +29,6 @@ import Control.Lens hiding (op)
 import Control.Monad.Fix (MonadFix)
 import Data.Generics.Product (HasField, field)
 import qualified Data.HashMap.Strict as HashMap
-import qualified Data.Map as Map
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Text
 import qualified Data.Vector as Vector
@@ -157,7 +156,7 @@ eval expr = do
     Var _ (P.Qualified (Just (P.ModuleName "Prim")) (P.Ident "undefined")) -> pure (VObject mempty)
     Var (EvalAnn ss _ (Just (ApplyForeign qn names))) _ -> do
       params <- for names $ \n -> envLookupEval ss (Right n)
-      case Map.lookup qn (envForeignFunctions env) of
+      case HashMap.lookup qn (envForeignFunctions env) of
         Just (EvalForeignFunction f) -> f ss params
         _ -> throwError (ForeignFunctionNotSupported ss qn)
     Var (EvalAnn ss _ Nothing) qn -> envLookupEval ss (fromQualifiedIdent qn)

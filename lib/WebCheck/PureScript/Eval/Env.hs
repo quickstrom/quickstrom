@@ -5,15 +5,16 @@
 
 module WebCheck.PureScript.Eval.Env where
 
-import qualified Data.Map as Map
+import qualified Data.HashMap.Strict as HashMap
+import Data.HashMap.Strict (HashMap)
 import Protolude hiding (list)
 import WebCheck.PureScript.Eval.Name
 
 data Env expr value ff ann
   = Env
-      { envTopLevels :: Map QualifiedName (expr ann)
-      , envLocals :: Map Name (value ann)
-      , envForeignFunctions :: Map QualifiedName (ff ann)
+      { envTopLevels :: HashMap QualifiedName (expr ann)
+      , envLocals :: HashMap Name (value ann)
+      , envForeignFunctions :: HashMap QualifiedName (ff ann)
       }
       deriving (Generic, Show)
 
@@ -24,21 +25,21 @@ instance Monoid (Env expr value ff ann) where
     mempty = Env mempty mempty mempty
 
 instance (Functor expr, Functor value, Functor ff) => Functor (Env expr value ff) where
-  fmap f (Env b l ffs) = Env (Map.map (fmap f) b) (Map.map (fmap f) l) (Map.map (fmap f) ffs)
+  fmap f (Env b l ffs) = Env (map (map f) b) (map (map f) l) (map (map f) ffs)
 
 envBindLocal :: Name -> value ann -> Env expr value ff ann
-envBindLocal qn expr = Env mempty (Map.singleton qn expr) mempty
+envBindLocal qn expr = Env mempty (HashMap.singleton qn expr) mempty
 
 envBindTopLevel :: QualifiedName -> expr ann -> Env expr value ff ann
-envBindTopLevel qn expr = Env (Map.singleton qn expr) mempty mempty
+envBindTopLevel qn expr = Env (HashMap.singleton qn expr) mempty mempty
 
 withoutLocals :: e ~ Env expr value ff ann => e -> e
 withoutLocals env = env { envLocals = mempty }
 
 envLookupTopLevel :: QualifiedName -> Env expr value ff ann -> Maybe (expr ann)
 envLookupTopLevel qn env =
-  Map.lookup qn (envTopLevels env)
+  HashMap.lookup qn (envTopLevels env)
 
 envLookupLocal :: Name -> Env expr value ff ann -> Maybe (value ann)
 envLookupLocal n env =
-  Map.lookup n (envLocals env)
+  HashMap.lookup n (envLocals env)

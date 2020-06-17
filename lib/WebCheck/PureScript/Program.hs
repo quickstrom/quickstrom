@@ -20,6 +20,8 @@ import qualified Data.ByteString.Lazy.Char8 as BS
 import Data.Fixed (mod')
 import Data.Generics.Product (field)
 import Data.HashMap.Strict (HashMap)
+import qualified Data.HashMap.Strict as HashMap
+import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
 import qualified Data.Text as Text
 import qualified Data.Text.Read as Text
@@ -50,11 +52,10 @@ import WebCheck.PureScript.Value
 import qualified WebCheck.Result as WebCheck
 import qualified WebCheck.Specification as WebCheck
 import qualified WebCheck.Trace as WebCheck
-import qualified Data.List.NonEmpty as NonEmpty
 
 initialEnv :: Eval r m => Env' m
 initialEnv =
-  foldMap bindForeignPair (Map.toList foreignFunctions)
+  foldMap bindForeignPair (HashMap.toList foreignFunctions)
   where
     builtInSS = P.internalModuleSourceSpan "<builtin>"
     bindForeignFunction :: QualifiedName -> Int -> Env' m
@@ -195,7 +196,7 @@ loadProgram ms input = runExceptT $ do
         }
     )
   where
-    ffs :: Eval r m => Map QualifiedName (EvalForeignFunction m EvalAnn)
+    ffs :: Eval r m => HashMap QualifiedName (EvalForeignFunction m EvalAnn)
     ffs = map (\(SomeForeignFunction f) -> EvalForeignFunction (evalForeignFunction f)) foreignFunctions
 
 data SpecificationProgram
@@ -274,9 +275,9 @@ evalEntryPoint entryPoint = envLookupEval entrySS (Left entryPoint)
 
 -- * Foreign Functions
 
-foreignFunctions :: Eval r m => Map QualifiedName (SomeForeignFunction m)
+foreignFunctions :: Eval r m => HashMap QualifiedName (SomeForeignFunction m)
 foreignFunctions =
-  Map.fromList
+  HashMap.fromList
     [ (ffName "Control.Bind" "arrayBind", foreignFunction arrayBind),
       (ffName "Data.Array" "indexImpl", foreignFunction indexImpl),
       (ffName "Data.Array" "length", foreignFunction len),

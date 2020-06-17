@@ -84,7 +84,7 @@ prettyObservedState (ObservedState state)
           ( line
               <> indent 2 (vsep (map prettyStateValue (HashMap.toList stateValues)))
           )
-    prettyStateValue (state, value) = "-" <+> prettyState state <+> "=" <+> prettyValue value
+    prettyStateValue (state', value) = "-" <+> prettyState state' <+> "=" <+> prettyValue value
 
 prettyValue :: JSON.Value -> Doc AnsiStyle
 prettyValue = \case

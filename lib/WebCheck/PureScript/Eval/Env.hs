@@ -1,3 +1,4 @@
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -5,40 +6,37 @@
 module WebCheck.PureScript.Eval.Env where
 
 import qualified Data.Map as Map
-import Language.PureScript.CoreFn
 import Language.PureScript.Names
 import Protolude hiding (list)
-import WebCheck.PureScript.Value
-import WebCheck.PureScript.Eval.Ann
-import Language.PureScript (SourceSpan)
 
-data Env m ann
+data Env expr value ff ann
   = Env
-      { envBindings :: Map (Qualified Ident) (Either (Expr ann) (Value ann))
-      , envForeignFunctions :: Map (Qualified Ident) (EvalForeignFunction m EvalAnn)
+      { envTopLevels :: Map (ModuleName, Ident) (expr ann)
+      , envLocals :: Map Ident (value ann)
+      , envForeignFunctions :: Map (ModuleName, Ident) (ff ann)
       }
-      deriving (Generic)
+      deriving (Generic, Show)
 
-instance Semigroup (Env m ann) where
-    Env b1 f1 <> Env b2 f2 = Env (b1 <> b2) (f1 <> f2)
+instance Semigroup (Env expr value ff ann) where
+    Env b1 l1 f1 <> Env b2 l2 f2 = Env (b1 <> b2) (l1 <> l2) (f1 <> f2)
 
-instance Monoid (Env m ann) where
-    mempty = Env mempty mempty
+instance Monoid (Env expr value ff ann) where
+    mempty = Env mempty mempty mempty
 
+instance (Functor expr, Functor value, Functor ff) => Functor (Env expr value ff) where
+  fmap f (Env b l ffs) = Env (Map.map (fmap f) b) (Map.map (fmap f) l) (Map.map (fmap f) ffs)
 
-type EvalForeignFunction m ann = SourceSpan -> [Value ann] -> m (Value ann)
+envBindLocal :: Ident -> value ann -> Env expr value ff ann
+envBindLocal qn expr = Env mempty (Map.singleton qn expr) mempty
 
-instance Functor (Env m) where
-  fmap f (Env b ffs) = Env (Map.map (bimap (fmap f) (fmap f)) b) ffs
+envBindTopLevel :: ModuleName -> Ident -> expr ann -> Env expr value ff ann
+envBindTopLevel mn ident expr = Env (Map.singleton (mn, ident) expr) mempty mempty
 
-envBindValue :: Qualified Ident -> Value ann -> Env m ann
-envBindValue qn expr = Env (Map.singleton qn (Right expr)) mempty
+withoutLocals :: e ~ Env expr value ff ann => e -> e
+withoutLocals env = env { envLocals = mempty }
 
-envBindExpr :: Qualified Ident -> Expr ann -> Env m ann
-envBindExpr qn expr = Env (Map.singleton qn (Left expr)) mempty
-
-withoutLocals :: Env m ann -> Env m ann
-withoutLocals (Env ms ffs) = Env (Map.filterWithKey (\(Qualified modules _) _ -> isJust modules) ms) ffs
-
-envLookup :: Qualified Ident -> Env m ann -> Maybe (Either (Expr ann) (Value ann))
-envLookup qn = Map.lookup qn . envBindings
+envLookup :: Qualified Ident -> Env expr value ff ann -> Maybe (Either (expr ann) (value ann))
+envLookup (Qualified (Just mn) ident) env =
+  Left <$> Map.lookup (mn, ident) (envTopLevels env)
+envLookup (Qualified Nothing ident) env =
+  Right <$> Map.lookup ident (envLocals env)

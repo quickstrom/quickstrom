@@ -50,15 +50,25 @@ import qualified WebCheck.Result as WebCheck
 import qualified WebCheck.Specification as WebCheck
 import qualified WebCheck.Trace as WebCheck
 
-initialEnv :: Eval r m => Env m EvalAnn
+initialEnv :: Eval r m => Env' m
 initialEnv =
   foldMap bindForeignPair (Map.toList foreignFunctions)
   where
     builtInSS = P.internalModuleSourceSpan "<builtin>"
-    bindForeignFunction :: Qualified Ident -> Int -> Env m EvalAnn
-    bindForeignFunction qn arity' =
-      envBindExpr qn (wrap arity' (\names -> Var (EvalAnn builtInSS {P.spanName = toS (showQualified runIdent qn)} (Just IsForeign) (Just (ApplyForeign qn names))) qn))
-    bindForeignPair :: (Qualified Ident, SomeForeignFunction m) -> Env m EvalAnn
+    bindForeignFunction :: (ModuleName, Ident) -> Int -> Env' m
+    bindForeignFunction (mn, ident) arity' =
+      envBindTopLevel
+        mn
+        ident
+        ( wrap
+            arity'
+            ( \names ->
+                Var
+                  (EvalAnn builtInSS (Just IsForeign) (Just (ApplyForeign mn ident names)))
+                  (Qualified (Just mn) ident)
+            )
+        )
+    bindForeignPair :: ((ModuleName, Ident), SomeForeignFunction m) -> Env' m
     bindForeignPair (qn, SomeForeignFunction f) = bindForeignFunction qn (foreignFunctionArity f)
     wrap :: Int -> ([Ident] -> Expr EvalAnn) -> Expr EvalAnn
     wrap arity' f =
@@ -141,21 +151,21 @@ data Program m
   = Program
       { programLibraryModules :: Modules,
         programMain :: Module CF.Ann,
-        programEnv :: Env m EvalAnn
+        programEnv :: Env' m
       }
 
 programQualifiedName :: Text -> Program m -> Qualified Ident
 programQualifiedName name p =
   Qualified (Just (moduleName (programMain p))) (Ident name)
 
-toModuleEnv :: Module CF.Ann -> Env m EvalAnn
+toModuleEnv :: Module CF.Ann -> Env' m
 toModuleEnv m =
   let addDecl = \case
         NonRec _ name expr -> bindExpr name expr
         Rec binds -> foldMap (\((_, name), expr) -> bindExpr name expr) binds
    in foldMap addDecl (moduleDecls m)
   where
-    bindExpr name expr = envBindExpr (Qualified (Just (moduleName m)) name) (evalAnnFromAnn <$> expr)
+    bindExpr name expr = envBindTopLevel (moduleName m) name (evalAnnFromAnn <$> expr)
 
 loadProgram ::
   Eval r m =>
@@ -164,7 +174,7 @@ loadProgram ::
   IO (Either Text (Program m))
 loadProgram ms input = runExceptT $ do
   specModule <- loadModuleFromSource ms input
-  let env' = foldMap toModuleEnv (modulesCoreFn ms <> [specModule]) <> Env mempty ffs
+  let env' = foldMap toModuleEnv (modulesCoreFn ms <> [specModule]) <> mempty {envForeignFunctions = ffs}
   pure
     ( Program
         { programLibraryModules = ms,
@@ -173,8 +183,8 @@ loadProgram ms input = runExceptT $ do
         }
     )
   where
-    ffs :: Eval r m => Map (Qualified Ident) (EvalForeignFunction m EvalAnn)
-    ffs = map (\(SomeForeignFunction f) -> evalForeignFunction f) foreignFunctions
+    ffs :: Eval r m => Map (ModuleName, Ident) (EvalForeignFunction m EvalAnn)
+    ffs = map (\(SomeForeignFunction f) -> EvalForeignFunction (evalForeignFunction f)) foreignFunctions
 
 data SpecificationProgram
   = SpecificationProgram
@@ -192,7 +202,7 @@ instance WebCheck.Specification SpecificationProgram where
 
   actions = QuickCheck.frequency . map (_2 %~ pure) . specificationActions
 
-  verify sp states = (_Left %~ prettyEvalError)  $ do
+  verify sp states = (_Left %~ prettyEvalError) $ do
     valid <- toHaskellValue (moduleSourceSpan (programMain p)) =<< evalWithObservedStates p "proposition" states
     if valid then pure WebCheck.Accepted else pure WebCheck.Rejected
     where
@@ -249,83 +259,84 @@ evalEntryPoint entryPoint = envLookupEval entrySS entryPoint
 
 -- * Foreign Functions
 
-foreignFunctions :: Eval r m => Map (Qualified Ident) (SomeForeignFunction m)
+foreignFunctions :: Eval r m => Map (ModuleName, Ident) (SomeForeignFunction m)
 foreignFunctions =
   Map.fromList
-    [ (qualifiedName "Control.Bind" "arrayBind", foreignFunction arrayBind),
-      (qualifiedName "Data.Array" "indexImpl", foreignFunction indexImpl),
-      (qualifiedName "Data.Array" "length", foreignFunction len),
-      (qualifiedName "Data.Array" "filter", foreignFunction filterArray),
-      (qualifiedName "Data.Array" "uncons'", foreignFunction arrayUncons),
-      (qualifiedName "Data.Array" "range", foreignFunction arrayRange),
-      (qualifiedName "Data.Bounded" "bottomInt", foreignFunction (op0 @Int minBound)),
-      (qualifiedName "Data.Bounded" "topInt", foreignFunction (op0 @Int maxBound)),
-      (qualifiedName "Data.Bounded" "bottomChar", foreignFunction (op0 @Char minBound)),
-      (qualifiedName "Data.Bounded" "topChar", foreignFunction (op0 @Char maxBound)),
-      (qualifiedName "Data.Bounded" "bottomNumber", foreignFunction (op0 @Double 9007199254740991)), -- Number.MAX_SAFE_INTEGER in JS
-      (qualifiedName "Data.Bounded" "topNumber", foreignFunction (op0 @Double (-9007199254740991))),-- Number.MIN_SAFE_INTEGER in JS
-      (qualifiedName "Data.Enum" "toCharCode", foreignFunction (op1 ord)),
-      (qualifiedName "Data.Enum" "fromCharCode", foreignFunction (op1 chr)),
-      (qualifiedName "Data.Eq" "eqBooleanImpl", foreignFunction (op2 ((==) @Bool))),
-      (qualifiedName "Data.Eq" "eqIntImpl", foreignFunction (op2 ((==) @Int))),
-      (qualifiedName "Data.Eq" "eqNumberImpl", foreignFunction (op2 ((==) @Double))),
-      (qualifiedName "Data.Eq" "eqCharImpl", foreignFunction (op2 ((==) @Char))),
-      (qualifiedName "Data.Eq" "eqStringImpl", foreignFunction (op2 ((==) @Text))),
-      (qualifiedName "Data.Eq" "eqArrayImpl", foreignFunction eqArray),
-      (qualifiedName "Data.EuclideanRing" "intDegree", foreignFunction intDegree),
-      (qualifiedName "Data.EuclideanRing" "intDiv", foreignFunction intDiv),
-      (qualifiedName "Data.EuclideanRing" "intMod", foreignFunction intMod),
-      (qualifiedName "Data.EuclideanRing" "numDiv", foreignFunction (op2 @Double (/))),
-      (qualifiedName "Data.Foldable" "foldlArray", foreignFunction foldlArray),
-      (qualifiedName "Data.Foldable" "foldrArray", foreignFunction foldrArray),
-      (qualifiedName "Data.Functor" "arrayMap", foreignFunction arrayMap),
-      (qualifiedName "Data.HeytingAlgebra" "boolConj", foreignFunction (op2 (&&))),
-      (qualifiedName "Data.HeytingAlgebra" "boolDisj", foreignFunction (op2 (||))),
-      (qualifiedName "Data.HeytingAlgebra" "boolNot", foreignFunction (op1 not)),
-      (qualifiedName "Data.Int" "toNumber", foreignFunction (op1 (fromIntegral @Int @Double))),
-      (qualifiedName "Data.Int" "fromNumberImpl", foreignFunction fromNumberImpl),
-      (qualifiedName "Data.Int" "fromStringAsImpl", foreignFunction fromStringAsImpl),
-      (qualifiedName "Data.Ord" "ordBooleanImpl", foreignFunction (ordImpl @Bool)),
-      (qualifiedName "Data.Ord" "ordIntImpl", foreignFunction (ordImpl @Int)),
-      (qualifiedName "Data.Ord" "ordNumberImpl", foreignFunction (ordImpl @Double)),
-      (qualifiedName "Data.Ord" "ordStringImpl", foreignFunction (ordImpl @Text)),
-      (qualifiedName "Data.Ord" "ordCharImpl", foreignFunction (ordImpl @Char)),
-      (qualifiedName "Data.Ring" "intSub", foreignFunction (op2 ((-) @Int))),
-      (qualifiedName "Data.Ring" "numSub", foreignFunction (op2 ((-) @Double))),
-      (qualifiedName "Data.Show" "showStringImpl", foreignFunction (op1 (show @Text @Text))),
-      (qualifiedName "Data.Show" "showIntImpl", foreignFunction (op1 (show @Int @Text))),
-      (qualifiedName "Data.Show" "showNumberImpl", foreignFunction (op1 (show @Double @Text))),
-      (qualifiedName "Data.Show" "cons", foreignFunction (op2 (Vector.cons @(Vector (Value EvalAnn))))),
-      (qualifiedName "Data.Show" "join", foreignFunction (op2 Text.intercalate)),
-      (qualifiedName "Data.Semiring" "intAdd", foreignFunction (op2 ((+) @Int))),
-      (qualifiedName "Data.Semiring" "intMul", foreignFunction (op2 ((*) @Int))),
-      (qualifiedName "Data.Semiring" "numAdd", foreignFunction (op2 ((+) @Double))),
-      (qualifiedName "Data.Semiring" "numMul", foreignFunction (op2 ((*) @Double))),
-      (qualifiedName "Data.Semigroup" "concatString", foreignFunction (op2 ((<>) @Text))),
-      (qualifiedName "Data.Semigroup" "concatArray", foreignFunction (op2 ((<>) @(Vector (Value EvalAnn))))),
-      (qualifiedName "Data.String.CodePoints" "_unsafeCodePointAt0", foreignFunction unsafeCodePointAt0),
-      (qualifiedName "Data.String.CodePoints" "_toCodePointArray", foreignFunction toCodePointArray),
-      notSupported (qualifiedName "Data.String.Common" "_localeCompare"),
-      (qualifiedName "Data.String.Common" "replace", foreignFunction (op3 Text.replace)),
-      (qualifiedName "Data.String.Common" "split", foreignFunction (op2 Text.splitOn)),
-      (qualifiedName "Data.String.Common" "toLower", foreignFunction (op1 Text.toLower)),
-      (qualifiedName "Data.String.Common" "toUpper", foreignFunction (op1 Text.toUpper)),
-      (qualifiedName "Data.String.Common" "trim", foreignFunction (op1 Text.strip)),
-      (qualifiedName "Data.String.Common" "joinWith", foreignFunction (op2 Text.intercalate)),
-      (qualifiedName "Data.Unfoldable" "unfoldrArrayImpl", foreignFunction unfoldrArrayImpl),
-      (qualifiedName "Global" "infinity", foreignFunction (op0 (read "Infinity" :: Double))),
-      (qualifiedName "Global" "nan", foreignFunction (op0 (read "NaN" :: Double))),
-      (qualifiedName "Global" "isFinite", foreignFunction (op1 (not . isInfinite @Double))),
-      (qualifiedName "Global" "readFloat", foreignFunction (readAs Text.double)),
-      (qualifiedName "Global" "readInt", foreignFunction readInt),
-      (qualifiedName "Math" "floor", foreignFunction (op1 (fromIntegral @Int @Double . floor @Double @Int))),
-      (qualifiedName "Math" "remainder", foreignFunction (op2 (mod' @Double))),
-      (qualifiedName "Partial.Unsafe" "unsafePartial", foreignFunction unsafePartial),
-      (qualifiedName "Record.Unsafe" "unsafeGet", foreignFunction unsafeGet)
+    [ (ffName "Control.Bind" "arrayBind", foreignFunction arrayBind),
+      (ffName "Data.Array" "indexImpl", foreignFunction indexImpl),
+      (ffName "Data.Array" "length", foreignFunction len),
+      (ffName "Data.Array" "filter", foreignFunction filterArray),
+      (ffName "Data.Array" "uncons'", foreignFunction arrayUncons),
+      (ffName "Data.Array" "range", foreignFunction arrayRange),
+      (ffName "Data.Bounded" "bottomInt", foreignFunction (op0 @Int minBound)),
+      (ffName "Data.Bounded" "topInt", foreignFunction (op0 @Int maxBound)),
+      (ffName "Data.Bounded" "bottomChar", foreignFunction (op0 @Char minBound)),
+      (ffName "Data.Bounded" "topChar", foreignFunction (op0 @Char maxBound)),
+      (ffName "Data.Bounded" "bottomNumber", foreignFunction (op0 @Double 9007199254740991)), -- Number.MAX_SAFE_INTEGER in JS
+      (ffName "Data.Bounded" "topNumber", foreignFunction (op0 @Double (-9007199254740991))), -- Number.MIN_SAFE_INTEGER in JS
+      (ffName "Data.Enum" "toCharCode", foreignFunction (op1 ord)),
+      (ffName "Data.Enum" "fromCharCode", foreignFunction (op1 chr)),
+      (ffName "Data.Eq" "eqBooleanImpl", foreignFunction (op2 ((==) @Bool))),
+      (ffName "Data.Eq" "eqIntImpl", foreignFunction (op2 ((==) @Int))),
+      (ffName "Data.Eq" "eqNumberImpl", foreignFunction (op2 ((==) @Double))),
+      (ffName "Data.Eq" "eqCharImpl", foreignFunction (op2 ((==) @Char))),
+      (ffName "Data.Eq" "eqStringImpl", foreignFunction (op2 ((==) @Text))),
+      (ffName "Data.Eq" "eqArrayImpl", foreignFunction eqArray),
+      (ffName "Data.EuclideanRing" "intDegree", foreignFunction intDegree),
+      (ffName "Data.EuclideanRing" "intDiv", foreignFunction intDiv),
+      (ffName "Data.EuclideanRing" "intMod", foreignFunction intMod),
+      (ffName "Data.EuclideanRing" "numDiv", foreignFunction (op2 @Double (/))),
+      (ffName "Data.Foldable" "foldlArray", foreignFunction foldlArray),
+      (ffName "Data.Foldable" "foldrArray", foreignFunction foldrArray),
+      (ffName "Data.Functor" "arrayMap", foreignFunction arrayMap),
+      (ffName "Data.HeytingAlgebra" "boolConj", foreignFunction (op2 (&&))),
+      (ffName "Data.HeytingAlgebra" "boolDisj", foreignFunction (op2 (||))),
+      (ffName "Data.HeytingAlgebra" "boolNot", foreignFunction (op1 not)),
+      (ffName "Data.Int" "toNumber", foreignFunction (op1 (fromIntegral @Int @Double))),
+      (ffName "Data.Int" "fromNumberImpl", foreignFunction fromNumberImpl),
+      (ffName "Data.Int" "fromStringAsImpl", foreignFunction fromStringAsImpl),
+      (ffName "Data.Ord" "ordBooleanImpl", foreignFunction (ordImpl @Bool)),
+      (ffName "Data.Ord" "ordIntImpl", foreignFunction (ordImpl @Int)),
+      (ffName "Data.Ord" "ordNumberImpl", foreignFunction (ordImpl @Double)),
+      (ffName "Data.Ord" "ordStringImpl", foreignFunction (ordImpl @Text)),
+      (ffName "Data.Ord" "ordCharImpl", foreignFunction (ordImpl @Char)),
+      (ffName "Data.Ring" "intSub", foreignFunction (op2 ((-) @Int))),
+      (ffName "Data.Ring" "numSub", foreignFunction (op2 ((-) @Double))),
+      (ffName "Data.Show" "showStringImpl", foreignFunction (op1 (show @Text @Text))),
+      (ffName "Data.Show" "showIntImpl", foreignFunction (op1 (show @Int @Text))),
+      (ffName "Data.Show" "showNumberImpl", foreignFunction (op1 (show @Double @Text))),
+      (ffName "Data.Show" "cons", foreignFunction (op2 (Vector.cons @(Vector (Value EvalAnn))))),
+      (ffName "Data.Show" "join", foreignFunction (op2 Text.intercalate)),
+      (ffName "Data.Semiring" "intAdd", foreignFunction (op2 ((+) @Int))),
+      (ffName "Data.Semiring" "intMul", foreignFunction (op2 ((*) @Int))),
+      (ffName "Data.Semiring" "numAdd", foreignFunction (op2 ((+) @Double))),
+      (ffName "Data.Semiring" "numMul", foreignFunction (op2 ((*) @Double))),
+      (ffName "Data.Semigroup" "concatString", foreignFunction (op2 ((<>) @Text))),
+      (ffName "Data.Semigroup" "concatArray", foreignFunction (op2 ((<>) @(Vector (Value EvalAnn))))),
+      (ffName "Data.String.CodePoints" "_unsafeCodePointAt0", foreignFunction unsafeCodePointAt0),
+      (ffName "Data.String.CodePoints" "_toCodePointArray", foreignFunction toCodePointArray),
+      notSupported (ffName "Data.String.Common" "_localeCompare"),
+      (ffName "Data.String.Common" "replace", foreignFunction (op3 Text.replace)),
+      (ffName "Data.String.Common" "split", foreignFunction (op2 Text.splitOn)),
+      (ffName "Data.String.Common" "toLower", foreignFunction (op1 Text.toLower)),
+      (ffName "Data.String.Common" "toUpper", foreignFunction (op1 Text.toUpper)),
+      (ffName "Data.String.Common" "trim", foreignFunction (op1 Text.strip)),
+      (ffName "Data.String.Common" "joinWith", foreignFunction (op2 Text.intercalate)),
+      (ffName "Data.Unfoldable" "unfoldrArrayImpl", foreignFunction unfoldrArrayImpl),
+      (ffName "Global" "infinity", foreignFunction (op0 (read "Infinity" :: Double))),
+      (ffName "Global" "nan", foreignFunction (op0 (read "NaN" :: Double))),
+      (ffName "Global" "isFinite", foreignFunction (op1 (not . isInfinite @Double))),
+      (ffName "Global" "readFloat", foreignFunction (readAs Text.double)),
+      (ffName "Global" "readInt", foreignFunction readInt),
+      (ffName "Math" "floor", foreignFunction (op1 (fromIntegral @Int @Double . floor @Double @Int))),
+      (ffName "Math" "remainder", foreignFunction (op2 (mod' @Double))),
+      (ffName "Partial.Unsafe" "unsafePartial", foreignFunction unsafePartial),
+      (ffName "Record.Unsafe" "unsafeGet", foreignFunction unsafeGet)
     ]
   where
-    notSupported :: MonadError EvalError m => Qualified Ident -> (Qualified Ident, SomeForeignFunction m)
-    notSupported qn = (qn, SomeForeignFunction (NotSupported qn))
+    ffName mn ident = (ModuleName mn, Ident ident)
+    notSupported :: MonadError EvalError m => (ModuleName, Ident) -> ((ModuleName, Ident), SomeForeignFunction m)
+    notSupported qn@(mn, ident) = (qn, SomeForeignFunction (NotSupported mn ident))
     indexImpl :: (Monad m, a ~ Value EvalAnn) => (a -> Ret m (Value EvalAnn)) -> Value EvalAnn -> Vector a -> Int -> Ret m (Value EvalAnn)
     indexImpl just nothing xs i = Ret (maybe (pure nothing) (unRet . just) (xs ^? ix (fromIntegral i)))
     fromNumberImpl :: (Int -> Ret m (Value EvalAnn)) -> Value EvalAnn -> Double -> Ret m (Value EvalAnn)
@@ -343,9 +354,9 @@ foreignFunctions =
     arrayUncons :: Monad m => (() -> Ret m (Value EvalAnn)) -> (Value EvalAnn -> Vector (Value EvalAnn) -> Ret m (Value EvalAnn)) -> Vector (Value EvalAnn) -> Ret m (Value EvalAnn)
     arrayUncons empty' next xs = maybe (empty' ()) (uncurry next) (uncons xs)
     arrayRange :: Monad m => Int -> Int -> Ret m (Vector Int)
-    arrayRange start end = 
+    arrayRange start end =
       let step = if start < end then 1 else (-1)
-      in pure (Vector.enumFromStepN start step end)
+       in pure (Vector.enumFromStepN start step end)
     arrayBind :: Monad m => (a ~ Value EvalAnn, b ~ Value EvalAnn) => Vector a -> (a -> Ret m (Vector b)) -> Ret m (Vector b)
     arrayBind xs f = join <$> traverse f xs
     arrayMap :: Monad m => (a ~ Value EvalAnn, b ~ Value EvalAnn) => (a -> Ret m b) -> Vector a -> Ret m (Vector b)
@@ -411,7 +422,7 @@ foreignFunctions =
     unsafePartial f = Ret $ do
       env <- view (field @"env")
       Function fenv _ body <- require P.nullSourceSpan (Proxy @"VFunction") f
-      local (field @"env" .~ Env fenv (envForeignFunctions env)) (eval body)
+      local (field @"env" .~ fenv {envForeignFunctions = envForeignFunctions env}) (eval body)
     unsafeGet :: MonadError EvalError m => Text -> HashMap Text (Value EvalAnn) -> Ret m (Value EvalAnn)
     unsafeGet k xs = Ret (accessField P.nullSourceSpan k xs)
     toCodePointArray :: Monad m => Value EvalAnn -> Value EvalAnn -> Text -> Ret m (Vector Int)

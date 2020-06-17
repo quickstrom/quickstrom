@@ -16,34 +16,29 @@ module WebCheck.PureScript.Queries where
 
 import Control.Lens hiding (op)
 import Control.Monad.Fix (MonadFix)
-import Control.Monad.Morph (MFunctor (hoist))
-import Control.Monad.Trans.Class (MonadTrans)
 import Control.Monad.Writer (MonadWriter, WriterT, execWriterT, tell)
 import qualified Data.Aeson as JSON
-import Data.Generics.Product (HasField, field)
+import Data.Generics.Product (field)
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.HashSet as HashSet
 import Data.Scientific (floatingOrInteger)
 import qualified Data.Vector as Vector
-import qualified Language.PureScript.CoreFn as CF
 import Protolude hiding (Selector)
 import WebCheck.Element (Selector (..))
 import WebCheck.PureScript.Eval
-import WebCheck.PureScript.Eval.Ann
 import WebCheck.PureScript.Eval.Class
-import WebCheck.PureScript.Eval.Env
 import WebCheck.PureScript.Eval.Error
 import WebCheck.PureScript.Value
 import WebCheck.Specification (Queries)
 import WebCheck.Trace (ObservedState (..))
 
-newtype ExtractEnv = ExtractEnv {env :: Env Extract EvalAnn}
+newtype ExtractEnv = ExtractEnv {env :: Env' Extract}
   deriving (Generic)
 
 newtype Extract a = Extract (ReaderT ExtractEnv (WriterT Queries (Except EvalError)) a)
   deriving (Functor, Applicative, Monad, MonadError EvalError, MonadWriter Queries, MonadReader ExtractEnv, MonadFix)
 
-runExtract :: Env Extract EvalAnn -> Extract a -> Either EvalError Queries
+runExtract :: Env' Extract -> Extract a -> Either EvalError Queries
 runExtract env' (Extract ma) = runExcept (execWriterT (runReaderT ma (ExtractEnv env')))
 
 instance MonadEvalQuery Extract where
@@ -63,7 +58,7 @@ instance MonadEvalQuery Extract where
 
 data WithObservedStatesEnv
   = WithObservedStatesEnv
-      { env :: Env WithObservedStates EvalAnn,
+      { env :: Env' WithObservedStates,
         observedStates :: [ObservedState]
       }
   deriving (Generic)
@@ -71,7 +66,7 @@ data WithObservedStatesEnv
 newtype WithObservedStates a = WithObservedStates (ReaderT WithObservedStatesEnv (Except EvalError) a)
   deriving (Functor, Applicative, Monad, MonadError EvalError, MonadReader WithObservedStatesEnv, MonadFix)
 
-runWithObservedStates :: Env WithObservedStates EvalAnn -> [ObservedState] -> WithObservedStates a -> Either EvalError a
+runWithObservedStates :: Env' WithObservedStates -> [ObservedState] -> WithObservedStates a -> Either EvalError a
 runWithObservedStates env' observedStates' (WithObservedStates ma) =
   runExcept (runReaderT ma (WithObservedStatesEnv env' observedStates'))
 

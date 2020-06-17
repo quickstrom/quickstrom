@@ -31,7 +31,7 @@ prettyEvalError = \case
   UnexpectedType _ t val -> "Expected value of type" <+> pretty t <+> "but got" <+> pretty val
   EntryPointNotDefined qn -> "Entry point not in scope:" <+> prettyQualifiedIdent qn
   NotInScope _ qn -> "Not in scope:" <+> prettyQualifiedIdent qn
-  ForeignFunctionNotSupported _ qn -> "Foreign function is not supported in WebCheck:" <+> prettyQualifiedIdent qn
+  ForeignFunctionNotSupported _ mn ident -> "Foreign function is not supported in WebCheck:" <+> prettyQualifiedIdent (Qualified (Just mn) ident)
   InvalidString _ -> "Invalid string"
   InvalidBuiltInFunctionApplication _ _fn _param -> "Invalid function application"
   ForeignFunctionError _ t -> pretty t

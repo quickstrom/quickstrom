@@ -6,7 +6,7 @@ import Protolude
 import qualified Language.PureScript as P
 import qualified Language.PureScript.CoreFn as CF
 
-data ApplyForeign = ApplyForeign (P.Qualified P.Ident) [P.Ident]
+data ApplyForeign = ApplyForeign P.ModuleName P.Ident [P.Ident]
   deriving (Show, Generic)
 
 data EvalAnn = EvalAnn {annSourceSpan :: P.SourceSpan, annMeta :: Maybe CF.Meta, annApplyForeign :: Maybe ApplyForeign}

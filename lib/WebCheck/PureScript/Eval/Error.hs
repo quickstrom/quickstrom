@@ -28,7 +28,7 @@ data EvalError
   | UnexpectedType (Maybe SourceSpan) Text (Value ())
   | EntryPointNotDefined (Qualified Ident)
   | NotInScope SourceSpan (Qualified Ident)
-  | ForeignFunctionNotSupported SourceSpan (Qualified Ident)
+  | ForeignFunctionNotSupported SourceSpan ModuleName Ident
   | InvalidString SourceSpan
   | InvalidBuiltInFunctionApplication SourceSpan (Expr ()) (Expr ())
   | ForeignFunctionError (Maybe SourceSpan) Text
@@ -41,7 +41,7 @@ errorSourceSpan = \case
   UnexpectedType ss _ _ -> ss
   EntryPointNotDefined _ -> Nothing
   NotInScope ss _ -> Just ss
-  ForeignFunctionNotSupported ss _ -> Just ss
+  ForeignFunctionNotSupported ss _ _ -> Just ss
   InvalidString ss -> Just ss
   InvalidBuiltInFunctionApplication ss _ _ -> Just ss
   ForeignFunctionError ss _ -> ss

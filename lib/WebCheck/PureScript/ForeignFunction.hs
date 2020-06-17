@@ -38,14 +38,14 @@ import Control.Monad.Writer.Strict (MonadWriter)
 data ForeignFunction m arity where
   Base :: FromHaskellValue a => m a -> ForeignFunction m 0
   Ind :: ToHaskellValue m a => (a -> ForeignFunction m n) -> ForeignFunction m (n + 1)
-  NotSupported :: Qualified Ident -> ForeignFunction m 0
+  NotSupported :: ModuleName -> Ident -> ForeignFunction m 0
 
 evalForeignFunction :: MonadError EvalError m => ForeignFunction m arity -> SourceSpan -> [Value EvalAnn] -> m (Value EvalAnn)
 evalForeignFunction (Base x) _ [] = fromHaskellValue <$> x
 evalForeignFunction (Ind f) ss (arg : args) = do
   ff <- f <$> toHaskellValue ss arg
   evalForeignFunction ff ss args
-evalForeignFunction (NotSupported qn) ss _ = throwError (ForeignFunctionNotSupported ss qn)
+evalForeignFunction (NotSupported mn i) ss _ = throwError (ForeignFunctionNotSupported ss mn i)
 evalForeignFunction _ ss _ = foreignFunctionArityMismatch ss
 
 foreignFunctionArity :: KnownNat arity => ForeignFunction m arity -> Int

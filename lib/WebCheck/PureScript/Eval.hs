@@ -55,10 +55,14 @@ pattern Always ann p <- BuiltIn "always" ann p
 pattern Next :: a -> Expr a -> Expr a
 pattern Next ann p <- BuiltIn "next" ann p
 
+type Env' m = Env Expr Value (EvalForeignFunction m) EvalAnn
+
+newtype EvalForeignFunction m ann = EvalForeignFunction (SourceSpan -> [Value ann] -> m (Value ann))
+
 type Eval r m =
   ( MonadFix m,
     MonadReader r m,
-    HasField "env" r r (Env m EvalAnn) (Env m EvalAnn),
+    HasField "env" r r (Env' m) (Env' m),
     MonadEvalQuery m
   )
 
@@ -144,31 +148,31 @@ eval expr = do
       updates' <- for updates $ \(field', expr') ->
         (,) <$> evalString ss field' <*> eval expr'
       pure (VObject (obj <> HashMap.fromList updates'))
-    Abs _ann arg body -> pure (VFunction (Function (envBindings env) arg body))
+    Abs _ann arg body -> pure (VFunction (Function (closureEnvFromEnv env) arg body))
     App _ func param -> do
       func' <- require (exprSourceSpan func) (Proxy @"VFunction") =<< eval func
       param' <- eval param
       evalFunc func' param'
     Var _ (Qualified (Just (ModuleName "Prim")) (Ident "undefined")) -> pure (VObject mempty)
-    Var (EvalAnn ss _ (Just (ApplyForeign qn names))) _ -> do
+    Var (EvalAnn ss _ (Just (ApplyForeign mn ident names))) _ -> do
       params <- for names $ \n -> envLookupEval ss (Qualified Nothing n)
-      case Map.lookup qn (envForeignFunctions env) of
-        Just f -> f ss params
-        _ -> throwError (ForeignFunctionNotSupported ss qn)
+      case Map.lookup (mn, ident) (envForeignFunctions env) of
+        Just (EvalForeignFunction f) -> f ss params
+        _ -> throwError (ForeignFunctionNotSupported ss mn ident)
     Var (EvalAnn ss _ Nothing) qn -> envLookupEval ss qn
     Case (EvalAnn ss _ _) exprs alts -> do
       values <- traverse eval exprs
       evalCaseAlts ss values alts
     Let (EvalAnn _ss _ _) bindings body -> do
-      let bindingEnv env'' = \case
+      let bindingEnv (env'') = \case
             NonRec _ name expr' -> do
-              pure (env'' <> envBindValue (Qualified Nothing name) (VDefer (Defer (envBindings env'') expr')))
+              pure (env'' <> envBindLocal name (VDefer (Defer (closureEnvFromEnv env'') expr')))
             Rec binds -> do
               rec recEnv <-
                     fold
                       <$> traverse
                         ( \((_, name), expr') ->
-                            envBindValue (Qualified Nothing name) <$> pure (VDefer (Defer (envBindings (env'' <> recEnv)) expr'))
+                            envBindLocal name <$> pure (VDefer (Defer (closureEnvFromEnv (env'' <> recEnv)) expr'))
                         )
                         binds
               pure recEnv
@@ -191,7 +195,7 @@ evalStringExpr expr = throwError (InvalidString (annSourceSpan (extractAnn expr)
 envLookupEval :: (Eval r m, MonadFix m) => SourceSpan -> Qualified Ident -> m (Value EvalAnn)
 envLookupEval ss qn = do
   env' <- view (field @"env")
-  let onValue (VDefer (Defer env'' expr')) = local (field @"env" .~ Env env'' (envForeignFunctions env')) (eval expr')
+  let onValue (VDefer (Defer env'' expr')) = local (field @"env" .~ env'' { envForeignFunctions = envForeignFunctions env' }) (eval expr')
       onValue val = pure val
   case envLookup qn env' of
     Just r -> either (local (field @"env" %~ withoutLocals) . eval) onValue r
@@ -214,7 +218,7 @@ asQualifiedName _ = Nothing
 evalFunc :: Eval r m => Function EvalAnn -> (Value EvalAnn) -> m (Value EvalAnn)
 evalFunc (Function fEnv arg body) param' = do
   env <- view (field @"env")
-  let newEnv = (Env fEnv (envForeignFunctions env) <> envBindValue (Qualified Nothing arg) param')
+  let newEnv = fEnv { envForeignFunctions = (envForeignFunctions env) } <> envBindLocal arg param'
   local (field @"env" .~ newEnv) (eval body)
 
 evalCaseAlts :: Eval r m => SourceSpan -> [(Value EvalAnn)] -> [CaseAlternative EvalAnn] -> m (Value EvalAnn)
@@ -236,10 +240,10 @@ evalGuards ((guard', branch) : rest') = do
   res <- require (exprSourceSpan guard') (Proxy @"VBool") =<< eval guard'
   if res then Just <$> eval branch else evalGuards rest'
 
-envFromBinders :: [(Binder EvalAnn, (Value EvalAnn))] -> Maybe (Env m EvalAnn)
+envFromBinders :: [(Binder EvalAnn, (Value EvalAnn))] -> Maybe (Env' m)
 envFromBinders = fmap fold . traverse envFromBinder
   where
-    envFromBinder :: (Binder EvalAnn, (Value EvalAnn)) -> Maybe (Env m EvalAnn)
+    envFromBinder :: (Binder EvalAnn, (Value EvalAnn)) -> Maybe (Env' m)
     envFromBinder = \case
       (NullBinder _, _) -> Just mempty
       (LiteralBinder _ lit, val) ->
@@ -258,10 +262,10 @@ envFromBinders = fmap fold . traverse envFromBinder
               envFromBinder (binder, v)
             pure (fold envs)
           _ -> Nothing
-      (VarBinder _ n, v) -> Just (envBindValue (Qualified Nothing n) v)
+      (VarBinder _ n, v) -> Just (envBindLocal n v)
       (NamedBinder _ n b, v) -> do
         env' <- envFromBinder (b, v)
-        pure (env' <> envBindValue (Qualified Nothing n) v)
+        pure (env' <> envBindLocal n v)
       (ConstructorBinder (EvalAnn _ (Just IsNewtype) _) _typeName _ [b], val) ->
         envFromBinder (b, val)
       (ConstructorBinder _ _typeName (Qualified _ ctorName) bs, val) -> do

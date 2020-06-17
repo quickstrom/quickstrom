@@ -1,9 +1,10 @@
+{-# LANGUAGE EmptyDataDeriving #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module WebCheck.PureScript.Value where
 
@@ -16,6 +17,7 @@ import Language.PureScript.CoreFn
 import Language.PureScript.Names
 import Protolude hiding (list)
 import qualified WebCheck.Element as Element
+import WebCheck.PureScript.Eval.Env
 
 data Value ann
   = VNull
@@ -45,13 +47,19 @@ instance Pretty (Value ann) where
     VFunction f -> pretty f
     VDefer f -> pretty f
 
-type ClosureEnv ann = Map (Qualified Ident) (Either (Expr ann) (Value ann))
+data None a
+  deriving (Show, Generic, Functor)
+
+type ClosureEnv ann = Env Expr Value None ann
+
+closureEnvFromEnv :: Env expr value ff ann -> Env expr value none ann
+closureEnvFromEnv env = env { envForeignFunctions = mempty  }
 
 data Function ann = Function (ClosureEnv ann) Ident (Expr ann)
   deriving (Show, Generic)
 
 instance Functor Function where
-  fmap f (Function env ident expr) = Function (fmap (bimap (fmap f) (fmap f)) env) ident (fmap f expr)
+  fmap f (Function env ident expr) = Function (fmap f env) ident (fmap f expr)
 
 instance Pretty (Function ann) where
   pretty (Function _ arg _) = parens (backslash <> pretty (runIdent arg) <+> "->" <+> "<body>")
@@ -60,7 +68,7 @@ data Defer ann = Defer (ClosureEnv ann) (Expr ann)
   deriving (Show, Generic)
 
 instance Functor Defer where
-  fmap f (Defer env expr) = Defer (fmap (bimap (fmap f) (fmap f)) env) (fmap f expr)
+  fmap f (Defer env expr) = Defer (fmap f env) (fmap f expr)
 
 instance Pretty (Defer ann) where
   pretty (Defer _ _) = "<deferred>"

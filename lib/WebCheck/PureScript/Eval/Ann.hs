@@ -5,8 +5,9 @@ module WebCheck.PureScript.Eval.Ann where
 import Protolude
 import qualified Language.PureScript as P
 import qualified Language.PureScript.CoreFn as CF
+import WebCheck.PureScript.Eval.Name
 
-data ApplyForeign = ApplyForeign P.ModuleName P.Ident [P.Ident]
+data ApplyForeign = ApplyForeign QualifiedName [Name]
   deriving (Show, Generic)
 
 data EvalAnn = EvalAnn {annSourceSpan :: P.SourceSpan, annMeta :: Maybe CF.Meta, annApplyForeign :: Maybe ApplyForeign}

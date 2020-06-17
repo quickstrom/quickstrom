@@ -4,31 +4,32 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module WebCheck.PureScript.Eval.Error where
 
+import Control.Lens ((^?))
 import Data.Generics.Sum (AsConstructor, _Ctor)
+import Data.HashMap.Strict (HashMap)
+import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Text as Text
 import Language.PureScript.AST (SourceSpan)
 import Language.PureScript.CoreFn (Expr)
-import Language.PureScript.Names
 import Protolude
+import WebCheck.PureScript.Eval.Name
 import WebCheck.PureScript.Value
-import Control.Lens ((^?))
-import Data.HashMap.Strict (HashMap)
-import qualified Data.HashMap.Strict as HashMap
 
 data EvalError
   = UnexpectedError (Maybe SourceSpan) Text
   | UnexpectedType (Maybe SourceSpan) Text (Value ())
-  | EntryPointNotDefined (Qualified Ident)
-  | NotInScope SourceSpan (Qualified Ident)
-  | ForeignFunctionNotSupported SourceSpan ModuleName Ident
+  | EntryPointNotDefined QualifiedName
+  | InvalidEntryPoint Name
+  | NotInScope SourceSpan (Either QualifiedName Name)
+  | ForeignFunctionNotSupported SourceSpan QualifiedName
   | InvalidString SourceSpan
   | InvalidBuiltInFunctionApplication SourceSpan (Expr ()) (Expr ())
   | ForeignFunctionError (Maybe SourceSpan) Text
@@ -40,8 +41,9 @@ errorSourceSpan = \case
   UnexpectedError ss _ -> ss
   UnexpectedType ss _ _ -> ss
   EntryPointNotDefined _ -> Nothing
+  InvalidEntryPoint _ -> Nothing
   NotInScope ss _ -> Just ss
-  ForeignFunctionNotSupported ss _ _ -> Just ss
+  ForeignFunctionNotSupported ss _ -> Just ss
   InvalidString ss -> Just ss
   InvalidBuiltInFunctionApplication ss _ _ -> Just ss
   ForeignFunctionError ss _ -> ss
@@ -63,7 +65,7 @@ require ::
     s ~ Value ann,
     t ~ Value ann,
     a ~ b,
-    MonadError (EvalError ) m
+    MonadError (EvalError) m
   ) =>
   SourceSpan ->
   Proxy ctor ->

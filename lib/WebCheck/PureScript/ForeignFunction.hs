@@ -1,11 +1,11 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -19,12 +19,12 @@
 
 module WebCheck.PureScript.ForeignFunction where
 
+import Control.Monad.Writer.Strict (MonadWriter)
 import Data.HashMap.Strict (HashMap)
 import Data.Vector (Vector)
 import qualified Data.Vector as Vector
 import GHC.TypeNats (type (+))
 import Language.PureScript.AST (SourceSpan)
-import Language.PureScript.Names
 import Protolude hiding (Selector)
 import WebCheck.Action (Action (..))
 import WebCheck.Element (Selector (..))
@@ -32,20 +32,20 @@ import WebCheck.Path
 import WebCheck.PureScript.Eval
 import WebCheck.PureScript.Eval.Ann
 import WebCheck.PureScript.Eval.Error
+import WebCheck.PureScript.Eval.Name
 import WebCheck.PureScript.Value
-import Control.Monad.Writer.Strict (MonadWriter)
 
 data ForeignFunction m arity where
   Base :: FromHaskellValue a => m a -> ForeignFunction m 0
   Ind :: ToHaskellValue m a => (a -> ForeignFunction m n) -> ForeignFunction m (n + 1)
-  NotSupported :: ModuleName -> Ident -> ForeignFunction m 0
+  NotSupported :: QualifiedName -> ForeignFunction m 0
 
 evalForeignFunction :: MonadError EvalError m => ForeignFunction m arity -> SourceSpan -> [Value EvalAnn] -> m (Value EvalAnn)
 evalForeignFunction (Base x) _ [] = fromHaskellValue <$> x
 evalForeignFunction (Ind f) ss (arg : args) = do
   ff <- f <$> toHaskellValue ss arg
   evalForeignFunction ff ss args
-evalForeignFunction (NotSupported mn i) ss _ = throwError (ForeignFunctionNotSupported ss mn i)
+evalForeignFunction (NotSupported qn) ss _ = throwError (ForeignFunctionNotSupported ss qn)
 evalForeignFunction _ ss _ = foreignFunctionArityMismatch ss
 
 foreignFunctionArity :: KnownNat arity => ForeignFunction m arity -> Int
@@ -135,7 +135,7 @@ instance
     ToHaskellValue m e,
     FromHaskellValue f
   ) =>
-  ToForeignFunction m 5 (a -> b -> c -> d -> e-> Ret m f)
+  ToForeignFunction m 5 (a -> b -> c -> d -> e -> Ret m f)
   where
   toForeignFunction f = Ind $ \a -> Ind $ \b -> Ind $ \c -> Ind $ \d -> Ind $ \e -> do
     toForeignFunction (f a b c d e)
@@ -196,7 +196,6 @@ instance (MonadError EvalError m, ToHaskellValue m a, ToHaskellValue m b) => ToH
         b <- toHaskellValue ss (values Vector.! 1)
         pure (a, b)
       _ -> throwError (ForeignFunctionError (Just ss) ("Cannot be converted to tuple: " <> ctor))
-
 
 instance MonadError EvalError m => ToHaskellValue m (Action Selector) where
   toHaskellValue ss v = do

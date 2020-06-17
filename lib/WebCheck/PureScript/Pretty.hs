@@ -1,14 +1,14 @@
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module WebCheck.PureScript.Pretty where
 
 import Data.Text.Prettyprint.Doc
 import Language.PureScript.AST (SourceSpan, sourcePosColumn, sourcePosLine, spanEnd, spanName, spanStart)
-import Language.PureScript.Names
 import Protolude
 import WebCheck.PureScript.Eval.Error
+import WebCheck.PureScript.Eval.Name
 
 prettySourceSpan :: SourceSpan -> Doc ann
 prettySourceSpan ss =
@@ -22,16 +22,24 @@ prettySourceSpan ss =
     <> colon
     <> pretty (sourcePosColumn (spanEnd ss))
 
-prettyQualifiedIdent :: Qualified Ident -> Doc ann
-prettyQualifiedIdent qn = pretty (showQualified runIdent qn)
+prettyName :: Name -> Doc ann
+prettyName (Name n) = pretty n
+
+prettyModuleName :: ModuleName -> Doc ann
+prettyModuleName (ModuleName n) = pretty n
+
+prettyQualifiedName :: QualifiedName -> Doc ann
+prettyQualifiedName (QualifiedName mns n) =
+  concatWith (surround dot) (prettyModuleName <$> mns) <> dot <> prettyName n
 
 prettyEvalError :: EvalError -> Doc ann
 prettyEvalError = \case
   UnexpectedError _ t -> "Unexpected error:" <+> pretty t
   UnexpectedType _ t val -> "Expected value of type" <+> pretty t <+> "but got" <+> pretty val
-  EntryPointNotDefined qn -> "Entry point not in scope:" <+> prettyQualifiedIdent qn
-  NotInScope _ qn -> "Not in scope:" <+> prettyQualifiedIdent qn
-  ForeignFunctionNotSupported _ mn ident -> "Foreign function is not supported in WebCheck:" <+> prettyQualifiedIdent (Qualified (Just mn) ident)
+  EntryPointNotDefined qn -> "Entry point not in scope:" <+> prettyQualifiedName qn
+  InvalidEntryPoint n -> "Entry point is invalid:" <+> prettyName n
+  NotInScope _ qn -> "Not in scope:" <+> either prettyQualifiedName prettyName qn
+  ForeignFunctionNotSupported _ qn -> "Foreign function is not supported in WebCheck:" <+> prettyQualifiedName qn
   InvalidString _ -> "Invalid string"
   InvalidBuiltInFunctionApplication _ _fn _param -> "Invalid function application"
   ForeignFunctionError _ t -> pretty t

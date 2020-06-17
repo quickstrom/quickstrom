@@ -36,18 +36,19 @@ import qualified Data.Vector as Vector
 import Language.PureScript.AST (SourceSpan)
 import Language.PureScript.CoreFn hiding (Ann)
 import qualified Language.PureScript.CoreFn as CF
-import Language.PureScript.Names
+import qualified Language.PureScript.Names as P
 import Language.PureScript.PSString (PSString, decodeString, mkString)
 import Protolude hiding (HasField, Meta, moduleName)
 import qualified WebCheck.Element as WebCheck
 import WebCheck.PureScript.Eval.Ann
+import WebCheck.PureScript.Eval.Name
 import WebCheck.PureScript.Eval.Class
 import WebCheck.PureScript.Eval.Env
 import WebCheck.PureScript.Eval.Error
 import WebCheck.PureScript.Value
 
 pattern BuiltIn :: Text -> a -> Expr a -> Expr a
-pattern BuiltIn name ann p <- CF.App ann (CF.Var _ (Qualified (Just (ModuleName "WebCheck.DSL")) (Ident name))) p
+pattern BuiltIn name ann p <- CF.App ann (CF.Var _ (P.Qualified (Just (P.ModuleName "WebCheck.DSL")) (P.Ident name))) p
 
 pattern Always :: a -> Expr a -> Expr a
 pattern Always ann p <- BuiltIn "always" ann p
@@ -128,14 +129,14 @@ eval expr = do
           (,) <$> evalString ss field' <*> eval value
         pure (VObject (HashMap.fromList pairs'))
     Constructor (EvalAnn ss (Just IsNewtype) _) _ _ _fieldNames -> do
-      pure (VFunction (Function mempty (Ident "value") (Var (EvalAnn ss Nothing Nothing) (unqualifiedName "value"))))
+      pure (VFunction (Function mempty (P.Ident "value") (Var (EvalAnn ss Nothing Nothing) (unqualifiedName "value"))))
     Constructor ann _typeName ctorName fieldNames -> do
       let body =
             Literal
               ann
               ( ObjectLiteral
-                  [ (mkString "constructor", Literal ann (StringLiteral (mkString (runProperName ctorName)))),
-                    (mkString "fields", Literal ann (ArrayLiteral (map (Var ann . Qualified Nothing) fieldNames)))
+                  [ (mkString "constructor", Literal ann (StringLiteral (mkString (P.runProperName ctorName)))),
+                    (mkString "fields", Literal ann (ArrayLiteral (map (Var ann . P.Qualified Nothing) fieldNames)))
                   ]
               )
       eval (foldr (Abs ann) body fieldNames)
@@ -153,26 +154,26 @@ eval expr = do
       func' <- require (exprSourceSpan func) (Proxy @"VFunction") =<< eval func
       param' <- eval param
       evalFunc func' param'
-    Var _ (Qualified (Just (ModuleName "Prim")) (Ident "undefined")) -> pure (VObject mempty)
-    Var (EvalAnn ss _ (Just (ApplyForeign mn ident names))) _ -> do
-      params <- for names $ \n -> envLookupEval ss (Qualified Nothing n)
-      case Map.lookup (mn, ident) (envForeignFunctions env) of
+    Var _ (P.Qualified (Just (P.ModuleName "Prim")) (P.Ident "undefined")) -> pure (VObject mempty)
+    Var (EvalAnn ss _ (Just (ApplyForeign qn names))) _ -> do
+      params <- for names $ \n -> envLookupEval ss (Right n)
+      case Map.lookup qn (envForeignFunctions env) of
         Just (EvalForeignFunction f) -> f ss params
-        _ -> throwError (ForeignFunctionNotSupported ss mn ident)
-    Var (EvalAnn ss _ Nothing) qn -> envLookupEval ss qn
+        _ -> throwError (ForeignFunctionNotSupported ss qn)
+    Var (EvalAnn ss _ Nothing) qn -> envLookupEval ss (fromQualifiedIdent qn)
     Case (EvalAnn ss _ _) exprs alts -> do
       values <- traverse eval exprs
       evalCaseAlts ss values alts
     Let (EvalAnn _ss _ _) bindings body -> do
       let bindingEnv (env'') = \case
             NonRec _ name expr' -> do
-              pure (env'' <> envBindLocal name (VDefer (Defer (closureEnvFromEnv env'') expr')))
+              pure (env'' <> envBindLocal (fromIdent name) (VDefer (Defer (closureEnvFromEnv env'') expr')))
             Rec binds -> do
               rec recEnv <-
                     fold
                       <$> traverse
                         ( \((_, name), expr') ->
-                            envBindLocal name <$> pure (VDefer (Defer (closureEnvFromEnv (env'' <> recEnv)) expr'))
+                            envBindLocal (fromIdent name) <$> pure (VDefer (Defer (closureEnvFromEnv (env'' <> recEnv)) expr'))
                         )
                         binds
               pure recEnv
@@ -192,33 +193,31 @@ evalStringExpr (Literal ann (StringLiteral s)) =
     Nothing -> throwError (InvalidString (annSourceSpan ann))
 evalStringExpr expr = throwError (InvalidString (annSourceSpan (extractAnn expr)))
 
-envLookupEval :: (Eval r m, MonadFix m) => SourceSpan -> Qualified Ident -> m (Value EvalAnn)
-envLookupEval ss qn = do
+envLookupEval :: (Eval r m, MonadFix m) => SourceSpan -> Either QualifiedName Name -> m (Value EvalAnn)
+envLookupEval ss n = do
   env' <- view (field @"env")
   let onValue (VDefer (Defer env'' expr')) = local (field @"env" .~ env'' { envForeignFunctions = envForeignFunctions env' }) (eval expr')
       onValue val = pure val
-  case envLookup qn env' of
-    Just r -> either (local (field @"env" %~ withoutLocals) . eval) onValue r
-    Nothing -> throwError (NotInScope ss qn)
+  case n of
+    Left (flip envLookupTopLevel env' -> Just expr) -> local (field @"env" %~ withoutLocals) (eval expr)
+    Right (flip envLookupLocal env' -> Just v) -> onValue v
+    _ -> throwError (NotInScope ss n)
 
-qualifiedName :: Text -> Text -> Qualified Ident
-qualifiedName mn localName = Qualified (Just (ModuleName mn)) (Ident localName)
-
-unqualifiedName :: Text -> Qualified Ident
-unqualifiedName localName = Qualified Nothing (Ident localName)
+unqualifiedName :: Text -> P.Qualified P.Ident
+unqualifiedName localName = P.Qualified Nothing (P.Ident localName)
 
 asQualifiedVar :: Expr EvalAnn -> Maybe (Text, Text)
 asQualifiedVar (Var _ qn) = asQualifiedName qn
 asQualifiedVar _ = Nothing
 
-asQualifiedName :: Qualified Ident -> Maybe (Text, Text)
-asQualifiedName (Qualified (Just (ModuleName mn)) n) = Just (mn, runIdent n)
+asQualifiedName :: P.Qualified P.Ident -> Maybe (Text, Text)
+asQualifiedName (P.Qualified (Just (P.ModuleName mn)) n) = Just (mn, P.runIdent n)
 asQualifiedName _ = Nothing
 
 evalFunc :: Eval r m => Function EvalAnn -> (Value EvalAnn) -> m (Value EvalAnn)
 evalFunc (Function fEnv arg body) param' = do
   env <- view (field @"env")
-  let newEnv = fEnv { envForeignFunctions = (envForeignFunctions env) } <> envBindLocal arg param'
+  let newEnv = fEnv { envForeignFunctions = (envForeignFunctions env) } <> envBindLocal (fromIdent arg) param'
   local (field @"env" .~ newEnv) (eval body)
 
 evalCaseAlts :: Eval r m => SourceSpan -> [(Value EvalAnn)] -> [CaseAlternative EvalAnn] -> m (Value EvalAnn)
@@ -262,17 +261,17 @@ envFromBinders = fmap fold . traverse envFromBinder
               envFromBinder (binder, v)
             pure (fold envs)
           _ -> Nothing
-      (VarBinder _ n, v) -> Just (envBindLocal n v)
+      (VarBinder _ n, v) -> Just (envBindLocal (fromIdent n) v)
       (NamedBinder _ n b, v) -> do
         env' <- envFromBinder (b, v)
-        pure (env' <> envBindLocal n v)
+        pure (env' <> envBindLocal (fromIdent n) v)
       (ConstructorBinder (EvalAnn _ (Just IsNewtype) _) _typeName _ [b], val) ->
         envFromBinder (b, val)
-      (ConstructorBinder _ _typeName (Qualified _ ctorName) bs, val) -> do
+      (ConstructorBinder _ _typeName (P.Qualified _ ctorName) bs, val) -> do
         VObject obj <- pure val
         VString ctor <- HashMap.lookup "constructor" obj
         VArray fields <- HashMap.lookup "fields" obj
-        if ctor == runProperName ctorName
+        if ctor == P.runProperName ctorName
           then envFromBinders (zip bs (Vector.toList fields))
           else Nothing
 

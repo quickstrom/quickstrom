@@ -2,16 +2,17 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 
 module WebCheck.PureScript.Program where
 
 import Control.Lens hiding (op)
+import Control.Monad.Except (liftEither)
 import Control.Monad.Trans.Writer.Strict (WriterT (runWriterT))
 import qualified Data.Aeson as JSON
 import qualified Data.Aeson.Types as JSON
@@ -29,7 +30,6 @@ import qualified Language.PureScript.CST as CST
 import Language.PureScript.CoreFn hiding (Ann)
 import qualified Language.PureScript.CoreFn as CF
 import Language.PureScript.CoreFn.FromJSON (moduleFromJSON)
-import Language.PureScript.Names
 import Protolude hiding (HasField, moduleName, uncons)
 import System.FilePath ((</>))
 import System.FilePath.Glob (glob)
@@ -42,6 +42,7 @@ import WebCheck.PureScript.Eval
 import WebCheck.PureScript.Eval.Ann
 import WebCheck.PureScript.Eval.Env
 import WebCheck.PureScript.Eval.Error
+import WebCheck.PureScript.Eval.Name
 import WebCheck.PureScript.ForeignFunction
 import WebCheck.PureScript.Pretty
 import qualified WebCheck.PureScript.Queries as Queries
@@ -49,30 +50,30 @@ import WebCheck.PureScript.Value
 import qualified WebCheck.Result as WebCheck
 import qualified WebCheck.Specification as WebCheck
 import qualified WebCheck.Trace as WebCheck
+import qualified Data.List.NonEmpty as NonEmpty
 
 initialEnv :: Eval r m => Env' m
 initialEnv =
   foldMap bindForeignPair (Map.toList foreignFunctions)
   where
     builtInSS = P.internalModuleSourceSpan "<builtin>"
-    bindForeignFunction :: (ModuleName, Ident) -> Int -> Env' m
-    bindForeignFunction (mn, ident) arity' =
+    bindForeignFunction :: QualifiedName -> Int -> Env' m
+    bindForeignFunction qn arity' =
       envBindTopLevel
-        mn
-        ident
+        qn
         ( wrap
             arity'
             ( \names ->
                 Var
-                  (EvalAnn builtInSS (Just IsForeign) (Just (ApplyForeign mn ident names)))
-                  (Qualified (Just mn) ident)
+                  (EvalAnn builtInSS (Just IsForeign) (Just (ApplyForeign qn (fromIdent <$> names))))
+                  (toQualifiedIdent (Left qn))
             )
         )
-    bindForeignPair :: ((ModuleName, Ident), SomeForeignFunction m) -> Env' m
+    bindForeignPair :: (QualifiedName, SomeForeignFunction m) -> Env' m
     bindForeignPair (qn, SomeForeignFunction f) = bindForeignFunction qn (foreignFunctionArity f)
-    wrap :: Int -> ([Ident] -> Expr EvalAnn) -> Expr EvalAnn
+    wrap :: Int -> ([P.Ident] -> Expr EvalAnn) -> Expr EvalAnn
     wrap arity' f =
-      let names = [Ident ("x" <> show n) | n <- [1 .. arity']]
+      let names = [P.Ident ("x" <> show n) | n <- [1 .. arity']]
        in foldr (Abs (EvalAnn builtInSS Nothing Nothing)) (f names) names
 
 loadModuleFromSource :: Modules -> Text -> ExceptT Text IO (Module CF.Ann)
@@ -100,8 +101,7 @@ loadModuleFromCoreFn path = do
   case JSON.decode j of
     Just val ->
       case JSON.parse moduleFromJSON val of
-        JSON.Success (_, m) -> do
-          putStrLn ("Loaded " <> runModuleName (moduleName m))
+        JSON.Success (_, m) ->
           pure m {moduleDecls = map (addNameToDecl (toS (modulePath m))) (moduleDecls m)}
         JSON.Error e -> throwError (toS e)
     Nothing -> throwError "Couldn't read CoreFn file."
@@ -125,8 +125,8 @@ loadModulesFromCoreFn webcheckPursDir = do
   paths <- liftIO (glob (coreFnPath "*"))
   traverse loadModuleFromCoreFn paths
 
-loadExterns :: ModuleName -> FilePath -> ExceptT Text IO P.ExternsFile
-loadExterns (ModuleName mn) webcheckPursDir = do
+loadExterns :: P.ModuleName -> FilePath -> ExceptT Text IO P.ExternsFile
+loadExterns (P.ModuleName mn) webcheckPursDir = do
   let path = webcheckPursDir </> toS mn </> "externs.cbor"
   withExceptT show (P.readExternsFile path) >>= \case
     Just ext -> pure ext
@@ -154,18 +154,26 @@ data Program m
         programEnv :: Env' m
       }
 
-programQualifiedName :: Text -> Program m -> Qualified Ident
-programQualifiedName name p =
-  Qualified (Just (moduleName (programMain p))) (Ident name)
+moduleQualifiedName :: P.ModuleName -> P.Ident -> Either EvalError QualifiedName
+moduleQualifiedName mn name =
+  case fromQualifiedIdent (P.Qualified (Just mn) name) of
+    Left qn -> pure qn
+    Right _ -> throwError (InvalidEntryPoint (fromIdent name))
 
-toModuleEnv :: Module CF.Ann -> Env' m
+programQualifiedName :: Text -> Program m -> Either EvalError QualifiedName
+programQualifiedName name p = moduleQualifiedName (moduleName (programMain p)) (P.Ident name)
+
+toModuleEnv :: Module CF.Ann -> Either EvalError (Env' m)
 toModuleEnv m =
   let addDecl = \case
         NonRec _ name expr -> bindExpr name expr
-        Rec binds -> foldMap (\((_, name), expr) -> bindExpr name expr) binds
-   in foldMap addDecl (moduleDecls m)
+        Rec binds -> fold <$> traverse (\((_, name), expr) -> bindExpr name expr) binds
+   in fold <$> traverse addDecl (moduleDecls m)
   where
-    bindExpr name expr = envBindTopLevel (moduleName m) name (evalAnnFromAnn <$> expr)
+    bindExpr :: P.Ident -> Expr CF.Ann -> Either EvalError (Env' m)
+    bindExpr name expr = do
+      qn <- moduleQualifiedName (moduleName m) name
+      pure (envBindTopLevel qn (evalAnnFromAnn <$> expr))
 
 loadProgram ::
   Eval r m =>
@@ -174,16 +182,20 @@ loadProgram ::
   IO (Either Text (Program m))
 loadProgram ms input = runExceptT $ do
   specModule <- loadModuleFromSource ms input
-  let env' = foldMap toModuleEnv (modulesCoreFn ms <> [specModule]) <> mempty {envForeignFunctions = ffs}
+  env' <-
+    (fold <$> traverse toModuleEnv (modulesCoreFn ms <> [specModule]))
+      & _Left %~ (prettyText . prettyEvalError)
+      & liftEither
+  let ffEnv = mempty {envForeignFunctions = ffs}
   pure
     ( Program
         { programLibraryModules = ms,
           programMain = specModule,
-          programEnv = initialEnv <> env'
+          programEnv = initialEnv <> env' <> ffEnv
         }
     )
   where
-    ffs :: Eval r m => Map (ModuleName, Ident) (EvalForeignFunction m EvalAnn)
+    ffs :: Eval r m => Map QualifiedName (EvalForeignFunction m EvalAnn)
     ffs = map (\(SomeForeignFunction f) -> EvalForeignFunction (evalForeignFunction f)) foreignFunctions
 
 data SpecificationProgram
@@ -196,6 +208,7 @@ data SpecificationProgram
       }
 
 instance WebCheck.Specification SpecificationProgram where
+
   origin = specificationOrigin
 
   readyWhen = specificationReadyWhen
@@ -239,27 +252,29 @@ evalWithObservedStates ::
   Text ->
   [WebCheck.ObservedState] ->
   Either EvalError (Value EvalAnn)
-evalWithObservedStates p n states =
+evalWithObservedStates p n states = do
+  qn <- programQualifiedName n p
   Queries.runWithObservedStates
     (programEnv p)
     states
-    (evalEntryPoint (programQualifiedName n p))
+    (evalEntryPoint qn)
 
 extractQueries :: Program Queries.Extract -> Text -> Either EvalError WebCheck.Queries
-extractQueries p n =
+extractQueries p n = do
+  qn <- programQualifiedName n p
   Queries.runExtract
     (programEnv p)
-    (evalEntryPoint (programQualifiedName n p))
+    (evalEntryPoint qn)
 
 entrySS :: P.SourceSpan
 entrySS = P.internalModuleSourceSpan "<entry>"
 
-evalEntryPoint :: Eval r m => Qualified Ident -> m (Value EvalAnn)
-evalEntryPoint entryPoint = envLookupEval entrySS entryPoint
+evalEntryPoint :: Eval r m => QualifiedName -> m (Value EvalAnn)
+evalEntryPoint entryPoint = envLookupEval entrySS (Left entryPoint)
 
 -- * Foreign Functions
 
-foreignFunctions :: Eval r m => Map (ModuleName, Ident) (SomeForeignFunction m)
+foreignFunctions :: Eval r m => Map QualifiedName (SomeForeignFunction m)
 foreignFunctions =
   Map.fromList
     [ (ffName "Control.Bind" "arrayBind", foreignFunction arrayBind),
@@ -334,9 +349,9 @@ foreignFunctions =
       (ffName "Record.Unsafe" "unsafeGet", foreignFunction unsafeGet)
     ]
   where
-    ffName mn ident = (ModuleName mn, Ident ident)
-    notSupported :: MonadError EvalError m => (ModuleName, Ident) -> ((ModuleName, Ident), SomeForeignFunction m)
-    notSupported qn@(mn, ident) = (qn, SomeForeignFunction (NotSupported mn ident))
+    ffName mn n = QualifiedName (ModuleName <$> NonEmpty.fromList (Text.splitOn "." mn)) (Name n)
+    notSupported :: MonadError EvalError m => QualifiedName -> (QualifiedName, SomeForeignFunction m)
+    notSupported qn = (qn, SomeForeignFunction (NotSupported qn))
     indexImpl :: (Monad m, a ~ Value EvalAnn) => (a -> Ret m (Value EvalAnn)) -> Value EvalAnn -> Vector a -> Int -> Ret m (Value EvalAnn)
     indexImpl just nothing xs i = Ret (maybe (pure nothing) (unRet . just) (xs ^? ix (fromIntegral i)))
     fromNumberImpl :: (Int -> Ret m (Value EvalAnn)) -> Value EvalAnn -> Double -> Ret m (Value EvalAnn)

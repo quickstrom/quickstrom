@@ -59,6 +59,7 @@ library
                     , WebCheck.PureScript.Eval.Env
                     , WebCheck.PureScript.Eval.Error
                     , WebCheck.PureScript.Eval.Class
+                    , WebCheck.PureScript.Eval.Name
                     , WebCheck.PureScript.ForeignFunction
                     , WebCheck.PureScript.Pretty
                     , WebCheck.PureScript.Program

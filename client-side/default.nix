@@ -1,4 +1,4 @@
-{ pkgs ? import <nixpkgs> { } }:
+{ pkgs ? import ../nixpkgs.nix { } }:
 let
 
   client-side = pkgs.stdenv.mkDerivation  {

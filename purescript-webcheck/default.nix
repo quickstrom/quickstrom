@@ -1,4 +1,4 @@
-{ pkgs ? import <nixpkgs> {} }:
+{ pkgs ? import ../nixpkgs.nix {} }:
 let
   easy-ps = import ./easy-ps.nix { inherit pkgs; };
   

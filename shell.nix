@@ -1,4 +1,4 @@
-{ pkgs ? import <nixpkgs> { config = { allowBroken = true; }; }, compiler ? "ghc865" }:
+{ pkgs ? import ./nixpkgs.nix { config = { allowBroken = true; }; }, compiler ? "ghc865" }:
 let
   haskellPackages = pkgs.haskell.packages.${compiler}.override {
     overrides = self: super: {
@@ -36,6 +36,7 @@ in haskellPackages.shellFor {
     haskellPackages.ormolu
     firefox
     geckodriver
+    haskellPackages.ghc-prof-flamegraph
     # chromium
     # chromedriver
     entr

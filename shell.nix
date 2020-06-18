@@ -17,8 +17,18 @@ let
     opensans-ttf
   ];
 
+  easy-ps = import ./purescript-webcheck/easy-ps.nix { inherit pkgs; };
   purescript-webcheck = import ./purescript-webcheck { inherit pkgs; };
   client-side = import ./client-side { inherit pkgs; };
+
+  webcheck-purs-ide = pkgs.writeShellScriptBin "webcheck-purs-ide" ''
+    ${easy-ps}/bin/purs ide server \
+      --log-level all \
+      --output-directory purescript-webcheck/output \
+      'purescript-webcheck/src/**/*.purs' \
+      'purescript-webcheck/.spago/**/*.purs' \
+      'specs/**/*.purs'
+  '';
 
   src = pkgs.nix-gitignore.gitignoreSource [] ./.;
 
@@ -39,7 +49,8 @@ in haskellPackages.shellFor {
     haskellPackages.ghc-prof-flamegraph
     # chromium
     # chromedriver
-    entr
+
+    webcheck-purs-ide
   ]);
   FONTCONFIG_FILE = pkgs.makeFontsConf {
     fontDirectories = fonts;

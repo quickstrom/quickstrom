@@ -47,7 +47,7 @@ proposition =
 
     initial :: Boolean
     initial =
-      (currentFilter == Nothing || currentFilter == Just "All")
+      (currentFilter == Nothing || currentFilter == Just All)
         && (numItems == 0)
         && (pendingText == "")
     
@@ -60,9 +60,9 @@ proposition =
     changeFilter :: Boolean
     changeFilter =
       (currentFilter /= next currentFilter)
-        && (currentFilter == Just "All") `implies` (numItems >= next numItems)
+        && (currentFilter == Just All) `implies` (numItems >= next numItems)
         && ( next
-                ( (currentFilter == Just "Active")
+                ( (currentFilter == Just Active)
                   `implies` (numItemsLeft == (Just numUnchecked) && numItems == numUnchecked)
                 )
             )
@@ -80,37 +80,37 @@ proposition =
     checkOne =
       pendingText == next pendingText
         && currentFilter == next currentFilter
-        && (currentFilter /= Just "Completed")
-        && ( (currentFilter == Just "All")
+        && (currentFilter /= Just Completed)
+        && ( (currentFilter == Just All)
                 `implies` (numItems == next numItems && numChecked < next numChecked)
             )
-        && ( (currentFilter == Just "Active")
+        && ( (currentFilter == Just Active)
                 `implies` (numItems > next numItems && numItemsLeft > next numItemsLeft)
             )
 
     uncheckOne =
       pendingText == next pendingText
         && currentFilter == next currentFilter
-        && (currentFilter /= Just "Active")
-        && ( (currentFilter == Just "All")
+        && (currentFilter /= Just Active)
+        && ( (currentFilter == Just All)
                 `implies` (numItems == next numItems && numChecked > next numChecked)
             )
-        && ( (currentFilter == Just "Completed")
+        && ( (currentFilter == Just Completed)
                 `implies` (numItems > next numItems && numItemsLeft < next numItemsLeft)
             )
     
     toggleAll =
       Just pendingText == next lastItemText
         && currentFilter == next currentFilter
-        && ( (currentFilter == Just "All")
+        && ( (currentFilter == Just All)
                 `implies` (numItems == next numItems && next (numItems == numChecked))
             )
-        && ( (currentFilter == Just "Active")
+        && ( (currentFilter == Just Active)
                 `implies` ( (numItems > 0) `implies` (next numItems == 0)
                         || (numItems == 0) `implies` (next numItems > 0)
                     )
             )
-        && ( (currentFilter == Just "Completed")
+        && ( (currentFilter == Just Completed)
                 `implies` ( numItems + fromMaybe 0 numItemsLeft == (next numItems)
                     )
             )
@@ -118,7 +118,13 @@ proposition =
     
     currentFilter = do
       f <- queryOne ".todoapp .filters .selected" { text: textContent }
-      pure f.text
+      parse f.text
+      where
+        parse = case _ of
+          "All" -> pure All
+          "Active" -> pure Active
+          "Completed" -> pure Completed
+          _ -> Nothing
     
     items :: Array { text :: String }
     items = queryAll ".todo-list li label" { text: textContent }
@@ -148,3 +154,7 @@ proposition =
       strong <- queryOne ".todoapp .todo-count strong" { text: textContent }
       first <- head (split (Pattern " ") strong.text)
       Int.fromString first
+
+data Filter = All | Active | Completed
+
+derive instance eqFilter :: Eq Filter

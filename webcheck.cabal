@@ -1,8 +1,7 @@
-cabal-version:        3.0
+cabal-version:        2.2
 
 name:                 WebCheck
 version:              0.1.0.0
-license-file:         LICENSE
 author:               Oskar Wickström
 maintainer:           oskar@wickstrom.tech
 build-type:           Simple

@@ -17,20 +17,16 @@ let
     opensans-ttf
   ];
 
-  easy-ps = import ./purescript-webcheck/easy-ps.nix { inherit pkgs; };
-
   purescript-webcheck = import ./purescript-webcheck { inherit pkgs; };
   client-side = import ./client-side { inherit pkgs; };
 
   src = pkgs.nix-gitignore.gitignoreSource [] ./.;
 
-  webcheck = pkgs.haskell.lib.justStaticExecutables (pkgs.haskell.lib.dontHaddock
-    (haskellPackages.callCabal2nix "webcheck" "${src}/webcheck.cabal" {
-    }));
+  webcheck = import ./. { inherit pkgs compiler; };
 
 in haskellPackages.shellFor {
   withHoogle = true;
-  packages = p: [webcheck];
+  packages = p: [webcheck.package];
   buildInputs = (with pkgs;
   [
     nixfmt
@@ -43,7 +39,7 @@ in haskellPackages.shellFor {
     # chromium
     # chromedriver
     entr
-  ]) ++ (with easy-ps; [purs]);
+  ]);
   FONTCONFIG_FILE = pkgs.makeFontsConf {
     fontDirectories = fonts;
   };

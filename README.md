@@ -41,6 +41,33 @@ scarce. The situation will improve.
 
 * Nix (see [nix.dev](https://nix.dev/) for installation instructions and guides)
 
+
+### Installation (with Nix)
+
+If you're only looking to run WebCheck, not hack on it, you can use Cachix
+and Nix to get an executable:
+
+```
+cachix use webcheck
+nix-build
+```
+
+Now, WebCheck is available in the `result`:
+
+```
+result/bin/webcheck <YOUR SPEC FILE>
+```
+
+Alternatively, install it directly into your environment:
+
+```
+nix-env -i -A webcheck -f default.nix
+webcheck <YOUR SPEC FILE>
+```
+
+**NOTE:** You need to also run geckodriver for WebCheck to work. See
+*[Running](#running) below.
+
 ### Starting a Shell
 
 All subsequent commands in the document assume you're in the project's Nix

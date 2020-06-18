@@ -66,28 +66,6 @@ type Eval r m =
     MonadEvalQuery m
   )
 
--- data EvalEnv m
---   = EvalEnv
---       { env :: Env EvalAnn,
---         observedStates :: [(Int, WebCheck.ObservedState)],
---         foreignFunctions :: Map (Qualified Ident) (EvalForeignFunction m)
---       }
---   deriving (Generic)
---
--- newtype Eval r m a = Eval (ExceptT EvalError (ReaderT (EvalEnv (Eval r m)) m) a)
---   deriving (Functor, Applicative, Monad, MonadError EvalError, MonadFix, MonadReader (EvalEnv (Eval r m)))
---
--- runEval ::
---   Env EvalAnn ->
---   [WebCheck.ObservedState] ->
---   Map (Qualified Ident) (EvalForeignFunction (Eval r m)) ->
---   Eval r m a ->
---   m (Either EvalError a)
--- runEval env observedStates ffs (Eval r ma) = runReaderT (runExceptT ma) (EvalEnv env (zip [1 ..] observedStates) ffs)
-
--- instance (MonadQueries m) => MonadQueries (Eval r m) where
---   evalQuery p q s = Eval (lift (lift (evalQuery p q s)))
-
 {-# SCC eval "eval" #-}
 eval :: Eval r m => Expr EvalAnn -> m (Value EvalAnn)
 eval expr = do
@@ -192,7 +170,7 @@ evalStringExpr (Literal ann (StringLiteral s)) =
     Nothing -> throwError (InvalidString (annSourceSpan ann))
 evalStringExpr expr = throwError (InvalidString (annSourceSpan (extractAnn expr)))
 
-envLookupEval :: (Eval r m, MonadFix m) => SourceSpan -> Either QualifiedName Name -> m (Value EvalAnn)
+envLookupEval :: (Eval r m) => SourceSpan -> Either QualifiedName Name -> m (Value EvalAnn)
 envLookupEval ss n = do
   env' <- view (field @"env")
   let onValue (VDefer (Defer env'' expr')) = local (field @"env" .~ env'' { envForeignFunctions = envForeignFunctions env' }) (eval expr')

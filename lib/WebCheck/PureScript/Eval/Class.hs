@@ -10,11 +10,8 @@ module WebCheck.PureScript.Eval.Class where
 import Language.PureScript.CoreFn (Expr)
 import Protolude
 import WebCheck.PureScript.Eval.Error (EvalError)
-import WebCheck.PureScript.Value (Function(..), Value)
-import WebCheck.PureScript.Eval.Env
+import WebCheck.PureScript.Value (Value)
 import WebCheck.PureScript.Eval.Ann
-import qualified Language.PureScript.CoreFn as CF
-import qualified Language.PureScript as P
 import Control.Monad.Fix (MonadFix)
 
 class (MonadError EvalError m, MonadFix m) => MonadEvalQuery m where

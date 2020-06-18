@@ -22,7 +22,6 @@ import Data.Generics.Product (field)
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.List.NonEmpty as NonEmpty
-import qualified Data.Map as Map
 import qualified Data.Text as Text
 import qualified Data.Text.Read as Text
 import Data.Vector (Vector)
@@ -278,7 +277,7 @@ evalEntryPoint entryPoint = envLookupEval entrySS (Left entryPoint)
 foreignFunctions :: Eval r m => HashMap QualifiedName (SomeForeignFunction m)
 foreignFunctions =
   HashMap.fromList
-    [ (ffName "Control.Bind" "arrayBind", foreignFunction arrayBind),
+    [ (ffName "Control.Bind" "arrayBind", foreignFunction (arrayBind @(Value EvalAnn) @(Value EvalAnn))),
       (ffName "Data.Array" "indexImpl", foreignFunction indexImpl),
       (ffName "Data.Array" "length", foreignFunction len),
       (ffName "Data.Array" "filter", foreignFunction filterArray),
@@ -297,25 +296,25 @@ foreignFunctions =
       (ffName "Data.Eq" "eqNumberImpl", foreignFunction (op2 ((==) @Double))),
       (ffName "Data.Eq" "eqCharImpl", foreignFunction (op2 ((==) @Char))),
       (ffName "Data.Eq" "eqStringImpl", foreignFunction (op2 ((==) @Text))),
-      (ffName "Data.Eq" "eqArrayImpl", foreignFunction eqArray),
+      (ffName "Data.Eq" "eqArrayImpl", foreignFunction (eqArray @(Value EvalAnn))),
       (ffName "Data.EuclideanRing" "intDegree", foreignFunction intDegree),
       (ffName "Data.EuclideanRing" "intDiv", foreignFunction intDiv),
       (ffName "Data.EuclideanRing" "intMod", foreignFunction intMod),
       (ffName "Data.EuclideanRing" "numDiv", foreignFunction (op2 @Double (/))),
-      (ffName "Data.Foldable" "foldlArray", foreignFunction foldlArray),
-      (ffName "Data.Foldable" "foldrArray", foreignFunction foldrArray),
-      (ffName "Data.Functor" "arrayMap", foreignFunction arrayMap),
+      (ffName "Data.Foldable" "foldlArray", foreignFunction (foldlArray @(Value EvalAnn) @(Value EvalAnn))),
+      (ffName "Data.Foldable" "foldrArray", foreignFunction (foldrArray @(Value EvalAnn) @(Value EvalAnn))),
+      (ffName "Data.Functor" "arrayMap", foreignFunction (arrayMap @(Value EvalAnn) @(Value EvalAnn))),
       (ffName "Data.HeytingAlgebra" "boolConj", foreignFunction (op2 (&&))),
       (ffName "Data.HeytingAlgebra" "boolDisj", foreignFunction (op2 (||))),
       (ffName "Data.HeytingAlgebra" "boolNot", foreignFunction (op1 not)),
       (ffName "Data.Int" "toNumber", foreignFunction (op1 (fromIntegral @Int @Double))),
       (ffName "Data.Int" "fromNumberImpl", foreignFunction fromNumberImpl),
       (ffName "Data.Int" "fromStringAsImpl", foreignFunction fromStringAsImpl),
-      (ffName "Data.Ord" "ordBooleanImpl", foreignFunction (ordImpl @Bool)),
-      (ffName "Data.Ord" "ordIntImpl", foreignFunction (ordImpl @Int)),
-      (ffName "Data.Ord" "ordNumberImpl", foreignFunction (ordImpl @Double)),
-      (ffName "Data.Ord" "ordStringImpl", foreignFunction (ordImpl @Text)),
-      (ffName "Data.Ord" "ordCharImpl", foreignFunction (ordImpl @Char)),
+      (ffName "Data.Ord" "ordBooleanImpl", foreignFunction (ordImpl @Bool @(Value EvalAnn))),
+      (ffName "Data.Ord" "ordIntImpl", foreignFunction (ordImpl @Int @(Value EvalAnn))),
+      (ffName "Data.Ord" "ordNumberImpl", foreignFunction (ordImpl @Double @(Value EvalAnn))),
+      (ffName "Data.Ord" "ordStringImpl", foreignFunction (ordImpl @Text @(Value EvalAnn))),
+      (ffName "Data.Ord" "ordCharImpl", foreignFunction (ordImpl @Char @(Value EvalAnn))),
       (ffName "Data.Ring" "intSub", foreignFunction (op2 ((-) @Int))),
       (ffName "Data.Ring" "numSub", foreignFunction (op2 ((-) @Double))),
       (ffName "Data.Show" "showStringImpl", foreignFunction (op1 (show @Text @Text))),
@@ -351,7 +350,7 @@ foreignFunctions =
     ]
   where
     ffName mn n = QualifiedName (ModuleName <$> NonEmpty.fromList (Text.splitOn "." mn)) (Name n)
-    notSupported :: MonadError EvalError m => QualifiedName -> (QualifiedName, SomeForeignFunction m)
+    notSupported :: QualifiedName -> (QualifiedName, SomeForeignFunction m)
     notSupported qn = (qn, SomeForeignFunction (NotSupported qn))
     indexImpl :: (Monad m, a ~ Value EvalAnn) => (a -> Ret m (Value EvalAnn)) -> Value EvalAnn -> Vector a -> Int -> Ret m (Value EvalAnn)
     indexImpl just nothing xs i = Ret (maybe (pure nothing) (unRet . just) (xs ^? ix (fromIntegral i)))
@@ -367,19 +366,19 @@ foreignFunctions =
     len xs = pure (fromIntegral (Vector.length xs))
     filterArray :: Monad m => (Value EvalAnn -> Ret m Bool) -> Vector (Value EvalAnn) -> Ret m (Vector (Value EvalAnn))
     filterArray f xs = Vector.filterM f xs
-    arrayUncons :: Monad m => (() -> Ret m (Value EvalAnn)) -> (Value EvalAnn -> Vector (Value EvalAnn) -> Ret m (Value EvalAnn)) -> Vector (Value EvalAnn) -> Ret m (Value EvalAnn)
+    arrayUncons :: (() -> Ret m (Value EvalAnn)) -> (Value EvalAnn -> Vector (Value EvalAnn) -> Ret m (Value EvalAnn)) -> Vector (Value EvalAnn) -> Ret m (Value EvalAnn)
     arrayUncons empty' next xs = maybe (empty' ()) (uncurry next) (uncons xs)
     arrayRange :: Monad m => Int -> Int -> Ret m (Vector Int)
     arrayRange start end =
       let step = if start < end then 1 else (-1)
        in pure (Vector.enumFromStepN start step end)
-    arrayBind :: Monad m => (a ~ Value EvalAnn, b ~ Value EvalAnn) => Vector a -> (a -> Ret m (Vector b)) -> Ret m (Vector b)
+    arrayBind :: forall a b m. Applicative m =>  Vector a -> (a -> Ret m (Vector b)) -> Ret m (Vector b)
     arrayBind xs f = join <$> traverse f xs
-    arrayMap :: Monad m => (a ~ Value EvalAnn, b ~ Value EvalAnn) => (a -> Ret m b) -> Vector a -> Ret m (Vector b)
+    arrayMap :: forall a b m. Monad m => (a -> Ret m b) -> Vector a -> Ret m (Vector b)
     arrayMap f xs = Vector.mapM f xs
-    foldlArray :: Monad m => (b ~ Value EvalAnn, a ~ Value EvalAnn) => (b -> a -> Ret m b) -> b -> Vector a -> Ret m b
+    foldlArray :: forall a b m. Monad m => (b -> a -> Ret m b) -> b -> Vector a -> Ret m b
     foldlArray = foldM
-    foldrArray :: Monad m => (b ~ Value EvalAnn, a ~ Value EvalAnn) => (a -> b -> Ret m b) -> b -> Vector a -> Ret m b
+    foldrArray :: forall a b m. Monad m => (a -> b -> Ret m b) -> b -> Vector a -> Ret m b
     foldrArray = foldrM
     op0 :: forall a m. Monad m => a -> Ret m a
     op0 = pure
@@ -396,11 +395,11 @@ foreignFunctions =
       10 -> readAs Text.decimal
       16 -> readAs Text.hexadecimal
       radix -> const (Ret $ throwError (ForeignFunctionError Nothing ("Unsupported radix for readInt: " <> show radix)))
-    eqArray :: Monad m => (a ~ Value EvalAnn, b ~ Bool) => (a -> a -> Ret m b) -> Vector a -> Vector a -> Ret m b
+    eqArray :: forall a b m. Monad m => (b ~ Bool) => (a -> a -> Ret m b) -> Vector a -> Vector a -> Ret m b
     eqArray pred' v1 v2
       | Vector.length v1 == Vector.length v2 = Vector.and <$> Vector.zipWithM pred' v1 v2
       | otherwise = pure False
-    ordImpl :: forall a o m. Monad m => (Show a, Ord a, o ~ Value EvalAnn) => o -> o -> o -> a -> a -> Ret m o
+    ordImpl :: forall a o m. Monad m => (Ord a) => o -> o -> o -> a -> a -> Ret m o
     ordImpl lt eq gt x y = pure $ case x `compare` y of
       LT -> lt
       EQ -> eq

@@ -47,7 +47,7 @@ proposition =
 
     initial :: Boolean
     initial =
-      (currentFilter == Nothing || currentFilter == Just All)
+      (selectedFilter == Nothing || selectedFilter == Just All)
         && (numItems == 0)
         && (pendingText == "")
     
@@ -55,23 +55,23 @@ proposition =
     enterText =
       pendingText /= next pendingText
         && itemTexts == next itemTexts
-        && currentFilter == next currentFilter
+        && selectedFilter == next selectedFilter
     
     changeFilter :: Boolean
     changeFilter =
-      (currentFilter /= next currentFilter)
-        && (currentFilter == Just All) `implies` (numItems >= next numItems)
-        && ( next
-                ( (currentFilter == Just Active)
-                  `implies` (numItemsLeft == (Just numUnchecked) && numItems == numUnchecked)
-                )
-            )
-        -- NOTE: AngularJS && Mithril implementations are
-        -- inconsistent with the other JS implementations, in that
-        -- they clear the input field when the filter is changed.
-
-        && not (name `elem` ["angularjs", "mithril"]) `implies` (pendingText == next pendingText)
-        -- && pendingText == next pendingText
+      case selectedFilter, next selectedFilter of
+          Nothing, Just All -> true -- adding the first todo item switches to the All filter
+          Nothing, _ -> false -- any other transition from an empty todo list is incorrect
+          _, Nothing -> false -- removing the last todo item is not handled by this action
+          Just All, _ -> numItems >= next numItems
+          _, Just Active -> next (numItemsLeft == Just numUnchecked && numItems == numUnchecked)
+          Just f1, Just f2
+            | f1 == f2 -> false
+            | otherwise ->
+                -- NOTE: AngularJS && Mithril implementations are
+                -- inconsistent with the other JS implementations, in that
+                -- they clear the input field when the filter is changed.
+                (pendingText == next pendingText)
     
     addNew =
       Just pendingText == next lastItemText
@@ -79,44 +79,38 @@ proposition =
 
     checkOne =
       pendingText == next pendingText
-        && currentFilter == next currentFilter
-        && (currentFilter /= Just Completed)
-        && ( (currentFilter == Just All)
+        && selectedFilter == next selectedFilter
+        && (selectedFilter /= Just Completed)
+        && ( (selectedFilter == Just All)
                 `implies` (numItems == next numItems && numChecked < next numChecked)
             )
-        && ( (currentFilter == Just Active)
+        && ( (selectedFilter == Just Active)
                 `implies` (numItems > next numItems && numItemsLeft > next numItemsLeft)
             )
 
     uncheckOne =
       pendingText == next pendingText
-        && currentFilter == next currentFilter
-        && (currentFilter /= Just Active)
-        && ( (currentFilter == Just All)
+        && selectedFilter == next selectedFilter
+        && (selectedFilter /= Just Active)
+        && ( (selectedFilter == Just All)
                 `implies` (numItems == next numItems && numChecked > next numChecked)
             )
-        && ( (currentFilter == Just Completed)
+        && ( (selectedFilter == Just Completed)
                 `implies` (numItems > next numItems && numItemsLeft < next numItemsLeft)
             )
     
     toggleAll =
       Just pendingText == next lastItemText
-        && currentFilter == next currentFilter
-        && ( (currentFilter == Just All)
-                `implies` (numItems == next numItems && next (numItems == numChecked))
-            )
-        && ( (currentFilter == Just Active)
-                `implies` ( (numItems > 0) `implies` (next numItems == 0)
+        && selectedFilter == next selectedFilter
+        && case selectedFilter of
+          Just All -> numItems == next numItems && next (numItems == numChecked)
+          Just Active -> (numItems > 0) `implies` (next numItems == 0)
                         || (numItems == 0) `implies` (next numItems > 0)
-                    )
-            )
-        && ( (currentFilter == Just Completed)
-                `implies` ( numItems + fromMaybe 0 numItemsLeft == (next numItems)
-                    )
-            )
+          Just Completed -> numItems + fromMaybe 0 numItemsLeft == (next numItems)
+          Nothing -> false
     
     
-    currentFilter = do
+    selectedFilter = do
       f <- queryOne ".todoapp .filters .selected" { text: textContent }
       parse f.text
       where

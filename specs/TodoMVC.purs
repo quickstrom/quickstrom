@@ -10,7 +10,7 @@ import Data.String (Pattern(..), split)
 import Data.Tuple (Tuple(..))
 
 name :: String
-name = "angularjs"
+name = "react"
 
 origin :: Path
 origin = "http://todomvc.com/examples/" <> name <> "/"
@@ -100,7 +100,7 @@ proposition =
             )
     
     toggleAll =
-      Just pendingText == next lastItemText
+      pendingText == next pendingText
         && selectedFilter == next selectedFilter
         && case selectedFilter of
           Just All -> numItems == next numItems && next (numItems == numChecked)

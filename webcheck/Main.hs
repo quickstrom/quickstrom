@@ -91,7 +91,6 @@ main :: IO ()
 main = do
   WebCheckOptions {..} <- execParser optsInfo
   originUri <- resolveAbsoluteURI origin
-  hPutStrLn stderr (URI.render originUri)
   specResult <- runExceptT $ do
     libPath <- maybe libraryPathFromEnvironment pure libraryPath
     modules <- ExceptT (WebCheck.loadLibraryModules libPath)

@@ -7,9 +7,6 @@ import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String (Pattern(..), length, split, trim)
 import Data.Tuple (Tuple(..))
 
-origin :: String
-origin = "file:///home/owi/projects/haskell/webcheck/test/comment-form.html"
-
 readyWhen :: String
 readyWhen = "form"
 

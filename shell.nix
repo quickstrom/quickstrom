@@ -22,7 +22,7 @@ let
   client-side = import ./client-side { inherit pkgs; };
 
   webcheck-purs-ide = pkgs.writeShellScriptBin "webcheck-purs-ide" ''
-    ${easy-ps}/bin/purs ide server \
+    ${easy-ps.purs-0_13_8}/bin/purs ide server \
       --log-level all \
       --output-directory purescript-webcheck/output \
       'purescript-webcheck/src/**/*.purs' \

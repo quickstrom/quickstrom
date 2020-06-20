@@ -14,7 +14,6 @@ import Data.HashSet (HashSet)
 import Data.Text.Prettyprint.Doc (Doc)
 import Test.QuickCheck (Gen)
 import WebCheck.Element
-import WebCheck.Path
 import WebCheck.Result
 import WebCheck.Trace
 
@@ -23,7 +22,6 @@ type ActionGenerator = Gen (Action Selector)
 type Queries = HashMap Selector (HashSet ElementState)
 
 class Specification s where
-  origin :: s -> Path
   readyWhen :: s -> Selector
   actions :: s -> ActionGenerator
   queries :: s -> Queries

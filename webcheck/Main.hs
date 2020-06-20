@@ -1,22 +1,24 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 
 module Main where
 
 import Options.Applicative
 import Protolude hiding (option)
 import System.Environment (lookupEnv)
+import qualified WebCheck.Path as WebCheck
 import qualified WebCheck.PureScript.Program as WebCheck
 import qualified WebCheck.Run as WebCheck
 
 data WebCheckOptions
   = WebCheckOptions
       { specPath :: FilePath,
+        origin :: WebCheck.Path,
         libraryPath :: Maybe FilePath,
         tests :: Int,
         shrinkLevels :: Int
@@ -30,6 +32,13 @@ optParser =
       ( metavar "SPECIFICATION_FILE"
           <> help "A specification file to check"
       )
+    <*> ( WebCheck.Path
+            <$> argument
+              str
+              ( metavar "ORIGIN"
+                  <> help "The origin URL (must include a scheme, e.g. `file:` or `https:`)"
+              )
+        )
     <*> optional
       ( strOption
           ( short 'l'
@@ -73,7 +82,7 @@ main = do
       exitWith (ExitFailure 1)
     Right spec ->
       WebCheck.check
-        WebCheck.CheckOptions {checkTests = tests, checkShrinkLevels = shrinkLevels}
+        WebCheck.CheckOptions {checkTests = tests, checkShrinkLevels = shrinkLevels, checkOrigin = origin}
         spec
 
 libraryPathFromEnvironment :: ExceptT Text IO FilePath

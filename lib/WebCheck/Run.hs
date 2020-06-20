@@ -5,6 +5,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -13,7 +14,6 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 
 module WebCheck.Run
   ( CheckOptions (..),
@@ -48,15 +48,15 @@ import Pipes ((>->), Consumer, Effect, Pipe, Producer)
 import qualified Pipes
 import qualified Pipes.Prelude as Pipes
 import Protolude hiding (Selector, catchError, check, throwError, trace)
+import System.Environment (lookupEnv)
 import qualified Test.QuickCheck as QuickCheck
-import Web.Api.WebDriver hiding (Action, Selector, runIsolated, hPutStrLn)
+import Web.Api.WebDriver hiding (Action, Selector, hPutStrLn, runIsolated)
 import WebCheck.Element
 import WebCheck.Path
 import WebCheck.Pretty
 import WebCheck.Result
 import WebCheck.Specification
 import WebCheck.Trace
-import System.Environment (lookupEnv)
 
 type Runner = WebDriverTT (ReaderT CheckOptions) IO
 
@@ -71,7 +71,7 @@ data FailingTest
 data CheckResult = CheckSuccess | CheckFailure {failedAfter :: Int, failingTest :: FailingTest}
   deriving (Show, Generic)
 
-data CheckOptions = CheckOptions {checkTests :: Int, checkShrinkLevels :: Int}
+data CheckOptions = CheckOptions {checkTests :: Int, checkShrinkLevels :: Int, checkOrigin :: Path}
 
 check :: Specification spec => CheckOptions -> spec -> IO ()
 check opts@CheckOptions {checkTests} spec = do
@@ -157,7 +157,7 @@ sizes numSizes = Pipes.each (map (\n -> (n * 100 `div` numSizes)) [1 .. numSizes
 
 beforeRun :: Specification spec => spec -> Runner ()
 beforeRun spec = do
-  navigateToOrigin spec
+  navigateToOrigin
   initializeScript
   awaitElement (readyWhen spec)
 
@@ -260,9 +260,10 @@ selectValidActions = forever do
     isClickable e =
       andM [isElementEnabled (toRef e), isElementVisible e]
 
-navigateToOrigin :: Specification spec => spec -> Runner ()
-navigateToOrigin spec = case origin spec of
-  Path path -> (navigateTo (Text.unpack path))
+navigateToOrigin :: Runner ()
+navigateToOrigin = do
+  CheckOptions {checkOrigin = Path origin} <- liftWebDriverTT ask
+  navigateTo (Text.unpack origin)
 
 tryAction :: Runner ActionResult -> Runner ActionResult
 tryAction action = action `catchError` (pure . ActionFailed . Text.pack . show)

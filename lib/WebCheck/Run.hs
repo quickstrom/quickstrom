@@ -5,7 +5,6 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -14,6 +13,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module WebCheck.Run
   ( CheckOptions (..),
@@ -52,11 +52,13 @@ import System.Environment (lookupEnv)
 import qualified Test.QuickCheck as QuickCheck
 import Web.Api.WebDriver hiding (Action, Selector, hPutStrLn, runIsolated)
 import WebCheck.Element
-import WebCheck.Path
 import WebCheck.Pretty
 import WebCheck.Result
 import WebCheck.Specification
 import WebCheck.Trace
+import Text.URI (URI)
+import qualified Text.URI as URI
+import qualified Text.URI.QQ as URI
 
 type Runner = WebDriverTT (ReaderT CheckOptions) IO
 
@@ -71,7 +73,7 @@ data FailingTest
 data CheckResult = CheckSuccess | CheckFailure {failedAfter :: Int, failingTest :: FailingTest}
   deriving (Show, Generic)
 
-data CheckOptions = CheckOptions {checkTests :: Int, checkShrinkLevels :: Int, checkOrigin :: Path}
+data CheckOptions = CheckOptions {checkTests :: Int, checkShrinkLevels :: Int, checkOrigin :: URI}
 
 check :: Specification spec => CheckOptions -> spec -> IO ()
 check opts@CheckOptions {checkTests} spec = do
@@ -262,8 +264,8 @@ selectValidActions = forever do
 
 navigateToOrigin :: Runner ()
 navigateToOrigin = do
-  CheckOptions {checkOrigin = Path origin} <- liftWebDriverTT ask
-  navigateTo (Text.unpack origin)
+  CheckOptions {checkOrigin} <- liftWebDriverTT ask
+  navigateTo (toS (URI.renderStr checkOrigin))
 
 tryAction :: Runner ActionResult -> Runner ActionResult
 tryAction action = action `catchError` (pure . ActionFailed . Text.pack . show)
@@ -286,7 +288,7 @@ runAction = \case
   Focus s -> focus s
   KeyPress c -> sendKey c
   Click s -> click s
-  Navigate (Path path) -> tryAction (ActionSuccess <$ navigateTo (Text.unpack path))
+  Navigate url -> tryAction (ActionSuccess <$ navigateTo (URI.renderStr url))
 
 runWebDriver :: CheckOptions -> Runner a -> IO a
 runWebDriver opts ma = do

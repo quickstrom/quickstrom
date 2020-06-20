@@ -9,12 +9,6 @@ import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String (Pattern(..), split)
 import Data.Tuple (Tuple(..))
 
-name :: String
-name = "react"
-
-origin :: Path
-origin = "http://todomvc.com/examples/" <> name <> "/"
-
 readyWhen :: Selector
 readyWhen = ".todoapp"
 
@@ -72,7 +66,7 @@ proposition =
                 -- NOTE: AngularJS && Mithril implementations are
                 -- inconsistent with the other JS implementations, in that
                 -- they clear the input field when the filter is changed.
-                (pendingText == next pendingText)
+                pendingText == next pendingText
     
     addNew =
       Just pendingText == next lastItemText

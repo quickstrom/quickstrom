@@ -20,15 +20,15 @@ import Data.Text.Prettyprint.Doc.Render.Terminal
 import Data.Text.Prettyprint.Doc.Symbols.Unicode (bullet)
 import qualified Data.Vector as Vector
 import WebCheck.Element
-import WebCheck.Path
 import WebCheck.Trace
+import qualified Text.URI as URI
 
 prettyAction :: Action Selected -> Doc AnsiStyle
 prettyAction = \case
   Click sel -> "click" <+> prettySelected sel
   Focus sel -> "focus" <+> prettySelected sel
   KeyPress key -> "key press" <+> pretty (show key)
-  Navigate (Path path) -> "navigate to" <+> pretty path
+  Navigate uri -> "navigate to" <+> pretty (URI.render uri)
 
 prettySelected :: Selected -> Doc AnsiStyle
 prettySelected (Selected (Selector sel) i) = pretty sel <> brackets (pretty i)

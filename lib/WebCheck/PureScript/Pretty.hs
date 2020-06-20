@@ -43,6 +43,7 @@ prettyEvalError = \case
   InvalidString _ -> "Invalid string"
   InvalidBuiltInFunctionApplication _ _fn _param -> "Invalid function application"
   ForeignFunctionError _ t -> pretty t
+  InvalidURI _ input t -> "Invalid URI:" <> colon <+> pretty input <> comma <+> pretty t
   Undetermined -> "The formula cannot be determined as there are not enough observed states"
 
 prettyEvalErrorWithSourceSpan :: EvalError -> Doc ann

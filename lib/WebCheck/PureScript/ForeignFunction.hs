@@ -28,12 +28,15 @@ import Language.PureScript.AST (SourceSpan)
 import Protolude hiding (Selector)
 import WebCheck.Action (Action (..))
 import WebCheck.Element (Selector (..))
-import WebCheck.Path
 import WebCheck.PureScript.Eval
 import WebCheck.PureScript.Eval.Ann
 import WebCheck.PureScript.Eval.Error
 import WebCheck.PureScript.Eval.Name
 import WebCheck.PureScript.Value
+import qualified Text.URI as URI
+import Text.Megaparsec (Parsec)
+import Text.URI (URI)
+import qualified Text.Megaparsec as Parsec
 
 data ForeignFunction m arity where
   Base :: FromHaskellValue a => m a -> ForeignFunction m 0
@@ -206,8 +209,13 @@ instance MonadError EvalError m => ToHaskellValue m (Action Selector) where
       "Focus" -> Focus . Selector <$> toHaskellValue ss value
       "KeyPress" -> KeyPress <$> toHaskellValue ss value
       "Click" -> Click . Selector <$> toHaskellValue ss value
-      "Navigate" -> Navigate . Path <$> toHaskellValue ss value
+      "Navigate" -> Navigate <$> (parseURI =<< toHaskellValue ss value)
       _ -> throwError (ForeignFunctionError (Just ss) ("Unknown Action constructor: " <> ctor))
+    where
+      parseURI input = 
+        case Parsec.runParser (URI.parser <* Parsec.eof :: Parsec Void Text URI) "" input of
+          Left  b -> throwError (InvalidURI Nothing input (toS (Parsec.errorBundlePretty b)))
+          Right x -> pure x
 
 instance (Eval r m, FromHaskellValue a, ToHaskellValue m b) => ToHaskellValue m (a -> Ret m b) where
   toHaskellValue ss fn =

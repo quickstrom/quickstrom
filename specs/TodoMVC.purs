@@ -41,6 +41,7 @@ proposition =
              || changeFilter
              || checkOne
              || uncheckOne
+             || delete
              || toggleAll
             )
   where
@@ -99,6 +100,19 @@ proposition =
                 `implies` (numItems > next numItems && numItemsLeft < next numItemsLeft)
             )
     
+    delete =
+      pendingText == next pendingText
+        && case selectedFilter, numItems of
+          _, 1 -> next selectedFilter == Nothing
+          Just filter, n -> 
+            selectedFilter == next selectedFilter
+            && next numItems == n - 1 
+            && case filter of
+                 All -> true
+                 Active -> numItemsLeft == next ((_ - 1) <$> numItemsLeft)
+                 Completed -> numItemsLeft == next numItemsLeft
+          Nothing, _ -> false
+
     toggleAll =
       pendingText == next pendingText
         && selectedFilter == next selectedFilter

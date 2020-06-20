@@ -1,37 +1,37 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE OverloadedLists #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoImplicitPrelude   #-}
+{-# LANGUAGE OverloadedLists     #-}
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeApplications    #-}
 
 module WebCheck.PureScriptTest where
 
-import Control.Lens
-import qualified Data.Aeson as JSON
-import qualified Data.HashMap.Strict as HashMap
-import qualified Data.Vector as Vector
-import Data.Vector (Vector)
-import Language.PureScript (nullSourceSpan)
-import Protolude
-import Test.Tasty.Hspec hiding (Selector)
-import qualified WebCheck.Element as WebCheck
-import WebCheck.PureScript.Eval
-import WebCheck.PureScript.Eval.Error
-import WebCheck.PureScript.ForeignFunction
-import WebCheck.PureScript.Program
-import qualified WebCheck.PureScript.Queries as Queries
-import WebCheck.PureScript.Pretty
-import WebCheck.Trace (ObservedState (..))
-import System.Environment (lookupEnv)
-import Control.Monad (Monad(fail))
+import           Control.Lens
+import           Control.Monad                       (Monad (fail))
+import qualified Data.Aeson                          as JSON
+import qualified Data.HashMap.Strict                 as HashMap
+import           Data.Vector                         (Vector)
+import qualified Data.Vector                         as Vector
+import           Language.PureScript                 (nullSourceSpan)
+import           Protolude
+import           System.Environment                  (lookupEnv)
+import           Test.Tasty.Hspec                    hiding (Selector)
+import qualified WebCheck.Element                    as WebCheck
+import           WebCheck.PureScript.Eval
+import           WebCheck.PureScript.Eval.Error
+import           WebCheck.PureScript.ForeignFunction
+import           WebCheck.PureScript.Pretty
+import           WebCheck.PureScript.Program
+import qualified WebCheck.PureScript.Queries         as Queries
+import           WebCheck.Trace                      (ObservedState (..))
 
 loadModules :: IO Modules
 loadModules = do
   let key = "WEBCHECK_LIBRARY_DIR"
-  webcheckPursDir <- 
-    maybe (fail (key <> " environment variable is not set")) pure 
+  webcheckPursDir <-
+    maybe (fail (key <> " environment variable is not set")) pure
       =<< lookupEnv key
   loadLibraryModules webcheckPursDir >>= \case
     Right ms -> pure ms
@@ -50,7 +50,7 @@ eval' ::
   Text ->
   Program Queries.WithObservedStates ->
   Either Text b
-eval' states name p = 
+eval' states name p =
   (toHaskellValue nullSourceSpan =<< evalWithObservedStates p name states)
   & _Left %~ (prettyText . prettyEvalError)
 
@@ -99,7 +99,7 @@ spec_purescript = beforeAll loadModules $ do
       eval' [] "tla5" p `shouldBe` Right True
     it "tla6" $ \p -> do
       eval' [mempty] "tla6" p `shouldBe` Right True
-  describe "TodoMVC" . beforeWith (loadProgram' "purescript-webcheck/specs/TodoMVC.purs") $ do
+  describe "TodoMVC" . beforeWith (loadProgram' "specs/TodoMVC.purs") $ do
     let todoMvcState :: Text -> Text -> Text -> Vector (Text, Bool) -> ObservedState
         todoMvcState newTodo selected count todoItems =
           ( ObservedState $

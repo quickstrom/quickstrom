@@ -15,10 +15,8 @@ import Options.Applicative
 import Protolude hiding (option)
 import System.Environment (lookupEnv)
 import System.Directory (canonicalizePath)
-import qualified Text.Megaparsec as Parsec
-import Text.Megaparsec (Parsec)
 import Text.URI (URI)
-import Text.URI.Lens (uriScheme, uriPath)
+import Text.URI.Lens (uriScheme)
 import qualified Text.URI as URI
 import qualified WebCheck.PureScript.Program as WebCheck
 import qualified WebCheck.Run as WebCheck

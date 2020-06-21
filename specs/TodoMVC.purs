@@ -2,7 +2,7 @@ module WebCheck.PureScript.TodoMVC where
 
 import WebCheck.DSL
 
-import Data.Array (elem, filter, head, last)
+import Data.Array (filter, foldMap, head, last, zip)
 import Data.Foldable (length)
 import Data.Int as Int
 import Data.Maybe (Maybe(..), fromMaybe)
@@ -97,7 +97,7 @@ proposition =
     delete =
       pendingText == next pendingText
         && case selectedFilter, numItems of
-          _, 1 -> next selectedFilter == Nothing
+          _, 1 -> next (numItems == 0)
           Just filter, n -> 
             selectedFilter == next selectedFilter
             && next numItems == n - 1 
@@ -129,7 +129,11 @@ proposition =
           _ -> Nothing
     
     items :: Array { text :: String }
-    items = queryAll ".todo-list li label" { text: textContent }
+    items =
+      foldMap (\(Tuple li label) -> if li.display /= "none" then pure label else mempty)
+      (zip
+        (queryAll ".todo-list li" { display: cssValue "display" })
+        (queryAll ".todo-list li label" { text: textContent }))
     
     itemTexts = map _.text items
     

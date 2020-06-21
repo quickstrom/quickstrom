@@ -75,8 +75,7 @@ class ToForeignFunction m arity f | f -> m arity where
   toForeignFunction :: f -> ForeignFunction m arity
 
 instance
-  ( Functor m,
-    FromHaskellValue a,
+  ( FromHaskellValue a,
     m ~ n
   ) =>
   ToForeignFunction m 0 (Ret m a)

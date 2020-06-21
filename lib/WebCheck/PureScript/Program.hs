@@ -276,6 +276,7 @@ foreignFunctions =
       (ffName "Data.Array" "filter", foreignFunction filterArray),
       (ffName "Data.Array" "uncons'", foreignFunction arrayUncons),
       (ffName "Data.Array" "range", foreignFunction arrayRange),
+      (ffName "Data.Array" "zipWith", foreignFunction (arrayZipWith @(Value EvalAnn) @(Value EvalAnn) @(Value EvalAnn))),
       (ffName "Data.Bounded" "bottomInt", foreignFunction (op0 @Int minBound)),
       (ffName "Data.Bounded" "topInt", foreignFunction (op0 @Int maxBound)),
       (ffName "Data.Bounded" "bottomChar", foreignFunction (op0 @Char minBound)),
@@ -373,6 +374,8 @@ foreignFunctions =
     foldlArray = foldM
     foldrArray :: forall a b m. Monad m => (a -> b -> Ret m b) -> b -> Vector a -> Ret m b
     foldrArray = foldrM
+    arrayZipWith :: forall a b c m. Monad m => (a -> b -> Ret m c) -> Vector a -> Vector b -> Ret m (Vector c)
+    arrayZipWith f = Vector.zipWithM f
     op0 :: forall a m. Monad m => a -> Ret m a
     op0 = pure
     op1 :: forall a b m. Monad m => (a -> b) -> a -> Ret m b

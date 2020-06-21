@@ -41,7 +41,6 @@ import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
 import Data.Tree
-import Data.Tree as Tree
 import GHC.Generics (Generic)
 import Network.HTTP.Client as Http
 import qualified Network.Wreq as Wreq
@@ -59,7 +58,6 @@ import WebCheck.Specification
 import WebCheck.Trace
 import Text.URI (URI)
 import qualified Text.URI as URI
-import qualified Text.URI.QQ as URI
 
 type Runner = WebDriverTT (ReaderT CheckOptions) IO
 

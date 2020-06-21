@@ -33,6 +33,7 @@ data EvalError
   | InvalidString SourceSpan
   | InvalidBuiltInFunctionApplication SourceSpan (Expr ()) (Expr ())
   | ForeignFunctionError (Maybe SourceSpan) Text
+  | InvalidURI (Maybe SourceSpan) Text Text
   | Undetermined
   deriving (Show, Generic)
 
@@ -47,6 +48,7 @@ errorSourceSpan = \case
   InvalidString ss -> Just ss
   InvalidBuiltInFunctionApplication ss _ _ -> Just ss
   ForeignFunctionError ss _ -> ss
+  InvalidURI ss _ _ -> ss
   Undetermined -> Nothing
 
 unexpectedType :: (MonadError EvalError m) => SourceSpan -> Text -> Value ann -> m a

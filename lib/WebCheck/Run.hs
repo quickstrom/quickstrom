@@ -48,15 +48,17 @@ import Pipes ((>->), Consumer, Effect, Pipe, Producer)
 import qualified Pipes
 import qualified Pipes.Prelude as Pipes
 import Protolude hiding (Selector, catchError, check, throwError, trace)
+import System.Environment (lookupEnv)
 import qualified Test.QuickCheck as QuickCheck
-import Web.Api.WebDriver hiding (Action, Selector, runIsolated, hPutStrLn)
+import Web.Api.WebDriver hiding (Action, Selector, hPutStrLn, runIsolated)
 import WebCheck.Element
-import WebCheck.Path
 import WebCheck.Pretty
 import WebCheck.Result
 import WebCheck.Specification
 import WebCheck.Trace
-import System.Environment (lookupEnv)
+import Text.URI (URI)
+import qualified Text.URI as URI
+import qualified Text.URI.QQ as URI
 
 type Runner = WebDriverTT (ReaderT CheckOptions) IO
 
@@ -71,7 +73,7 @@ data FailingTest
 data CheckResult = CheckSuccess | CheckFailure {failedAfter :: Int, failingTest :: FailingTest}
   deriving (Show, Generic)
 
-data CheckOptions = CheckOptions {checkTests :: Int, checkShrinkLevels :: Int}
+data CheckOptions = CheckOptions {checkTests :: Int, checkShrinkLevels :: Int, checkOrigin :: URI}
 
 check :: Specification spec => CheckOptions -> spec -> IO ()
 check opts@CheckOptions {checkTests} spec = do
@@ -157,7 +159,7 @@ sizes numSizes = Pipes.each (map (\n -> (n * 100 `div` numSizes)) [1 .. numSizes
 
 beforeRun :: Specification spec => spec -> Runner ()
 beforeRun spec = do
-  navigateToOrigin spec
+  navigateToOrigin
   initializeScript
   awaitElement (readyWhen spec)
 
@@ -260,9 +262,10 @@ selectValidActions = forever do
     isClickable e =
       andM [isElementEnabled (toRef e), isElementVisible e]
 
-navigateToOrigin :: Specification spec => spec -> Runner ()
-navigateToOrigin spec = case origin spec of
-  Path path -> (navigateTo (Text.unpack path))
+navigateToOrigin :: Runner ()
+navigateToOrigin = do
+  CheckOptions {checkOrigin} <- liftWebDriverTT ask
+  navigateTo (toS (URI.renderStr checkOrigin))
 
 tryAction :: Runner ActionResult -> Runner ActionResult
 tryAction action = action `catchError` (pure . ActionFailed . Text.pack . show)
@@ -285,7 +288,7 @@ runAction = \case
   Focus s -> focus s
   KeyPress c -> sendKey c
   Click s -> click s
-  Navigate (Path path) -> tryAction (ActionSuccess <$ navigateTo (Text.unpack path))
+  Navigate url -> tryAction (ActionSuccess <$ navigateTo (URI.renderStr url))
 
 runWebDriver :: CheckOptions -> Runner a -> IO a
 runWebDriver opts ma = do

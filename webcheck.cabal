@@ -19,6 +19,8 @@ common shared-deps
                     , hashable
                     , http-client
                     , lens
+                    , megaparsec
+                    , modern-uri
                     , monad-loops
                     , mtl
                     , natural-transformation
@@ -43,7 +45,6 @@ library
   import:             shared-deps
   exposed-modules:    WebCheck.Action
                     , WebCheck.Element
-                    , WebCheck.Path
                     , WebCheck.PureScript.Eval
                     , WebCheck.PureScript.Eval.Ann
                     , WebCheck.PureScript.Eval.Env

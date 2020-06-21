@@ -96,10 +96,10 @@ it through Cabal (assuming you're in a nix-shell):
 cabal run webcheck -- /path/to/my/specification
 ```
 
-For instance, you can run the TodoMVC AngularJS specification:
+For instance, you can run the TodoMVC React specification:
 
 ```
-cabal run webcheck -- purescript-webcheck/specs/TodoMVC.purs
+cabal run webcheck -- specs/TodoMVC.purs http://todomvc.com/examples/react
 ```
 
 **NOTE:** Running tests can take a lot of time, especially if there's a

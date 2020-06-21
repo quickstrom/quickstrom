@@ -38,7 +38,6 @@ import qualified Test.QuickCheck as QuickCheck
 import Text.Read (read)
 import qualified WebCheck.Action as WebCheck
 import qualified WebCheck.Element as WebCheck
-import qualified WebCheck.Path as WebCheck
 import WebCheck.PureScript.Eval
 import WebCheck.PureScript.Eval.Ann
 import WebCheck.PureScript.Eval.Env
@@ -200,16 +199,13 @@ loadProgram ms input = runExceptT $ do
 
 data SpecificationProgram
   = SpecificationProgram
-      { specificationOrigin :: WebCheck.Path,
-        specificationReadyWhen :: WebCheck.Selector,
+      { specificationReadyWhen :: WebCheck.Selector,
         specificationActions :: [(Int, WebCheck.Action WebCheck.Selector)],
         specificationQueries :: WebCheck.Queries,
         specificationProgram :: Program Queries.WithObservedStates
       }
 
 instance WebCheck.Specification SpecificationProgram where
-
-  origin = specificationOrigin
 
   readyWhen = specificationReadyWhen
 
@@ -229,15 +225,12 @@ loadSpecification ms input = runExceptT $ do
   p2 <- ExceptT (loadProgram ms input) -- temporary hack!
   either (throwError . prettyText . prettyEvalErrorWithSourceSpan) pure $ do
     let ss = (moduleSourceSpan (programMain p))
-    -- TODO: new eval mode without temporal modalities for these definitions
-    origin <- toHaskellValue ss =<< evalWithObservedStates p "origin" []
     readyWhen <- toHaskellValue ss =<< evalWithObservedStates p "readyWhen" []
     actions <- toHaskellValue ss =<< evalWithObservedStates p "actions" []
     queries <- extractQueries p2 "proposition"
     pure
       ( SpecificationProgram
-          { specificationOrigin = WebCheck.Path origin,
-            specificationReadyWhen = WebCheck.Selector readyWhen,
+          { specificationReadyWhen = WebCheck.Selector readyWhen,
             specificationActions = actions,
             specificationQueries = queries,
             specificationProgram = p

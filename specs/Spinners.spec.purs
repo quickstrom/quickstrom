@@ -4,9 +4,6 @@ import WebCheck.DSL
 
 import Data.Array (length)
 
-origin :: String
-origin = "file:///home/owi/projects/haskell/webcheck/test/spinners.html"
-
 readyWhen :: String
 readyWhen = "body"
 

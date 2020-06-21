@@ -1,22 +1,33 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 
 module Main where
 
+import Control.Lens hiding (argument)
 import Options.Applicative
 import Protolude hiding (option)
 import System.Environment (lookupEnv)
+import System.Directory (canonicalizePath)
+import qualified Text.Megaparsec as Parsec
+import Text.Megaparsec (Parsec)
+import Text.URI (URI)
+import Text.URI.Lens (uriScheme, uriPath)
+import qualified Text.URI as URI
 import qualified WebCheck.PureScript.Program as WebCheck
 import qualified WebCheck.Run as WebCheck
+import qualified Text.URI.QQ as URI
 
 data WebCheckOptions
   = WebCheckOptions
       { specPath :: FilePath,
+        origin :: Text,
         libraryPath :: Maybe FilePath,
         tests :: Int,
         shrinkLevels :: Int
@@ -29,6 +40,11 @@ optParser =
       str
       ( metavar "SPECIFICATION_FILE"
           <> help "A specification file to check"
+      )
+    <*> argument
+      str
+      ( metavar "ORIGIN"
+          <> help "The origin URI"
       )
     <*> optional
       ( strOption
@@ -60,9 +76,21 @@ optsInfo =
         <> header "WebCheck: High-confidence browser testing"
     )
 
+fileScheme :: URI.RText 'URI.Scheme
+fileScheme = [URI.scheme|file|]
+
+resolveAbsoluteURI :: Text -> IO URI
+resolveAbsoluteURI t = do
+  uri <- URI.mkURI t
+  case uri ^. uriScheme of
+    Just scheme | scheme /= fileScheme -> pure uri
+    Nothing ->
+      URI.makeAbsolute fileScheme <$> (URI.mkURI . toS =<< canonicalizePath (toS t))
+
 main :: IO ()
 main = do
   WebCheckOptions {..} <- execParser optsInfo
+  originUri <- resolveAbsoluteURI origin
   specResult <- runExceptT $ do
     libPath <- maybe libraryPathFromEnvironment pure libraryPath
     modules <- ExceptT (WebCheck.loadLibraryModules libPath)
@@ -73,7 +101,7 @@ main = do
       exitWith (ExitFailure 1)
     Right spec ->
       WebCheck.check
-        WebCheck.CheckOptions {checkTests = tests, checkShrinkLevels = shrinkLevels}
+        WebCheck.CheckOptions {checkTests = tests, checkShrinkLevels = shrinkLevels, checkOrigin = originUri}
         spec
 
 libraryPathFromEnvironment :: ExceptT Text IO FilePath

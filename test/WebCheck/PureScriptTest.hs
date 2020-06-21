@@ -106,6 +106,9 @@ spec_purescript = beforeAll loadModules $ do
               HashMap.fromList
                 [ (WebCheck.Selector ".new-todo", [HashMap.singleton (WebCheck.Property "value") (JSON.String newTodo)]),
                   (WebCheck.Selector ".todoapp .filters .selected", [HashMap.singleton (WebCheck.Property "textContent") (JSON.String selected)]),
+                  ( WebCheck.Selector ".todo-list li",
+                     map (const (HashMap.singleton (WebCheck.CssValue "display") "block")) (Vector.toList todoItems)
+                  ),
                   ( WebCheck.Selector ".todo-list li label",
                     [HashMap.singleton (WebCheck.Property "textContent") (JSON.String todo) | (todo, _) <- Vector.toList todoItems]
                   ),

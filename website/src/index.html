@@ -85,12 +85,6 @@
             <tbody>
               <tr>
                 <td>
-                  <pre>origin = "example.com/record-player.html"</pre>
-                </td>
-                <td>The URL where the testing starts. WebCheck can navigate to different pages, but it always starts at the given origin.</td>
-              </tr>
-              <tr>
-                <td>
                   <pre>readyWhen = ".record-player"</pre>
                 </td>
                 <td>It waits for a DOM element matching the CSS
@@ -125,10 +119,12 @@
           </table>
           </div>
           <p>Now, let's run WebCheck with a broken implementation
-          of <code>record-player.html</code>. We get a minimal
-          behavior that violates the specification:</p>
+          of the record player. We get a minimal behavior that 
+          violates the specification:
+          </p>
           <div class="code-sample">
-          <pre>Running test with size: 10
+          <pre>$ <strong>webcheck RecordPlayer.spec.purs record-player.html</strong>
+Running test with size: 10
 Test failed. Shrinking...
 1. State
   • .play-pause

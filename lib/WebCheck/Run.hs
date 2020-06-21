@@ -41,6 +41,7 @@ import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
 import Data.Tree
+import Data.Tree as Tree
 import GHC.Generics (Generic)
 import Network.HTTP.Client as Http
 import qualified Network.Wreq as Wreq
@@ -121,8 +122,9 @@ runSingle spec size = do
   case result of
     Right () -> pure (Right ())
     f@(Left (FailingTest _ trace _)) -> do
+      CheckOptions {checkShrinkLevels} <- liftWebDriverTT ask
       logInfoWD "Test failed. Shrinking..."
-      let shrinks = shrinkForest (QuickCheck.shrinkList shrinkAction) (trace ^.. traceActions)
+      let shrinks = shrinkForest (QuickCheck.shrinkList shrinkAction) checkShrinkLevels (trace ^.. traceActions)
       shrunk <- minBy (lengthOf (field @"trace" . traceElements)) (traverseShrinks runShrink shrinks >-> select (preview _Left) >-> Pipes.take 5)
       pure (fromMaybe f (Left <$> shrunk))
   where
@@ -165,12 +167,11 @@ beforeRun spec = do
 
 observeManyStatesAfter :: Queries -> ObservedState -> Action Selected -> Pipe a (TraceElement ()) Runner ObservedState
 observeManyStatesAfter queries' initialState action = do
-  CheckOptions {checkShrinkLevels} <- lift (liftWebDriverTT ask)
   result <- lift (runAction action)
   delta <- getNextOrFail =<< lift (registerNextStateObserver queries')
   Pipes.yield (TraceAction () action result)
   nonStutters <-
-    (loop (delta <> initialState) >-> Pipes.takeWhile (/= initialState) >-> Pipes.take checkShrinkLevels)
+    (loop (delta <> initialState) >-> Pipes.takeWhile (/= initialState) >-> Pipes.take 5)
       & Pipes.toListM
       & lift
       & fmap (fromMaybe (pure initialState) . NonEmpty.nonEmpty)
@@ -201,10 +202,12 @@ runActions' spec = do
 
 data Shrink a = Shrink Int a
 
-shrinkForest :: (a -> [a]) -> a -> Forest (Shrink a)
-shrinkForest shrink = go 1
+shrinkForest :: (a -> [a]) -> Int -> a -> Forest (Shrink a)
+shrinkForest shrink limit = go 1
   where
-    go n = map (\x -> Node (Shrink n x) (go (succ n) x)) . shrink
+    go n 
+      | n <= limit = map (\x -> Node (Shrink n x) (go (succ n) x)) . shrink
+      | otherwise = mempty
 
 traverseShrinks :: Monad m => ((Shrink a) -> m (Either e ())) -> Forest (Shrink a) -> Producer (Either e ()) m ()
 traverseShrinks test = go

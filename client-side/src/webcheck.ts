@@ -16,14 +16,12 @@ type AttributeQuery = { tag: "attribute"; name: string };
 type PropertyQuery = { tag: "property"; name: string };
 type CssValueQuery = { tag: "cssValue"; name: string };
 type TextQuery = { tag: "text" };
-type EnabledQuery = { tag: "enabled" };
 
 type StateQuery =
   | AttributeQuery
   | PropertyQuery
   | CssValueQuery
-  | TextQuery
-  | EnabledQuery;
+  | TextQuery;
 
 type Query = [Selector, StateQuery[]];
 
@@ -48,12 +46,6 @@ function runQuery([selector, states]: Query): Array<Map<StateQuery, Value>> {
           .getPropertyValue(stateQuery.name);
       case "text":
         return element.textContent;
-      case "enabled":
-        return (
-          (element instanceof HTMLButtonElement ||
-            element instanceof HTMLInputElement) &&
-          element.disabled === false
-        );
     }
   }
 
@@ -178,14 +170,14 @@ function _observeInitialStates(queries: Queries): ObservedState {
   return m;
 }
 
-async function observeNextStateForQuery(query: Query): Promise<ObservedState> {
-  function matchesSelector(node: Node): boolean {
-    return node instanceof Element && node.matches(query[0]);
-  }
+function matchesSelector(node: Node, selector: Selector): boolean {
+  return node instanceof Element && node.matches(selector);
+}
 
+async function observeNextStateMutation(selector: Selector): Promise<Node[]> {
   return new Promise((resolve) => {
     new MutationObserver((mutations, observer) => {
-      const matchesAnyQuery: boolean = mutations
+      const matching = mutations
         .flatMap((mutation) => {
           return [
             [mutation.target],
@@ -193,17 +185,62 @@ async function observeNextStateForQuery(query: Query): Promise<ObservedState> {
             toArray(mutation.removedNodes) as Node[],
           ].flat();
         })
-        .every(matchesSelector);
+        .filter((node) => matchesSelector(node, selector));
 
-      const m: ObservedState = new Map();
-      if (matchesAnyQuery) {
-        const values = runQuery(query);
-        m.set(query[0], values);
-      }
       observer.disconnect();
-      resolve(m);
+      resolve(matching);
     }).observe(document, { childList: true, subtree: true, attributes: true });
   });
+}
+
+async function observeNextStateForStateQuery(
+  selector: Selector,
+  stateQuery: StateQuery
+): Promise<Node[]> {
+  function observeNextEvent(eventType: string): Promise<Node[]> {
+    return new Promise((resolve) => {
+      (toArray(document.querySelectorAll(selector)) as Node[]).map(
+        (element: Node) => {
+          function handler(ev: Event) {
+            const nodes = ev.target ? [ev.target as Node] : [];
+            resolve(nodes);
+            element.removeEventListener(eventType, handler);
+          }
+          element.addEventListener(eventType, handler);
+        }
+      );
+    });
+  }
+  switch (stateQuery.tag) {
+    case "attribute":
+      return observeNextStateMutation(selector);
+    case "property":
+      switch (stateQuery.name) {
+        case "value":
+          return Promise.race(["keyup", "change"].map(observeNextEvent));
+        default:
+          return observeNextStateMutation(selector);
+      }
+    case "cssValue":
+      return observeNextStateMutation(selector);
+    case "text":
+      return observeNextStateMutation(selector);
+  }
+}
+
+async function observeNextStateForQuery(query: Query): Promise<ObservedState> {
+  const nodes = await Promise.race(
+    query[1].map((stateQuery) =>
+      observeNextStateForStateQuery(query[0], stateQuery)
+    )
+  );
+
+  const m: ObservedState = new Map();
+  if (nodes.length > 0) {
+    const values = runQuery(query);
+    m.set(query[0], values);
+  }
+  return m;
 }
 
 function observeNextState(queries: Queries): Promise<ObservedState> {
@@ -308,23 +345,22 @@ export function registerNextStateObserver(queries: Queries): string {
   return id;
 }
 
-
 type ObservedStateJSON = Array<[Selector, Array<Array<[StateQuery, Value]>>]>;
 
 function observedStateToJSON(s: ObservedState): ObservedStateJSON {
-    var r: ObservedStateJSON = [];
-    s.forEach((v, k) => {
-        r.push([k, v.map(mapToArray)]);
-    });
-    return r;
+  var r: ObservedStateJSON = [];
+  s.forEach((v, k) => {
+    r.push([k, v.map(mapToArray)]);
+  });
+  return r;
 }
 
-export function getNextState(id: string): Promise<ObservedStateJSON>  { 
-    return _getNextState(id).then(observedStateToJSON);
+export function getNextState(id: string): Promise<ObservedStateJSON> {
+  return _getNextState(id).then(observedStateToJSON);
 }
 
-export function observeInitialStates(queries: Queries): ObservedStateJSON { 
-    return observedStateToJSON(_observeInitialStates(queries));
+export function observeInitialStates(queries: Queries): ObservedStateJSON {
+  return observedStateToJSON(_observeInitialStates(queries));
 }
 
 type Either<a, b> = { Left: a } | { Right: b };

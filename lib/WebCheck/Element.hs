@@ -40,7 +40,6 @@ data ElementState
   | Property Text
   | CssValue Text
   | Text
-  | Enabled
   deriving (Eq, Ord, Show, Generic)
 
 instance Hashable ElementState where
@@ -49,7 +48,6 @@ instance Hashable ElementState where
     Property t -> s `hashWithSalt` (1 :: Int) `hashWithSalt` t
     CssValue t -> s `hashWithSalt` (2 :: Int) `hashWithSalt` t
     Text -> s `hashWithSalt` (3 :: Int)
-    Enabled -> s `hashWithSalt` (4 :: Int)
 
 instance JSON.ToJSON ElementState where
   toJSON = \case
@@ -57,7 +55,6 @@ instance JSON.ToJSON ElementState where
     Property name -> JSON.object ["tag" .= ("property" :: Text), "name" .= name]
     CssValue name -> JSON.object ["tag" .= ("cssValue" :: Text), "name" .= name]
     Text -> JSON.object ["tag" .= ("text" :: Text)]
-    Enabled -> JSON.object ["tag" .= ("enabled" :: Text)]
 
 instance JSON.ToJSONKey ElementState
 
@@ -68,7 +65,6 @@ instance JSON.FromJSON ElementState where
       "attribute" -> Attribute <$> (o .: "name")
       "property" -> Property <$> (o .: "name")
       "cssValue" -> CssValue <$> (o .: "name")
-      "enabled" -> pure Enabled
       "text" -> pure Text
       t -> parseFail ("Invalid tag: " <> t <> " in object: " <> show o)
 

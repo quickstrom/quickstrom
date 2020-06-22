@@ -82,7 +82,7 @@ check opts@CheckOptions {checkTests} spec = do
   case result of
     CheckFailure {failedAfter, failingTest} -> do
       logInfo . renderString $
-        prettyTrace (withoutStutterStates (trace failingTest)) <> line
+        prettyTrace ({- withoutStutterStates -} (trace failingTest)) <> line
       case reason failingTest of
         Just err -> logInfo (renderString (annotate (color Red) ("Verification failed with error:" <+> err <> line)))
         Nothing -> pure ()
@@ -165,11 +165,12 @@ beforeRun spec = do
 
 observeManyStatesAfter :: Queries -> ObservedState -> Action Selected -> Pipe a (TraceElement ()) Runner ObservedState
 observeManyStatesAfter queries' initialState action = do
+  observer <- lift (registerNextStateObserver queries')
   result <- lift (runAction action)
-  delta <- getNextOrFail =<< lift (registerNextStateObserver queries')
+  delta <- getNextOrFail observer
   Pipes.yield (TraceAction () action result)
   nonStutters <-
-    (loop (delta <> initialState) >-> Pipes.takeWhile (/= initialState) >-> Pipes.take 5)
+    (loop (initialState <> delta) >-> Pipes.takeWhile (/= initialState) >-> Pipes.take 5)
       & Pipes.toListM
       & lift
       & fmap (fromMaybe (pure initialState) . NonEmpty.nonEmpty)
@@ -183,7 +184,7 @@ observeManyStatesAfter queries' initialState action = do
     loop currentState = do
       Pipes.yield currentState
       delta <- getNextOrFail =<< lift (registerNextStateObserver queries')
-      loop (delta <> currentState)
+      loop (currentState <> delta)
 
 {-# SCC runActions' "runActions'" #-}
 runActions' :: Specification spec => spec -> Pipe (Action Selected) (TraceElement ()) Runner ()

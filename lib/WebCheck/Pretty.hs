@@ -106,4 +106,3 @@ prettyState = \case
   Property n -> "property" <+> pretty (show n)
   CssValue n -> "cssValue" <+> pretty (show n)
   Text -> "text"
-  Enabled -> "enabled"

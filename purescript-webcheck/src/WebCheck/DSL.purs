@@ -7,7 +7,7 @@ module WebCheck.DSL (
   Property,
   value,
   textContent,
-  enabled,
+  disabled,
   checked,
   CssValue,
   cssValue,
@@ -59,8 +59,8 @@ value = property (SProxy :: SProxy "value")
 textContent :: Property "textContent" String
 textContent = property (SProxy :: SProxy "textContent")
 
-enabled :: Property "enabled" Boolean
-enabled = property (SProxy :: SProxy "enabled")
+disabled :: Property "disabled" Boolean
+disabled = property (SProxy :: SProxy "disabled")
 
 checked :: Property "checked" Boolean
 checked = property (SProxy :: SProxy "checked")

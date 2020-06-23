@@ -17,11 +17,7 @@ type PropertyQuery = { tag: "property"; name: string };
 type CssValueQuery = { tag: "cssValue"; name: string };
 type TextQuery = { tag: "text" };
 
-type StateQuery =
-  | AttributeQuery
-  | PropertyQuery
-  | CssValueQuery
-  | TextQuery;
+type StateQuery = AttributeQuery | PropertyQuery | CssValueQuery | TextQuery;
 
 type Query = [Selector, StateQuery[]];
 
@@ -29,7 +25,7 @@ type Queries = Query[];
 
 type Value = string | number | boolean | Element | null;
 
-function runQuery([selector, states]: Query): Array<Map<StateQuery, Value>> {
+function runQuery([selector, states]: Query): ObservedState {
   function runStateQuery(element: Element, stateQuery: StateQuery): Value {
     switch (stateQuery.tag) {
       case "attribute":
@@ -37,7 +33,7 @@ function runQuery([selector, states]: Query): Array<Map<StateQuery, Value>> {
           | string
           | null;
       case "property":
-        console.log(stateQuery.name, element);
+        // console.log(stateQuery.name, element);
         // @ts-ignore
         return element[stateQuery.name];
       case "cssValue":
@@ -49,14 +45,15 @@ function runQuery([selector, states]: Query): Array<Map<StateQuery, Value>> {
     }
   }
 
-  return toArray(document.querySelectorAll(selector)).map((element) => {
+  const values = toArray(document.querySelectorAll(selector)).map((element) => {
     var m = new Map();
     states.forEach((state) => {
       m.set(state, runStateQuery(element as Element, state));
     });
-    console.log(m);
     return m;
   });
+
+  return singletonMap(selector, values);
 }
 
 // ACTIONS
@@ -139,10 +136,20 @@ export async function runAction(action: SelectedAction): Promise<void> {
 
 type ObservedState = Map<Selector, Array<Map<StateQuery, Value>>>;
 
+function emptyMap<K, V>(): Map<K, V> {
+  return new Map();
+}
+
+function singletonMap<K, V>(k: K, v: V): Map<K, V> {
+  const m = new Map();
+  m.set(k, v);
+  return m;
+}
+
 function mergeStates(states: ObservedState[]): ObservedState {
   const s = new Map();
   states.forEach((state) => {
-    state.forEach((value, key) => s.set(key, value));
+    state.forEach((values, key) => s.set(key, values));
   });
   return s;
 }
@@ -165,19 +172,20 @@ function isStateEqual(map1: ObservedState, map2: ObservedState): boolean {
 }
 
 function _observeInitialStates(queries: Queries): ObservedState {
-  const m = new Map();
-  queries.forEach((query) => m.set(query[0], runQuery(query)));
-  return m;
+  return mergeStates(queries.map(runQuery));
 }
 
 function matchesSelector(node: Node, selector: Selector): boolean {
   return node instanceof Element && node.matches(selector);
 }
 
-async function observeNextStateMutation(selector: Selector): Promise<Node[]> {
+async function observeNextStateMutation(
+  selector: Selector,
+  stateQuery: StateQuery
+): Promise<ObservedState> {
   return new Promise((resolve) => {
     new MutationObserver((mutations, observer) => {
-      const matching = mutations
+      const anyMatching = mutations
         .flatMap((mutation) => {
           return [
             [mutation.target],
@@ -185,26 +193,52 @@ async function observeNextStateMutation(selector: Selector): Promise<Node[]> {
             toArray(mutation.removedNodes) as Node[],
           ].flat();
         })
-        .filter((node) => matchesSelector(node, selector));
+        .some((node) => matchesSelector(node, selector));
 
       observer.disconnect();
-      resolve(matching);
+      const m: ObservedState = anyMatching
+        ? runQuery([selector, [stateQuery]])
+        : emptyMap();
+      resolve(m);
     }).observe(document, { childList: true, subtree: true, attributes: true });
+  });
+}
+
+async function observeNextPropertyChange(query: Query): Promise<ObservedState> {
+  return new Promise(async (resolve) => {
+    const initial = runQuery(query);
+    for (let ms = 100; ; ms = ms * 2) {
+      const current = runQuery(query);
+      if (!isStateEqual(current, initial)) {
+        resolve(current);
+        return;
+      }
+      await delay(ms);
+    }
   });
 }
 
 async function observeNextStateForStateQuery(
   selector: Selector,
   stateQuery: StateQuery
-): Promise<Node[]> {
-  function observeNextEvent(eventType: string): Promise<Node[]> {
+): Promise<ObservedState> {
+  function observeNextEvent(
+    eventType: string,
+    extract: (node: any) => Value
+  ): Promise<ObservedState> {
     return new Promise((resolve) => {
       (toArray(document.querySelectorAll(selector)) as Node[]).map(
         (element: Node) => {
           function handler(ev: Event) {
-            const nodes = ev.target ? [ev.target as Node] : [];
-            resolve(nodes);
             element.removeEventListener(eventType, handler);
+            if (ev.target != null) {
+              const s: ObservedState = singletonMap(selector, [
+                singletonMap(stateQuery, extract(ev.target as Node)),
+              ]);
+              resolve(s);
+            } else {
+              resolve(emptyMap());
+            }
           }
           element.addEventListener(eventType, handler);
         }
@@ -213,34 +247,37 @@ async function observeNextStateForStateQuery(
   }
   switch (stateQuery.tag) {
     case "attribute":
-      return observeNextStateMutation(selector);
+      return observeNextStateMutation(selector, stateQuery);
     case "property":
       switch (stateQuery.name) {
         case "value":
-          return Promise.race(["keyup", "change"].map(observeNextEvent));
+          return Promise.race(
+            ["keyup", "change"].map((eventType) =>
+              observeNextEvent(
+                eventType,
+                (e: HTMLInputElement | HTMLTextAreaElement) => e.value
+              )
+            )
+          );
+        case "disabled":
+          return observeNextPropertyChange([selector, [stateQuery]]);
         default:
-          return observeNextStateMutation(selector);
+          return observeNextStateMutation(selector, stateQuery);
       }
     case "cssValue":
-      return observeNextStateMutation(selector);
+      return observeNextStateMutation(selector, stateQuery);
     case "text":
-      return observeNextStateMutation(selector);
+      return observeNextStateMutation(selector, stateQuery);
   }
 }
 
 async function observeNextStateForQuery(query: Query): Promise<ObservedState> {
-  const nodes = await Promise.race(
+  await Promise.race(
     query[1].map((stateQuery) =>
       observeNextStateForStateQuery(query[0], stateQuery)
     )
   );
-
-  const m: ObservedState = new Map();
-  if (nodes.length > 0) {
-    const values = runQuery(query);
-    m.set(query[0], values);
-  }
-  return m;
+  return _observeInitialStates([query]);
 }
 
 function observeNextState(queries: Queries): Promise<ObservedState> {
@@ -339,7 +376,7 @@ export function registerNextStateObserver(queries: Queries): string {
   const id = uuidv4();
   const p = Promise.race([
     observeNextState(queries),
-    delay(100).then(() => _observeInitialStates(queries)),
+    delay(1000).then(() => _observeInitialStates(queries)),
   ]);
   registeredObservers.set(id, p);
   return id;
@@ -350,6 +387,7 @@ type ObservedStateJSON = Array<[Selector, Array<Array<[StateQuery, Value]>>]>;
 function observedStateToJSON(s: ObservedState): ObservedStateJSON {
   var r: ObservedStateJSON = [];
   s.forEach((v, k) => {
+    // throw Error(v.toString());
     r.push([k, v.map(mapToArray)]);
   });
   return r;

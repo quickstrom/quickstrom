@@ -51,6 +51,9 @@ in haskellPackages.shellFor {
     # chromedriver
 
     webcheck-purs-ide
+    # only for lorri
+    purescript-webcheck
+    client-side
   ]);
   FONTCONFIG_FILE = pkgs.makeFontsConf {
     fontDirectories = fonts;

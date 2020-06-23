@@ -8,6 +8,7 @@ let
       # nodejs
       nodePackages.typescript
       nodePackages.browserify
+      nodePackages.mocha
     ];
     buildPhase = ''
         tsc

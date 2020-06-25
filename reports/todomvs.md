@@ -1,4 +1,7 @@
 # TodoMVCs TODO
+https://github.com/tastejs/todomvc-app-template/commit/2055b9d76475336324d01cd825f6462763ec3c19
+
+## Results
 
 ✓ examples/backbone 
 ❌ angularjs
@@ -67,18 +70,18 @@
 ✓ riotjs 
 ✓ jsblocks
 
-## Real-time
+### Real-time
 
 ❌ http://todomvc-socketstream.herokuapp.com/
     - old format (uses IDs instead of classes)
 ✓ http://todomvc.com/examples/firebase-angular
 
-## Node.js
+### Node.js
 
 ❌ http://gcloud-todos.appspot.com/
     - 404
 
-## Non-framework implementation
+### Non-framework implementation
 
 ❌ vanillajs
     - adds pending item on other iteraction (toggle all, change filter)
@@ -87,7 +90,6 @@
     - same as `vanillajs`: adds pending item on other iteraction
 ✓ jquery
 
-## Other sources
+### Other sources
 
-❌ https://swannodette.github.io/todomvc/labs/architecture-examples/om/
-    - old format (uses IDs instead of classes)
+✓ https://swannodette.github.io/todomvc/labs/architecture-examples/om/

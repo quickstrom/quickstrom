@@ -9,19 +9,22 @@ import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String (Pattern(..), split)
 import Data.Tuple (Tuple(..))
 
+queries :: Queries
+queries = idBasedQueries
+
 readyWhen :: Selector
-readyWhen = ".todoapp"
+readyWhen = queries.top
 
 actions :: Actions
 actions = appFoci <> appClicks <> appKeyPresses 
   where
     appClicks = 
-      [ Tuple 5 (Click ".todoapp .filters a:not(.selected)")
-      , Tuple 1 (Click ".todoapp .filters a.selected")
-      , Tuple 1 (Click ".todoapp label[for=toggle-all]")
-      , Tuple 1 (Click ".todoapp .destroy")
+      [ Tuple 5 (Click queries.filters.notSelected)
+      , Tuple 1 (Click queries.filters.selected)
+      , Tuple 1 (Click queries.toggleAll)
+      , Tuple 1 (Click queries.destroy)
       ]
-    appFoci = [ Tuple 5 (Focus ".todoapp .new-todo") ]
+    appFoci = [ Tuple 5 (Focus queries.newTodo) ]
     appKeyPresses =
       [ Tuple 5 (keyPress 'a')
       , Tuple 5 (specialKeyPress KeyEnter)
@@ -123,7 +126,7 @@ proposition =
     
     
     selectedFilter = do
-      f <- queryOne ".todoapp .filters .selected" { text: textContent }
+      f <- queryOne queries.filters.selected { text: textContent }
       parse f.text
       where
         parse = case _ of
@@ -136,8 +139,8 @@ proposition =
     items =
       foldMap (\(Tuple li label) -> if li.display /= "none" then pure label else mempty)
       (zip
-        (queryAll ".todo-list li" { display: cssValue "display" })
-        (queryAll ".todo-list li label" { text: textContent }))
+        (queryAll queries.items.listItems { display: cssValue "display" })
+        (queryAll queries.items.labels { text: textContent }))
     
     itemTexts = map _.text items
     
@@ -146,7 +149,7 @@ proposition =
     numItems :: Int
     numItems = length items
     
-    checkboxes = queryAll ".todo-list li input[type=checkbox]" { checked: checked }
+    checkboxes = queryAll queries.items.checkboxes { checked: checked }
     
     numUnchecked :: Int
     numUnchecked = length (filter (not <<< _.checked) checkboxes)
@@ -155,16 +158,69 @@ proposition =
     numChecked = length (filter _.checked checkboxes)
     
     pendingText :: String
-    pendingText = case queryOne ".new-todo" { value: value } of
+    pendingText = case queryOne queries.newTodo { value: value } of
       Just el -> el.value
       Nothing -> ""
     
     numItemsLeft :: Maybe Int
     numItemsLeft = do
-      strong <- queryOne ".todoapp .todo-count" { text: textContent }
+      strong <- queryOne queries.todoCount { text: textContent }
       first <- head (split (Pattern " ") strong.text)
       Int.fromString first
 
 data Filter = All | Active | Completed
 
 derive instance eqFilter :: Eq Filter
+
+type Queries = { 
+  top :: Selector,
+  filters :: {
+    selected :: Selector,
+    notSelected :: Selector
+  },
+  toggleAll :: Selector,
+  destroy :: Selector,
+  newTodo :: Selector,
+  todoCount :: Selector,
+  items :: {
+    listItems :: Selector,
+    labels :: Selector,
+    checkboxes :: Selector
+  }
+}
+
+classBasedQueries :: Queries
+classBasedQueries = {
+  top: ".todoapp",
+  filters: {
+    selected: ".todoapp .filters a.selected",
+    notSelected: ".todoapp .filters a:not(.selected)"
+  },
+  destroy: ".todoapp .destroy",
+  toggleAll: ".todoapp label[for=toggle-all]",
+  newTodo: ".todoapp .new-todo",
+  todoCount: ".todoapp .todo-count",
+  items: {
+    listItems: ".todo-list li",
+    labels: ".todo-list li label",
+    checkboxes: ".todo-list li input[type=checkbox]"
+  }
+}
+
+idBasedQueries :: Queries
+idBasedQueries = {
+  top: "#todoapp",
+  filters: {
+    selected: "#todoapp #filters a.selected",
+    notSelected: "#todoapp #filters a:not(.selected)"
+  },
+  destroy: "#todoapp .destroy",
+  toggleAll: "#todoapp label[for=toggle-all]",
+  newTodo: "#todoapp #new-todo",
+  todoCount: "#todoapp #todo-count",
+  items: {
+    listItems: "#todo-list li",
+    labels: "#todo-list li label",
+    checkboxes: "#todo-list li input[type=checkbox]"
+  }
+}

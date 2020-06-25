@@ -69,8 +69,12 @@ proposition =
                 pendingText == next pendingText
     
     addNew =
-      Just pendingText == next lastItemText
-        && next (pendingText == "")
+      next (pendingText == "")
+      && case next selectedFilter of
+           Just All -> Just pendingText == next lastItemText
+           Just Active -> Just pendingText == next lastItemText
+           Just Completed -> itemTexts == next itemTexts
+           Nothing -> false
 
     checkOne =
       pendingText == next pendingText
@@ -157,7 +161,7 @@ proposition =
     
     numItemsLeft :: Maybe Int
     numItemsLeft = do
-      strong <- queryOne ".todoapp .todo-count strong" { text: textContent }
+      strong <- queryOne ".todoapp .todo-count" { text: textContent }
       first <- head (split (Pattern " ") strong.text)
       Int.fromString first
 

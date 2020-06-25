@@ -130,7 +130,7 @@ runSingle spec size = do
       trace <- annotateStutteringSteps <$> inNewPrivateWindow do
         beforeRun spec
         elementsToTrace (producer >-> runActions' spec)
-      logInfoWD (renderString (prettyTrace ({- withoutStutterStates -} trace) <> line))
+      -- logInfoWD (renderString (prettyTrace ({- withoutStutterStates -} trace) <> line))
       case verify spec (trace ^.. nonStutterStates) of
         Right Accepted -> pure (Right ())
         Right Rejected -> pure (Left (FailingTest n trace Nothing))
@@ -169,18 +169,15 @@ observeManyStatesAfter queries' initialState action = do
   result <- lift (runAction action)
   observer <- lift (registerNextStateObserver queries')
   delta <- getNextOrFail observer
-  -- let afterDelta = initialState <> delta
   let afterDelta = delta <> initialState
   Pipes.yield (TraceAction () action result)
-  Pipes.yield (TraceState () afterDelta)
-  -- nonStutters <-
-  --   (loop afterDelta >-> Pipes.takeWhile (/= afterDelta) >-> Pipes.take 5)
-  --     & Pipes.toListM
-  --     & lift
-  --     & fmap (fromMaybe (pure afterDelta) . NonEmpty.nonEmpty)
-  -- mapM_ (Pipes.yield . (TraceState ())) nonStutters
-  -- pure (NonEmpty.last nonStutters)
-  pure afterDelta
+  nonStutters <-
+    (loop afterDelta >-> Pipes.takeWhile (/= afterDelta) >-> Pipes.take 5)
+      & Pipes.toListM
+      & lift
+      & fmap (fromMaybe (pure afterDelta) . NonEmpty.nonEmpty)
+  mapM_ (Pipes.yield . (TraceState ())) nonStutters
+  pure (NonEmpty.last nonStutters)
   where
     getNextOrFail observer =
       either (fail . Text.unpack) pure
@@ -202,7 +199,7 @@ runActions' spec = do
     loop currentState = do
       action <- Pipes.await
       newState <- observeManyStatesAfter queries' currentState action
-      lift (logInfoWD (show currentState <> "\n" <> show newState))
+      -- lift (logInfoWD (show currentState <> "\n" <> show newState))
       loop newState
 
 data Shrink a = Shrink Int a

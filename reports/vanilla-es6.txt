@@ -1,0 +1,278 @@
+1. State
+  • .new-todo
+      -
+         - property "value" = ""
+  • .todo-list li
+      
+  • .todo-list li input[type=checkbox]
+      
+  • .todo-list li label
+      
+  • .todoapp .filters .selected
+      -
+         - property "textContent" = "All"
+  • .todoapp .todo-count
+      -
+         - property "textContent" = "0 items left"
+2. key press '\57351'
+3. State
+  • .new-todo
+      -
+         - property "value" = ""
+  • .todo-list li
+      
+  • .todo-list li input[type=checkbox]
+      
+  • .todo-list li label
+      
+  • .todoapp .filters .selected
+      -
+         - property "textContent" = "All"
+  • .todoapp .todo-count
+      -
+         - property "textContent" = "0 items left"
+4. key press 'a'
+5. State
+  • .new-todo
+      -
+         - property "value" = "a"
+  • .todo-list li
+      
+  • .todo-list li input[type=checkbox]
+      
+  • .todo-list li label
+      
+  • .todoapp .filters .selected
+      -
+         - property "textContent" = "All"
+  • .todoapp .todo-count
+      -
+         - property "textContent" = "0 items left"
+6. key press '\57351'
+7. State
+  • .new-todo
+      -
+         - property "value" = ""
+  • .todo-list li
+      -
+         - cssValue "display" = "list-item"
+  • .todo-list li input[type=checkbox]
+      -
+         - property "checked" = False
+  • .todo-list li label
+      -
+         - property "textContent" = "a"
+  • .todoapp .filters .selected
+      -
+         - property "textContent" = "All"
+  • .todoapp .todo-count
+      -
+         - property "textContent" = "1 item left"
+8. click .todoapp .filters a:not(.selected)[0]
+9. State
+  • .new-todo
+      -
+         - property "value" = ""
+  • .todo-list li
+      -
+         - cssValue "display" = "list-item"
+  • .todo-list li input[type=checkbox]
+      -
+         - property "checked" = False
+  • .todo-list li label
+      -
+         - property "textContent" = "a"
+  • .todoapp .filters .selected
+      -
+         - property "textContent" = "Active"
+  • .todoapp .todo-count
+      -
+         - property "textContent" = "1 item left"
+10. click .todoapp .filters a.selected[0]
+11. State
+  • .new-todo
+      -
+         - property "value" = ""
+  • .todo-list li
+      -
+         - cssValue "display" = "list-item"
+  • .todo-list li input[type=checkbox]
+      -
+         - property "checked" = False
+  • .todo-list li label
+      -
+         - property "textContent" = "a"
+  • .todoapp .filters .selected
+      -
+         - property "textContent" = "Active"
+  • .todoapp .todo-count
+      -
+         - property "textContent" = "1 item left"
+12. click .todoapp .filters a:not(.selected)[1]
+13. State
+  • .new-todo
+      -
+         - property "value" = ""
+  • .todo-list li
+      
+  • .todo-list li input[type=checkbox]
+      
+  • .todo-list li label
+      
+  • .todoapp .filters .selected
+      -
+         - property "textContent" = "Completed"
+  • .todoapp .todo-count
+      -
+         - property "textContent" = "1 item left"
+14. click .todoapp .filters a:not(.selected)[0]
+15. State
+  • .new-todo
+      -
+         - property "value" = ""
+  • .todo-list li
+      -
+         - cssValue "display" = "list-item"
+  • .todo-list li input[type=checkbox]
+      -
+         - property "checked" = False
+  • .todo-list li label
+      -
+         - property "textContent" = "a"
+  • .todoapp .filters .selected
+      -
+         - property "textContent" = "All"
+  • .todoapp .todo-count
+      -
+         - property "textContent" = "1 item left"
+16. click .todoapp .filters a:not(.selected)[1]
+17. State
+  • .new-todo
+      -
+         - property "value" = ""
+  • .todo-list li
+      
+  • .todo-list li input[type=checkbox]
+      
+  • .todo-list li label
+      
+  • .todoapp .filters .selected
+      -
+         - property "textContent" = "Completed"
+  • .todoapp .todo-count
+      -
+         - property "textContent" = "1 item left"
+18. focus .todoapp .new-todo[0]
+19. State
+  • .new-todo
+      -
+         - property "value" = ""
+  • .todo-list li
+      
+  • .todo-list li input[type=checkbox]
+      
+  • .todo-list li label
+      
+  • .todoapp .filters .selected
+      -
+         - property "textContent" = "Completed"
+  • .todoapp .todo-count
+      -
+         - property "textContent" = "1 item left"
+20. key press 'a'
+21. State
+  • .new-todo
+      -
+         - property "value" = "a"
+  • .todo-list li
+      
+  • .todo-list li input[type=checkbox]
+      
+  • .todo-list li label
+      
+  • .todoapp .filters .selected
+      -
+         - property "textContent" = "Completed"
+  • .todoapp .todo-count
+      -
+         - property "textContent" = "1 item left"
+22. click .todoapp label[for=toggle-all][0]
+23. State
+  • .new-todo
+      -
+         - property "value" = ""
+  • .todo-list li
+      -
+         - cssValue "display" = "list-item"
+      -
+         - cssValue "display" = "list-item"
+  • .todo-list li input[type=checkbox]
+      -
+         - property "checked" = True
+      -
+         - property "checked" = True
+  • .todo-list li label
+      -
+         - property "textContent" = "a"
+      -
+         - property "textContent" = "a"
+  • .todoapp .filters .selected
+      -
+         - property "textContent" = "Completed"
+  • .todoapp .todo-count
+      -
+         - property "textContent" = "0 items left"
+24. focus .todoapp .new-todo[0]
+25. State
+  • .new-todo
+      -
+         - property "value" = ""
+  • .todo-list li
+      -
+         - cssValue "display" = "list-item"
+      -
+         - cssValue "display" = "list-item"
+  • .todo-list li input[type=checkbox]
+      -
+         - property "checked" = True
+      -
+         - property "checked" = True
+  • .todo-list li label
+      -
+         - property "textContent" = "a"
+      -
+         - property "textContent" = "a"
+  • .todoapp .filters .selected
+      -
+         - property "textContent" = "Completed"
+  • .todoapp .todo-count
+      -
+         - property "textContent" = "0 items left"
+26. key press 'a'
+27. State
+  • .new-todo
+      -
+         - property "value" = "a"
+  • .todo-list li
+      -
+         - cssValue "display" = "list-item"
+      -
+         - cssValue "display" = "list-item"
+  • .todo-list li input[type=checkbox]
+      -
+         - property "checked" = True
+      -
+         - property "checked" = True
+  • .todo-list li label
+      -
+         - property "textContent" = "a"
+      -
+         - property "textContent" = "a"
+  • .todoapp .filters .selected
+      -
+         - property "textContent" = "Completed"
+  • .todoapp .todo-count
+      -
+         - property "textContent" = "0 items left"
+
+Failed after 4 tests and 5 levels of shrinking.

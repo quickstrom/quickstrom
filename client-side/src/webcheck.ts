@@ -182,7 +182,7 @@ function matchesSelector(node: Node, selector: Selector): boolean {
 async function observeNextStateMutation(
   selector: Selector,
   stateQuery: StateQuery
-): Promise<ObservedState> {
+): Promise<void> {
   return new Promise((resolve) => {
     new MutationObserver((mutations, observer) => {
       const anyMatching = mutations
@@ -199,19 +199,18 @@ async function observeNextStateMutation(
       const m: ObservedState = anyMatching
         ? runQuery([selector, [stateQuery]])
         : emptyMap();
-      resolve(m);
+      resolve();
     }).observe(document, { childList: true, subtree: true, attributes: true });
   });
 }
 
-async function observeNextPropertyChange(query: Query): Promise<ObservedState> {
+async function observeNextPropertyChange(query: Query): Promise<void> {
   return new Promise(async (resolve) => {
     const initial = runQuery(query);
     for (let ms = 100; ; ms = ms * 2) {
       const current = runQuery(query);
       if (!isStateEqual(current, initial)) {
-        resolve(current);
-        return;
+        return resolve();
       }
       await delay(ms);
     }
@@ -221,11 +220,11 @@ async function observeNextPropertyChange(query: Query): Promise<ObservedState> {
 async function observeNextStateForStateQuery(
   selector: Selector,
   stateQuery: StateQuery
-): Promise<ObservedState> {
+): Promise<void> {
   function observeNextEvent(
     eventType: string,
     extract: (node: any) => Value
-  ): Promise<ObservedState> {
+  ): Promise<void> {
     return new Promise((resolve) => {
       (toArray(document.querySelectorAll(selector)) as Node[]).map(
         (element: Node) => {
@@ -235,9 +234,7 @@ async function observeNextStateForStateQuery(
               const s: ObservedState = singletonMap(selector, [
                 singletonMap(stateQuery, extract(ev.target as Node)),
               ]);
-              resolve(s);
-            } else {
-              resolve(emptyMap());
+              resolve();
             }
           }
           element.addEventListener(eventType, handler);
@@ -271,77 +268,17 @@ async function observeNextStateForStateQuery(
   }
 }
 
-async function observeNextStateForQuery(query: Query): Promise<ObservedState> {
-  await Promise.race(
+async function observeNextStateForQuery(query: Query): Promise<void> {
+  return await Promise.race(
     query[1].map((stateQuery) =>
       observeNextStateForStateQuery(query[0], stateQuery)
     )
   );
-  return _observeInitialStates([query]);
 }
 
-function observeNextState(queries: Queries): Promise<ObservedState> {
-  return Promise.race(queries.map(observeNextStateForQuery));
-}
-
-async function observeNextNonStutterState<Q extends Query>(
-  previous: ObservedState,
-  queries: Q[]
-): Promise<ObservedState> {
-  var nextState;
-  do {
-    nextState = mergeStates([previous, await observeNextState(queries)]);
-  } while (isStateEqual(previous, nextState));
-  return nextState;
-}
-
-type Specification = {
-  actions: Action[];
-  queries: Query[];
-  maxActions?: number;
-  actionTimeout?: number;
-};
-
-export async function runAndObserveAction(
-  spec: Specification,
-  currentState: ObservedState,
-  action: SelectedAction
-): Promise<Optional<ObservedState>> {
-  const changedState = observeNextNonStutterState(currentState, spec.queries);
-  // console.info(`Running action #${n}: ${renderAction(action)}`);
-  await runAction(action);
-  const newState = await Promise.race([
-    changedState,
-    delay(spec.actionTimeout || 1000).then(() => currentState),
-  ]);
-  let merged = mergeStates([currentState, newState]);
-  return isStateEqual(currentState, merged) ? null : merged;
-}
-
-export async function runNext(
-  spec: Specification,
-  n: number,
-  currentState: ObservedState
-): Promise<void> {
-  if (n <= (spec.maxActions || 100)) {
-    const selected = selectNextAction(spec.actions);
-    if (selected) {
-      const newState = await runAndObserveAction(spec, currentState, selected);
-      if (newState) {
-        await runNext(spec, n + 1, newState);
-      } else {
-        console.warn("Stutter...");
-        await runNext(spec, n + 1, currentState);
-      }
-    } else {
-      console.warn("No more valid actions. Terminal state:", currentState);
-    }
-  } else {
-    console.warn(
-      "Ran maxmimum number of actions. Terminal state:",
-      currentState
-    );
-  }
+async function observeNextState(queries: Queries): Promise<ObservedState> {
+  await Promise.race(queries.map(observeNextStateForQuery));
+  return _observeInitialStates(queries);
 }
 
 function _getNextState(id: string): Promise<ObservedState> {
@@ -376,7 +313,7 @@ export function registerNextStateObserver(queries: Queries): string {
   const id = uuidv4();
   const p = Promise.race([
     observeNextState(queries),
-    delay(1000).then(() => _observeInitialStates(queries)),
+    delay(100).then(() => _observeInitialStates(queries)),
   ]);
   registeredObservers.set(id, p);
   return id;

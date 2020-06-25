@@ -20,9 +20,6 @@ proposition =
       postComment = isVisible "form" && next (commentPosted || invalidComment)
   in isVisible "form" && always postComment
 
-buttonIsEnabled :: Boolean
-buttonIsEnabled = fromMaybe false (_.enabled <$> queryOne "button" { enabled })
-
 commentIsValid :: Boolean
 commentIsValid = commentLength (fromMaybe "" (_.textContent <$> queryOne ".comment" { textContent })) >= 3
   where

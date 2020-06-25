@@ -1,16 +1,16 @@
 { pkgs ? import ../nixpkgs.nix { } }:
 let
-
+  src = pkgs.nix-gitignore.gitignoreSource [] ./.;
   client-side = pkgs.stdenv.mkDerivation  {
+    inherit src;
     name = "webcheck-client-side";
-    src = pkgs.nix-gitignore.gitignoreSource [] ./.;
     buildInputs = with pkgs; [
       # nodejs
       nodePackages.typescript
       nodePackages.browserify
-      nodePackages.mocha
     ];
     buildPhase = ''
+        echo "Compiling ${src} ..."
         tsc
         browserify -s webcheck target/webcheck.js -o target/webcheck-client-side.js
     '';

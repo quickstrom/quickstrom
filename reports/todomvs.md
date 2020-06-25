@@ -6,8 +6,7 @@ https://github.com/tastejs/todomvc-app-template/commit/2055b9d76475336324d01cd82
 ✓ examples/backbone 
 ❌ angularjs
     - inconsistent clearing of input field
-❌ emberjs
-    - old format (uses IDs instead of classes)
+✓ emberjs
 ✓ knockoutjs 
 ? dojo 
 ✓ knockback 
@@ -15,16 +14,17 @@ https://github.com/tastejs/todomvc-app-template/commit/2055b9d76475336324d01cd82
 ✓ polymer/index.html 
 ✓ react 
 ❌ mithril 
+    - inconsistent clearing of input field
 ✓ vue 
 ✓ backbone_marionette 
 ✓ kotlin-react 
 ✓ spine 
 ✓ vanilladart/build/web 
-❌ gwt 
-    - old format (uses IDs instead of classes)
+✓ gwt 
 ✓ closure 
 ✓ elm 
 ? angular-dart/web 
+     - ???
 ✓ typescript-backbone 
 ✓ typescript-angular 
 ✓ typescript-react 
@@ -46,19 +46,16 @@ https://github.com/tastejs/todomvc-app-template/commit/2055b9d76475336324d01cd82
     - require problem?
 ? cujo/index.html 
     - require problem?
-❌ sammyjs 
-    - old format (uses IDs instead of classes)
+✓ sammyjs 
 ❌ somajs 
     - 404
 ❌ duel/www 
     - inconsistent clearing of input field (same as Angular)
-❌ kendo 
-    - old format (uses IDs instead of classes)
+✓ kendo 
 ❌ dijon 
     - no filters
 ✓ enyo_backbone 
 ❌ sapui5 
-    - old format (uses IDs instead of classes)
     - no input field
 ✓ exoskeleton 
 ✓ ractive 
@@ -73,7 +70,7 @@ https://github.com/tastejs/todomvc-app-template/commit/2055b9d76475336324d01cd82
 ### Real-time
 
 ❌ http://todomvc-socketstream.herokuapp.com/
-    - old format (uses IDs instead of classes)
+    - Inconclusive: can't clear state between runs
 ✓ http://todomvc.com/examples/firebase-angular
 
 ### Node.js

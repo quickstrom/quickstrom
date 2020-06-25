@@ -6,11 +6,11 @@ import Data.Array (filter, foldMap, head, last, zip)
 import Data.Foldable (length)
 import Data.Int as Int
 import Data.Maybe (Maybe(..), fromMaybe)
-import Data.String (Pattern(..), split)
+import Data.String (Pattern(..), split, trim)
 import Data.Tuple (Tuple(..))
 
 queries :: Queries
-queries = idBasedQueries
+queries = classBasedQueries
 
 readyWhen :: Selector
 readyWhen = queries.top
@@ -165,7 +165,7 @@ proposition =
     numItemsLeft :: Maybe Int
     numItemsLeft = do
       strong <- queryOne queries.todoCount { text: textContent }
-      first <- head (split (Pattern " ") strong.text)
+      first <- head (split (Pattern " ") (trim strong.text))
       Int.fromString first
 
 data Filter = All | Active | Completed

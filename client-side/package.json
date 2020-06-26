@@ -1,0 +1,13 @@
+{
+  "name": "webcheck-client-side",
+  "version": "1.0.0",
+  "main": "src/webcheck.ts",
+  "license": "GPL-3.0",
+  "scripts": {
+    "build": "parcel build src/webcheck.ts"
+  },
+  "dependencies": {
+    "parcel-bundler": "^1.12.4",
+    "typescript": "^3.9.5"
+  }
+}

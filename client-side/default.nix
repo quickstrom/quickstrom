@@ -1,23 +1,21 @@
 { pkgs ? import ../nixpkgs.nix { } }:
 let
   src = pkgs.nix-gitignore.gitignoreSource [] ./.;
-  client-side = pkgs.stdenv.mkDerivation  {
-    inherit src;
+  client-side = pkgs.mkYarnPackage {
     name = "webcheck-client-side";
-    buildInputs = with pkgs; [
-      # nodejs
-      nodePackages.typescript
-      nodePackages.browserify
+    src = ./.;
+    packageJSON = ./package.json;
+    yarnLock = ./yarn.lock;
+    # NOTE: this is optional and generated dynamically if omitted
+    yarnNix = ./yarn.nix;
+    extraBuildInputs = with pkgs; [
+      yarn
+      yarn2nix
     ];
-    buildPhase = ''
-        echo "Compiling ${src} ..."
-        tsc
-        browserify -s webcheck target/webcheck.js -o target/webcheck-client-side.js
-    '';
     installPhase = ''
-        mkdir $out
-        cp target/webcheck-client-side.js $out/
+      mkdir -p $out
+      yarn run parcel build src/webcheck.ts -d $out
     '';
+    distPhase = ''true'';
   };
-
 in client-side

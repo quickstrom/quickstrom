@@ -89,11 +89,12 @@ To check a specification, you must have a running `geckodriver` instance:
 geckodriver 2>&1 > /dev/null
 ```
 
-Next, run `webcheck` and supply the path to the specification file. Let's run
-it through Cabal (assuming you're in a nix-shell):
+Next, run `webcheck` and supply the path to the specification file along with
+the origin URL (can also be a local file path). Let's run it through Cabal
+(assuming you're in a nix-shell):
 
 ```
-cabal run webcheck -- /path/to/my/specification
+cabal run webcheck -- /path/to/my/specification http://example.com
 ```
 
 For instance, you can run the TodoMVC React specification:

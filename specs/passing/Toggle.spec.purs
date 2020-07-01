@@ -3,8 +3,6 @@ module ToggleSpecification where
 import WebCheck.DSL
 import Data.Maybe (Maybe(..))
 
-origin = "file:///home/owi/projects/haskell/webcheck/test/toggle.html"
-
 readyWhen = "button"
 
 actions = clicks

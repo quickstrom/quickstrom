@@ -55,14 +55,14 @@ nix-build
 Now, WebCheck is available in the `result`:
 
 ```
-result/bin/webcheck <YOUR SPEC FILE>
+result/bin/webcheck <YOUR SPEC FILE> <ORIGIN URL>
 ```
 
 Alternatively, install it directly into your environment:
 
 ```
 nix-env -i -A webcheck -f default.nix
-webcheck <YOUR SPEC FILE>
+webcheck <YOUR SPEC FILE> <ORIGIN URL>
 ```
 
 **NOTE:** You need to also run geckodriver for WebCheck to work. See
@@ -99,7 +99,7 @@ cabal run webcheck -- /path/to/my/specification
 For instance, you can run the TodoMVC React specification:
 
 ```
-cabal run webcheck -- specs/TodoMVC.purs http://todomvc.com/examples/react
+cabal run webcheck -- specs/other/TodoMVC.purs http://todomvc.com/examples/react
 ```
 
 **NOTE:** Running tests can take a lot of time, especially if there's a

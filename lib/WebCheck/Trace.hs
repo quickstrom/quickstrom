@@ -23,6 +23,7 @@ module WebCheck.Trace
     traceElements,
     observedStates,
     traceActions,
+    traceActionFailures,
     nonStutterStates,
     TraceElementEffect (..),
     annotateStutteringSteps,
@@ -62,6 +63,9 @@ observedStates = traceElements . traverse . _Ctor @"TraceState" . position @2
 
 traceActions :: Traversal' (Trace ann) (Action Selected)
 traceActions = traceElements . traverse . _Ctor @"TraceAction" . position @2
+
+traceActionFailures :: Traversal' (Trace ann) Text
+traceActionFailures = traceElements . traverse . _Ctor @"TraceAction" . position @3 . _Ctor @"ActionFailed"
 
 nonStutterStates :: Monoid r => Getting r (Trace TraceElementEffect) ObservedState
 nonStutterStates = traceElements . traverse . _Ctor @"TraceState" . filtered ((== NoStutter) . fst) . position @2

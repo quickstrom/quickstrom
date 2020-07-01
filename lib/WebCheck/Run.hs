@@ -5,6 +5,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -13,7 +14,6 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 
 module WebCheck.Run
   ( CheckOptions (..),
@@ -47,17 +47,17 @@ import qualified Network.Wreq as Wreq
 import Pipes ((>->), Consumer, Effect, Pipe, Producer)
 import qualified Pipes
 import qualified Pipes.Prelude as Pipes
-import Protolude hiding (Selector, catchError, check, throwError, trace)
+import Protolude hiding (Selector, catchError, check, throwError, trace, list)
 import System.Environment (lookupEnv)
 import qualified Test.QuickCheck as QuickCheck
+import Text.URI (URI)
+import qualified Text.URI as URI
 import Web.Api.WebDriver hiding (Action, Selector, hPutStrLn, runIsolated)
 import WebCheck.Element
 import WebCheck.Pretty
 import WebCheck.Result
 import WebCheck.Specification
 import WebCheck.Trace
-import Text.URI (URI)
-import qualified Text.URI as URI
 
 type Runner = WebDriverTT (ReaderT CheckOptions) IO
 
@@ -82,7 +82,10 @@ check opts@CheckOptions {checkTests} spec = do
   case result of
     CheckFailure {failedAfter, failingTest} -> do
       logInfo . renderString $
-        prettyTrace ({- withoutStutterStates -} (trace failingTest)) <> line
+        prettyTrace
+          ( {- withoutStutterStates -} (trace failingTest)
+          )
+          <> line
       case reason failingTest of
         Just err -> logInfo (renderString (annotate (color Red) ("Verification failed with error:" <+> err <> line)))
         Nothing -> pure ()
@@ -118,13 +121,16 @@ runSingle spec size = do
       >-> Pipes.take size
       & runAndVerifyIsolated 0
   case result of
-    Right () -> pure (Right ())
+    Right trace ->
+      case trace ^.. traceActionFailures of
+        [] -> pure (Right ())
+        failures -> pure (Left (FailingTest 0 trace (pure ("There were action failures:" <> line <> list (map pretty failures)))))
     f@(Left (FailingTest _ trace _)) -> do
       CheckOptions {checkShrinkLevels} <- liftWebDriverTT ask
       logInfoWD "Test failed. Shrinking..."
       let shrinks = shrinkForest (QuickCheck.shrinkList shrinkAction) checkShrinkLevels (trace ^.. traceActions)
       shrunk <- minBy (lengthOf (field @"trace" . traceElements)) (traverseShrinks runShrink shrinks >-> select (preview _Left) >-> Pipes.take 5)
-      pure (fromMaybe f (Left <$> shrunk))
+      pure (fromMaybe (void f) (Left <$> shrunk))
   where
     runAndVerifyIsolated n producer = do
       trace <- annotateStutteringSteps <$> inNewPrivateWindow do
@@ -132,7 +138,7 @@ runSingle spec size = do
         elementsToTrace (producer >-> runActions' spec)
       -- logInfoWD (renderString (prettyTrace ({- withoutStutterStates -} trace) <> line))
       case verify spec (trace ^.. nonStutterStates) of
-        Right Accepted -> pure (Right ())
+        Right Accepted -> pure (Right trace)
         Right Rejected -> pure (Left (FailingTest n trace Nothing))
         Left err -> pure (Left (FailingTest n trace (Just err)))
     runShrink (Shrink n actions') = do
@@ -166,7 +172,7 @@ beforeRun spec = do
 
 observeManyStatesAfter :: Queries -> ObservedState -> Action Selected -> Pipe a (TraceElement ()) Runner ObservedState
 observeManyStatesAfter queries' initialState action = do
-  result <- lift (runAction action)
+  result <- lift (catchActionFailed (runAction action))
   observer <- lift (registerNextStateObserver queries')
   delta <- getNextOrFail observer
   let afterDelta = delta <> initialState
@@ -188,6 +194,17 @@ observeManyStatesAfter queries' initialState action = do
       delta <- getNextOrFail =<< lift (registerNextStateObserver queries')
       loop (currentState <> delta)
 
+    toActionFailed :: Show a => a -> Runner ActionResult
+    toActionFailed = pure . ActionFailed . show
+    catchActionFailed ma =
+      catchAnyError
+        (ma)
+        toActionFailed
+        toActionFailed
+        toActionFailed
+        toActionFailed
+
+
 {-# SCC runActions' "runActions'" #-}
 runActions' :: Specification spec => spec -> Pipe (Action Selected) (TraceElement ()) Runner ()
 runActions' spec = do
@@ -207,11 +224,11 @@ data Shrink a = Shrink Int a
 shrinkForest :: (a -> [a]) -> Int -> a -> Forest (Shrink a)
 shrinkForest shrink limit = go 1
   where
-    go n 
+    go n
       | n <= limit = map (\x -> Node (Shrink n x) (go (succ n) x)) . shrink
       | otherwise = mempty
 
-traverseShrinks :: Monad m => ((Shrink a) -> m (Either e ())) -> Forest (Shrink a) -> Producer (Either e ()) m ()
+traverseShrinks :: Monad m => ((Shrink a) -> m (Either e b)) -> Forest (Shrink a) -> Producer (Either e b) m ()
 traverseShrinks test = go
   where
     go = \case

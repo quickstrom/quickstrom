@@ -100,12 +100,13 @@ spec_purescript = beforeAll loadModules $ do
     it "tla6" $ \p -> do
       eval' [mempty] "tla6" p `shouldBe` Right True
   describe "TodoMVC" . beforeWith (loadProgram' "specs/TodoMVC.purs") $ do
-    let todoMvcState :: Text -> Text -> Text -> Vector (Text, Bool) -> ObservedState
-        todoMvcState newTodo selected count todoItems =
+    let todoMvcState :: Text -> Text -> Text -> Vector (Text, Bool) -> [Text] -> ObservedState
+        todoMvcState newTodo selected count todoItems filters =
           ( ObservedState $
               HashMap.fromList
-                [ (WebCheck.Selector ".new-todo", [HashMap.singleton (WebCheck.Property "value") (JSON.String newTodo)]),
-                  (WebCheck.Selector ".todoapp .filters .selected", [HashMap.singleton (WebCheck.Property "textContent") (JSON.String selected)]),
+                [ (WebCheck.Selector ".todoapp .new-todo", [HashMap.singleton (WebCheck.Property "value") (JSON.String newTodo)]),
+                  (WebCheck.Selector ".todoapp .filters a", [HashMap.singleton (WebCheck.Property "textContent") (JSON.String t) | t <- filters]),
+                  (WebCheck.Selector ".todoapp .filters a.selected", [HashMap.singleton (WebCheck.Property "textContent") (JSON.String selected)]),
                   ( WebCheck.Selector ".todo-list li",
                      map (const (HashMap.singleton (WebCheck.CssValue "display") "block")) (Vector.toList todoItems)
                   ),
@@ -115,33 +116,34 @@ spec_purescript = beforeAll loadModules $ do
                   ( WebCheck.Selector ".todo-list li input[type=checkbox]",
                     [HashMap.singleton (WebCheck.Property "checked") (JSON.Bool checked) | (_, checked) <- Vector.toList todoItems]
                   ),
-                  (WebCheck.Selector ".todoapp .todo-count strong", [HashMap.singleton (WebCheck.Property "textContent") (JSON.String count)])
+                  (WebCheck.Selector ".todoapp .todo-count", [HashMap.singleton (WebCheck.Property "textContent") (JSON.String count)])
                 ]
           )
+        todoFilters = ["All", "Active", "Completed"]
     it "succeeds with correct states" $ \p -> do
       eval'
-        [ todoMvcState "" "All" "" [],
-          todoMvcState "Buy milk" "All" "" [],
-          todoMvcState "" "All" "1 left" [("Buy milk", False)],
-          todoMvcState "" "Active" "1 left" [("Buy milk", False)],
-          todoMvcState "" "Active" "0 left" [],
-          todoMvcState "" "Completed" "0 left" [("Buy milk", True)],
-          todoMvcState "" "Completed" "1 left" []
+        [ todoMvcState "" "All" "" [] [],
+          todoMvcState "Buy milk" "All" "" [] [],
+          todoMvcState "" "All" "1 left" [("Buy milk", False)] todoFilters,
+          todoMvcState "" "Active" "1 left" [("Buy milk", False)] todoFilters,
+          todoMvcState "" "Active" "0 left" [] todoFilters,
+          todoMvcState "" "Completed" "0 left" [("Buy milk", True)] todoFilters,
+          todoMvcState "" "Completed" "1 left" [] todoFilters
         ]
         "proposition"
         p
         `shouldBe` Right True
     it "fails with incorrect initial state" $ \p -> do
       eval'
-        [ todoMvcState "" "All" "1 left" [("Buy milk", False)]
+        [ todoMvcState "" "All" "1 left" [("Buy milk", False)] todoFilters
         ]
         "proposition"
         p
         `shouldBe` Right False
     it "fails with incorrect action states" $ \p -> do
       eval'
-        [ todoMvcState "" "All" "" [],
-          todoMvcState "" "Active" "1 left" [("Buy milk", True)] -- Count of 1 even though all are checked
+        [ todoMvcState "" "All" "" [] [],
+          todoMvcState "" "Active" "1 left" [("Buy milk", True)] todoFilters -- Count of 1 even though all are checked
         ]
         "proposition"
         p

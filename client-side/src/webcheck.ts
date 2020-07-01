@@ -1,12 +1,3 @@
-import {
-  NonEmptyArray,
-  Optional,
-  isNonEmpty,
-  isNotNull,
-  deepEqual,
-  toArray,
-  uuidv4,
-} from "./essentials";
 
 // QUERIES
 
@@ -56,80 +47,11 @@ function runQuery([selector, states]: Query): ObservedState {
   return singletonMap(selector, values);
 }
 
-// ACTIONS
-
-type ClickAction<T> = { tag: "click"; target: T };
-
-type SelectedElement = { selector: Selector; index: number };
-
-type Action = ClickAction<Selector>;
-
-type SelectedAction = ClickAction<SelectedElement>;
-
-function renderAction(action: SelectedAction): string {
-  switch (action.tag) {
-    case "click":
-      return `click ${action.target.selector}[${action.target.index}]`;
-  }
-}
-
-function pickRandom<A>(xs: NonEmptyArray<A>): A {
-  return xs[Math.floor(Math.random() * xs.length)];
-}
-
-function pickBetween(min: number, max: number): number {
-  return min + Math.random() * (max - min);
-}
-
-function selectAction(action: Action): Optional<SelectedAction> {
-  switch (action.tag) {
-    case "click":
-      const els = Array.prototype.slice
-        .call(document.querySelectorAll(action.target))
-        .map((el, i) => [el, i])
-        .filter(
-          ([el]) => isElementVisible(el) && !(el as HTMLButtonElement).disabled
-        );
-      if (isNonEmpty(els)) {
-        const selectedElement = pickRandom(els);
-        return {
-          tag: action.tag,
-          target: { selector: action.target, index: selectedElement[1] },
-        };
-      } else {
-        return null;
-      }
-  }
-}
-
-export function selectNextAction(
-  actions: Array<Action>
-): Optional<SelectedAction> {
-  const validActions: Array<SelectedAction> = actions
-    .map(selectAction)
-    .filter(isNotNull);
-  if (isNonEmpty(validActions)) {
-    return pickRandom(validActions);
-  } else {
-    return null;
-  }
-}
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
-}
-
-export async function runAction(action: SelectedAction): Promise<void> {
-  switch (action.tag) {
-    case "click":
-      const el = document.querySelectorAll(action.target.selector)[
-        action.target.index
-      ];
-      (el as HTMLElement).click();
-      return;
-  }
 }
 
 // OBSERVATION
@@ -357,4 +279,53 @@ export function mapNullable<A, B>(
   f: (a: A) => B
 ): (oa: Optional<A>) => Optional<B> {
   return (a) => (a ? f(a) : null);
+}
+
+/**
+ * ESSENTIALS
+ */
+
+// https://stackoverflow.com/a/25456134
+function deepEqual(x: any, y: any) {
+    if (x === y) {
+        return true;
+    } else if (
+        typeof x == "object" &&
+        x != null &&
+        typeof y == "object" &&
+        y != null
+    ) {
+        if (Object.keys(x).length != Object.keys(y).length) return false;
+
+        for (var prop in x) {
+            if (y.hasOwnProperty(prop)) {
+                if (!deepEqual(x[prop], y[prop])) return false;
+            } else return false;
+        }
+
+        return true;
+    } else return false;
+}
+
+function toArray<T, A extends { [index: number]: T }>(xs: A): T[] {
+    return Array.prototype.slice.call(xs);
+}
+
+type Optional<T> = T | null;
+
+function isNotNull<T>(x: Optional<T>): x is T {
+    return x !== null;
+}
+
+type NonEmptyArray<T> = [T, ...T[]];
+
+function isNonEmpty<T>(arr: T[]): arr is NonEmptyArray<T> {
+    return arr.length > 0;
+}
+
+export function uuidv4(): string {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
 }

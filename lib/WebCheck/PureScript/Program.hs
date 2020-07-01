@@ -13,6 +13,7 @@ module WebCheck.PureScript.Program where
 
 import Control.Lens hiding (op)
 import Control.Monad.Except (liftEither)
+import Control.Monad.ListM (sortByM)
 import Control.Monad.Trans.Writer.Strict (WriterT (runWriterT))
 import qualified Data.Aeson as JSON
 import qualified Data.Aeson.Types as JSON
@@ -272,6 +273,7 @@ foreignFunctions =
   HashMap.fromList
     [ (ffName "Control.Bind" "arrayBind", foreignFunction (arrayBind @(Value EvalAnn) @(Value EvalAnn))),
       (ffName "Data.Array" "indexImpl", foreignFunction indexImpl),
+      (ffName "Data.Array" "sortImpl", foreignFunction sortImpl),
       (ffName "Data.Array" "length", foreignFunction len),
       (ffName "Data.Array" "filter", foreignFunction filterArray),
       (ffName "Data.Array" "uncons'", foreignFunction arrayUncons),
@@ -348,6 +350,8 @@ foreignFunctions =
     notSupported qn = (qn, SomeForeignFunction (NotSupported qn))
     indexImpl :: (Monad m, a ~ Value EvalAnn) => (a -> Ret m (Value EvalAnn)) -> Value EvalAnn -> Vector a -> Int -> Ret m (Value EvalAnn)
     indexImpl just nothing xs i = Ret (maybe (pure nothing) (unRet . just) (xs ^? ix (fromIntegral i)))
+    sortImpl :: (Monad m, a ~ Value EvalAnn) => (a -> a -> Ret m Int) -> Vector a -> Ret m (Vector a)
+    sortImpl comp xs = Vector.fromList <$> sortByM (\x y -> (`compare` 0) <$> comp x y ) (Vector.toList xs)
     fromNumberImpl :: (Int -> Ret m (Value EvalAnn)) -> Value EvalAnn -> Double -> Ret m (Value EvalAnn)
     fromNumberImpl just _ = just . round
     fromStringAsImpl :: Monad m => (Int -> Ret m (Value EvalAnn)) -> Value EvalAnn -> Int -> Text -> Ret m (Value EvalAnn)
@@ -366,7 +370,7 @@ foreignFunctions =
     arrayRange start end =
       let step = if start < end then 1 else (-1)
        in pure (Vector.enumFromStepN start step end)
-    arrayBind :: forall a b m. Applicative m =>  Vector a -> (a -> Ret m (Vector b)) -> Ret m (Vector b)
+    arrayBind :: forall a b m. Applicative m => Vector a -> (a -> Ret m (Vector b)) -> Ret m (Vector b)
     arrayBind xs f = join <$> traverse f xs
     arrayMap :: forall a b m. Monad m => (a -> Ret m b) -> Vector a -> Ret m (Vector b)
     arrayMap f xs = Vector.mapM f xs

@@ -22,6 +22,7 @@ common shared-deps
                     , megaparsec
                     , modern-uri
                     , monad-loops
+                    , monadlist
                     , mtl
                     , natural-transformation
                     , optparse-applicative

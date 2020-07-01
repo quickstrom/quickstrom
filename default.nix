@@ -37,7 +37,7 @@ let
         makeWrapper "${package}/bin/webcheck" \
             $out/bin/webcheck \
             --set WEBCHECK_LIBRARY_DIR "${purescript-webcheck}" \
-            --set WEBCHECK_CLIENT_SIDE_BUNDLE "${client-side}/webcheck-client-side.js"
+            --set WEBCHECK_CLIENT_SIDE_BUNDLE "${client-side}/webcheck.js"
       '';
   };
 

@@ -10,11 +10,14 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module WebCheck.PureScript.ForeignFunction where
@@ -26,6 +29,10 @@ import qualified Data.Vector as Vector
 import GHC.TypeNats (type (+))
 import Language.PureScript.AST (SourceSpan)
 import Protolude hiding (Selector)
+import Text.Megaparsec (Parsec)
+import qualified Text.Megaparsec as Parsec
+import qualified Text.URI as URI
+import Text.URI (URI)
 import WebCheck.Action (Action (..))
 import WebCheck.Element (Selector (..))
 import WebCheck.PureScript.Eval
@@ -33,10 +40,6 @@ import WebCheck.PureScript.Eval.Ann
 import WebCheck.PureScript.Eval.Error
 import WebCheck.PureScript.Eval.Name
 import WebCheck.PureScript.Value
-import qualified Text.URI as URI
-import Text.Megaparsec (Parsec)
-import Text.URI (URI)
-import qualified Text.Megaparsec as Parsec
 
 data ForeignFunction m arity where
   Base :: FromHaskellValue a => m a -> ForeignFunction m 0
@@ -211,9 +214,9 @@ instance MonadError EvalError m => ToHaskellValue m (Action Selector) where
       "Navigate" -> Navigate <$> (parseURI =<< toHaskellValue ss value)
       _ -> throwError (ForeignFunctionError (Just ss) ("Unknown Action constructor: " <> ctor))
     where
-      parseURI input = 
+      parseURI input =
         case Parsec.runParser (URI.parser <* Parsec.eof :: Parsec Void Text URI) "" input of
-          Left  b -> throwError (InvalidURI Nothing input (toS (Parsec.errorBundlePretty b)))
+          Left b -> throwError (InvalidURI Nothing input (toS (Parsec.errorBundlePretty b)))
           Right x -> pure x
 
 instance (Eval r m, FromHaskellValue a, ToHaskellValue m b) => ToHaskellValue m (a -> Ret m b) where

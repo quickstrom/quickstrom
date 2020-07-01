@@ -34,18 +34,18 @@ https://github.com/tastejs/todomvc-app-template/commit/2055b9d76475336324d01cd82
 ✓ js_of_ocaml 
 ❌ humble 
     - 404
-? backbone_require 
-    - https://requirejs.org/docs/errors.html#scripterror
-? knockoutjs_require 
-    - https://requirejs.org/docs/errors.html#scripterror
-? angularjs_require 
-    - https://requirejs.org/docs/errors.html#scripterror
-? canjs_require 
-    - require problem?
-? lavaca_require 
-    - require problem?
-? cujo/index.html 
-    - require problem?
+✓ backbone_require 
+❌ knockoutjs_require 
+    - renders an empty list items and "0 left", quick glitch, then renders the regular initial state
+✓ angularjs_require 
+    - Had to await ".ng-scope", as template strings were present (but hidden) in the DOM before
+✓ canjs_require 
+❌ lavaca_require 
+    - inconsistent clearing of input field (same as Angular)
+❌ cujo/index.html 
+    - no filters
+    - race condition in initialization: focus input and press Return before event listeners are 
+      attached, results in `index.html?text=`
 ✓ sammyjs 
 ❌ somajs 
     - 404

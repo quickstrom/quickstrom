@@ -2,7 +2,7 @@ module WebCheck.PureScript.TodoMVC where
 
 import WebCheck.DSL
 
-import Data.Array (filter, foldMap, head, last, zip)
+import Data.Array (filter, foldMap, head, last, sort, zip)
 import Data.Foldable (length)
 import Data.Int as Int
 import Data.Maybe (Maybe(..), fromMaybe)
@@ -13,7 +13,7 @@ queries :: Queries
 queries = classBasedQueries
 
 readyWhen :: Selector
-readyWhen = queries.top
+readyWhen = queries.newTodo
 
 actions :: Actions
 actions = appFoci <> appClicks <> appKeyPresses 
@@ -27,7 +27,7 @@ actions = appFoci <> appClicks <> appKeyPresses
     appFoci = [ Tuple 5 (Focus queries.newTodo) ]
     appKeyPresses =
       [ Tuple 5 (keyPress 'a')
-      , Tuple 5 (specialKeyPress KeyEnter)
+      , Tuple 5 (specialKeyPress KeyReturn)
       ]
 
 proposition :: Boolean
@@ -41,6 +41,7 @@ proposition =
              || delete
              || toggleAll
             )
+  && always hasFilters
   where
 
     initial :: Boolean
@@ -134,6 +135,14 @@ proposition =
           "Active" -> pure Active
           "Completed" -> pure Completed
           _ -> Nothing
+
+    hasFilters = 
+      case length items, availableFilters of
+        0, _ -> true
+        _, ["All", "Active", "Completed"] -> true
+        _, _ -> false
+      where
+        availableFilters = map _.textContent (queryAll queries.filters.all { textContent })
     
     items :: Array { text :: String }
     items =
@@ -175,6 +184,7 @@ derive instance eqFilter :: Eq Filter
 type Queries = { 
   top :: Selector,
   filters :: {
+    all :: Selector,
     selected :: Selector,
     notSelected :: Selector
   },
@@ -193,6 +203,7 @@ classBasedQueries :: Queries
 classBasedQueries = {
   top: ".todoapp",
   filters: {
+    all: ".todoapp .filters a",
     selected: ".todoapp .filters a.selected",
     notSelected: ".todoapp .filters a:not(.selected)"
   },
@@ -211,6 +222,7 @@ idBasedQueries :: Queries
 idBasedQueries = {
   top: "#todoapp",
   filters: {
+    all: "#todoapp #filters a",
     selected: "#todoapp #filters a.selected",
     notSelected: "#todoapp #filters a:not(.selected)"
   },

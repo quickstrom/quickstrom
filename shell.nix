@@ -59,6 +59,6 @@ in haskellPackages.shellFor {
     fontDirectories = fonts;
   };
   WEBCHECK_LIBRARY_DIR = "${purescript-webcheck}";
-  WEBCHECK_CLIENT_SIDE_BUNDLE = "${client-side}/webcheck-client-side.js";
+  WEBCHECK_CLIENT_SIDE_BUNDLE = "${client-side}/webcheck.js";
 }
 

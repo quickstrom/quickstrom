@@ -99,7 +99,7 @@ cabal run webcheck -- /path/to/my/specification
 For instance, you can run the TodoMVC React specification:
 
 ```
-cabal run webcheck -- specs/other/TodoMVC.purs http://todomvc.com/examples/react
+cabal run webcheck -- specs/other/TodoMVC.spec.purs http://todomvc.com/examples/react
 ```
 
 **NOTE:** Running tests can take a lot of time, especially if there's a

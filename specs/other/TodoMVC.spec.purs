@@ -2,7 +2,7 @@ module WebCheck.PureScript.TodoMVC where
 
 import WebCheck.DSL
 
-import Data.Array (filter, foldMap, head, last, sort, zip)
+import Data.Array (filter, foldMap, head, last, zip)
 import Data.Foldable (length)
 import Data.Int as Int
 import Data.Maybe (Maybe(..), fromMaybe)
@@ -210,7 +210,7 @@ classBasedQueries = {
   destroy: ".todoapp .destroy",
   toggleAll: ".todoapp label[for=toggle-all]",
   newTodo: ".todoapp .new-todo",
-  todoCount: ".todoapp .todo-count",
+  todoCount: ".todoapp .todo-count strong",
   items: {
     listItems: ".todo-list li",
     labels: ".todo-list li label",
@@ -229,7 +229,7 @@ idBasedQueries = {
   destroy: "#todoapp .destroy",
   toggleAll: "#todoapp label[for=toggle-all]",
   newTodo: "#todoapp #new-todo",
-  todoCount: "#todoapp #todo-count",
+  todoCount: "#todoapp #todo-count strong",
   items: {
     listItems: "#todo-list li",
     labels: "#todo-list li label",

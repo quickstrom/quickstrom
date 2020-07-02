@@ -116,7 +116,7 @@ spec_purescript = beforeAll loadModules $ do
                   ( WebCheck.Selector ".todo-list li input[type=checkbox]",
                     [HashMap.singleton (WebCheck.Property "checked") (JSON.Bool checked) | (_, checked) <- Vector.toList todoItems]
                   ),
-                  (WebCheck.Selector ".todoapp .todo-count", [HashMap.singleton (WebCheck.Property "textContent") (JSON.String count)])
+                  (WebCheck.Selector ".todoapp .todo-count strong", [HashMap.singleton (WebCheck.Property "textContent") (JSON.String count)])
                 ]
           )
         todoFilters = ["All", "Active", "Completed"]

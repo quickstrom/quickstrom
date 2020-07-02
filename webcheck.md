@@ -22,7 +22,7 @@ specifications.
 In WebCheck, a tester writes _specifications_ for web
 applications. When _checking_ a specification, the following happens:
 
-1. WebCheck navigates to the _origin page_ of the web application, and
+1. WebCheck navigates to the _origin page_, and
    waits for the _ready_ condition, that a specified element is
    present in the DOM.
 1. It generates a random sequence of actions to simulate user
@@ -62,21 +62,20 @@ look at the _Temporal Logic of Web Applications_.
 
 # Temporal Logic of Web Applications
 
-In WebCheck, the behavior of a web application is specified using the
-Temporal Logic of Web Applications (TLWA). It\'s a first-order temporal
-logic, heavily inspired by TLA+ and LTL, most notably adding
-web-specific operators.
+In WebCheck, the behavior of a web application is specified using a custom
+specification language based on PureScript. It\'s a first-order temporal
+logic and functional language, heavily inspired by TLA+ and LTL, most notably
+adding web-specific operators.
 
-Like in TLA+, specifications in TLWA are based on state machines. A
+Like in TLA+, specifications in WebCheck are based on state machines. A
 *behavior* is a sequence of states. A *step* is a tuple of two
 successive states in a behavior. A specification describes valid
 *behaviors* of a web application in terms of valid states and
 transitions between states.
 
-In TLWA, a syntactic form is called a *formula*, and every formula
+In WebCheck, a syntactic form is called a *formula*, and every formula
 evalutes to a *value*. A *proposition* is a boolean formula, evaluating
-to either true or false. Formulae can also evaluate to text, numbers,
-sequences, and sets.
+to either true or false.
 
 ## Syntax
 
@@ -107,7 +106,7 @@ sequences, and sets.
     `p == q`
     : is a proposition which is true if the values of `p` and `q` are
       equal. For propositions it is the same as _logical equivalence_,
-      but in TLWA it is more general, as it compares values of any
+      but in WebCheck it is more general, as it compares values of any
       supported type.
 
 -   From first-order logic, we have the universal and existential
@@ -190,7 +189,7 @@ either:
 
 These are the only two valid actions when in the *confirming* state.
 
-## A Specification using TLWA
+## A Specification using WebCheck
 
 The following formula defines the `confirming` state as the existence of
 an element `e` returned by querying the current DOM for the CSS selector
@@ -248,7 +247,7 @@ always(confirming => cancel or confirm)
 ```
 
 That\'s it. We\'ve now specified the safety property of the draft
-deletion functionality using TLWA.
+deletion functionality using WebCheck.
 
 # Reading material
 

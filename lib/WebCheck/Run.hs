@@ -215,8 +215,8 @@ runActions' spec = do
     queries' = queries spec
     loop currentState = do
       action <- Pipes.await
+      -- lift (logInfoWD (renderString (prettyAction action)))
       newState <- observeManyStatesAfter queries' currentState action
-      -- lift (logInfoWD (show currentState <> "\n" <> show newState))
       loop newState
 
 data Shrink a = Shrink Int a

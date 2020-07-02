@@ -1,6 +1,6 @@
 module CommentFormSpecification where
 
-import WebCheck.DSL
+import WebCheck
 
 import Data.Array (head, tail)
 import Data.Maybe (Maybe(..), fromMaybe)

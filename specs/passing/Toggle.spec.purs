@@ -1,6 +1,6 @@
 module ToggleSpecification where
 
-import WebCheck.DSL
+import WebCheck
 import Data.Maybe (Maybe(..))
 
 readyWhen = "button"

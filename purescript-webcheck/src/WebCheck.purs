@@ -1,4 +1,4 @@
-module WebCheck.DSL (
+module WebCheck (
   next,
   always,
   trace,
@@ -19,7 +19,7 @@ module WebCheck.DSL (
   Query,
   class StateToField,
   class StatesToRecord,
-  module WebCheck.DSL.Selector,
+  module WebCheck.Selector,
   module Spec,
   module Data.HeytingAlgebra,
   module Prelude
@@ -32,8 +32,8 @@ import Data.Maybe (Maybe)
 import Data.HeytingAlgebra (implies)
 import Data.Symbol (class IsSymbol, SProxy(..), reflectSymbol)
 import Prim.RowList (class RowToList, Cons, Nil, kind RowList)
-import WebCheck.DSL.Selector (Selector)
-import WebCheck.DSL.Spec (Actions, Action(..), Path, SpecialKey(..), asciiKeyPresses, clicks, foci, focus, keyPress, specialKeyPress) as Spec
+import WebCheck.Selector (Selector)
+import WebCheck.Spec (Actions, Action(..), Path, SpecialKey(..), asciiKeyPresses, clicks, foci, focus, keyPress, specialKeyPress) as Spec
 import Type.Prelude (class ListToRow, class TypeEquals)
 
 foreign import next :: forall a. a -> a

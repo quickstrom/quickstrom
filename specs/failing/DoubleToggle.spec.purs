@@ -1,6 +1,6 @@
 module SpinnersSpecification where
 
-import WebCheck.DSL
+import WebCheck
 
 import Data.Maybe (Maybe(..))
 

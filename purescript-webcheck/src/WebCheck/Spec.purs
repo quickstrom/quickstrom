@@ -1,4 +1,4 @@
-module WebCheck.DSL.Spec
+module WebCheck.Spec
  ( Path
  , Action (..)
  , Actions
@@ -14,7 +14,7 @@ where
 
 import Prelude
 
-import WebCheck.DSL.Selector (Selector)
+import WebCheck.Selector (Selector)
 import Data.Tuple (Tuple(..))
 import Data.Array (range)
 import Data.Char (fromCharCode)

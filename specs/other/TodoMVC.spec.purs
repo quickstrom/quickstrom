@@ -1,6 +1,6 @@
-module WebCheck.PureScript.TodoMVC where
+module TodoMVC where
 
-import WebCheck.DSL
+import WebCheck
 
 import Data.Array (filter, foldMap, head, last, zip)
 import Data.Foldable (length)

@@ -1,6 +1,6 @@
 module WebCheck.PureScriptTest where
 
-import WebCheck.DSL
+import WebCheck
 
 import Control.Monad.Reader (Reader, ask, local, runReader)
 import Control.Monad.State (evalState, get, modify)

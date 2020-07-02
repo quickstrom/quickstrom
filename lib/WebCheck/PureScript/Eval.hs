@@ -47,7 +47,7 @@ import WebCheck.PureScript.Eval.Error
 import WebCheck.PureScript.Value
 
 pattern BuiltIn :: Text -> a -> Expr a -> Expr a
-pattern BuiltIn name ann p <- CF.App ann (CF.Var _ (P.Qualified (Just (P.ModuleName "WebCheck.DSL")) (P.Ident name))) p
+pattern BuiltIn name ann p <- CF.App ann (CF.Var _ (P.Qualified (Just (P.ModuleName "WebCheck")) (P.Ident name))) p
 
 pattern Always :: a -> Expr a -> Expr a
 pattern Always ann p <- BuiltIn "always" ann p

@@ -51,11 +51,13 @@ library
                     , WebCheck.PureScript.Eval.Env
                     , WebCheck.PureScript.Eval.Error
                     , WebCheck.PureScript.Eval.Class
+                    , WebCheck.PureScript.Eval.Interpret
                     , WebCheck.PureScript.Eval.Name
+                    , WebCheck.PureScript.Eval.WithObservedStates
+                    , WebCheck.PureScript.Analyze
                     , WebCheck.PureScript.ForeignFunction
                     , WebCheck.PureScript.Pretty
                     , WebCheck.PureScript.Program
-                    , WebCheck.PureScript.Queries
                     , WebCheck.PureScript.Value
                     , WebCheck.Pretty
                     , WebCheck.Result

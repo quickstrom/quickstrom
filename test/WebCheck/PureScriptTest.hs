@@ -20,11 +20,9 @@ import           System.Environment                  (lookupEnv)
 import           Test.Tasty.Hspec                    hiding (Selector)
 import qualified WebCheck.Element                    as WebCheck
 import           WebCheck.PureScript.Eval
-import           WebCheck.PureScript.Eval.Error
 import           WebCheck.PureScript.ForeignFunction
 import           WebCheck.PureScript.Pretty
 import           WebCheck.PureScript.Program
-import qualified WebCheck.PureScript.Queries         as Queries
 import           WebCheck.Trace                      (ObservedState (..))
 
 loadModules :: IO Modules
@@ -48,7 +46,7 @@ eval' ::
   ToHaskellValue (Either EvalError) b =>
   [ObservedState] ->
   Text ->
-  Program Queries.WithObservedStates ->
+  Program WithObservedStates ->
   Either Text b
 eval' states name p =
   (toHaskellValue nullSourceSpan =<< evalWithObservedStates p name states)

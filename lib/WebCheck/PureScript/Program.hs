@@ -40,13 +40,9 @@ import Text.Read (read)
 import qualified WebCheck.Action as WebCheck
 import qualified WebCheck.Element as WebCheck
 import WebCheck.PureScript.Eval
-import WebCheck.PureScript.Eval.Ann
-import WebCheck.PureScript.Eval.Env
-import WebCheck.PureScript.Eval.Error
-import WebCheck.PureScript.Eval.Name
 import WebCheck.PureScript.ForeignFunction
 import WebCheck.PureScript.Pretty
-import qualified WebCheck.PureScript.Queries as Queries
+import qualified WebCheck.PureScript.Analyze as Analyze
 import WebCheck.PureScript.Value
 import qualified WebCheck.Result as WebCheck
 import qualified WebCheck.Specification as WebCheck
@@ -203,7 +199,7 @@ data SpecificationProgram
       { specificationReadyWhen :: WebCheck.Selector,
         specificationActions :: [(Int, WebCheck.Action WebCheck.Selector)],
         specificationQueries :: WebCheck.Queries,
-        specificationProgram :: Program Queries.WithObservedStates
+        specificationProgram :: Program WithObservedStates
       }
 
 instance WebCheck.Specification SpecificationProgram where
@@ -242,21 +238,21 @@ loadSpecificationFile :: Modules -> FilePath -> IO (Either Text SpecificationPro
 loadSpecificationFile ms input = loadSpecification ms =<< readFile input
 
 evalWithObservedStates ::
-  Program Queries.WithObservedStates ->
+  Program WithObservedStates ->
   Text ->
   [WebCheck.ObservedState] ->
   Either EvalError (Value EvalAnn)
 evalWithObservedStates p n states = do
   qn <- programQualifiedName n p
-  Queries.runWithObservedStates
+  runWithObservedStates
     (programEnv p)
     states
     (evalEntryPoint qn)
 
-extractQueries :: Program Queries.Extract -> Text -> Either EvalError WebCheck.Queries
+extractQueries :: Program Analyze.Extract -> Text -> Either EvalError WebCheck.Queries
 extractQueries p n = do
   qn <- programQualifiedName n p
-  Queries.runExtract
+  Analyze.runExtract
     (programEnv p)
     (evalEntryPoint qn)
 
@@ -435,9 +431,9 @@ foreignFunctions =
             pure (Just (a, b'))
     unsafePartial :: Eval r m => Value EvalAnn -> Ret m (Value EvalAnn)
     unsafePartial f = Ret $ do
-      env <- view (field @"env")
+      env' <- view (field @"env")
       Function fenv _ body <- require P.nullSourceSpan (Proxy @"VFunction") f
-      local (field @"env" .~ fenv {envForeignFunctions = envForeignFunctions env}) (eval body)
+      local (field @"env" .~ fenv {envForeignFunctions = envForeignFunctions env'}) (eval body)
     unsafeGet :: MonadError EvalError m => Text -> HashMap Text (Value EvalAnn) -> Ret m (Value EvalAnn)
     unsafeGet k xs = Ret (accessField P.nullSourceSpan k xs)
     toCodePointArray :: Monad m => Value EvalAnn -> Value EvalAnn -> Text -> Ret m (Vector Int)

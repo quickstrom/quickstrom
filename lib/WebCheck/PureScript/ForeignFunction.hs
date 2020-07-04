@@ -35,9 +35,9 @@ import qualified Text.URI as URI
 import Text.URI (URI)
 import WebCheck.Action (Action (..))
 import WebCheck.Element (Selector (..))
-import WebCheck.PureScript.Eval
 import WebCheck.PureScript.Eval.Ann
 import WebCheck.PureScript.Eval.Error
+import WebCheck.PureScript.Eval.Interpret
 import WebCheck.PureScript.Eval.Name
 import WebCheck.PureScript.Value
 

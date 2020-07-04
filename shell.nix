@@ -40,7 +40,7 @@ in haskellPackages.shellFor {
   buildInputs = (with pkgs;
   [
     nixfmt
-    # ghcid
+    ghcid
     ghcide
     cabal-install
     haskellPackages.ormolu

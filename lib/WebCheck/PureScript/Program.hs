@@ -254,7 +254,7 @@ extractQueries p n = do
   qn <- programQualifiedName n p
   Analyze.runExtract
     (programEnv p)
-    (evalEntryPoint qn)
+    (Analyze.extractEntryPoint entrySS qn)
 
 entrySS :: P.SourceSpan
 entrySS = P.internalModuleSourceSpan "<entry>"

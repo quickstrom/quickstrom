@@ -32,20 +32,23 @@ loadSpecificationProgram' path modules = do
 
 spec_analyze :: Spec
 spec_analyze = beforeAll loadModules $ do
-  it "extracts all queries when valid" $ \m -> do
-    Right s <- loadSpecificationProgram' "test/WebCheck/PureScript/AnalyzeTest/Valid.purs" m
-    specificationQueries s
-      `shouldBe` [ ("p", [CssValue "display"]),
-                   ("button", [Property "textContent"])
-                 ]
-  describe "rejects the specification when" $ do
+  describe "extracts all queries when" $ do
+    it "valid" $ \m -> do
+      Right s <- loadSpecificationProgram' "test/WebCheck/PureScript/AnalyzeTest/Valid.purs" m
+      specificationQueries s
+        `shouldBe` [ ("p", [CssValue "display"]),
+                    ("button", [Property "textContent"])
+                  ]
     it "using queries with identifiers bound in let" $ \m -> do
-      Left err <- loadSpecificationProgram' "test/WebCheck/PureScript/AnalyzeTest/FreeVariablesLocal.purs" m
-      toS err `shouldContain` "Not in scope"
+      Right s <- loadSpecificationProgram' "test/WebCheck/PureScript/AnalyzeTest/FreeVariablesLocal.purs" m
+      specificationQueries s
+        `shouldBe` [ ("p", [CssValue "display"]) ]
 
     it "using queries with identifiers bound at top level" $ \m -> do
-      Left err <- loadSpecificationProgram' "test/WebCheck/PureScript/AnalyzeTest/FreeVariablesTopLevel.purs" m
-      toS err `shouldContain` "Not in scope"
+      Right s <- loadSpecificationProgram' "test/WebCheck/PureScript/AnalyzeTest/FreeVariablesTopLevel.purs" m
+      specificationQueries s
+        `shouldBe` [ ("p", [CssValue "display"]) ]
+  describe "rejects the specification when" $ do
 
     it "constructing queries from results of other queries bound in let" $ \m -> do
       Left err <- loadSpecificationProgram' "test/WebCheck/PureScript/AnalyzeTest/DependentQueryLocal.purs" m

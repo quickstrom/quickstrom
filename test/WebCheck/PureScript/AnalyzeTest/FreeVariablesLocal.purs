@@ -1,4 +1,4 @@
-module ValidSpec where
+module Spec where
 
 import WebCheck
 import Data.Maybe (Maybe(..))

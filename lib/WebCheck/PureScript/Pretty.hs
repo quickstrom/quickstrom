@@ -44,6 +44,8 @@ prettyEvalError = \case
   InvalidBuiltInFunctionApplication _ _fn _param -> "Invalid function application"
   ForeignFunctionError _ t -> pretty t
   InvalidURI _ input t -> "Invalid URI:" <> colon <+> pretty input <> comma <+> pretty t
+  UnsupportedQuery _ -> "Unsupported query"
+  UnsupportedQueryDependency _ _ -> "Queries cannot be constructed from the results of other queries"
   Undetermined -> "The formula cannot be determined as there are not enough observed states"
 
 prettyEvalErrorWithSourceSpan :: EvalError -> Doc ann

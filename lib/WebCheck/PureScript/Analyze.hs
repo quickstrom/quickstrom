@@ -42,7 +42,7 @@ runSimpleEval env' (SimpleEval ma) =
 -- These instance methods should never be reached
 instance MonadEvalQuery SimpleEval where
 
-  evalQuery _ _ = pure VNull
+  evalQuery expr _ = throwError (UnsupportedQuery (exprSourceSpan expr))
 
   evalNext _ = eval
 
@@ -57,7 +57,7 @@ extractExpr = \case
     Next _ e -> extractExpr e
     Always _ e -> extractExpr e
     -- We need to ignore all the type class dictionaries that are passed in.
-    P.App _ (P.App _ (P.App _ (P.App _ (BuiltIn f _ _) _) _) e1) e2 | f `elem` ["queryAll", "queryOne"] -> do
+    P.App ann (P.App _ (P.App _ (P.App _ (BuiltIn f _ _) _) _) e1) e2 | f `elem` ["queryAll", "queryOne"] -> do
       env' <- ask
       let result = runSimpleEval env' $ do
             selector <- require (exprSourceSpan e1) (Proxy @"VString") =<< eval e1
@@ -66,7 +66,13 @@ extractExpr = \case
                 =<< require (exprSourceSpan e2) (Proxy @"VObject")
                 =<< eval e2
             pure (HashMap.singleton (Selector selector) (HashSet.fromList wantedStates))
-      either throwError tell result
+      either 
+        (\case
+          UnsupportedQuery ss -> throwError (UnsupportedQueryDependency (annSourceSpan ann) ss)
+          err -> throwError err
+        )
+        tell 
+        result
     P.Literal {} -> pass
     P.Constructor {} -> pass
     P.Accessor _ _ e -> extractExpr e

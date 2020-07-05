@@ -38,6 +38,19 @@ spec_analyze = beforeAll loadModules $ do
       `shouldBe` [ ("p", [CssValue "display"]),
                    ("button", [Property "textContent"])
                  ]
-  it "reject the specification when using queries with free variables" $ \m -> do
-    Left err <- loadSpecificationProgram' "test/WebCheck/PureScript/AnalyzeTest/FreeVariables.purs" m
-    toS err `shouldContain` "Not in scope"
+  describe "rejects the specification when" $ do
+    it "using queries with identifiers bound in let" $ \m -> do
+      Left err <- loadSpecificationProgram' "test/WebCheck/PureScript/AnalyzeTest/FreeVariablesLocal.purs" m
+      toS err `shouldContain` "Not in scope"
+
+    it "using queries with identifiers bound at top level" $ \m -> do
+      Left err <- loadSpecificationProgram' "test/WebCheck/PureScript/AnalyzeTest/FreeVariablesTopLevel.purs" m
+      toS err `shouldContain` "Not in scope"
+
+    it "constructing queries from results of other queries bound in let" $ \m -> do
+      Left err <- loadSpecificationProgram' "test/WebCheck/PureScript/AnalyzeTest/DependentQueryLocal.purs" m
+      toS err `shouldContain` "Queries cannot be"
+
+    it "constructing queries from results of other queries bound at top level" $ \m -> do
+      Left err <- loadSpecificationProgram' "test/WebCheck/PureScript/AnalyzeTest/DependentQueryTopLevel.purs" m
+      toS err `shouldContain` "Queries cannot be"

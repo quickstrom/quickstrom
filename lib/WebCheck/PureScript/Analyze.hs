@@ -13,6 +13,7 @@ import Control.Lens
 import Control.Monad.Fix (MonadFix)
 import Control.Monad.Writer (MonadWriter, WriterT, execWriterT, tell)
 import Data.Generics.Product (field)
+import Data.Generics.Sum (_Ctor)
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.HashSet as HashSet
 import qualified Language.PureScript.AST.SourcePos as P
@@ -55,7 +56,8 @@ extractExpr :: P.Expr EvalAnn -> Extract ()
 extractExpr = \case
     Next _ e -> extractExpr e
     Always _ e -> extractExpr e
-    P.App _ (BuiltIn "queryAll" _ e1) e2 -> do
+    -- We need to ignore all the type class dictionaries that are passed in.
+    P.App _ (P.App _ (P.App _ (P.App _ (BuiltIn f _ _) _) _) e1) e2 | f `elem` ["queryAll", "queryOne"] -> do
       env' <- ask
       let result = runSimpleEval env' $ do
             selector <- require (exprSourceSpan e1) (Proxy @"VString") =<< eval e1
@@ -80,7 +82,6 @@ extractExpr = \case
           unless (HashSet.member qn visited) $ do
             modify (HashSet.insert qn)
             env' <- ask
-            traceShowM qn
             case envLookupTopLevel qn env' of
               Just expr -> do
                 extractExpr expr

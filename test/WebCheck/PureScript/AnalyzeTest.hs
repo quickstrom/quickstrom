@@ -25,18 +25,19 @@ loadModules = do
     Right ms -> pure ms
     Left err -> fail ("Failed to load modules: " <> toS err)
 
-loadSpecificationProgram' :: FilePath -> Modules -> IO SpecificationProgram
+loadSpecificationProgram' :: FilePath -> Modules -> IO (Either Text SpecificationProgram)
 loadSpecificationProgram' path modules = do
   code <- readFile path
-  loadSpecification modules code >>= \case
-    Right p -> pure p
-    Left err -> fail ("Failed to load specification program: " <> toS err)
+  loadSpecification modules code
 
 spec_analyze :: Spec
 spec_analyze = beforeAll loadModules $ do
   it "extracts all queries when valid" $ \m -> do
-    s <- loadSpecificationProgram' "test/WebCheck/PureScript/AnalyzeTest/Valid.purs" m
+    Right s <- loadSpecificationProgram' "test/WebCheck/PureScript/AnalyzeTest/Valid.purs" m
     specificationQueries s
       `shouldBe` [ ("p", [CssValue "display"]),
                    ("button", [Property "textContent"])
                  ]
+  it "reject the specification when using queries with free variables" $ \m -> do
+    Left err <- loadSpecificationProgram' "test/WebCheck/PureScript/AnalyzeTest/FreeVariables.purs" m
+    toS err `shouldContain` "Not in scope"

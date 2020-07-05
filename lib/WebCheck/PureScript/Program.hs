@@ -249,7 +249,7 @@ evalWithObservedStates p n states = do
     states
     (evalEntryPoint qn)
 
-extractQueries :: Program Analyze.Extract -> Text -> Either EvalError WebCheck.Queries
+extractQueries :: Program Analyze.SimpleEval -> Text -> Either EvalError WebCheck.Queries
 extractQueries p n = do
   qn <- programQualifiedName n p
   Analyze.runExtract

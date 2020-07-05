@@ -1,7 +1,7 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -10,77 +10,103 @@
 module WebCheck.PureScript.Analyze where
 
 import Control.Lens
+import Control.Monad.Fix (MonadFix)
+import Control.Monad.Writer (MonadWriter, WriterT, execWriterT, tell)
 import Data.Generics.Product (field)
-import Control.Monad.Writer (MonadWriter, tell, WriterT, execWriterT)
 import qualified Data.HashMap.Strict as HashMap
+import qualified Data.HashSet as HashSet
+import qualified Language.PureScript.AST.SourcePos as P
 import qualified Language.PureScript.CoreFn as P
+import qualified Language.PureScript.Names as P
 import Protolude hiding (Selector)
 import WebCheck.Element (Selector (..))
 import WebCheck.PureScript.Eval
 import WebCheck.PureScript.Value
 import WebCheck.Specification (Queries)
-import qualified Data.HashSet as HashSet
-import qualified Language.PureScript.Names as P
-import qualified Language.PureScript.AST.SourcePos as P
-import Control.Monad.Fix (MonadFix)
+import Data.HashSet (HashSet)
 
-data ExtractEnv
-  = ExtractEnv
-      { env :: Env' Extract
+data SimpleEvalEnv
+  = SimpleEvalEnv
+      { env :: Env' SimpleEval
       }
   deriving (Generic)
 
-newtype Extract a = Extract (ReaderT ExtractEnv (WriterT Queries (Except EvalError)) a)
-  deriving (Functor, Applicative, Monad, MonadError EvalError, MonadReader ExtractEnv, MonadWriter Queries, MonadFix)
+newtype SimpleEval a = SimpleEval (ReaderT SimpleEvalEnv (Except EvalError) a)
+  deriving (Functor, Applicative, Monad, MonadError EvalError, MonadReader SimpleEvalEnv, MonadFix)
 
-runExtract :: Env' Extract -> Extract () -> Either EvalError Queries
-runExtract env' (Extract ma) =
-  runExcept (execWriterT (runReaderT ma (ExtractEnv env')))
+runSimpleEval :: Env' SimpleEval -> SimpleEval a -> Either EvalError a
+runSimpleEval env' (SimpleEval ma) =
+  runExcept (runReaderT ma (SimpleEvalEnv env'))
 
 -- These instance methods should never be reached
-instance MonadEvalQuery Extract where
+instance MonadEvalQuery SimpleEval where
+
   evalQuery _ _ = pure VNull
+
   evalNext _ = eval
+
   evalAlways _ = eval
+
+type Visited = HashSet QualifiedName
+
+type Extract = ReaderT (Env' SimpleEval) (WriterT Queries (StateT Visited (Except EvalError)))
 
 extractExpr :: P.Expr EvalAnn -> Extract ()
 extractExpr = \case
-  Next _ e -> extractExpr e
-  Always _ e -> extractExpr e
-  P.App _ (BuiltIn "_queryAll" _ e1@P.Literal{}) e2@P.Literal{} -> do
-      selector <- require (exprSourceSpan e1) (Proxy @"VString") =<< eval e1
-      wantedStates <-
-        traverse (require (exprSourceSpan e2) (Proxy @"VElementState")) . HashMap.elems
-          =<< require (exprSourceSpan e2) (Proxy @"VObject")
-          =<< eval e2
-      tell (HashMap.singleton (Selector selector) (HashSet.fromList wantedStates))
-  P.App _ (BuiltIn _ _ _) _ -> pure mempty
-  P.Literal{} -> pure mempty
-  P.Constructor{} -> pure mempty
-  P.Accessor _ _ e -> extractExpr e
-  P.ObjectUpdate _ e updates -> traverse_ (extractExpr . snd) updates >> extractExpr e
-  P.Abs _ _ body -> extractExpr body
-  P.App _ f e -> extractExpr f >> extractExpr e
-  P.Var _ (P.Qualified (Just (P.ModuleName "Prim")) (P.Ident "undefined")) -> pass
-  P.Var _ (P.Qualified (Just _mn) (P.Ident _n)) -> pass
-  P.Var _ _ -> pass
-  P.Case _ exprs alts -> do
-    traverse_ extractExpr exprs
-    for_ alts $ \(P.CaseAlternative _ result) -> 
-      case result of
-        Left guardedExprs -> 
-          for_ guardedExprs $ \(guard', branch) ->
-            extractExpr guard' >> extractExpr branch
-        Right expr -> extractExpr expr
-  P.Let _ bindings body -> do
-    for_ bindings $ \case
-      P.NonRec _ _ expr -> extractExpr expr
-      P.Rec binds -> for_ binds $ \(_, expr) -> extractExpr expr
-    extractExpr body
+    Next _ e -> extractExpr e
+    Always _ e -> extractExpr e
+    P.App _ (BuiltIn "queryAll" _ e1) e2 -> do
+      env' <- ask
+      let result = runSimpleEval env' $ do
+            selector <- require (exprSourceSpan e1) (Proxy @"VString") =<< eval e1
+            wantedStates <-
+              traverse (require (exprSourceSpan e2) (Proxy @"VElementState")) . HashMap.elems
+                =<< require (exprSourceSpan e2) (Proxy @"VObject")
+                =<< eval e2
+            pure (HashMap.singleton (Selector selector) (HashSet.fromList wantedStates))
+      either throwError tell result
+    P.Literal {} -> pass
+    P.Constructor {} -> pass
+    P.Accessor _ _ e -> extractExpr e
+    P.ObjectUpdate _ e updates -> traverse_ (extractExpr . snd) updates >> extractExpr e
+    P.Abs _ _ body -> extractExpr body
+    P.App _ f e -> extractExpr f >> extractExpr e
+    P.Var _ (P.Qualified (Just (P.ModuleName "Prim")) (P.Ident "undefined")) -> pass
+    P.Var EvalAnn{ annApplyForeign = Just{} } qi -> pass
+    P.Var ann qi -> 
+      case fromQualifiedIdent qi of 
+        Left qn -> do
+          visited <- get
+          unless (HashSet.member qn visited) $ do
+            modify (HashSet.insert qn)
+            env' <- ask
+            traceShowM qn
+            case envLookupTopLevel qn env' of
+              Just expr -> do
+                extractExpr expr
+              Nothing -> throwError (NotInScope (annSourceSpan ann) (Left qn))
+        Right _ -> pass
+    P.Case _ exprs alts -> do
+      traverse_ extractExpr exprs
+      for_ alts $ \(P.CaseAlternative _ result) ->
+        case result of
+          Left guardedExprs ->
+            for_ guardedExprs $ \(guard', branch) ->
+              extractExpr guard' >> extractExpr branch
+          Right expr -> extractExpr expr
+    P.Let _ bindings body -> do
+      for_ bindings $ \case
+        P.NonRec _ _ expr -> extractExpr expr
+        P.Rec binds -> for_ binds $ \(_, expr) -> extractExpr expr
+      extractExpr body
 
 extractEntryPoint :: P.SourceSpan -> QualifiedName -> Extract ()
 extractEntryPoint ss entryPoint = do
-  env' <- view (field @"env")
+  env' <- ask
   case envLookupTopLevel entryPoint env' of
     Just expr -> extractExpr expr
     Nothing -> throwError (NotInScope ss (Left entryPoint))
+
+runExtract :: Env' SimpleEval -> Extract () -> Either EvalError Queries
+runExtract env' ma =
+  runExcept (evalStateT (execWriterT (runReaderT ma env')) mempty)

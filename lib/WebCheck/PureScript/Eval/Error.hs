@@ -34,8 +34,8 @@ data EvalError
   | InvalidBuiltInFunctionApplication SourceSpan (Expr ()) (Expr ())
   | ForeignFunctionError (Maybe SourceSpan) Text
   | InvalidURI (Maybe SourceSpan) Text Text
-  | UnsupportedQuery SourceSpan
-  | UnsupportedQueryDependency SourceSpan SourceSpan
+  | UnsupportedQueryExpression SourceSpan
+  | InvalidQueryDependency SourceSpan
   | Undetermined
   deriving (Show, Generic)
 
@@ -51,8 +51,8 @@ errorSourceSpan = \case
   InvalidBuiltInFunctionApplication ss _ _ -> Just ss
   ForeignFunctionError ss _ -> ss
   InvalidURI ss _ _ -> ss
-  UnsupportedQuery ss -> Just ss
-  UnsupportedQueryDependency ss _ -> Just ss
+  UnsupportedQueryExpression ss -> Just ss
+  InvalidQueryDependency ss -> Just ss
   Undetermined -> Nothing
 
 unexpectedType :: (MonadError EvalError m) => SourceSpan -> Text -> Value ann -> m a

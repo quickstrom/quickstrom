@@ -267,7 +267,8 @@ evalEntryPoint entryPoint = envLookupEval entrySS (Left entryPoint)
 foreignFunctions :: Eval r m => HashMap QualifiedName (SomeForeignFunction m)
 foreignFunctions =
   HashMap.fromList
-    [ (ffName "Control.Bind" "arrayBind", foreignFunction (arrayBind @(Value EvalAnn) @(Value EvalAnn))),
+    [ (ffName "Control.Apply" "arrayApply", foreignFunction arrayApply),
+      (ffName "Control.Bind" "arrayBind", foreignFunction (arrayBind @(Value EvalAnn) @(Value EvalAnn))),
       (ffName "Data.Array" "indexImpl", foreignFunction indexImpl),
       (ffName "Data.Array" "sortImpl", foreignFunction sortImpl),
       (ffName "Data.Array" "length", foreignFunction len),
@@ -360,6 +361,8 @@ foreignFunctions =
     len xs = pure (fromIntegral (Vector.length xs))
     filterArray :: Monad m => (Value EvalAnn -> Ret m Bool) -> Vector (Value EvalAnn) -> Ret m (Vector (Value EvalAnn))
     filterArray f xs = Vector.filterM f xs
+    arrayApply :: Applicative m => Vector (Value EvalAnn -> Ret m (Value EvalAnn)) -> Value EvalAnn -> Ret m (Vector (Value EvalAnn))
+    arrayApply fs a = traverse ($ a) fs
     arrayUncons :: (() -> Ret m (Value EvalAnn)) -> (Value EvalAnn -> Vector (Value EvalAnn) -> Ret m (Value EvalAnn)) -> Vector (Value EvalAnn) -> Ret m (Value EvalAnn)
     arrayUncons empty' next xs = maybe (empty' ()) (uncurry next) (uncons xs)
     arrayRange :: Monad m => Int -> Int -> Ret m (Vector Int)

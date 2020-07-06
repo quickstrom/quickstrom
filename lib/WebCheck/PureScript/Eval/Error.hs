@@ -9,7 +9,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
-
 module WebCheck.PureScript.Eval.Error where
 
 import Control.Lens ((^?))

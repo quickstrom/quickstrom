@@ -3,7 +3,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
-
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -18,8 +17,8 @@ import Data.HashSet (HashSet)
 import qualified Language.PureScript.AST.SourcePos as P
 import qualified Language.PureScript.CoreFn as P
 import qualified Language.PureScript.Names as P
-import WebCheck.Prelude
 import WebCheck.Element (Selector (..))
+import WebCheck.Prelude
 import WebCheck.PureScript.Eval
 import WebCheck.Specification (Queries)
 
@@ -38,7 +37,6 @@ runSimpleEval env' (SimpleEval ma) =
 
 -- These instance methods should never be reached
 instance MonadEvalQuery SimpleEval where
-
   evalQuery expr _ = throwError (InvalidQueryDependency (exprSourceSpan expr))
 
   evalNext _ = eval

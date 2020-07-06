@@ -1,10 +1,9 @@
-{-# LANGUAGE EmptyDataDeriving #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE EmptyDataDeriving #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
-
 
 module WebCheck.PureScript.Value where
 
@@ -15,8 +14,8 @@ import Data.Vector (Vector)
 import qualified Data.Vector as Vector
 import Language.PureScript.CoreFn
 import Language.PureScript.Names
-import WebCheck.Prelude
 import qualified WebCheck.Element as Element
+import WebCheck.Prelude
 import WebCheck.PureScript.Eval.Env
 
 data Value ann
@@ -53,7 +52,7 @@ data None a
 type ClosureEnv ann = Env Expr Value None ann
 
 closureEnvFromEnv :: Env expr value ff ann -> Env expr value none ann
-closureEnvFromEnv env = env { envForeignFunctions = mempty  }
+closureEnvFromEnv env = env {envForeignFunctions = mempty}
 
 data Function ann = Function (ClosureEnv ann) Ident (Expr ann)
   deriving (Show, Generic)

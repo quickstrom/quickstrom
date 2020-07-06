@@ -1,5 +1,5 @@
-module WebCheck.Prelude 
-  ( module Exports
+module WebCheck.Prelude
+  ( module Exports,
   )
 where
 

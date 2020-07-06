@@ -1,6 +1,5 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
-
 {-# LANGUAGE OverloadedStrings #-}
 
 module WebCheck.PureScript.Eval.Name where

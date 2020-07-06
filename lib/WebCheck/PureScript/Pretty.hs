@@ -1,5 +1,4 @@
 {-# LANGUAGE LambdaCase #-}
-
 {-# LANGUAGE OverloadedStrings #-}
 
 module WebCheck.PureScript.Pretty where

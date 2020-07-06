@@ -8,7 +8,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
@@ -28,13 +27,13 @@ import Data.Vector (Vector)
 import qualified Data.Vector as Vector
 import GHC.TypeNats (type (+))
 import Language.PureScript.AST (SourceSpan)
-import WebCheck.Prelude
 import Text.Megaparsec (Parsec)
 import qualified Text.Megaparsec as Parsec
 import qualified Text.URI as URI
 import Text.URI (URI)
 import WebCheck.Action (Action (..))
 import WebCheck.Element (Selector (..))
+import WebCheck.Prelude
 import WebCheck.PureScript.Eval.Ann
 import WebCheck.PureScript.Eval.Error
 import WebCheck.PureScript.Eval.Interpret

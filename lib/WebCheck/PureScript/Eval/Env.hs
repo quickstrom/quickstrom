@@ -1,13 +1,13 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE NoImplicitPrelude #-}
+
 
 module WebCheck.PureScript.Eval.Env where
 
 import qualified Data.HashMap.Strict as HashMap
 import Data.HashMap.Strict (HashMap)
-import Protolude hiding (list)
+import WebCheck.Prelude
 import WebCheck.PureScript.Eval.Name
 
 data Env expr value ff ann

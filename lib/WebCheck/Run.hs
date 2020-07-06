@@ -5,7 +5,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE NoImplicitPrelude #-}
+
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -47,7 +47,7 @@ import qualified Network.Wreq as Wreq
 import Pipes ((>->), Consumer, Effect, Pipe, Producer)
 import qualified Pipes
 import qualified Pipes.Prelude as Pipes
-import Protolude hiding (Selector, catchError, check, throwError, trace, list)
+import WebCheck.Prelude hiding (trace, catchError, throwError, check)
 import System.Environment (lookupEnv)
 import qualified Test.QuickCheck as QuickCheck
 import Text.URI (URI)

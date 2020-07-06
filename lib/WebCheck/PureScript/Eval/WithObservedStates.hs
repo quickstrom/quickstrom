@@ -6,7 +6,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NoImplicitPrelude #-}
+
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
@@ -21,7 +21,7 @@ import Data.Generics.Product (field)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Scientific (floatingOrInteger)
 import qualified Data.Vector as Vector
-import Protolude hiding (Selector)
+import WebCheck.Prelude
 import WebCheck.Element (Selector (..))
 import WebCheck.PureScript.Eval.Interpret
 import WebCheck.PureScript.Eval.Class

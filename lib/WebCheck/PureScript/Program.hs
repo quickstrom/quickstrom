@@ -2,7 +2,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -32,17 +31,17 @@ import qualified Language.PureScript.CST as CST
 import Language.PureScript.CoreFn hiding (Ann)
 import qualified Language.PureScript.CoreFn as CF
 import Language.PureScript.CoreFn.FromJSON (moduleFromJSON)
-import Protolude hiding (HasField, moduleName, uncons)
 import System.FilePath ((</>))
 import System.FilePath.Glob (glob)
 import qualified Test.QuickCheck as QuickCheck
 import Text.Read (read)
 import qualified WebCheck.Action as WebCheck
 import qualified WebCheck.Element as WebCheck
+import WebCheck.Prelude hiding (moduleName, uncons)
+import qualified WebCheck.PureScript.Analyze as Analyze
 import WebCheck.PureScript.Eval
 import WebCheck.PureScript.ForeignFunction
 import WebCheck.PureScript.Pretty
-import qualified WebCheck.PureScript.Analyze as Analyze
 import WebCheck.PureScript.Value
 import qualified WebCheck.Result as WebCheck
 import qualified WebCheck.Specification as WebCheck
@@ -203,7 +202,6 @@ data SpecificationProgram
       }
 
 instance WebCheck.Specification SpecificationProgram where
-
   readyWhen = specificationReadyWhen
 
   actions = QuickCheck.frequency . map (_2 %~ pure) . specificationActions
@@ -270,7 +268,7 @@ foreignFunctions =
     [ (ffName "Control.Apply" "arrayApply", foreignFunction arrayApply),
       (ffName "Control.Bind" "arrayBind", foreignFunction (arrayBind @(Value EvalAnn) @(Value EvalAnn))),
       (ffName "Data.Array" "indexImpl", foreignFunction indexImpl),
-      (ffName "Data.Array" "sortImpl", foreignFunction sortImpl),
+      (ffName "Data.Array" "sortImpl", foreignFunction (sortImpl @(Value EvalAnn))),
       (ffName "Data.Array" "length", foreignFunction len),
       (ffName "Data.Array" "filter", foreignFunction filterArray),
       (ffName "Data.Array" "uncons'", foreignFunction arrayUncons),
@@ -347,8 +345,8 @@ foreignFunctions =
     notSupported qn = (qn, SomeForeignFunction (NotSupported qn))
     indexImpl :: (Monad m, a ~ Value EvalAnn) => (a -> Ret m (Value EvalAnn)) -> Value EvalAnn -> Vector a -> Int -> Ret m (Value EvalAnn)
     indexImpl just nothing xs i = Ret (maybe (pure nothing) (unRet . just) (xs ^? ix (fromIntegral i)))
-    sortImpl :: (Monad m, a ~ Value EvalAnn) => (a -> a -> Ret m Int) -> Vector a -> Ret m (Vector a)
-    sortImpl comp xs = Vector.fromList <$> sortByM (\x y -> (`compare` 0) <$> comp x y ) (Vector.toList xs)
+    sortImpl :: forall a m. (Monad m) => (a -> a -> Ret m Int) -> Vector a -> Ret m (Vector a)
+    sortImpl comp xs = Vector.fromList <$> sortByM (\x y -> (`compare` 0) <$> comp x y) (Vector.toList xs)
     fromNumberImpl :: (Int -> Ret m (Value EvalAnn)) -> Value EvalAnn -> Double -> Ret m (Value EvalAnn)
     fromNumberImpl just _ = just . round
     fromStringAsImpl :: Monad m => (Int -> Ret m (Value EvalAnn)) -> Value EvalAnn -> Int -> Text -> Ret m (Value EvalAnn)

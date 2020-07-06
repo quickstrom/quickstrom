@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 module WebCheck.Action where
 
+import WebCheck.Prelude
 import GHC.Generics (Generic)
 import WebCheck.Element
 import Text.URI (URI)

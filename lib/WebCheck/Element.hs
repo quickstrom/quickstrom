@@ -12,6 +12,7 @@
 
 module WebCheck.Element where
 
+import WebCheck.Prelude
 import Data.Aeson as JSON
 import Data.Aeson.Types (parseFail)
 import Data.Hashable (Hashable (..))

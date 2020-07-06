@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NoImplicitPrelude #-}
+
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -9,7 +9,7 @@
 module WebCheck.PureScript.AnalyzeTest where
 
 import Control.Monad (Monad (fail))
-import Protolude
+import WebCheck.Prelude
 import System.Environment (lookupEnv)
 import Test.Tasty.Hspec hiding (Selector)
 import WebCheck.Element

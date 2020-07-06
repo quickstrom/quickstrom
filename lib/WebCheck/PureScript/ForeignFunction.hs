@@ -8,7 +8,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NoImplicitPrelude #-}
+
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
@@ -28,7 +28,7 @@ import Data.Vector (Vector)
 import qualified Data.Vector as Vector
 import GHC.TypeNats (type (+))
 import Language.PureScript.AST (SourceSpan)
-import Protolude hiding (Selector)
+import WebCheck.Prelude
 import Text.Megaparsec (Parsec)
 import qualified Text.Megaparsec as Parsec
 import qualified Text.URI as URI

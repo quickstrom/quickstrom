@@ -1,12 +1,12 @@
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NoImplicitPrelude #-}
+
 {-# LANGUAGE OverloadedStrings #-}
 
 module WebCheck.PureScript.Pretty where
 
 import Data.Text.Prettyprint.Doc
 import Language.PureScript.AST (SourceSpan, sourcePosColumn, sourcePosLine, spanEnd, spanName, spanStart)
-import Protolude
+import WebCheck.Prelude
 import WebCheck.PureScript.Eval.Error
 import WebCheck.PureScript.Eval.Name
 

@@ -8,7 +8,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE NoImplicitPrelude #-}
+
 
 module WebCheck.PureScript.Eval.Error where
 
@@ -19,7 +19,7 @@ import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Text as Text
 import Language.PureScript.AST (SourceSpan)
 import Language.PureScript.CoreFn (Expr)
-import Protolude
+import WebCheck.Prelude
 import WebCheck.PureScript.Eval.Name
 import WebCheck.PureScript.Value
 

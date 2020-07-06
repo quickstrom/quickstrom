@@ -4,7 +4,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE NoImplicitPrelude #-}
+
 
 module WebCheck.PureScript.Value where
 
@@ -15,7 +15,7 @@ import Data.Vector (Vector)
 import qualified Data.Vector as Vector
 import Language.PureScript.CoreFn
 import Language.PureScript.Names
-import Protolude hiding (list)
+import WebCheck.Prelude
 import qualified WebCheck.Element as Element
 import WebCheck.PureScript.Eval.Env
 

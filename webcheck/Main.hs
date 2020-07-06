@@ -1,7 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -12,15 +11,15 @@ module Main where
 
 import Control.Lens hiding (argument)
 import Options.Applicative
-import Protolude hiding (option)
-import System.Environment (lookupEnv)
 import System.Directory (canonicalizePath)
+import System.Environment (lookupEnv)
 import Text.URI (URI)
-import Text.URI.Lens (uriScheme)
 import qualified Text.URI as URI
+import Text.URI.Lens (uriScheme)
+import qualified Text.URI.QQ as URI
+import WebCheck.Prelude hiding (option)
 import qualified WebCheck.PureScript.Program as WebCheck
 import qualified WebCheck.Run as WebCheck
-import qualified Text.URI.QQ as URI
 
 data WebCheckOptions
   = WebCheckOptions
@@ -82,7 +81,7 @@ resolveAbsoluteURI t = do
   uri <- URI.mkURI t
   case uri ^. uriScheme of
     Just scheme | scheme /= fileScheme -> pure uri
-    Nothing ->
+    _ ->
       URI.makeAbsolute fileScheme <$> (URI.mkURI . toS =<< canonicalizePath (toS t))
 
 main :: IO ()

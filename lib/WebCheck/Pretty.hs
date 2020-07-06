@@ -19,15 +19,16 @@ import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
 import Data.Text.Prettyprint.Doc.Symbols.Unicode (bullet)
 import qualified Data.Vector as Vector
-import WebCheck.Element
-import WebCheck.Trace
 import qualified Text.URI as URI
+import WebCheck.Element
+import WebCheck.Prelude
+import WebCheck.Trace
 
 prettyAction :: Action Selected -> Doc AnsiStyle
 prettyAction = \case
   Click sel -> "click" <+> prettySelected sel
   Focus sel -> "focus" <+> prettySelected sel
-  KeyPress key -> "key press" <+> pretty (show key)
+  KeyPress key -> "key press" <+> pretty (show key :: Text)
   Navigate uri -> "navigate to" <+> pretty (URI.render uri)
 
 prettySelected :: Selected -> Doc AnsiStyle
@@ -52,19 +53,19 @@ prettyTrace (Trace elements') = vsep (zipWith prettyElement [1 ..] elements')
               ActionFailed {} -> effect `stutterColorOr` Red <> bold
               ActionImpossible -> color Yellow <> bold
          in annotate annotation (pretty i <> "." <+> prettyAction action)
-      TraceState effect state ->
+      TraceState effect state' ->
         annotate (effect `stutterColorOr` Blue <> bold) (pretty i <> "." <+> "State")
           <> line
-          <> indent 2 (prettyObservedState state)
+          <> indent 2 (prettyObservedState state')
     Stutter `stutterColorOr` _ = colorDull Black
     NoStutter `stutterColorOr` fallback = color fallback
 
 prettyObservedState :: ObservedState -> Doc AnsiStyle
-prettyObservedState (ObservedState state)
-  | HashMap.null state = "(empty state)"
+prettyObservedState (ObservedState state')
+  | HashMap.null state' = "(empty state)"
   | otherwise =
     vsep
-      ( state
+      ( state'
           & HashMap.toList
           & List.sortBy (comparing fst)
           & map
@@ -84,14 +85,14 @@ prettyObservedState (ObservedState state)
           ( line
               <> indent 2 (vsep (map prettyStateValue (HashMap.toList stateValues)))
           )
-    prettyStateValue (state', value) = "-" <+> prettyState state' <+> "=" <+> prettyValue value
+    prettyStateValue (state'', value) = "-" <+> prettyState state'' <+> "=" <+> prettyValue value
 
 prettyValue :: JSON.Value -> Doc AnsiStyle
 prettyValue = \case
   JSON.Null -> "null"
-  JSON.Bool b -> pretty (show b)
-  JSON.String t -> pretty (show t)
-  JSON.Number n -> pretty (show n)
+  JSON.Bool b -> pretty (show b :: Text)
+  JSON.String t -> pretty (show t :: Text)
+  JSON.Number n -> pretty (show n :: Text)
   JSON.Array vs -> brackets (hsep (map prettyValue (Vector.toList vs)))
   JSON.Object obj ->
     encloseSep
@@ -102,7 +103,7 @@ prettyValue = \case
 
 prettyState :: ElementState -> Doc AnsiStyle
 prettyState = \case
-  Attribute n -> "attribute" <+> pretty (show n)
-  Property n -> "property" <+> pretty (show n)
-  CssValue n -> "cssValue" <+> pretty (show n)
+  Attribute n -> "attribute" <+> pretty (show n :: Text)
+  Property n -> "property" <+> pretty (show n :: Text)
+  CssValue n -> "cssValue" <+> pretty (show n :: Text)
   Text -> "text"

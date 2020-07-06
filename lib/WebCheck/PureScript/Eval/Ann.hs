@@ -1,8 +1,8 @@
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE NoImplicitPrelude #-}
+
 module WebCheck.PureScript.Eval.Ann where
 
-import Protolude
+import WebCheck.Prelude
 import qualified Language.PureScript as P
 import qualified Language.PureScript.CoreFn as CF
 import WebCheck.PureScript.Eval.Name

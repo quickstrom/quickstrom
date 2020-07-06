@@ -11,7 +11,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE NoImplicitPrelude #-}
+
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE PatternSynonyms #-}
@@ -37,7 +37,7 @@ import Language.PureScript.CoreFn hiding (Ann)
 import qualified Language.PureScript.CoreFn as CF
 import qualified Language.PureScript.Names as P
 import Language.PureScript.PSString (PSString, decodeString, mkString)
-import Protolude hiding (HasField, Meta, moduleName)
+import WebCheck.Prelude hiding (HasField)
 import qualified WebCheck.Element as WebCheck
 import WebCheck.PureScript.Eval.Ann
 import WebCheck.PureScript.Eval.Name

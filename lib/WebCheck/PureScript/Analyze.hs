@@ -3,7 +3,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NoImplicitPrelude #-}
+
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -11,19 +11,16 @@ module WebCheck.PureScript.Analyze where
 
 import Control.Lens
 import Control.Monad.Fix (MonadFix)
-import Control.Monad.Writer (MonadWriter, WriterT, execWriterT, tell)
-import Data.Generics.Product (field)
-import Data.Generics.Sum (_Ctor)
+import Control.Monad.Writer (WriterT, execWriterT, tell)
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.HashSet as HashSet
 import Data.HashSet (HashSet)
 import qualified Language.PureScript.AST.SourcePos as P
 import qualified Language.PureScript.CoreFn as P
 import qualified Language.PureScript.Names as P
-import Protolude hiding (Selector)
+import WebCheck.Prelude
 import WebCheck.Element (Selector (..))
 import WebCheck.PureScript.Eval
-import WebCheck.PureScript.Value
 import WebCheck.Specification (Queries)
 
 data SimpleEvalEnv
@@ -57,7 +54,7 @@ extractExpr = \case
   Next _ e -> extractExpr e
   Always _ e -> extractExpr e
   -- We need to ignore all the type class dictionaries that are passed in.
-  P.App ann (P.App _ (P.App _ (P.App _ (BuiltIn f _ _) _) _) e1) e2 | f `elem` ["queryAll", "queryOne"] ->
+  P.App _ (P.App _ (P.App _ (P.App _ (BuiltIn f _ _) _) _) e1) e2 | f `elem` ["queryAll", "queryOne"] ->
     case (e1, e2) of
       (P.Var ann' _, _) -> throwError (UnsupportedQueryExpression (annSourceSpan ann'))
       (_, P.Var ann' _) -> throwError (UnsupportedQueryExpression (annSourceSpan ann'))

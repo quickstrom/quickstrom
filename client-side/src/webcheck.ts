@@ -184,7 +184,7 @@ async function observeNextStateForStateQuery(
           return observeNextStateMutation(selector, stateQuery);
       }
     case "cssValue":
-      return observeNextStateMutation(selector, stateQuery);
+      return observeNextPropertyChange([selector, [stateQuery]]);
     case "text":
       return observeNextStateMutation(selector, stateQuery);
   }

@@ -337,7 +337,7 @@ inNewPrivateWindow = runIsolated (reconfigure headlessFirefoxCapabilities)
               o
                 { _firefoxArgs = Just ["-headless", "-private"],
                   _firefoxPrefs = Just (HashMap.singleton "Dom.storage.enabled" (JSON.Bool False)),
-                  _firefoxLog = Just (FirefoxLog (Just LogWarn))
+                  _firefoxLog = Just (FirefoxLog (Just LogDebug))
                 }
         }
 

@@ -20,7 +20,7 @@ function runQuery([selector, states]: Query): ObservedState {
   function runStateQuery(element: Element, stateQuery: StateQuery): Value {
     switch (stateQuery.tag) {
       case "attribute":
-        return element.attributes.getNamedItem(stateQuery.name) as
+        return element.attributes.getNamedItem(stateQuery.name)?.value as
           | string
           | null;
       case "property":

@@ -2,7 +2,6 @@
 module Spec where
 
 import WebCheck
-
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
 import Data.Symbol (SProxy(..))
@@ -11,18 +10,16 @@ readyWhen :: Selector
 readyWhen = "app-gdpr-modal"
 
 actions :: Actions
-actions = appFoci <> appClicks
-  where
-    appClicks = 
-      [ Tuple 1 (Click "[role=main] a")
-      , Tuple 1 (Click "app-gdpr-modal #btn-center-confirm")
-      , Tuple 1 (Click "[role=main] form a")
-      , Tuple 1 (Click "[role=main] form input")
-      , Tuple 1 (Click "[role=main] form button")
-      ]
-    appFoci = [ Tuple 5 (Focus "input[type=text]") ]
+actions =
+  [ Tuple 1 (Click "[role=main] a")
+  , Tuple 1 (Click "app-gdpr-modal #btn-center-confirm")
+  , Tuple 1 (Click "[role=main] form a")
+  , Tuple 1 (Click "[role=main] form input")
+  , Tuple 1 (Click "[role=main] form button")
+  , Tuple 5 (Focus "input[type=text]")
+  ]
 
 proposition :: Boolean
-proposition = 
+proposition =
   map _.classes (queryAll "#wizz-lon-efter-skatt li" { classes: attribute (SProxy :: SProxy "class") })
-  == [Just "active", Nothing]
+    == [ Just "active", Nothing ]

@@ -253,15 +253,12 @@ selectValidActions :: Pipe (Action Selector) (Action Selected) Runner ()
 selectValidActions = forever do
   possibleAction <- Pipes.await
   result <- case possibleAction of
-    KeyPress k ->
-      lift $
-        activeElement >>= \case
-          Just el ->
-            getElementTagName el >>= \case
-              name
-                | name `elem` ["input", "textarea"] -> pure (Just (KeyPress k))
-                | otherwise -> pure Nothing
-          Nothing -> pure Nothing
+    KeyPress k -> do
+      active <- isActiveInput
+      if active then (pure (Just (KeyPress k))) else pure Nothing
+    EnterText t -> do
+      active <- isActiveInput
+      if active then (pure (Just (EnterText t))) else pure Nothing
     Navigate p -> pure (Just (Navigate p))
     Focus sel -> lift (selectOne sel Focus (isNotActive . toRef))
     Click sel -> lift (selectOne sel Click isClickable)
@@ -282,6 +279,11 @@ selectValidActions = forever do
     activeElement = (Just <$> getActiveElement) `catchError` const (pure Nothing)
     isClickable e =
       andM [isElementEnabled (toRef e), isElementVisible e]
+    isActiveInput =
+      lift $
+        activeElement >>= \case
+          Just el -> (`elem` ["input", "textarea"]) <$> getElementTagName el
+          Nothing -> pure False
 
 navigateToOrigin :: Runner ()
 navigateToOrigin = do

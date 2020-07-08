@@ -11,7 +11,6 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE PatternSynonyms #-}
@@ -37,13 +36,13 @@ import Language.PureScript.CoreFn hiding (Ann)
 import qualified Language.PureScript.CoreFn as CF
 import qualified Language.PureScript.Names as P
 import Language.PureScript.PSString (PSString, decodeString, mkString)
-import Protolude hiding (HasField, Meta, moduleName)
 import qualified WebCheck.Element as WebCheck
+import WebCheck.Prelude hiding (HasField)
 import WebCheck.PureScript.Eval.Ann
-import WebCheck.PureScript.Eval.Name
 import WebCheck.PureScript.Eval.Class
 import WebCheck.PureScript.Eval.Env
 import WebCheck.PureScript.Eval.Error
+import WebCheck.PureScript.Eval.Name
 import WebCheck.PureScript.Value
 
 pattern BuiltIn :: Text -> a -> Expr a -> Expr a
@@ -173,7 +172,7 @@ evalStringExpr expr = throwError (InvalidString (annSourceSpan (extractAnn expr)
 envLookupEval :: (Eval r m) => SourceSpan -> Either QualifiedName Name -> m (Value EvalAnn)
 envLookupEval ss n = do
   env' <- view (field @"env")
-  let onValue (VDefer (Defer env'' expr')) = local (field @"env" .~ env'' { envForeignFunctions = envForeignFunctions env' }) (eval expr')
+  let onValue (VDefer (Defer env'' expr')) = local (field @"env" .~ env'' {envForeignFunctions = envForeignFunctions env'}) (eval expr')
       onValue val = pure val
   case n of
     Left (flip envLookupTopLevel env' -> Just expr) -> local (field @"env" %~ withoutLocals) (eval expr)
@@ -194,7 +193,7 @@ asQualifiedName _ = Nothing
 evalFunc :: Eval r m => Function EvalAnn -> (Value EvalAnn) -> m (Value EvalAnn)
 evalFunc (Function fEnv arg body) param' = do
   env <- view (field @"env")
-  let newEnv = fEnv { envForeignFunctions = (envForeignFunctions env) } <> envBindLocal (fromIdent arg) param'
+  let newEnv = fEnv {envForeignFunctions = (envForeignFunctions env)} <> envBindLocal (fromIdent arg) param'
   local (field @"env" .~ newEnv) (eval body)
 
 evalCaseAlts :: Eval r m => SourceSpan -> [(Value EvalAnn)] -> [CaseAlternative EvalAnn] -> m (Value EvalAnn)

@@ -1,6 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -9,10 +8,10 @@
 module WebCheck.PureScript.AnalyzeTest where
 
 import Control.Monad (Monad (fail))
-import Protolude
 import System.Environment (lookupEnv)
 import Test.Tasty.Hspec hiding (Selector)
 import WebCheck.Element
+import WebCheck.Prelude
 import WebCheck.PureScript.Program
 
 loadModules :: IO Modules
@@ -40,7 +39,7 @@ spec_analyze = beforeAll loadModules $ do
             ("button", [Property "textContent"])
           ]
     it "valid and using top-level element state" $ \m -> do
-      fmap specificationQueries <$>  loadSpecificationProgram' "test/WebCheck/PureScript/AnalyzeTest/TopLevelElementState.purs" m
+      fmap specificationQueries <$> loadSpecificationProgram' "test/WebCheck/PureScript/AnalyzeTest/TopLevelElementState.purs" m
         `shouldReturn` Right [("p", [CssValue "display", CssValue "font-size"])]
   describe "rejects the specification when" $ do
     it "using queries with identifiers bound in let" $ \m -> do

@@ -14,6 +14,7 @@ import Data.HashSet (HashSet)
 import Data.Text.Prettyprint.Doc (Doc)
 import Test.QuickCheck (Gen)
 import WebCheck.Element
+import WebCheck.Prelude
 import WebCheck.Result
 import WebCheck.Trace
 

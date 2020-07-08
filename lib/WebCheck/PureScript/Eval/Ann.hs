@@ -1,10 +1,10 @@
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE NoImplicitPrelude #-}
+
 module WebCheck.PureScript.Eval.Ann where
 
-import Protolude
 import qualified Language.PureScript as P
 import qualified Language.PureScript.CoreFn as CF
+import WebCheck.Prelude
 import WebCheck.PureScript.Eval.Name
 
 data ApplyForeign = ApplyForeign QualifiedName [Name]

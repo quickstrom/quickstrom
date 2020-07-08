@@ -30,6 +30,10 @@ let
       'specs/**/*.purs'
   '';
 
+  webcheck-format-sources = pkgs.writeShellScriptBin "webcheck-format-sources" ''
+    find . -not -path './dist-newstyle/*' -name '*.hs' -exec ormolu -m inplace {} \;
+  '';
+
   src = pkgs.nix-gitignore.gitignoreSource [] ./.;
 
   webcheck = import ./. { inherit pkgs compiler; };
@@ -51,6 +55,7 @@ in haskellPackages.shellFor {
     # chromedriver
 
     webcheck-purs-ide
+    webcheck-format-sources
     # only for lorri
     purescript-webcheck
     client-side

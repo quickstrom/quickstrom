@@ -129,7 +129,11 @@ And rerun your WebCheck command.
 There are various flags and options for the `webcheck` executable. Run with
 `--help` to learn more.
 
-## Testing
+## Development
+
+The following instructions are helpful if you want to work on WebCheck.
+
+### Testing
 
 (Testing WebCheck itself, that is. Not specifications.)
 
@@ -156,4 +160,13 @@ the package with Spago.
 
 ```
 WEBCHECK_LIBRARY_DIR=purescript-webcheck/output cabal test
+```
+
+
+### Formatting
+
+In a Nix shell, run the following command to format all Haskell sources:
+
+```bash
+webcheck-format-sources
 ```

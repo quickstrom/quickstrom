@@ -8,6 +8,7 @@ cradle:
   #     component: "test:webcheck-test"
   direct: 
     arguments:
+      - -XNoImplicitPrelude
       - -Wall
       - -Werror=incomplete-patterns
       - -ilib

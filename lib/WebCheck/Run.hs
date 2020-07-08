@@ -5,7 +5,6 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -47,13 +46,13 @@ import qualified Network.Wreq as Wreq
 import Pipes ((>->), Consumer, Effect, Pipe, Producer)
 import qualified Pipes
 import qualified Pipes.Prelude as Pipes
-import Protolude hiding (Selector, catchError, check, throwError, trace, list)
 import System.Environment (lookupEnv)
 import qualified Test.QuickCheck as QuickCheck
 import Text.URI (URI)
 import qualified Text.URI as URI
 import Web.Api.WebDriver hiding (Action, Selector, hPutStrLn, runIsolated)
 import WebCheck.Element
+import WebCheck.Prelude hiding (catchError, check, throwError, trace)
 import WebCheck.Pretty
 import WebCheck.Result
 import WebCheck.Specification
@@ -193,7 +192,6 @@ observeManyStatesAfter queries' initialState action = do
       Pipes.yield currentState
       delta <- getNextOrFail =<< lift (registerNextStateObserver queries')
       loop (currentState <> delta)
-
     toActionFailed :: Show a => a -> Runner ActionResult
     toActionFailed = pure . ActionFailed . show
     catchActionFailed ma =
@@ -203,7 +201,6 @@ observeManyStatesAfter queries' initialState action = do
         toActionFailed
         toActionFailed
         toActionFailed
-
 
 {-# SCC runActions' "runActions'" #-}
 runActions' :: Specification spec => spec -> Pipe (Action Selected) (TraceElement ()) Runner ()

@@ -19,6 +19,7 @@ import Data.String (IsString)
 import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
 import GHC.Generics (Generic)
+import WebCheck.Prelude
 
 newtype Element = Element {ref :: Text}
   deriving (Eq, Ord, Show, Hashable, Pretty)
@@ -74,4 +75,5 @@ newtype Selector = Selector Text
   deriving (Eq, Ord, Show, IsString, Generic, Hashable, Pretty, FromJSON, ToJSON)
 
 instance JSON.FromJSONKey Selector
+
 instance JSON.ToJSONKey Selector

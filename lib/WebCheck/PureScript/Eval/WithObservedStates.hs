@@ -6,7 +6,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
@@ -21,11 +20,11 @@ import Data.Generics.Product (field)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Scientific (floatingOrInteger)
 import qualified Data.Vector as Vector
-import Protolude hiding (Selector)
 import WebCheck.Element (Selector (..))
-import WebCheck.PureScript.Eval.Interpret
+import WebCheck.Prelude
 import WebCheck.PureScript.Eval.Class
 import WebCheck.PureScript.Eval.Error
+import WebCheck.PureScript.Eval.Interpret
 import WebCheck.PureScript.Value
 import WebCheck.Trace (ObservedState (..))
 
@@ -44,7 +43,6 @@ runWithObservedStates env' observedStates' (WithObservedStates ma) =
   runExcept (runReaderT ma (WithObservedStatesEnv env' observedStates'))
 
 instance MonadEvalQuery WithObservedStates where
-
   evalQuery p1 p2 = do
     view (field @"observedStates") >>= \case
       [] -> throwError Undetermined
@@ -77,7 +75,7 @@ instance MonadEvalQuery WithObservedStates where
 
   evalNext _ p =
     view (field @"observedStates") >>= \case
-      (_ : rest ) | not (null rest) -> local (field @"observedStates" .~ rest) (eval p)
+      (_ : rest) | not (null rest) -> local (field @"observedStates" .~ rest) (eval p)
       _ -> throwError Undetermined
 
   evalAlways ann p =
@@ -88,6 +86,6 @@ instance MonadEvalQuery WithObservedStates where
           Undetermined -> pure (VBool True)
           e -> throwError e
         rest' <-
-          require (exprSourceSpan p) (Proxy @"VBool") 
-          =<< local (field @"observedStates" %~ drop 1) (evalAlways ann p)
+          require (exprSourceSpan p) (Proxy @"VBool")
+            =<< local (field @"observedStates" %~ drop 1) (evalAlways ann p)
         pure (VBool (first' && rest'))

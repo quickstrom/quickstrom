@@ -1,29 +1,29 @@
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE NoImplicitPrelude   #-}
-{-# LANGUAGE OverloadedLists     #-}
-{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module WebCheck.PureScriptTest where
 
-import           Control.Lens
-import           Control.Monad                       (Monad (fail))
-import qualified Data.Aeson                          as JSON
-import qualified Data.HashMap.Strict                 as HashMap
-import           Data.Vector                         (Vector)
-import qualified Data.Vector                         as Vector
-import           Language.PureScript                 (nullSourceSpan)
-import           Protolude
-import           System.Environment                  (lookupEnv)
-import           Test.Tasty.Hspec                    hiding (Selector)
-import qualified WebCheck.Element                    as WebCheck
-import           WebCheck.PureScript.Eval
-import           WebCheck.PureScript.ForeignFunction
-import           WebCheck.PureScript.Pretty
-import           WebCheck.PureScript.Program
-import           WebCheck.Trace                      (ObservedState (..))
+import Control.Lens
+import Control.Monad (Monad (fail))
+import qualified Data.Aeson as JSON
+import qualified Data.HashMap.Strict as HashMap
+import Data.Vector (Vector)
+import qualified Data.Vector as Vector
+import Language.PureScript (nullSourceSpan)
+import Protolude
+import System.Environment (lookupEnv)
+import Test.Tasty.Hspec hiding (Selector)
+import qualified WebCheck.Element as WebCheck
+import WebCheck.PureScript.Eval
+import WebCheck.PureScript.ForeignFunction
+import WebCheck.PureScript.Pretty
+import WebCheck.PureScript.Program
+import WebCheck.Trace (ObservedState (..))
 
 loadModules :: IO Modules
 loadModules = do
@@ -50,7 +50,7 @@ eval' ::
   Either Text b
 eval' states name p =
   (toHaskellValue nullSourceSpan =<< evalWithObservedStates p name states)
-  & _Left %~ (prettyText . prettyEvalError)
+    & _Left %~ (prettyText . prettyEvalError)
 
 spec_purescript :: Spec
 spec_purescript = beforeAll loadModules $ do
@@ -106,7 +106,7 @@ spec_purescript = beforeAll loadModules $ do
                   (WebCheck.Selector ".todoapp .filters a", [HashMap.singleton (WebCheck.Property "textContent") (JSON.String t) | t <- filters]),
                   (WebCheck.Selector ".todoapp .filters a.selected", [HashMap.singleton (WebCheck.Property "textContent") (JSON.String selected)]),
                   ( WebCheck.Selector ".todo-list li",
-                     map (const (HashMap.singleton (WebCheck.CssValue "display") "block")) (Vector.toList todoItems)
+                    map (const (HashMap.singleton (WebCheck.CssValue "display") "block")) (Vector.toList todoItems)
                   ),
                   ( WebCheck.Selector ".todo-list li label",
                     [HashMap.singleton (WebCheck.Property "textContent") (JSON.String todo) | (todo, _) <- Vector.toList todoItems]

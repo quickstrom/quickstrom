@@ -14,5 +14,4 @@ fontSize :: CssValue
 fontSize = cssValue ("font" <> "-" <> "size")
 
 proposition :: Boolean
-proposition =
-  queryOne "p" { display, fontSize } == Just { display: "none", fontSize: "bar" }
+proposition = queryOne "p" { display, fontSize } == Just { display: "none", fontSize: "bar" }

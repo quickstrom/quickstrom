@@ -6,8 +6,8 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -21,7 +21,7 @@ import Data.Generics.Product (field)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Scientific (floatingOrInteger)
 import qualified Data.Vector as Vector
-import WebCheck.Element (ElementState(..), Selector (..))
+import WebCheck.Element (ElementState (..), Selector (..))
 import WebCheck.Prelude
 import WebCheck.PureScript.Eval.Class
 import WebCheck.PureScript.Eval.Error
@@ -61,9 +61,9 @@ instance MonadEvalQuery WithObservedStates where
             case HashMap.lookup elementState matchedElement of
               Just json -> case parseValueAs elementState json of
                 Just value -> pure value
-                Nothing -> 
+                Nothing ->
                   let msg = ("Value (bound to ." <> k <> ") could not be parsed as `" <> show elementState <> "`: " <> show json)
-                  in throwError (ForeignFunctionError (Just (exprSourceSpan p2)) msg)
+                   in throwError (ForeignFunctionError (Just (exprSourceSpan p2)) msg)
               Nothing ->
                 let msg = ("Element state (bound to ." <> k <> ") not in observed state for query `" <> selector <> "`: " <> show elementState)
                  in throwError (ForeignFunctionError (Just (exprSourceSpan p2)) msg)
@@ -71,14 +71,13 @@ instance MonadEvalQuery WithObservedStates where
         pure (VArray mappedElements)
         where
           parseValueAs :: ElementState -> JSON.Value -> Maybe (Value ann)
-          parseValueAs Attribute{} = \case
+          parseValueAs Attribute {} = \case
             JSON.Null -> pure (VObject [("constructor", VString "Nothing"), ("fields", VArray mempty)])
             JSON.String t -> pure (VObject [("constructor", VString "Just"), ("fields", VArray [VString t])])
             _ -> Nothing
-          parseValueAs Property{} = fromJson
-          parseValueAs CssValue{} = fromJson
-          parseValueAs Text{} = fromJson
-
+          parseValueAs Property {} = fromJson
+          parseValueAs CssValue {} = fromJson
+          parseValueAs Text {} = fromJson
           fromJson :: JSON.Value -> Maybe (Value ann)
           fromJson = \case
             JSON.Null -> Nothing

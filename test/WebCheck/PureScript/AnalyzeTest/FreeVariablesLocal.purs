@@ -9,6 +9,7 @@ actions = []
 
 proposition :: Boolean
 proposition =
-  let sel = "p"
-  in queryOne sel { display: cssValue "display" } == Just { display: "none" }
-
+  let
+    sel = "p"
+  in
+    queryOne sel { display: cssValue "display" } == Just { display: "none" }

@@ -1,19 +1,17 @@
 module WebCheck.Spec
- ( Path
- , Action (..)
- , Actions
- , clicks
- , focus
- , foci
- , keyPress
- , asciiKeyPresses
- , SpecialKey(..)
- , specialKeyPress
- )
-where
+  ( Path
+  , Action(..)
+  , Actions
+  , clicks
+  , focus
+  , foci
+  , keyPress
+  , asciiKeyPresses
+  , SpecialKey(..)
+  , specialKeyPress
+  ) where
 
 import Prelude
-
 import WebCheck.Selector (Selector)
 import Data.Tuple (Tuple(..))
 import Data.Array (range)
@@ -27,13 +25,19 @@ import Data.Maybe (fromJust)
 import Partial.Unsafe (unsafePartial)
 
 -- | URL to a web page, or a relative path within a web site.
-type Path = String
+type Path
+  = String
 
 -- | A possible action to generate. WebCheck uses action values when searching the
 -- | DOM for possible actions to generate and perform.
-data Action = Focus Selector | KeyPress Char | Click Selector | Navigate Path
+data Action
+  = Focus Selector
+  | KeyPress Char
+  | Click Selector
+  | Navigate Path
 
-type Actions = Array (Tuple Int Action)
+type Actions
+  = Array (Tuple Int Action)
 
 -- | Generate click actions on common clickable elements.
 clicks :: Actions
@@ -57,8 +61,7 @@ asciiKeyPresses = Tuple 1 <<< KeyPress <<< unsafePartial fromJust <<< fromCharCo
 
 -- | Generate a key press action with the given special key.
 specialKeyPress :: SpecialKey -> Action
-specialKeyPress specialKey =
-  KeyPress (specialKeyToChar specialKey)
+specialKeyPress specialKey = KeyPress (specialKeyToChar specialKey)
 
 data SpecialKey
   = KeyAdd
@@ -136,8 +139,8 @@ instance ordSpecialKey :: Ord SpecialKey where
   compare = genericCompare
 
 instance enumSpecialKey :: Enum SpecialKey where
-    pred = genericPred
-    succ = genericSucc
+  pred = genericPred
+  succ = genericSucc
 
 specialKeyToChar :: SpecialKey -> Char
 specialKeyToChar = case _ of

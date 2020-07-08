@@ -1,7 +1,6 @@
 module SpinnersSpecification where
 
 import WebCheck
-
 import Data.Maybe (Maybe(..))
 
 readyWhen :: String
@@ -12,11 +11,16 @@ actions = clicks
 
 proposition :: Boolean
 proposition =
-  let on = onButton == Just false && offButton == Just true
-      off = offButton == Just false && onButton == Just true
-      pressOn = off && next on
-      pressOff = on && next off
-  in off && always (pressOn || pressOff)
+  let
+    on = onButton == Just false && offButton == Just true
+
+    off = offButton == Just false && onButton == Just true
+
+    pressOn = off && next on
+
+    pressOff = on && next off
+  in
+    off && always (pressOn || pressOff)
 
 offButton :: Maybe Boolean
 offButton = map _.disabled (queryOne "[name=off]" { disabled })

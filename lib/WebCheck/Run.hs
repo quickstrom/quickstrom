@@ -411,7 +411,6 @@ awaitElement sel = do
           _ -> pass
   loop
 
-
 executeScript' :: JSON.FromJSON r => Script -> [JSON.Value] -> Runner r
 executeScript' script args = do
   r <- executeScript script args

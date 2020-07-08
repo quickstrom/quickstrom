@@ -1,32 +1,31 @@
-module WebCheck (
-  next,
-  always,
-  trace,
-  traceShow,
-  traceShowLabelled,
-  Property,
-  value,
-  textContent,
-  disabled,
-  checked,
-  Attribute,
-  attribute,
-  id,
-  CssValue,
-  cssValue,
-  Query,
-  queryAll,
-  queryOne,
-  class StateToField,
-  class StatesToRecord,
-  module WebCheck.Selector,
-  module Spec,
-  module Data.HeytingAlgebra,
-  module Prelude
+module WebCheck
+  ( next
+  , always
+  , trace
+  , traceShow
+  , traceShowLabelled
+  , Property
+  , value
+  , textContent
+  , disabled
+  , checked
+  , Attribute
+  , attribute
+  , id
+  , CssValue
+  , cssValue
+  , Query
+  , queryAll
+  , queryOne
+  , class StateToField
+  , class StatesToRecord
+  , module WebCheck.Selector
+  , module Spec
+  , module Data.HeytingAlgebra
+  , module Prelude
   ) where
 
 import Prelude
-
 import Data.Array (head)
 import Data.Maybe (Maybe)
 import Data.HeytingAlgebra (implies)
@@ -37,6 +36,7 @@ import WebCheck.Spec (Actions, Action(..), Path, SpecialKey(..), asciiKeyPresses
 import Type.Prelude (class ListToRow, class TypeEquals)
 
 foreign import next :: forall a. a -> a
+
 foreign import always :: Boolean -> Boolean
 
 foreign import trace :: forall a. String -> a -> a
@@ -48,7 +48,6 @@ traceShowLabelled :: forall a. Show a => String -> a -> a
 traceShowLabelled lbl x = trace (lbl <> ": " <> show x) x
 
 -- ## Properties
-
 foreign import data Property :: Symbol -> Type -> Type
 
 foreign import _property :: forall name typ. String -> Property name typ
@@ -69,7 +68,6 @@ checked :: Property "checked" Boolean
 checked = property (SProxy :: SProxy "checked")
 
 -- ## Attributes
-
 foreign import data Attribute :: Symbol -> Type
 
 foreign import _attribute :: forall name. String -> Attribute name
@@ -81,13 +79,11 @@ id :: Attribute "id"
 id = attribute (SProxy :: SProxy "id")
 
 -- ## CSS values
-
 foreign import data CssValue :: Type
 
 foreign import cssValue :: String -> CssValue
 
 -- ## Queries
-
 class StateToField (state :: Type) (field :: Type) | state -> field
 
 instance stateToFieldProperty :: TypeEquals ptype typ => StateToField (Property name ptype) typ
@@ -98,22 +94,22 @@ instance stateToFieldCssValue :: StateToField CssValue String
 
 class StatesToRecord (states :: RowList) (out :: RowList) | states -> out
 
-instance statesToRecordCons
-         :: ( StatesToRecord tail tail'
-            , StateToField state field
-            )
-         => StatesToRecord (Cons name state tail) (Cons name field tail')
+instance statesToRecordCons ::
+  ( StatesToRecord tail tail'
+  , StateToField state field
+  ) =>
+  StatesToRecord (Cons name state tail) (Cons name field tail')
 
 instance statesToRecordNil :: StatesToRecord Nil Nil
 
-type Query f =
-  forall states sl record rl
-   . StatesToRecord sl rl 
-  => RowToList states sl
-  => ListToRow rl record
-  => Selector 
-  -> Record states 
-  -> f (Record record)
+type Query f
+  = forall states sl record rl.
+    StatesToRecord sl rl =>
+    RowToList states sl =>
+    ListToRow rl record =>
+    Selector ->
+    Record states ->
+    f (Record record)
 
 foreign import _queryAll :: forall states record. Selector -> Record states -> Array (Record record)
 
@@ -122,5 +118,4 @@ queryAll selector states = _queryAll selector states
 
 queryOne :: Query Maybe
 queryOne selector = head <<< queryAll selector
-
--- ## Spec
+ -- ## Spec

@@ -13,10 +13,9 @@ actions :: Actions
 actions =
   [ Tuple 1 (Click "[role=main] a")
   , Tuple 1 (Click "app-gdpr-modal #btn-center-confirm")
-  , Tuple 1 (Click "[role=main] form a")
-  , Tuple 1 (Click "[role=main] form input")
-  , Tuple 1 (Click "[role=main] form button")
+  -- targeted form events
   , Tuple 5 (Focus "input[type=text]")
+  , Tuple 5 (Click "input[type=radio] a")
   , Tuple 2 (EnterText "1950")
   , Tuple 5 (EnterText "1990")
   ]

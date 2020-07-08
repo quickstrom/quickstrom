@@ -17,6 +17,8 @@ actions =
   , Tuple 1 (Click "[role=main] form input")
   , Tuple 1 (Click "[role=main] form button")
   , Tuple 5 (Focus "input[type=text]")
+  , Tuple 2 (EnterText "1950")
+  , Tuple 5 (EnterText "1990")
   ]
 
 proposition :: Boolean

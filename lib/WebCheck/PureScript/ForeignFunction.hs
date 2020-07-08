@@ -209,6 +209,7 @@ instance MonadError EvalError m => ToHaskellValue m (Action Selector) where
     case ctor of
       "Focus" -> Focus . Selector <$> toHaskellValue ss value
       "KeyPress" -> KeyPress <$> toHaskellValue ss value
+      "EnterText" -> EnterText <$> toHaskellValue ss value
       "Click" -> Click . Selector <$> toHaskellValue ss value
       "Navigate" -> Navigate <$> (parseURI =<< toHaskellValue ss value)
       _ -> throwError (ForeignFunctionError (Just ss) ("Unknown Action constructor: " <> ctor))

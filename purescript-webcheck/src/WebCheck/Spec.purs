@@ -33,6 +33,7 @@ type Path
 data Action
   = Focus Selector
   | KeyPress Char
+  | EnterText String
   | Click Selector
   | Navigate Path
 

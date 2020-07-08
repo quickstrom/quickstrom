@@ -298,8 +298,11 @@ click = findSelected >=> \case
   Just e -> tryAction (ActionSuccess <$ (elementClick (toRef e)))
   Nothing -> pure ActionImpossible
 
+sendKeys :: Text -> Runner ActionResult
+sendKeys t = tryAction (ActionSuccess <$ (getActiveElement >>= elementSendKeys (toS t)))
+
 sendKey :: Char -> Runner ActionResult
-sendKey c = tryAction (ActionSuccess <$ (getActiveElement >>= elementSendKeys [c]))
+sendKey = sendKeys . Text.singleton
 
 focus :: Selected -> Runner ActionResult
 focus = findSelected >=> \case
@@ -310,6 +313,7 @@ runAction :: Action Selected -> Runner ActionResult
 runAction = \case
   Focus s -> focus s
   KeyPress c -> sendKey c
+  EnterText t -> sendKeys t
   Click s -> click s
   Navigate url -> tryAction (ActionSuccess <$ navigateTo (URI.renderStr url))
 

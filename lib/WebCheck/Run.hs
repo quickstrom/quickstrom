@@ -336,16 +336,16 @@ runWebDriver opts ma = do
         }
 
 inNewPrivateWindow :: Runner a -> Runner a
-inNewPrivateWindow = runIsolated (reconfigure defaultFirefoxCapabilities)
+inNewPrivateWindow = runIsolated (reconfigure headlessFirefoxCapabilities)
   where
     reconfigure c =
       c
         { _firefoxOptions = (_firefoxOptions c)
             <&> \o ->
               o
-                { -- _firefoxArgs = Just ["-headless", "-private"],
+                { _firefoxArgs = Just ["-headless", "-private"],
                   _firefoxPrefs = Just (HashMap.singleton "Dom.storage.enabled" (JSON.Bool False)),
-                  _firefoxLog = Just (FirefoxLog (Just LogDebug))
+                  _firefoxLog = Just (FirefoxLog (Just LogWarn))
                 }
         }
 

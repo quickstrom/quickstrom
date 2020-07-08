@@ -12,12 +12,17 @@ readyWhen = "app-gdpr-modal"
 actions :: Actions
 actions =
   [ Tuple 1 (Click "[role=main] a")
-  , Tuple 1 (Click "app-gdpr-modal #btn-center-confirm")
+  , Tuple 5 (Click "app-gdpr-modal #btn-center-confirm")
+  , Tuple 5 (Click ".modal-content button")
+  , Tuple 2 (Click ".panel-footer button")
   -- targeted form events
-  , Tuple 5 (Focus "input[type=text]")
-  , Tuple 5 (Click "input[type=radio] a")
-  , Tuple 2 (EnterText "1950")
-  , Tuple 5 (EnterText "1990")
+  , Tuple 3 (Focus "form input")
+  , Tuple 5 (Click "input[type=radio]")
+  , Tuple 2 (Click "form select option")
+  , Tuple 2 (Click "form .cm-scroll-box input")
+  , Tuple 5 (EnterText "1990") -- year
+  , Tuple 2 (EnterText "1950") -- year
+  , Tuple 5 (EnterText "19900") -- salary (but also a year, the first 4 chars)
   ]
 
 proposition :: Boolean

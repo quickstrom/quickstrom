@@ -12,18 +12,16 @@ module WebCheck.Specification where
 import Data.HashMap.Strict (HashMap)
 import Data.HashSet (HashSet)
 import Data.Text.Prettyprint.Doc (Doc)
-import Test.QuickCheck (Gen)
 import WebCheck.Element
 import WebCheck.Prelude
 import WebCheck.Result
 import WebCheck.Trace
-
-type ActionGenerator = Gen (Action Selector)
+import Data.Vector (Vector)
 
 type Queries = HashMap Selector (HashSet ElementState)
 
 class Specification s where
   readyWhen :: s -> Selector
-  actions :: s -> ActionGenerator
+  actions :: s -> Vector (Int, Action Selector)
   queries :: s -> Queries
   verify :: s -> [ObservedState] -> Either (Doc ann) Result

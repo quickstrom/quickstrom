@@ -58,6 +58,8 @@ import WebCheck.Pretty
 import WebCheck.Result
 import WebCheck.Specification
 import WebCheck.Trace
+import Data.Vector (Vector)
+import qualified Data.Vector as Vector
 
 type Runner = WebDriverTT (ReaderT CheckOptions) IO
 
@@ -115,9 +117,7 @@ select f = forever do
 runSingle :: Specification spec => spec -> Int -> Runner (Either FailingTest ())
 runSingle spec size = do
   result <-
-    generateActions (actions spec)
-      >-> Pipes.take (size * 10)
-      >-> selectValidActions
+    generateValidActions (actions spec)
       >-> Pipes.take size
       & runAndVerifyIsolated 0
   case result of
@@ -245,14 +245,21 @@ shrinkAction _ = [] -- TODO?
 generate :: QuickCheck.Gen a -> Runner a
 generate = liftWebDriverTT . lift . QuickCheck.generate
 
-generateActions :: ActionGenerator -> Producer (Action Selector) Runner ()
-generateActions gen = forever do
-  Pipes.yield =<< lift (generate gen)
+generateValidActions :: Vector (Int, Action Selector) -> Producer (Action Selected) Runner ()
+generateValidActions actions' = forever do
+  validActions <- lift $ for (Vector.toList actions') \(prob, action') -> do
+    fmap (prob,) <$> selectValidAction action'
+  validActions
+    & catMaybes
+    & map (_2 %~ pure)
+    & QuickCheck.frequency
+    & generate
+    & lift
+    & (>>= Pipes.yield)
 
-selectValidActions :: Pipe (Action Selector) (Action Selected) Runner ()
-selectValidActions = forever do
-  possibleAction <- Pipes.await
-  result <- case possibleAction of
+selectValidAction :: Action Selector -> Runner (Maybe (Action Selected))
+selectValidAction possibleAction = 
+  case possibleAction of
     KeyPress k -> do
       active <- isActiveInput
       if active then (pure (Just (KeyPress k))) else pure Nothing
@@ -260,9 +267,8 @@ selectValidActions = forever do
       active <- isActiveInput
       if active then (pure (Just (EnterText t))) else pure Nothing
     Navigate p -> pure (Just (Navigate p))
-    Focus sel -> lift (selectOne sel Focus (isNotActive . toRef))
-    Click sel -> lift (selectOne sel Click isClickable)
-  maybe mempty Pipes.yield result
+    Focus sel -> selectOne sel Focus (isNotActive . toRef)
+    Click sel -> selectOne sel Click isClickable
   where
     selectOne :: Selector -> (Selected -> Action Selected) -> (Element -> Runner Bool) -> Runner (Maybe (Action Selected))
     selectOne sel ctor isValid = do
@@ -280,7 +286,6 @@ selectValidActions = forever do
     isClickable e =
       andM [isElementEnabled (toRef e), isElementVisible e]
     isActiveInput =
-      lift $
         activeElement >>= \case
           Just el -> (`elem` ["input", "textarea"]) <$> getElementTagName el
           Nothing -> pure False

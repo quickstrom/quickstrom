@@ -33,7 +33,6 @@ import qualified Language.PureScript.CoreFn as CF
 import Language.PureScript.CoreFn.FromJSON (moduleFromJSON)
 import System.FilePath ((</>))
 import System.FilePath.Glob (glob)
-import qualified Test.QuickCheck as QuickCheck
 import Text.Read (read)
 import qualified WebCheck.Action as WebCheck
 import qualified WebCheck.Element as WebCheck
@@ -196,7 +195,7 @@ loadProgram ms input = runExceptT $ do
 data SpecificationProgram
   = SpecificationProgram
       { specificationReadyWhen :: WebCheck.Selector,
-        specificationActions :: [(Int, WebCheck.Action WebCheck.Selector)],
+        specificationActions :: Vector (Int, WebCheck.Action WebCheck.Selector),
         specificationQueries :: WebCheck.Queries,
         specificationProgram :: Program WithObservedStates
       }
@@ -204,7 +203,7 @@ data SpecificationProgram
 instance WebCheck.Specification SpecificationProgram where
   readyWhen = specificationReadyWhen
 
-  actions = QuickCheck.frequency . map (_2 %~ pure) . specificationActions
+  actions = specificationActions
 
   verify sp states = (_Left %~ prettyEvalError) $ do
     valid <- toHaskellValue (moduleSourceSpan (programMain p)) =<< evalWithObservedStates p "proposition" states

@@ -13,6 +13,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module WebCheck.Run
   ( CheckOptions (..),
@@ -120,10 +121,11 @@ runSingle spec size = do
       >-> Pipes.take size
       & runAndVerifyIsolated 0
   case result of
-    Right trace ->
+    Right trace -> do
       case trace ^.. traceActionFailures of
-        [] -> pure (Right ())
-        failures -> pure (Left (FailingTest 0 trace (pure ("There were action failures:" <> line <> list (map pretty failures)))))
+        [] -> pass
+        failures -> logInfoWD (renderString ("There were" <+> pretty (length failures) <+> "action failures"))
+      pure (Right ())
     f@(Left (FailingTest _ trace _)) -> do
       CheckOptions {checkShrinkLevels} <- liftWebDriverTT ask
       logInfoWD "Test failed. Shrinking..."
@@ -166,8 +168,8 @@ sizes numSizes = Pipes.each (map (\n -> (n * 100 `div` numSizes)) [1 .. numSizes
 beforeRun :: Specification spec => spec -> Runner ()
 beforeRun spec = do
   navigateToOrigin
-  initializeScript
   awaitElement (readyWhen spec)
+  initializeScript
 
 observeManyStatesAfter :: Queries -> ObservedState -> Action Selected -> Pipe a (TraceElement ()) Runner ObservedState
 observeManyStatesAfter queries' initialState action = do
@@ -328,14 +330,14 @@ runWebDriver opts ma = do
         }
 
 inNewPrivateWindow :: Runner a -> Runner a
-inNewPrivateWindow = runIsolated (reconfigure headlessFirefoxCapabilities)
+inNewPrivateWindow = runIsolated (reconfigure defaultFirefoxCapabilities)
   where
     reconfigure c =
       c
         { _firefoxOptions = (_firefoxOptions c)
             <&> \o ->
               o
-                { _firefoxArgs = Just ["-headless", "-private"],
+                { -- _firefoxArgs = Just ["-headless", "-private"],
                   _firefoxPrefs = Just (HashMap.singleton "Dom.storage.enabled" (JSON.Bool False)),
                   _firefoxLog = Just (FirefoxLog (Just LogDebug))
                 }
@@ -400,8 +402,13 @@ isElementVisible el =
   (== JSON.Bool True) <$> executeScript "return window.webcheck.isElementVisible(arguments[0])" [JSON.toJSON el]
 
 awaitElement :: Selector -> Runner ()
-awaitElement (Selector sel) =
-  void (executeAsyncScript "window.webcheck.awaitElement(arguments[0], arguments[1])" [JSON.toJSON sel])
+awaitElement sel = do
+  let loop = do
+        findAll sel >>= \case
+          [] -> liftWebDriverTT (liftIO (threadDelay 1000000)) >> loop
+          _ -> pass
+  loop
+
 
 executeScript' :: JSON.FromJSON r => Script -> [JSON.Value] -> Runner r
 executeScript' script args = do

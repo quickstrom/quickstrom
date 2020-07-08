@@ -19,8 +19,7 @@ import WebCheck.Prelude
 import WebCheck.PureScript.Eval.Env
 
 data Value ann
-  = VNull
-  | VBool Bool
+  = VBool Bool
   | VElementState Element.ElementState
   | VString Text
   | VChar Char
@@ -34,7 +33,6 @@ data Value ann
 
 instance Pretty (Value ann) where
   pretty = \case
-    VNull -> "null"
     VBool b -> bool "false" "true" b
     VElementState _state -> "TODO: element state"
     VString t -> pretty (show t :: Text)

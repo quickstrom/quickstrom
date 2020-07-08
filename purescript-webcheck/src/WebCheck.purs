@@ -92,7 +92,7 @@ class StateToField (state :: Type) (field :: Type) | state -> field
 
 instance stateToFieldProperty :: TypeEquals ptype typ => StateToField (Property name ptype) typ
 
-instance stateToFieldAttribute :: StateToField (Attribute name) String
+instance stateToFieldAttribute :: StateToField (Attribute name) (Maybe String)
 
 instance stateToFieldCssValue :: StateToField CssValue String
 

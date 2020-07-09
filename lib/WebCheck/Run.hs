@@ -41,6 +41,8 @@ import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
 import Data.Tree
+import Data.Vector (Vector)
+import qualified Data.Vector as Vector
 import GHC.Generics (Generic)
 import Network.HTTP.Client as Http
 import qualified Network.Wreq as Wreq
@@ -58,8 +60,6 @@ import WebCheck.Pretty
 import WebCheck.Result
 import WebCheck.Specification
 import WebCheck.Trace
-import Data.Vector (Vector)
-import qualified Data.Vector as Vector
 
 type Runner = WebDriverTT (ReaderT CheckOptions) IO
 
@@ -173,7 +173,7 @@ beforeRun spec = do
 
 observeManyStatesAfter :: Queries -> ObservedState -> Action Selected -> Pipe a (TraceElement ()) Runner ObservedState
 observeManyStatesAfter queries' initialState action = do
-  result <- lift (catchActionFailed (runAction action))
+  result <- lift (runAction action)
   observer <- lift (registerNextStateObserver queries')
   delta <- getNextOrFail observer
   let afterDelta = delta <> initialState
@@ -194,15 +194,6 @@ observeManyStatesAfter queries' initialState action = do
       Pipes.yield currentState
       delta <- getNextOrFail =<< lift (registerNextStateObserver queries')
       loop (currentState <> delta)
-    toActionFailed :: Show a => a -> Runner ActionResult
-    toActionFailed = pure . ActionFailed . show
-    catchActionFailed ma =
-      catchAnyError
-        (ma)
-        toActionFailed
-        toActionFailed
-        toActionFailed
-        toActionFailed
 
 {-# SCC runActions' "runActions'" #-}
 runActions' :: Specification spec => spec -> Pipe (Action Selected) (TraceElement ()) Runner ()
@@ -258,7 +249,7 @@ generateValidActions actions' = forever do
     & (>>= Pipes.yield)
 
 selectValidAction :: Action Selector -> Runner (Maybe (Action Selected))
-selectValidAction possibleAction = 
+selectValidAction possibleAction =
   case possibleAction of
     KeyPress k -> do
       active <- isActiveInput
@@ -286,9 +277,9 @@ selectValidAction possibleAction =
     isClickable e =
       andM [isElementEnabled (toRef e), isElementVisible e]
     isActiveInput =
-        activeElement >>= \case
-          Just el -> (`elem` ["input", "textarea"]) <$> getElementTagName el
-          Nothing -> pure False
+      activeElement >>= \case
+        Just el -> (`elem` ["input", "textarea"]) <$> getElementTagName el
+        Nothing -> pure False
 
 navigateToOrigin :: Runner ()
 navigateToOrigin = do
@@ -296,7 +287,17 @@ navigateToOrigin = do
   navigateTo (toS (URI.renderStr checkOrigin))
 
 tryAction :: Runner ActionResult -> Runner ActionResult
-tryAction action = action `catchError` (pure . ActionFailed . Text.pack . show)
+tryAction action =
+  action
+    `catchError` ( \case
+                     ResponseError _ msg _ _ _ -> do
+                       logInfoWD (renderString (annotate (color Red) ("Action failed" <> colon) <+> pretty msg))
+                       pure (ActionFailed (toS msg))
+                     NoSession -> do
+                       logInfoWD (renderString (annotate (color Red) ("No session" <> colon) <+> "Please try restarting geckodriver"))
+                       throwError NoSession
+                     err -> throwError err
+                 )
 
 click :: Selected -> Runner ActionResult
 click = findSelected >=> \case

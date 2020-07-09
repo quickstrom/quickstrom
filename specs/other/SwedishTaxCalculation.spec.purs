@@ -7,12 +7,12 @@ import Data.Tuple (Tuple(..))
 import Data.Symbol (SProxy(..))
 
 readyWhen :: Selector
-readyWhen = "app-gdpr-modal"
+readyWhen = "app-gdpr-modal #btn-center-confirm"
 
 actions :: Actions
 actions =
   [ Tuple 1 (Click "[role=main] a")
-  , Tuple 5 (Click "app-gdpr-modal #btn-center-confirm")
+  , Tuple 10000000 (Click "app-gdpr-modal #btn-center-confirm")
   , Tuple 5 (Click ".modal-content button")
   , Tuple 2 (Click ".panel-footer button")
   -- targeted form events

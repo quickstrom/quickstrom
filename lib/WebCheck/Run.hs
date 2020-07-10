@@ -237,16 +237,17 @@ generate :: QuickCheck.Gen a -> Runner a
 generate = liftWebDriverTT . lift . QuickCheck.generate
 
 generateValidActions :: Vector (Int, Action Selector) -> Producer (Action Selected) Runner ()
-generateValidActions actions' = forever do
-  validActions <- lift $ for (Vector.toList actions') \(prob, action') -> do
+generateValidActions possibleActions = forever do
+  validActions <- lift $ for (Vector.toList possibleActions) \(prob, action') -> do
     fmap (prob,) <$> selectValidAction action'
-  validActions
-    & catMaybes
-    & map (_2 %~ pure)
-    & QuickCheck.frequency
-    & generate
-    & lift
-    & (>>= Pipes.yield)
+  case map (_2 %~ pure) (catMaybes validActions) of
+    [] -> pass
+    actions' ->
+      actions'
+        & QuickCheck.frequency
+        & generate
+        & lift
+        & (>>= Pipes.yield)
 
 selectValidAction :: Action Selector -> Runner (Maybe (Action Selected))
 selectValidAction possibleAction =

@@ -1,13 +1,13 @@
--- webcheck specs/other/SwedishTaxCalculation.spec.purs https://app.skatteverket.se/rakna-skatt-client-skut-skatteutrakning/
+-- webcheck specs/other/SwedishTaxCalculation.spec.purs https://app.skatteverket.se/rakna-skatt-client-skut-skatteutrakning/lon-efter-skattetabell/fyll-i-dina-uppgifter
 module Spec where
 
 import WebCheck
-import Data.Maybe (Maybe(..))
+
+import Data.Maybe (Maybe(..), isJust, isNothing)
 import Data.Tuple (Tuple(..))
-import Data.Symbol (SProxy(..))
 
 readyWhen :: Selector
-readyWhen = "app-gdpr-modal #btn-center-confirm"
+readyWhen = "app-root"
 
 actions :: Actions
 actions =
@@ -26,6 +26,23 @@ actions =
   ]
 
 proposition :: Boolean
-proposition =
-  map _.classes (queryAll "#wizz-lon-efter-skatt li" { classes: attribute (SProxy :: SProxy "class") })
-    == [ Just "active", Nothing ]
+proposition = initial && always (acceptGdpr || selectKommun)
+  where
+  initial = loading
+
+  loading =
+    (_.textContent <$> queryOne "app-root p" { textContent })
+      == Just "Nu laddar vi din applikation!"
+
+  acceptGdpr = openModal == Just "Information" && next (openModal == Nothing)
+
+  selectKommun = isNothing selectedKommun && next (isJust selectedKommun)
+
+activeWizardTab :: Maybe String
+activeWizardTab = _.textContent <$> queryOne "#wizz-lon-efter-skatt li.active" { textContent }
+
+selectedKommun :: Maybe String
+selectedKommun = _.value <$> queryOne "#kommun" { value }
+
+openModal :: Maybe String
+openModal = _.textContent <$> queryOne "app-gdpr-modal .modal-title" { textContent }

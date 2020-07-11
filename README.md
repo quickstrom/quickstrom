@@ -1,6 +1,9 @@
 <div align=center>
 <h1>WebCheck</h1>
 <p>High-confidence browser testing</p>
+<p>
+  <img src="https://github.com/webcheck-tools/webcheck/workflows/Test/badge.svg?branch=master" />
+</p>
 </div>
 
 <hr>

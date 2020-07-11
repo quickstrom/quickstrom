@@ -1,3 +1,8 @@
+/**
+ * TODO: This file should be converted to separate scripts that are passed inline.
+ * WebCheck must support multi-page testing, and ensuring that this script is loaded
+ * for each web page is hard and potentially brittle.
+ */
 
 // QUERIES
 

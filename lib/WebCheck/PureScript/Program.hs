@@ -328,6 +328,7 @@ foreignFunctions =
       (ffName "Data.String.Common" "trim", foreignFunction (op1 Text.strip)),
       (ffName "Data.String.Common" "joinWith", foreignFunction (op2 Text.intercalate)),
       (ffName "Data.Unfoldable" "unfoldrArrayImpl", foreignFunction unfoldrArrayImpl),
+      (ffName "Data.Unit" "unit", foreignFunction unit),
       (ffName "Global" "infinity", foreignFunction (op0 (read "Infinity" :: Double))),
       (ffName "Global" "nan", foreignFunction (op0 (read "NaN" :: Double))),
       (ffName "Global" "isFinite", foreignFunction (op1 (not . isInfinite @Double))),
@@ -440,3 +441,5 @@ foreignFunctions =
     toCodePointArray _ _ t = pure (Vector.map ord (Vector.fromList (toS t)))
     unsafeCodePointAt0 :: Monad m => Value EvalAnn -> Text -> Ret m Int
     unsafeCodePointAt0 _ t = pure (ord (Text.index t 0))
+    unit :: Monad m => Ret m (Value EvalAnn)
+    unit = pure (VObject mempty)

@@ -12,11 +12,11 @@ module WebCheck.Specification where
 import Data.HashMap.Strict (HashMap)
 import Data.HashSet (HashSet)
 import Data.Text.Prettyprint.Doc (Doc)
+import Data.Vector (Vector)
 import WebCheck.Element
 import WebCheck.Prelude
 import WebCheck.Result
 import WebCheck.Trace
-import Data.Vector (Vector)
 
 type Queries = HashMap Selector (HashSet ElementState)
 

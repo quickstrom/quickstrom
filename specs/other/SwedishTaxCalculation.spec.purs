@@ -2,12 +2,16 @@
 module Spec where
 
 import WebCheck
-
+import Control.MonadZero (guard)
+import Data.Array (null)
+import Data.Array as Array
+import Data.Int as Int
 import Data.Maybe (Maybe(..), isJust, isNothing)
+import Data.String (trim)
 import Data.Tuple (Tuple(..))
 
 readyWhen :: Selector
-readyWhen = "app-root"
+readyWhen = "app-gdpr-modal #btn-center-confirm"
 
 actions :: Actions
 actions =
@@ -26,23 +30,71 @@ actions =
   ]
 
 proposition :: Boolean
-proposition = initial && always (acceptGdpr || selectKommun)
+proposition =
+  initial
+    && always
+        ( acceptGdpr
+            || selectBirthYear
+            || selectKommun
+            || selectMemberInKyrkaOrSamfund
+            || continueToInkomst
+        )
   where
-  initial = loading
+  initial = isJust gdprModalTitle
 
-  loading =
-    (_.textContent <$> queryOne "app-root p" { textContent })
-      == Just "Nu laddar vi din applikation!"
+  acceptGdpr = isJust gdprModalTitle && next (isNothing gdprModalTitle)
 
-  acceptGdpr = openModal == Just "Information" && next (openModal == Nothing)
+  selectBirthYear =
+    case birthYear of
+      Nothing -> next (isJust birthYear)
+      Just current -> next (isJust birthYear && Just current /= birthYear)
 
-  selectKommun = isNothing selectedKommun && next (isJust selectedKommun)
+  selectKommun = case kommun of
+    Nothing -> next (isJust kommun)
+    Just current -> next (isJust kommun && Just current /= kommun)
+
+  selectMemberInKyrkaOrSamfund = case selectedMemberInKyrkaOrSamfund of
+    Nothing -> next (isJust selectedMemberInKyrkaOrSamfund)
+    Just Ja -> next (selectedMemberInKyrkaOrSamfund == Just Nej)
+    Just Nej -> next (selectedMemberInKyrkaOrSamfund == Just Ja)
+
+  continueToInkomst =
+    null errors
+      && activeWizardTab
+      == Just "Fyll i dina uppgifter"
+      && next (activeWizardTab == Just "Fyll i din lön")
+
+gdprModalTitle :: Maybe String
+gdprModalTitle = _.textContent <$> queryOne "app-gdpr-modal .modal-title" { textContent }
 
 activeWizardTab :: Maybe String
-activeWizardTab = _.textContent <$> queryOne "#wizz-lon-efter-skatt li.active" { textContent }
+activeWizardTab = do
+  tab <- queryOne "#wizz-lon-efter-skatt li.active" { textContent }
+  pure (trim tab.textContent)
 
-selectedKommun :: Maybe String
-selectedKommun = _.value <$> queryOne "#kommun" { value }
+birthYear :: Maybe Int
+birthYear = Int.fromString =<< (_.value <$> queryOne "#fodelsear" { value })
 
-openModal :: Maybe String
-openModal = _.textContent <$> queryOne "app-gdpr-modal .modal-title" { textContent }
+kommun :: Maybe String
+kommun = do
+  v <- _.value <$> queryOne "#kommun" { value }
+  guard (v /= "null")
+  pure v
+
+errors :: Array String
+errors = (trim <<< _.textContent) <$> (queryAll "app-form-inline-error p" { textContent })
+
+data MemberInKyrkaOrSamfund
+  = Nej
+  | Ja -- TODO: which one?
+
+derive instance eqMemberInKyrkaOrSamfund :: Eq MemberInKyrkaOrSamfund
+
+selectedMemberInKyrkaOrSamfund :: Maybe MemberInKyrkaOrSamfund
+selectedMemberInKyrkaOrSamfund = case _.head.value <$> Array.uncons (Array.filter _.checked memberInKyrkaOrSamfundRadioButtons) of
+  Just "Nej" -> pure Nej
+  Just "Ja" -> pure Ja
+  _ -> Nothing
+  where
+  memberInKyrkaOrSamfundRadioButtons :: Array { checked :: Boolean, value :: String }
+  memberInKyrkaOrSamfundRadioButtons = queryAll "[name=isMemberInKyrkaOrSamfund]" { value, checked }

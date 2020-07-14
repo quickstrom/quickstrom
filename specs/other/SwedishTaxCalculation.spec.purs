@@ -38,16 +38,16 @@ proposition =
             || selectKommun
             || selectMemberInKyrkaOrSamfund
             || continueToInkomst
+            || submitWithErrors
         )
   where
   initial = isJust gdprModalTitle
 
   acceptGdpr = isJust gdprModalTitle && next (isNothing gdprModalTitle)
 
-  selectBirthYear =
-    case birthYear of
-      Nothing -> next (isJust birthYear)
-      Just current -> next (isJust birthYear && Just current /= birthYear)
+  selectBirthYear = case birthYear of
+    Nothing -> next (isJust birthYear)
+    Just current -> next (isJust birthYear && Just current /= birthYear)
 
   selectKommun = case kommun of
     Nothing -> next (isJust kommun)
@@ -63,6 +63,12 @@ proposition =
       && activeWizardTab
       == Just "Fyll i dina uppgifter"
       && next (activeWizardTab == Just "Fyll i din lön")
+
+  submitWithErrors =
+    next (not (null errors))
+      && ( activeWizardTab
+            == next activeWizardTab
+        )
 
 gdprModalTitle :: Maybe String
 gdprModalTitle = _.textContent <$> queryOne "app-gdpr-modal .modal-title" { textContent }

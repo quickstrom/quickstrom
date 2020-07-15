@@ -1,3 +1,4 @@
 module WebCheck.Selector where
 
-type Selector = String
+type Selector
+  = String

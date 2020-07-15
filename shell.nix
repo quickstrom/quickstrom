@@ -32,6 +32,7 @@ let
 
   webcheck-format-sources = pkgs.writeShellScriptBin "webcheck-format-sources" ''
     find . -not -path './dist-newstyle/*' -name '*.hs' -exec ormolu -m inplace {} \;
+    find . -not -path './purescript-webcheck/.spago/*' -name '*.purs' -exec purty --write {} \;
   '';
 
   src = pkgs.nix-gitignore.gitignoreSource [] ./.;
@@ -51,6 +52,7 @@ in haskellPackages.shellFor {
     firefox
     geckodriver
     haskellPackages.ghc-prof-flamegraph
+    easy-ps.purty
     # chromium
     # chromedriver
 

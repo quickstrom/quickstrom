@@ -9,9 +9,11 @@ readyWhen = "body"
 actions = []
 
 q :: Int
-q = 
-    let q1 = fromMaybe "fallback" (map _.textContent (queryOne ".selector" { textContent }))
-    in length (queryAll q1 { textContent })
+q =
+  let
+    q1 = fromMaybe "fallback" (map _.textContent (queryOne ".selector" { textContent }))
+  in
+    length (queryAll q1 { textContent })
 
 proposition :: Boolean
 proposition = q == 1

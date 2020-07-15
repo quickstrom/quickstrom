@@ -66,7 +66,11 @@ extractExpr = \case
                   =<< eval e2
               pure (HashMap.singleton (Selector selector) (HashSet.fromList wantedStates))
         either throwError tell result
-  P.Literal {} -> pass
+  P.Literal _ lit -> case lit of
+    P.ArrayLiteral xs -> traverse_ extractExpr xs
+    P.ObjectLiteral pairs -> do
+      traverse_ (extractExpr . snd) pairs
+    _ -> pass
   P.Constructor {} -> pass
   P.Accessor _ _ e -> extractExpr e
   P.ObjectUpdate _ e updates -> traverse_ (extractExpr . snd) updates >> extractExpr e

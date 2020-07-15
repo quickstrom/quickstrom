@@ -1,4 +1,3 @@
-.spago/effect/v2.0.1/src/Effect.purs:foreign import data Effect :: Type -> Type
 .spago/effect/v2.0.1/src/Effect.purs:foreign import pureE :: forall a. a -> Effect a
 .spago/effect/v2.0.1/src/Effect.purs:foreign import bindE :: forall a b. Effect a -> (a -> Effect b) -> Effect b
 .spago/effect/v2.0.1/src/Effect.purs:foreign import untilE :: Effect Boolean -> Effect Unit
@@ -88,19 +87,15 @@
 .spago/prelude/v4.1.1/src/Record/Unsafe.purs:foreign import unsafeGet :: forall r a. String -> Record r -> a
 .spago/prelude/v4.1.1/src/Record/Unsafe.purs:foreign import unsafeSet :: forall r1 r2 a. String -> a -> Record r1 -> Record r2
 .spago/prelude/v4.1.1/src/Record/Unsafe.purs:foreign import unsafeDelete :: forall r1 r2. String -> Record r1 -> Record r2
-.spago/prelude/v4.1.1/src/Data/Unit.purs:foreign import data Unit :: Type
-.spago/prelude/v4.1.1/src/Data/Unit.purs:foreign import unit :: Unit
 .spago/prelude/v4.1.1/src/Data/Ord.purs:foreign import ordArrayImpl :: forall a. (a -> a -> Int) -> Array a -> Array a -> Int
 .spago/prelude/v4.1.1/src/Data/Show.purs:foreign import showCharImpl :: Char -> String
 .spago/prelude/v4.1.1/src/Data/Show.purs:foreign import showArrayImpl :: forall a. (a -> String) -> Array a -> String
 .spago/prelude/v4.1.1/src/Control/Apply.purs:foreign import arrayApply :: forall a b. Array (a -> b) -> Array a -> Array b
-.spago/refs/v4.1.0/src/Effect/Ref.purs:foreign import data Ref :: Type -> Type
 .spago/refs/v4.1.0/src/Effect/Ref.purs:foreign import new :: forall s. s -> Effect (Ref s)
 .spago/refs/v4.1.0/src/Effect/Ref.purs:foreign import read :: forall s. Ref s -> Effect s
 .spago/refs/v4.1.0/src/Effect/Ref.purs:foreign import modify' :: forall s b. (s -> { state :: s, value :: b }) -> Ref s -> Effect b
 .spago/refs/v4.1.0/src/Effect/Ref.purs:foreign import write :: forall s. s -> Ref s -> Effect Unit
 .spago/unfoldable/v4.1.0/src/Data/Unfoldable1.purs:foreign import unfoldr1ArrayImpl
-.spago/arrays/v5.3.1/src/Data/Array/ST.purs:foreign import data STArray :: Region -> Type -> Type
 .spago/arrays/v5.3.1/src/Data/Array/ST.purs:foreign import unsafeFreeze :: forall h a. STArray h a -> ST h (Array a)
 .spago/arrays/v5.3.1/src/Data/Array/ST.purs:foreign import unsafeThaw :: forall h a. Array a -> ST h (STArray h a)
 .spago/arrays/v5.3.1/src/Data/Array/ST.purs:foreign import empty :: forall h a. ST h (STArray h a)
@@ -115,16 +110,6 @@
 .spago/arrays/v5.3.1/src/Data/Array/ST.purs:foreign import unshiftAll
 .spago/arrays/v5.3.1/src/Data/Array/ST.purs:foreign import splice
 .spago/arrays/v5.3.1/src/Data/Array/ST.purs:foreign import toAssocArray :: forall h a. STArray h a -> ST h (Array (Assoc a))
-.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import data Fn0 :: Type -> Type
-.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import data Fn2 :: Type -> Type -> Type -> Type
-.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import data Fn3 :: Type -> Type -> Type -> Type -> Type
-.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import data Fn4 :: Type -> Type -> Type -> Type -> Type -> Type
-.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import data Fn5 :: Type -> Type -> Type -> Type -> Type -> Type -> Type
-.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import data Fn6 :: Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type
-.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import data Fn7 :: Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type
-.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import data Fn8 :: Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type
-.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import data Fn9 :: Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type
-.spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import data Fn10 :: Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type -> Type
 .spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import mkFn0 :: forall a. (Unit -> a) -> Fn0 a
 .spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import mkFn2 :: forall a b c. (a -> b -> c) -> Fn2 a b c
 .spago/functions/v4.0.0/src/Data/Function/Uncurried.purs:foreign import mkFn3 :: forall a b c d. (a -> b -> c -> d) -> Fn3 a b c d
@@ -159,7 +144,6 @@
 .spago/prelude/v4.1.1/src/Data/Ord/Unsafe.purs:foreign import unsafeCompareImpl
 .spago/strings/v4.0.1/src/Data/String/Unsafe.purs:foreign import charAt :: Int -> String -> Char
 .spago/strings/v4.0.1/src/Data/String/Unsafe.purs:foreign import char :: String -> Char
-.spago/strings/v4.0.1/src/Data/String/Regex.purs:foreign import data Regex :: Type
 .spago/strings/v4.0.1/src/Data/String/Regex.purs:foreign import showRegex' :: Regex -> String
 .spago/strings/v4.0.1/src/Data/String/Regex.purs:foreign import regex'
 .spago/strings/v4.0.1/src/Data/String/Regex.purs:foreign import source :: Regex -> String
@@ -198,7 +182,6 @@
 .spago/arrays/v5.3.1/src/Data/Array/ST/Partial.purs:foreign import pokeImpl
 .spago/unsafe-coerce/v4.0.0/src/Unsafe/Coerce.purs:foreign import unsafeCoerce :: forall a b. a -> b
 .spago/st/v4.1.1/src/Control/Monad/ST/Internal.purs:foreign import kind Region
-.spago/st/v4.1.1/src/Control/Monad/ST/Internal.purs:foreign import data ST :: Region -> Type -> Type
 .spago/st/v4.1.1/src/Control/Monad/ST/Internal.purs:foreign import map_ :: forall r a b. (a -> b) -> ST r a -> ST r b
 .spago/st/v4.1.1/src/Control/Monad/ST/Internal.purs:foreign import pure_ :: forall r a. a -> ST r a
 .spago/st/v4.1.1/src/Control/Monad/ST/Internal.purs:foreign import bind_ :: forall r a b. ST r a -> (a -> ST r b) -> ST r b
@@ -206,9 +189,7 @@
 .spago/st/v4.1.1/src/Control/Monad/ST/Internal.purs:foreign import while :: forall r a. ST r Boolean -> ST r a -> ST r Unit
 .spago/st/v4.1.1/src/Control/Monad/ST/Internal.purs:foreign import for :: forall r a. Int -> Int -> (Int -> ST r a) -> ST r Unit
 .spago/st/v4.1.1/src/Control/Monad/ST/Internal.purs:foreign import foreach :: forall r a. Array a -> (a -> ST r Unit) -> ST r Unit
-.spago/st/v4.1.1/src/Control/Monad/ST/Internal.purs:foreign import data STRef :: Region -> Type -> Type
 .spago/st/v4.1.1/src/Control/Monad/ST/Internal.purs:foreign import new :: forall a r. a -> ST r (STRef r a)
 .spago/st/v4.1.1/src/Control/Monad/ST/Internal.purs:foreign import read :: forall a r. STRef r a -> ST r a
 .spago/st/v4.1.1/src/Control/Monad/ST/Internal.purs:foreign import modify' :: forall r a b. (a -> { state :: a, value :: b }) -> STRef r a -> ST r b
 .spago/st/v4.1.1/src/Control/Monad/ST/Internal.purs:foreign import write :: forall a r. a -> STRef r a -> ST r a
-.spago/st/v4.1.1/src/Control/Monad/ST/Global.purs:foreign import data Global :: Region

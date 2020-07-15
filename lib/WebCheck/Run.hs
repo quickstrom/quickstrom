@@ -13,6 +13,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module WebCheck.Run
   ( CheckOptions (..),
@@ -40,6 +41,8 @@ import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
 import Data.Tree
+import Data.Vector (Vector)
+import qualified Data.Vector as Vector
 import GHC.Generics (Generic)
 import Network.HTTP.Client as Http
 import qualified Network.Wreq as Wreq
@@ -81,9 +84,7 @@ check opts@CheckOptions {checkTests} spec = do
   case result of
     CheckFailure {failedAfter, failingTest} -> do
       logInfo . renderString $
-        prettyTrace
-          ( {- withoutStutterStates -} (trace failingTest)
-          )
+        prettyTrace (withoutStutterStates (trace failingTest))
           <> line
       case reason failingTest of
         Just err -> logInfo (renderString (annotate (color Red) ("Verification failed with error:" <+> err <> line)))
@@ -114,16 +115,15 @@ select f = forever do
 runSingle :: Specification spec => spec -> Int -> Runner (Either FailingTest ())
 runSingle spec size = do
   result <-
-    generateActions (actions spec)
-      >-> Pipes.take (size * 10)
-      >-> selectValidActions
+    generateValidActions (actions spec)
       >-> Pipes.take size
       & runAndVerifyIsolated 0
   case result of
-    Right trace ->
+    Right trace -> do
       case trace ^.. traceActionFailures of
-        [] -> pure (Right ())
-        failures -> pure (Left (FailingTest 0 trace (pure ("There were action failures:" <> line <> list (map pretty failures)))))
+        [] -> pass
+        failures -> logInfoWD (renderString ("There were" <+> pretty (length failures) <+> "action failures"))
+      pure (Right ())
     f@(Left (FailingTest _ trace _)) -> do
       CheckOptions {checkShrinkLevels} <- liftWebDriverTT ask
       logInfoWD "Test failed. Shrinking..."
@@ -166,14 +166,15 @@ sizes numSizes = Pipes.each (map (\n -> (n * 100 `div` numSizes)) [1 .. numSizes
 beforeRun :: Specification spec => spec -> Runner ()
 beforeRun spec = do
   navigateToOrigin
-  initializeScript
   awaitElement (readyWhen spec)
+  initializeScript
 
 observeManyStatesAfter :: Queries -> ObservedState -> Action Selected -> Pipe a (TraceElement ()) Runner ObservedState
 observeManyStatesAfter queries' initialState action = do
-  result <- lift (catchActionFailed (runAction action))
-  observer <- lift (registerNextStateObserver queries')
-  delta <- getNextOrFail observer
+  result <- lift (runAction action)
+  -- observer <- lift (registerNextStateObserver queries')
+  -- delta <- getNextOrFail observer
+  delta <- lift (observeStates queries')
   let afterDelta = delta <> initialState
   Pipes.yield (TraceAction () action result)
   nonStutters <-
@@ -184,23 +185,15 @@ observeManyStatesAfter queries' initialState action = do
   mapM_ (Pipes.yield . (TraceState ())) nonStutters
   pure (NonEmpty.last nonStutters)
   where
-    getNextOrFail observer =
-      either (fail . Text.unpack) pure
-        =<< lift (getNextState observer)
+    -- getNextOrFail observer =
+    --   either (fail . Text.unpack) pure
+    --     =<< lift (getNextState observer)
     loop :: ObservedState -> Producer ObservedState Runner ()
     loop currentState = do
       Pipes.yield currentState
-      delta <- getNextOrFail =<< lift (registerNextStateObserver queries')
+      -- delta <- getNextOrFail =<< lift (registerNextStateObserver queries')
+      delta <- lift (observeStates queries')
       loop (currentState <> delta)
-    toActionFailed :: Show a => a -> Runner ActionResult
-    toActionFailed = pure . ActionFailed . show
-    catchActionFailed ma =
-      catchAnyError
-        (ma)
-        toActionFailed
-        toActionFailed
-        toActionFailed
-        toActionFailed
 
 {-# SCC runActions' "runActions'" #-}
 runActions' :: Specification spec => spec -> Pipe (Action Selected) (TraceElement ()) Runner ()
@@ -243,27 +236,31 @@ shrinkAction _ = [] -- TODO?
 generate :: QuickCheck.Gen a -> Runner a
 generate = liftWebDriverTT . lift . QuickCheck.generate
 
-generateActions :: ActionGenerator -> Producer (Action Selector) Runner ()
-generateActions gen = forever do
-  Pipes.yield =<< lift (generate gen)
+generateValidActions :: Vector (Int, Action Selector) -> Producer (Action Selected) Runner ()
+generateValidActions possibleActions = forever do
+  validActions <- lift $ for (Vector.toList possibleActions) \(prob, action') -> do
+    fmap (prob,) <$> selectValidAction action'
+  case map (_2 %~ pure) (catMaybes validActions) of
+    [] -> pass
+    actions' ->
+      actions'
+        & QuickCheck.frequency
+        & generate
+        & lift
+        & (>>= Pipes.yield)
 
-selectValidActions :: Pipe (Action Selector) (Action Selected) Runner ()
-selectValidActions = forever do
-  possibleAction <- Pipes.await
-  result <- case possibleAction of
-    KeyPress k ->
-      lift $
-        activeElement >>= \case
-          Just el ->
-            getElementTagName el >>= \case
-              name
-                | name `elem` ["input", "textarea"] -> pure (Just (KeyPress k))
-                | otherwise -> pure Nothing
-          Nothing -> pure Nothing
+selectValidAction :: Action Selector -> Runner (Maybe (Action Selected))
+selectValidAction possibleAction =
+  case possibleAction of
+    KeyPress k -> do
+      active <- isActiveInput
+      if active then (pure (Just (KeyPress k))) else pure Nothing
+    EnterText t -> do
+      active <- isActiveInput
+      if active then (pure (Just (EnterText t))) else pure Nothing
     Navigate p -> pure (Just (Navigate p))
-    Focus sel -> lift (selectOne sel Focus (isNotActive . toRef))
-    Click sel -> lift (selectOne sel Click isClickable)
-  maybe mempty Pipes.yield result
+    Focus sel -> selectOne sel Focus (isNotActive . toRef)
+    Click sel -> selectOne sel Click isClickable
   where
     selectOne :: Selector -> (Selected -> Action Selected) -> (Element -> Runner Bool) -> Runner (Maybe (Action Selected))
     selectOne sel ctor isValid = do
@@ -280,6 +277,10 @@ selectValidActions = forever do
     activeElement = (Just <$> getActiveElement) `catchError` const (pure Nothing)
     isClickable e =
       andM [isElementEnabled (toRef e), isElementVisible e]
+    isActiveInput =
+      activeElement >>= \case
+        Just el -> (`elem` ["input", "textarea"]) <$> getElementTagName el
+        Nothing -> pure False
 
 navigateToOrigin :: Runner ()
 navigateToOrigin = do
@@ -287,15 +288,28 @@ navigateToOrigin = do
   navigateTo (toS (URI.renderStr checkOrigin))
 
 tryAction :: Runner ActionResult -> Runner ActionResult
-tryAction action = action `catchError` (pure . ActionFailed . Text.pack . show)
+tryAction action =
+  action
+    `catchError` ( \case
+                     ResponseError _ msg _ _ _ -> do
+                       logInfoWD (renderString (annotate (color Red) ("Action failed" <> colon) <+> pretty msg))
+                       pure (ActionFailed (toS msg))
+                     NoSession -> do
+                       logInfoWD (renderString (annotate (color Red) ("No session" <> colon) <+> "Please try restarting geckodriver"))
+                       throwError NoSession
+                     err -> throwError err
+                 )
 
 click :: Selected -> Runner ActionResult
 click = findSelected >=> \case
   Just e -> tryAction (ActionSuccess <$ (elementClick (toRef e)))
   Nothing -> pure ActionImpossible
 
+sendKeys :: Text -> Runner ActionResult
+sendKeys t = tryAction (ActionSuccess <$ (getActiveElement >>= elementSendKeys (toS t)))
+
 sendKey :: Char -> Runner ActionResult
-sendKey c = tryAction (ActionSuccess <$ (getActiveElement >>= elementSendKeys [c]))
+sendKey = sendKeys . Text.singleton
 
 focus :: Selected -> Runner ActionResult
 focus = findSelected >=> \case
@@ -306,6 +320,7 @@ runAction :: Action Selected -> Runner ActionResult
 runAction = \case
   Focus s -> focus s
   KeyPress c -> sendKey c
+  EnterText t -> sendKeys t
   Click s -> click s
   Navigate url -> tryAction (ActionSuccess <$ navigateTo (URI.renderStr url))
 
@@ -400,8 +415,12 @@ isElementVisible el =
   (== JSON.Bool True) <$> executeScript "return window.webcheck.isElementVisible(arguments[0])" [JSON.toJSON el]
 
 awaitElement :: Selector -> Runner ()
-awaitElement (Selector sel) =
-  void (executeAsyncScript "window.webcheck.awaitElement(arguments[0], arguments[1])" [JSON.toJSON sel])
+awaitElement sel = do
+  let loop = do
+        findAll sel >>= \case
+          [] -> liftWebDriverTT (liftIO (threadDelay 1000000)) >> loop
+          _ -> pass
+  loop
 
 executeScript' :: JSON.FromJSON r => Script -> [JSON.Value] -> Runner r
 executeScript' script args = do
@@ -410,32 +429,32 @@ executeScript' script args = do
     JSON.Success a -> pure a
     JSON.Error e -> fail e
 
-executeAsyncScript' :: JSON.FromJSON r => Script -> [JSON.Value] -> Runner r
-executeAsyncScript' script args = do
-  r <- executeAsyncScript script args
-  case JSON.fromJSON r of
-    JSON.Success a -> pure a
-    JSON.Error e -> fail e
+-- executeAsyncScript' :: JSON.FromJSON r => Script -> [JSON.Value] -> Runner r
+-- executeAsyncScript' script args = do
+--   r <- executeAsyncScript script args
+--   case JSON.fromJSON r of
+--     JSON.Success a -> pure a
+--     JSON.Error e -> fail e
 
 observeStates :: Queries -> Runner ObservedState
 observeStates queries' =
   executeScript' "return window.webcheck.observeInitialStates(arguments[0])" [JSON.toJSON queries']
 
-newtype StateObserver = StateObserver Text
-  deriving (Eq, Show)
+-- newtype StateObserver = StateObserver Text
+  -- deriving (Eq, Show)
 
-registerNextStateObserver :: Queries -> Runner StateObserver
-registerNextStateObserver queries' =
-  StateObserver
-    <$> executeScript'
-      "return window.webcheck.registerNextStateObserver(arguments[0])"
-      [JSON.toJSON queries']
+-- registerNextStateObserver :: Queries -> Runner StateObserver
+-- registerNextStateObserver queries' =
+--   StateObserver
+--     <$> executeScript'
+--       "return window.webcheck.registerNextStateObserver(arguments[0])"
+--       [JSON.toJSON queries']
 
-getNextState :: StateObserver -> Runner (Either Text ObservedState)
-getNextState (StateObserver sid) =
-  executeAsyncScript'
-    "window.webcheck.runPromiseEither(webcheck.getNextState(arguments[0]), arguments[1])"
-    [JSON.toJSON sid]
+-- getNextState :: StateObserver -> Runner (Either Text ObservedState)
+-- getNextState (StateObserver sid) =
+  -- executeAsyncScript'
+    -- "window.webcheck.runPromiseEither(webcheck.getNextState(arguments[0]), arguments[1])"
+    -- [JSON.toJSON sid]
 
 renderString :: Doc AnsiStyle -> String
 renderString = Text.unpack . renderStrict . layoutPretty defaultLayoutOptions

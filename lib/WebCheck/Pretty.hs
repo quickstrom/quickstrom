@@ -29,6 +29,7 @@ prettyAction = \case
   Click sel -> "click" <+> prettySelected sel
   Focus sel -> "focus" <+> prettySelected sel
   KeyPress key -> "key press" <+> pretty (show key :: Text)
+  EnterText t -> "enter text" <+> pretty (show t :: Text)
   Navigate uri -> "navigate to" <+> pretty (URI.render uri)
 
 prettySelected :: Selected -> Doc AnsiStyle

@@ -36,7 +36,8 @@ spec_analyze = beforeAll loadModules $ do
       fmap specificationQueries <$> loadSpecificationProgram' "test/WebCheck/PureScript/AnalyzeTest/Valid.purs" m
         `shouldReturn` Right
           [ ("p", [CssValue "display"]),
-            ("button", [Property "textContent"])
+            ("button", [Property "textContent"]),
+            ("a", [Property "textContent"])
           ]
     it "valid and using top-level element state" $ \m -> do
       fmap specificationQueries <$> loadSpecificationProgram' "test/WebCheck/PureScript/AnalyzeTest/TopLevelElementState.purs" m

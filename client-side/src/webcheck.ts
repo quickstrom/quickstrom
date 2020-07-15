@@ -1,3 +1,8 @@
+/**
+ * TODO: This file should be converted to separate scripts that are passed inline.
+ * WebCheck must support multi-page testing, and ensuring that this script is loaded
+ * for each web page is hard and potentially brittle.
+ */
 
 // QUERIES
 
@@ -20,7 +25,7 @@ function runQuery([selector, states]: Query): ObservedState {
   function runStateQuery(element: Element, stateQuery: StateQuery): Value {
     switch (stateQuery.tag) {
       case "attribute":
-        return element.attributes.getNamedItem(stateQuery.name) as
+        return element.attributes.getNamedItem(stateQuery.name)?.value as
           | string
           | null;
       case "property":

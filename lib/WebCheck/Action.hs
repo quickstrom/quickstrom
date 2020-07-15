@@ -10,5 +10,10 @@ import WebCheck.Prelude
 data Selected = Selected Selector Int
   deriving (Eq, Show, Generic)
 
-data Action sel = Focus sel | KeyPress Char | Click sel | Navigate URI
+data Action sel
+  = Focus sel
+  | KeyPress Char
+  | EnterText Text
+  | Click sel
+  | Navigate URI
   deriving (Eq, Show, Generic)

@@ -33,7 +33,6 @@ import qualified Language.PureScript.CoreFn as CF
 import Language.PureScript.CoreFn.FromJSON (moduleFromJSON)
 import System.FilePath ((</>))
 import System.FilePath.Glob (glob)
-import qualified Test.QuickCheck as QuickCheck
 import Text.Read (read)
 import qualified WebCheck.Action as WebCheck
 import qualified WebCheck.Element as WebCheck
@@ -196,7 +195,7 @@ loadProgram ms input = runExceptT $ do
 data SpecificationProgram
   = SpecificationProgram
       { specificationReadyWhen :: WebCheck.Selector,
-        specificationActions :: [(Int, WebCheck.Action WebCheck.Selector)],
+        specificationActions :: Vector (Int, WebCheck.Action WebCheck.Selector),
         specificationQueries :: WebCheck.Queries,
         specificationProgram :: Program WithObservedStates
       }
@@ -204,7 +203,7 @@ data SpecificationProgram
 instance WebCheck.Specification SpecificationProgram where
   readyWhen = specificationReadyWhen
 
-  actions = QuickCheck.frequency . map (_2 %~ pure) . specificationActions
+  actions = specificationActions
 
   verify sp states = (_Left %~ prettyEvalError) $ do
     valid <- toHaskellValue (moduleSourceSpan (programMain p)) =<< evalWithObservedStates p "proposition" states
@@ -329,6 +328,7 @@ foreignFunctions =
       (ffName "Data.String.Common" "trim", foreignFunction (op1 Text.strip)),
       (ffName "Data.String.Common" "joinWith", foreignFunction (op2 Text.intercalate)),
       (ffName "Data.Unfoldable" "unfoldrArrayImpl", foreignFunction unfoldrArrayImpl),
+      (ffName "Data.Unit" "unit", foreignFunction unit),
       (ffName "Global" "infinity", foreignFunction (op0 (read "Infinity" :: Double))),
       (ffName "Global" "nan", foreignFunction (op0 (read "NaN" :: Double))),
       (ffName "Global" "isFinite", foreignFunction (op1 (not . isInfinite @Double))),
@@ -441,3 +441,5 @@ foreignFunctions =
     toCodePointArray _ _ t = pure (Vector.map ord (Vector.fromList (toS t)))
     unsafeCodePointAt0 :: Monad m => Value EvalAnn -> Text -> Ret m Int
     unsafeCodePointAt0 _ t = pure (ord (Text.index t 0))
+    unit :: Monad m => Ret m (Value EvalAnn)
+    unit = pure (VObject mempty)

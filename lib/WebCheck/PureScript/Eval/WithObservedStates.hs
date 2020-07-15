@@ -6,6 +6,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
@@ -20,7 +21,7 @@ import Data.Generics.Product (field)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Scientific (floatingOrInteger)
 import qualified Data.Vector as Vector
-import WebCheck.Element (Selector (..))
+import WebCheck.Element (ElementState (..), Selector (..))
 import WebCheck.Prelude
 import WebCheck.PureScript.Eval.Class
 import WebCheck.PureScript.Eval.Error
@@ -58,20 +59,33 @@ instance MonadEvalQuery WithObservedStates where
           mappings <- flip HashMap.traverseWithKey wantedStates $ \k s -> do
             elementState <- require (exprSourceSpan p2) (Proxy @"VElementState") s
             case HashMap.lookup elementState matchedElement of
-              Just x -> pure (fromValue x)
+              Just json -> case parseValueAs elementState json of
+                Just value -> pure value
+                Nothing ->
+                  let msg = ("Value (bound to ." <> k <> ") could not be parsed as `" <> show elementState <> "`: " <> show json)
+                   in throwError (ForeignFunctionError (Just (exprSourceSpan p2)) msg)
               Nothing ->
                 let msg = ("Element state (bound to ." <> k <> ") not in observed state for query `" <> selector <> "`: " <> show elementState)
                  in throwError (ForeignFunctionError (Just (exprSourceSpan p2)) msg)
           pure (VObject mappings)
         pure (VArray mappedElements)
         where
-          fromValue = \case
-            JSON.Null -> VObject mempty
-            JSON.Bool b -> VBool b
-            JSON.String t -> VString t
-            JSON.Number n -> either VNumber VInt (floatingOrInteger n)
-            JSON.Array xs -> VArray (map fromValue xs)
-            JSON.Object xs -> VObject (map fromValue xs)
+          parseValueAs :: ElementState -> JSON.Value -> Maybe (Value ann)
+          parseValueAs Attribute {} = \case
+            JSON.Null -> pure (VObject [("constructor", VString "Nothing"), ("fields", VArray mempty)])
+            JSON.String t -> pure (VObject [("constructor", VString "Just"), ("fields", VArray [VString t])])
+            _ -> Nothing
+          parseValueAs Property {} = fromJson
+          parseValueAs CssValue {} = fromJson
+          parseValueAs Text {} = fromJson
+          fromJson :: JSON.Value -> Maybe (Value ann)
+          fromJson = \case
+            JSON.Null -> Nothing
+            JSON.String t -> pure (VString t)
+            JSON.Bool b -> pure (VBool b)
+            JSON.Number n -> pure (either VNumber VInt (floatingOrInteger n))
+            JSON.Array xs -> VArray <$> traverse fromJson xs
+            JSON.Object xs -> VObject <$> traverse fromJson xs
 
   evalNext _ p =
     view (field @"observedStates") >>= \case

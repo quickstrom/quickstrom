@@ -9,14 +9,14 @@ let
     };
   };
 
-  purescript-webcheck = import ./purescript-webcheck { inherit pkgs; };
+  dsl = import ./dsl { inherit pkgs; };
   client-side = import ./client-side { inherit pkgs; };
 
   src = pkgs.nix-gitignore.gitignoreSource [] ./.;
 
   setCheckEnv = drv: pkgs.haskell.lib.overrideCabal drv (_: {
       preCheck = ''
-        export WEBCHECK_LIBRARY_DIR="${purescript-webcheck}";
+        export WEBCHECK_LIBRARY_DIR="${dsl}";
         export WEBCHECK_CLIENT_SIDE_BUNDLE="${client-side}/webcheck-client-side.js";
       '';
   });
@@ -36,7 +36,7 @@ let
         mkdir -p $out/bin
         makeWrapper "${package}/bin/webcheck" \
             $out/bin/webcheck \
-            --set WEBCHECK_LIBRARY_DIR "${purescript-webcheck}" \
+            --set WEBCHECK_LIBRARY_DIR "${dsl}" \
             --set WEBCHECK_CLIENT_SIDE_BUNDLE "${client-side}/webcheck.js"
       '';
   };

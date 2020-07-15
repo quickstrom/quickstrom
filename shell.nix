@@ -17,22 +17,22 @@ let
     opensans-ttf
   ];
 
-  easy-ps = import ./purescript-webcheck/easy-ps.nix { inherit pkgs; };
-  purescript-webcheck = import ./purescript-webcheck { inherit pkgs; };
+  easy-ps = import ./dsl/easy-ps.nix { inherit pkgs; };
+  dsl = import ./dsl { inherit pkgs; };
   client-side = import ./client-side { inherit pkgs; };
 
   webcheck-purs-ide = pkgs.writeShellScriptBin "webcheck-purs-ide" ''
     ${easy-ps.purs-0_13_8}/bin/purs ide server \
       --log-level all \
-      --output-directory purescript-webcheck/output \
-      'purescript-webcheck/src/**/*.purs' \
-      'purescript-webcheck/.spago/**/*.purs' \
+      --output-directory dsl/output \
+      'dsl/src/**/*.purs' \
+      'dsl/.spago/**/*.purs' \
       'specs/**/*.purs'
   '';
 
   webcheck-format-sources = pkgs.writeShellScriptBin "webcheck-format-sources" ''
     find . -not -path './dist-newstyle/*' -name '*.hs' -exec ormolu -m inplace {} \;
-    find . -not -path './purescript-webcheck/.spago/*' -name '*.purs' -exec purty --write {} \;
+    find . -not -path './dsl/.spago/*' -name '*.purs' -exec purty --write {} \;
   '';
 
   src = pkgs.nix-gitignore.gitignoreSource [] ./.;
@@ -59,13 +59,13 @@ in haskellPackages.shellFor {
     webcheck-purs-ide
     webcheck-format-sources
     # only for lorri
-    purescript-webcheck
+    dsl
     client-side
   ]);
   FONTCONFIG_FILE = pkgs.makeFontsConf {
     fontDirectories = fonts;
   };
-  WEBCHECK_LIBRARY_DIR = "${purescript-webcheck}";
+  WEBCHECK_LIBRARY_DIR = "${dsl}";
   WEBCHECK_CLIENT_SIDE_BUNDLE = "${client-side}/webcheck.js";
 }
 

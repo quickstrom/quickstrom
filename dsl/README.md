@@ -1,6 +1,7 @@
-# purescript-webcheck
+# WebCheck DSL
 
-This is the user-level API for writing specifications in PureScript.
+This is the DSL used by testers when writing specifications. It's based on
+PureScript.
 
 ## Requirements
 

@@ -12,11 +12,11 @@ let
 
   sourceDirs = map (x: ''"${x.src}/src/"*'') psPkgs;
 
-  purescript-webcheck = pkgs.runCommand "purescript-webcheck" {
+  dsl = pkgs.runCommand "dsl" {
     buildInputs = [ easy-ps.purs-0_13_8 ];
   } ''
       mkdir $out
       purs compile -g corefn ${toString sourceGlobs} --output=$out
     '';
 
-  in purescript-webcheck
+  in dsl

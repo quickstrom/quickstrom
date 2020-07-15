@@ -84,9 +84,7 @@ check opts@CheckOptions {checkTests} spec = do
   case result of
     CheckFailure {failedAfter, failingTest} -> do
       logInfo . renderString $
-        prettyTrace
-          ( {- withoutStutterStates -} (trace failingTest)
-          )
+        prettyTrace (withoutStutterStates (trace failingTest))
           <> line
       case reason failingTest of
         Just err -> logInfo (renderString (annotate (color Red) ("Verification failed with error:" <+> err <> line)))
@@ -174,8 +172,9 @@ beforeRun spec = do
 observeManyStatesAfter :: Queries -> ObservedState -> Action Selected -> Pipe a (TraceElement ()) Runner ObservedState
 observeManyStatesAfter queries' initialState action = do
   result <- lift (runAction action)
-  observer <- lift (registerNextStateObserver queries')
-  delta <- getNextOrFail observer
+  -- observer <- lift (registerNextStateObserver queries')
+  -- delta <- getNextOrFail observer
+  delta <- lift (observeStates queries')
   let afterDelta = delta <> initialState
   Pipes.yield (TraceAction () action result)
   nonStutters <-
@@ -186,13 +185,14 @@ observeManyStatesAfter queries' initialState action = do
   mapM_ (Pipes.yield . (TraceState ())) nonStutters
   pure (NonEmpty.last nonStutters)
   where
-    getNextOrFail observer =
-      either (fail . Text.unpack) pure
-        =<< lift (getNextState observer)
+    -- getNextOrFail observer =
+    --   either (fail . Text.unpack) pure
+    --     =<< lift (getNextState observer)
     loop :: ObservedState -> Producer ObservedState Runner ()
     loop currentState = do
       Pipes.yield currentState
-      delta <- getNextOrFail =<< lift (registerNextStateObserver queries')
+      -- delta <- getNextOrFail =<< lift (registerNextStateObserver queries')
+      delta <- lift (observeStates queries')
       loop (currentState <> delta)
 
 {-# SCC runActions' "runActions'" #-}
@@ -429,32 +429,32 @@ executeScript' script args = do
     JSON.Success a -> pure a
     JSON.Error e -> fail e
 
-executeAsyncScript' :: JSON.FromJSON r => Script -> [JSON.Value] -> Runner r
-executeAsyncScript' script args = do
-  r <- executeAsyncScript script args
-  case JSON.fromJSON r of
-    JSON.Success a -> pure a
-    JSON.Error e -> fail e
+-- executeAsyncScript' :: JSON.FromJSON r => Script -> [JSON.Value] -> Runner r
+-- executeAsyncScript' script args = do
+--   r <- executeAsyncScript script args
+--   case JSON.fromJSON r of
+--     JSON.Success a -> pure a
+--     JSON.Error e -> fail e
 
 observeStates :: Queries -> Runner ObservedState
 observeStates queries' =
   executeScript' "return window.webcheck.observeInitialStates(arguments[0])" [JSON.toJSON queries']
 
-newtype StateObserver = StateObserver Text
-  deriving (Eq, Show)
+-- newtype StateObserver = StateObserver Text
+  -- deriving (Eq, Show)
 
-registerNextStateObserver :: Queries -> Runner StateObserver
-registerNextStateObserver queries' =
-  StateObserver
-    <$> executeScript'
-      "return window.webcheck.registerNextStateObserver(arguments[0])"
-      [JSON.toJSON queries']
+-- registerNextStateObserver :: Queries -> Runner StateObserver
+-- registerNextStateObserver queries' =
+--   StateObserver
+--     <$> executeScript'
+--       "return window.webcheck.registerNextStateObserver(arguments[0])"
+--       [JSON.toJSON queries']
 
-getNextState :: StateObserver -> Runner (Either Text ObservedState)
-getNextState (StateObserver sid) =
-  executeAsyncScript'
-    "window.webcheck.runPromiseEither(webcheck.getNextState(arguments[0]), arguments[1])"
-    [JSON.toJSON sid]
+-- getNextState :: StateObserver -> Runner (Either Text ObservedState)
+-- getNextState (StateObserver sid) =
+  -- executeAsyncScript'
+    -- "window.webcheck.runPromiseEither(webcheck.getNextState(arguments[0]), arguments[1])"
+    -- [JSON.toJSON sid]
 
 renderString :: Doc AnsiStyle -> String
 renderString = Text.unpack . renderStrict . layoutPretty defaultLayoutOptions

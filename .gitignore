@@ -4,10 +4,6 @@ cabal.project.local
 *.o
 *.hi
 
-/webcheck.pdf
-/webcheck.tex
-/webcheck.html
-
 # profiling/flamegraph
 webcheck.prof
 webcheck.svg

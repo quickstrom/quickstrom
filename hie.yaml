@@ -11,10 +11,9 @@ cradle:
       - -XNoImplicitPrelude
       - -Wall
       - -Werror=incomplete-patterns
-      - -ilib
-      - -itest
-      - -iwebcheck
-      - webcheck/Main.hs
-      - test/Main.hs
-      - -idist/build/autogen
+      - -irunner/src
+      - -irunner/test
+      - -icli/src
+      - cli/src/Main.hs
+      - runner/test/Main.hs
 

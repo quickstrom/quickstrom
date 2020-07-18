@@ -20,8 +20,4 @@ clean:
 		$< \
 		-o $@
 
-push-cachix:
-	nix-build -A webcheck --no-out-link | cachix push webcheck
-	nix-store -qR --include-outputs $(nix-instantiate shell.nix) | cachix push webcheck
-
-.PHONY: all build clean watch push-cachix
+.PHONY: all build clean watch

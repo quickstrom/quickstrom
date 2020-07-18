@@ -6,7 +6,7 @@ author:               Oskar Wickström
 maintainer:           oskar@wickstrom.tech
 build-type:           Simple
 
-executable webcheck-cli
+executable webcheck
   build-depends:      base ^>= 4.12
                     , containers
                     , directory
@@ -18,7 +18,7 @@ executable webcheck-cli
                     , protolude
                     , process
                     , text
-                    , webcheck
+                    , webcheck-runner
 
   main-is:            Main.hs
   hs-source-dirs:     src

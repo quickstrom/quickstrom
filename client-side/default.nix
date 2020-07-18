@@ -1,7 +1,7 @@
 { pkgs ? import ../nixpkgs.nix { } }:
 let
-  src = pkgs.nix-gitignore.gitignoreSource [] ./.;
-  client-side = pkgs.stdenv.mkDerivation  {
+  src = pkgs.nix-gitignore.gitignoreSource [ ] ./.;
+  client-side = pkgs.stdenv.mkDerivation {
     inherit src;
     name = "webcheck-client-side";
     buildInputs = with pkgs; [
@@ -17,8 +17,8 @@ let
       echo -e "\n})(window.webcheck);" >> dist/webcheck-bundle.js
     '';
     installPhase = ''
-        mkdir $out
-        cp dist/webcheck-bundle.js $out/webcheck.js
+      mkdir $out
+      cp dist/webcheck-bundle.js $out/webcheck.js
     '';
   };
 

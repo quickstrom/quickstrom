@@ -1,6 +1,6 @@
 cabal-version:        2.2
 
-name:                 WebCheck
+name:                 webcheck-runner
 version:              0.1.0.0
 author:               Oskar Wickström
 maintainer:           oskar@wickstrom.tech
@@ -25,7 +25,6 @@ common shared-deps
                     , monadlist
                     , mtl
                     , natural-transformation
-                    , optparse-applicative
                     , pipes
                     , prettyprinter
                     , prettyprinter-ansi-terminal
@@ -65,22 +64,12 @@ library
                     , WebCheck.Run
                     , WebCheck.Specification
                     , WebCheck.Trace
-  hs-source-dirs:     lib
+  hs-source-dirs:     src
   default-language:   Haskell2010
   default-extensions: NoImplicitPrelude
   ghc-options:        -Wall -Werror=incomplete-patterns -Wredundant-constraints
 
-executable webcheck
-  import:             shared-deps
-  main-is:            Main.hs
-  build-depends:      base >= 4.12
-                    , WebCheck
-  hs-source-dirs:     webcheck
-  default-language:   Haskell2010
-  default-extensions: NoImplicitPrelude
-  ghc-options:        -Wall
-
-test-suite webcheck-test
+test-suite webcheck-runner-test
   import:             shared-deps
   type:               exitcode-stdio-1.0
   main-is:            Main.hs
@@ -90,7 +79,7 @@ test-suite webcheck-test
                     , WebCheck.PureScriptTest
                     , WebCheck.TraceTest
   build-depends:      base
-                    , WebCheck
+                    , webcheck-runner
                     , tasty
                     , tasty-discover
                     , tasty-hspec

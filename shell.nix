@@ -1,21 +1,21 @@
-{ pkgs ? import ./nixpkgs.nix { config = { allowBroken = true; }; }, compiler ? "ghc865" }:
+{ pkgs ? import ./nixpkgs.nix { config = { allowBroken = true; }; }
+, compiler ? "ghc865" }:
 let
   haskellPackages = pkgs.haskell.packages.${compiler}.override {
     overrides = self: super: {
-      tasty-quickcheck-laws = pkgs.haskell.lib.dontCheck(super.tasty-quickcheck-laws);
-      webdriver-w3c = pkgs.haskell.lib.dontCheck(super.webdriver-w3c);
-      script-monad = pkgs.haskell.lib.dontCheck(super.script-monad);
-      protolude = pkgs.haskell.lib.doJailbreak(self.callHackage "protolude" "0.2.3" {});
+      tasty-quickcheck-laws =
+        pkgs.haskell.lib.dontCheck (super.tasty-quickcheck-laws);
+      webdriver-w3c = pkgs.haskell.lib.dontCheck (super.webdriver-w3c);
+      script-monad = pkgs.haskell.lib.dontCheck (super.script-monad);
+      protolude =
+        pkgs.haskell.lib.doJailbreak (self.callHackage "protolude" "0.2.3" { });
     };
   };
   ghcide = (import (builtins.fetchTarball
-    "https://github.com/cachix/ghcide-nix/tarball/master") { }).${"ghcide-${compiler}"};
+    "https://github.com/cachix/ghcide-nix/tarball/master")
+    { }).${"ghcide-${compiler}"};
 
-  fonts = with pkgs; [
-    libre-baskerville
-    iosevka
-    opensans-ttf
-  ];
+  fonts = with pkgs; [ libre-baskerville iosevka opensans-ttf ];
 
   easy-ps = import ./dsl/easy-ps.nix { inherit pkgs; };
   dsl = import ./dsl { inherit pkgs; };
@@ -30,20 +30,18 @@ let
       'specs/**/*.purs'
   '';
 
-  webcheck-format-sources = pkgs.writeShellScriptBin "webcheck-format-sources" ''
-    find . -not -path './dist-newstyle/*' -name '*.hs' -exec ormolu -m inplace {} \;
-    find . -not -path './dsl/.spago/*' -name '*.purs' -exec purty --write {} \;
-  '';
-
-  src = pkgs.nix-gitignore.gitignoreSource [] ./.;
+  webcheck-format-sources =
+    pkgs.writeShellScriptBin "webcheck-format-sources" ''
+      find . -not -path './dist-newstyle/*' -name '*.hs' -exec ormolu -m inplace {} \;
+      find . -not -path './dsl/.spago/*' -name '*.purs' -exec purty --write {} \;
+    '';
 
   webcheck = import ./. { inherit pkgs compiler; };
 
 in haskellPackages.shellFor {
   withHoogle = true;
-  packages = p: [webcheck.package];
-  buildInputs = (with pkgs;
-  [
+  packages = p: (with webcheck.packages; [ webcheck-runner ]);
+  buildInputs = (with pkgs; [
     nixfmt
     ghcid
     ghcide
@@ -62,9 +60,7 @@ in haskellPackages.shellFor {
     dsl
     client-side
   ]);
-  FONTCONFIG_FILE = pkgs.makeFontsConf {
-    fontDirectories = fonts;
-  };
+  FONTCONFIG_FILE = pkgs.makeFontsConf { fontDirectories = fonts; };
   WEBCHECK_LIBRARY_DIR = "${dsl}";
   WEBCHECK_CLIENT_SIDE_BUNDLE = "${client-side}/webcheck.js";
 }

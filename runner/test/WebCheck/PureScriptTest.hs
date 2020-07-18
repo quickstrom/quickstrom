@@ -97,7 +97,7 @@ spec_purescript = beforeAll loadModules $ do
       eval' [] "tla5" p `shouldBe` Right True
     it "tla6" $ \p -> do
       eval' [mempty] "tla6" p `shouldBe` Right True
-  describe "TodoMVC" . beforeWith (loadProgram' "specs/other/TodoMVC.spec.purs") $ do
+  describe "TodoMVC" . beforeWith (loadProgram' "test/WebCheck/PureScriptTest/TodoMVC.spec.purs") $ do
     let todoMvcState :: Text -> Text -> Text -> Vector (Text, Bool) -> [Text] -> ObservedState
         todoMvcState newTodo selected count todoItems filters =
           ( ObservedState $

@@ -1,7 +1,6 @@
 module Spec where
 
 import WebCheck
-
 import Data.Maybe (Maybe, isJust, isNothing)
 import Data.Tuple (Tuple(..))
 
@@ -18,10 +17,10 @@ proposition =
 
     enterMessage = formMessage /= next formMessage
 
-    submitMessage = 
+    submitMessage =
       formMessage /= next submittedMessage
-      && isNothing submittedMessage
-      && next (isNothing formMessage)
+        && isNothing submittedMessage
+        && next (isNothing formMessage)
   in
     initial && always (enterMessage || submitMessage)
 

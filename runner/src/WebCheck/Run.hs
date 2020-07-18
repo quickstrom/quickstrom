@@ -441,7 +441,7 @@ observeStates queries' =
   executeScript' "return window.webcheck.observeInitialStates(arguments[0])" [JSON.toJSON queries']
 
 -- newtype StateObserver = StateObserver Text
-  -- deriving (Eq, Show)
+-- deriving (Eq, Show)
 
 -- registerNextStateObserver :: Queries -> Runner StateObserver
 -- registerNextStateObserver queries' =
@@ -452,9 +452,9 @@ observeStates queries' =
 
 -- getNextState :: StateObserver -> Runner (Either Text ObservedState)
 -- getNextState (StateObserver sid) =
-  -- executeAsyncScript'
-    -- "window.webcheck.runPromiseEither(webcheck.getNextState(arguments[0]), arguments[1])"
-    -- [JSON.toJSON sid]
+-- executeAsyncScript'
+-- "window.webcheck.runPromiseEither(webcheck.getNextState(arguments[0]), arguments[1])"
+-- [JSON.toJSON sid]
 
 renderString :: Doc AnsiStyle -> String
 renderString = Text.unpack . renderStrict . layoutPretty defaultLayoutOptions

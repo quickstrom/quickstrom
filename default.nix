@@ -21,6 +21,10 @@ let
         inherit pkgs;
         haskellPackages = self;
       };
+      webcheck-web = import ./web {
+        inherit pkgs;
+        haskellPackages = self;
+      };
     };
   };
 
@@ -39,7 +43,7 @@ let
   };
 
 in {
-  packages = with haskellPackages; { inherit webcheck-cli webcheck-runner; };
+  inherit haskellPackages;
   webcheck = webcheck;
 }
 

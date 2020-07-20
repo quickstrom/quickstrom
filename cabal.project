@@ -1,1 +1,1 @@
-packages: runner/webcheck-runner.cabal, cli/webcheck-cli.cabal
+packages: */*.cabal

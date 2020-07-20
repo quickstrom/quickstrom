@@ -14,6 +14,8 @@ cradle:
       - -irunner/src
       - -irunner/test
       - -icli/src
+      - -iweb/src
       - cli/src/Main.hs
+      - web/src/Main.hs
       - runner/test/Main.hs
 

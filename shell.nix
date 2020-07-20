@@ -38,9 +38,9 @@ let
 
   webcheck = import ./. { inherit pkgs compiler; };
 
-in haskellPackages.shellFor {
+in webcheck.haskellPackages.shellFor {
   withHoogle = true;
-  packages = p: (with webcheck.packages; [ webcheck-runner ]);
+  packages = with pkgs.lib; (p: attrValues (filterAttrs (n: _: hasPrefix "webcheck-" n) p));
   buildInputs = (with pkgs; [
     nixfmt
     ghcid

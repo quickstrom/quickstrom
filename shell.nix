@@ -1,16 +1,6 @@
 { pkgs ? import ./nixpkgs.nix { config = { allowBroken = true; }; }
 , compiler ? "ghc865" }:
 let
-  haskellPackages = pkgs.haskell.packages.${compiler}.override {
-    overrides = self: super: {
-      tasty-quickcheck-laws =
-        pkgs.haskell.lib.dontCheck (super.tasty-quickcheck-laws);
-      webdriver-w3c = pkgs.haskell.lib.dontCheck (super.webdriver-w3c);
-      script-monad = pkgs.haskell.lib.dontCheck (super.script-monad);
-      protolude =
-        pkgs.haskell.lib.doJailbreak (self.callHackage "protolude" "0.2.3" { });
-    };
-  };
   ghcide = (import (builtins.fetchTarball
     "https://github.com/cachix/ghcide-nix/tarball/master")
     { }).${"ghcide-${compiler}"};

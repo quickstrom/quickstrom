@@ -13,6 +13,9 @@ let
       protolude =
         pkgs.haskell.lib.doJailbreak (self.callHackage "protolude" "0.2.3" { });
 
+      # haskell-src = self.callHackage "haskell-src" "1.0.3.0" { };
+      # HTF = pkgs.haskell.lib.dontCheck (self.callHackage "HTF" "0.13.2.5" { });
+
       webcheck-runner = import ./runner {
         inherit pkgs;
         haskellPackages = self;

@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -10,6 +11,9 @@
 module Main where
 
 import Control.Lens hiding (argument)
+import Data.String (String)
+import Data.Text.Prettyprint.Doc
+import Data.Text.Prettyprint.Doc.Render.Terminal
 import Options.Applicative
 import System.Directory (canonicalizePath)
 import System.Environment (lookupEnv)
@@ -18,8 +22,10 @@ import qualified Text.URI as URI
 import Text.URI.Lens (uriScheme)
 import qualified Text.URI.QQ as URI
 import WebCheck.Prelude hiding (option)
+import qualified WebCheck.Pretty as WebCheck
 import qualified WebCheck.PureScript.Program as WebCheck
 import qualified WebCheck.Run as WebCheck
+import qualified WebCheck.Trace as WebCheck
 
 data WebCheckOptions
   = WebCheckOptions
@@ -96,10 +102,25 @@ main = do
     Left err -> do
       hPutStrLn @Text stderr err
       exitWith (ExitFailure 1)
-    Right spec ->
-      WebCheck.check
-        WebCheck.CheckOptions {checkTests = tests, checkShrinkLevels = shrinkLevels, checkOrigin = originUri}
-        spec
+    Right spec -> do
+      result <-
+        WebCheck.check
+          WebCheck.CheckOptions {checkTests = tests, checkShrinkLevels = shrinkLevels, checkOrigin = originUri}
+          spec
+      case result of
+        WebCheck.CheckFailure {failedAfter, failingTest} -> do
+          putStrLn . renderString $
+            WebCheck.prettyTrace (WebCheck.withoutStutterStates (WebCheck.trace failingTest))
+              <> line
+          case WebCheck.reason failingTest of
+            Just err -> putStrLn (renderString (annotate (color Red) ("Verification failed with error:" <+> err <> line)))
+            Nothing -> pure ()
+          putStrLn . renderString . annotate (color Red) $
+            "Failed after" <+> pretty failedAfter <+> "tests and" <+> pretty (WebCheck.numShrinks failingTest) <+> "levels of shrinking."
+          exitWith (ExitFailure 1)
+        WebCheck.CheckSuccess -> 
+          putStrLn . renderString . annotate (color Green) $
+            "Passed" <+> pretty tests <+> "tests."
 
 libraryPathFromEnvironment :: ExceptT Text IO FilePath
 libraryPathFromEnvironment = do
@@ -108,6 +129,9 @@ libraryPathFromEnvironment = do
     Nothing -> throwError (key <> "is not set and command-line option is not provided")
   where
     key = "WEBCHECK_LIBRARY_DIR"
+
+renderString :: Doc AnsiStyle -> String
+renderString = toS . renderStrict . layoutPretty defaultLayoutOptions
 {-
 
 -- Simple example: a button that can be clicked, which then shows a message

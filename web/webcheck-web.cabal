@@ -11,6 +11,7 @@ executable webcheck-web
                     , containers
                     , directory
                     , lens
+                    , lucid
                     , modern-uri
                     , optparse-applicative
                     , prettyprinter

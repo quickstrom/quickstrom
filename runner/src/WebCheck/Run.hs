@@ -17,6 +17,8 @@
 
 module WebCheck.Run
   ( CheckOptions (..),
+    CheckResult (..),
+    FailingTest (..),
     check,
   )
 where
@@ -56,7 +58,6 @@ import qualified Text.URI as URI
 import Web.Api.WebDriver hiding (Action, Selector, hPutStrLn, runIsolated)
 import WebCheck.Element
 import WebCheck.Prelude hiding (catchError, check, throwError, trace)
-import WebCheck.Pretty
 import WebCheck.Result
 import WebCheck.Specification
 import WebCheck.Trace
@@ -76,22 +77,11 @@ data CheckResult = CheckSuccess | CheckFailure {failedAfter :: Int, failingTest 
 
 data CheckOptions = CheckOptions {checkTests :: Int, checkShrinkLevels :: Int, checkOrigin :: URI}
 
-check :: Specification spec => CheckOptions -> spec -> IO ()
+check :: Specification spec => CheckOptions -> spec -> IO CheckResult
 check opts@CheckOptions {checkTests} spec = do
   -- stdGen <- getStdGen
   logInfo ("Running " <> show checkTests <> " tests...")
-  result <- runWebDriver opts (Pipes.runEffect (runAll checkTests spec))
-  case result of
-    CheckFailure {failedAfter, failingTest} -> do
-      logInfo . renderString $
-        prettyTrace (withoutStutterStates (trace failingTest))
-          <> line
-      case reason failingTest of
-        Just err -> logInfo (renderString (annotate (color Red) ("Verification failed with error:" <+> err <> line)))
-        Nothing -> pure ()
-      logInfo (renderString (annotate (color Red) ("Failed after " <> pretty failedAfter <> " tests and " <> pretty (numShrinks failingTest) <> " levels of shrinking.")))
-      exitFailure
-    CheckSuccess -> logInfo ("Passed " <> show checkTests <> " tests.")
+  runWebDriver opts (Pipes.runEffect (runAll checkTests spec))
 
 elementsToTrace :: Producer (TraceElement ()) Runner () -> Runner (Trace ())
 elementsToTrace = fmap Trace . Pipes.toListM

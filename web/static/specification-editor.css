@@ -2,19 +2,31 @@
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
+    margin: 0;
 }
 .specification-editor #editor { 
     flex: 1 1 auto;
     font-size: 100%;
+    font-family: monospace;
 }
-form .field-name {
-    display: block;
-    margin: .5rem 0;
+.specification-editor .check-controls {
+    display: flex;
+    align-items: stretch;
+    border-top: 1px solid #eee;
+    background: #f7f7f7;
+    padding: 1rem;
+}
+.specification-editor .ace_gutter {
+    border-right: 1px solid #eee;
+    background: #f7f7f7;
 }
 
-form input,
-form textarea {
-    display: block;
-    margin: 1rem 0;
-    width: 100%;
+.specification-editor .check-controls [name=origin] {
+    flex: 1 1 auto;
+    margin-right: .5rem;
+}
+.specification-editor .check-controls [type=submit] {
+    background: rgb(18, 18, 219);
+    color: #eee;
+    border: none;
 }

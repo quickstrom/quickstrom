@@ -1,3 +1,6 @@
+html {
+    font-family: sans-serif;
+}
 body {
     display: flex;
     flex-direction: column;
@@ -5,12 +8,12 @@ body {
 }
 body > header,
 body > footer {
+    background: #eee;
     flex: 0 0 auto;
     padding: 1rem;
 }
 
 body > header {
-    background: #ddd;
     border-bottom: 1px solid #ccc;
 }
 
@@ -21,10 +24,18 @@ body > main {
 }
 
 body > footer {
-    background: #ddd;
+    font-size: .75rem;
+    color: #aaa;
+    text-align: center;
     border-top: 1px solid #ccc;
 }
 
 header nav a {
     color: inherit;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+input {
+    padding: .25rem .5rem;
 }

@@ -68,10 +68,9 @@ homeView = layout "WebCheck" do
       "\n\n"
       "proposition = ?todo"
     div_ [id_ "editor"] mempty
-    label_ do
-      span_ [class_ "field-name"] "Origin URL"
+    div_ [class_ "check-controls"] do
       input_ [type_ "url", name_ "origin", placeholder_ "https://example.com"]
-    input_ [type_ "submit", value_ "Check"]
+      input_ [type_ "submit", value_ "Check"]
 
     script_ [src_ "/ace/ace.js"] (mempty @Text)
     script_ [src_ "/specification-editor.js"] (mempty @Text)

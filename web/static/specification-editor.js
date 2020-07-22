@@ -12,3 +12,6 @@ editor.getSession().setValue(textarea.textContent);
 editor.getSession().on('change', function(){
   textarea.textContent = editor.getSession().getValue();
 });
+
+editor.gotoLine(9, 14);
+editor.focus();

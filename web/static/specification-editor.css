@@ -1,0 +1,20 @@
+.specification-editor { 
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+}
+.specification-editor #editor { 
+    flex: 1 1 auto;
+    font-size: 100%;
+}
+form .field-name {
+    display: block;
+    margin: .5rem 0;
+}
+
+form input,
+form textarea {
+    display: block;
+    margin: 1rem 0;
+    width: 100%;
+}

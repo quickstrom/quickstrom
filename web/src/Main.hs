@@ -16,6 +16,8 @@ import qualified Data.Text.Lazy as TL
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Text (renderStrict)
 import Lucid
+import Network.Wai.Middleware.RequestLogger (logStdoutDev)
+import Network.Wai.Middleware.Static
 import qualified Options.Applicative as Options
 import System.Directory (canonicalizePath)
 import System.Environment (lookupEnv)
@@ -38,36 +40,51 @@ layout title content = do
   html_ do
     head_ do
       title_ (toHtml title)
+      link_ [rel_ "stylesheet", href_ "/normalize.css"]
+      link_ [rel_ "stylesheet", href_ "/main.css"]
+      link_ [rel_ "stylesheet", href_ "/specification-editor.css"]
     body_ do
-      content
+      header_ do
+        nav_ do
+          a_ [href_ "/"] "WebCheck"
+      main_ do
+        content
+    footer_ do
+      "Copyright "
+      toHtmlRaw @Text "&copy;"
+      " 2020 Oskar Wickström"
 
 homeView :: Html ()
 homeView = layout "WebCheck" do
-  h1_ "WebCheck"
-  form_ [action_ "/checks", method_ "POST"] do
+  form_ [class_ "specification-editor", action_ "/checks", method_ "POST"] do
+    textarea_ [name_ "spec"] do
+      "module Specification where"
+      "\n\n"
+      "import WebCheck"
+      "\n\n"
+      "readyWhen = \"body\""
+      "\n\n"
+      "actions = clicks"
+      "\n\n"
+      "proposition = ?todo"
+    div_ [id_ "editor"] mempty
     label_ do
-      "Origin URL"
-      input_ [type_ "url", name_ "origin", placeholder_ "https://example.com"] 
-    label_ do
-      "Specification"
-      textarea_ [name_ "spec"] do
-        "module Specification where"
-        "\n\n"
-        "import WebCheck"
-        "\n\n"
-        "readyWhen = \"body\""
-        "\n\n"
-        "actions = clicks"
-        "\n\n"
-        "proposition = ?todo"
+      span_ [class_ "field-name"] "Origin URL"
+      input_ [type_ "url", name_ "origin", placeholder_ "https://example.com"]
+    input_ [type_ "submit", value_ "Check"]
+
+    script_ [src_ "/ace/ace.js"] (mempty @Text)
+    script_ [src_ "/specification-editor.js"] (mempty @Text)
 
 checkResultsView :: Html () -> Html ()
 checkResultsView content = layout "Check Results" do
   h1_ "Check Results"
   content
 
-app :: App
-app = do
+app :: WebOptions -> App
+app WebOptions {..} = do
+  middleware logStdoutDev
+  middleware (staticPolicy (addBase staticFilesPath))
   get "/" do
     renderHtml homeView
   post "/checks" do
@@ -77,13 +94,12 @@ app = do
     originUri <- liftAndCatchIO (resolveAbsoluteURI origin)
     specResult <- liftAndCatchIO (WebCheck.loadSpecification (modules env) specCode)
     case specResult of
-      Left err -> 
+      Left err ->
         renderHtml $ checkResultsView do
           p_ do
             "Check error:"
             pre_ (code_ (toHtml err))
       Right spec -> do
-        let WebOptions {..} = webOptions env
         result <-
           liftAndCatchIO $
             WebCheck.check
@@ -107,6 +123,7 @@ app = do
 main :: IO ()
 main = do
   webOptions <- Options.execParser optsInfo
+  putStrLn (staticFilesPath webOptions)
   modulesResult <- runExceptT do
     libPath <- maybe libraryPathFromEnvironment pure (libraryPath webOptions)
     ExceptT (WebCheck.loadLibraryModules libPath)
@@ -116,7 +133,7 @@ main = do
       exitWith (ExitFailure 1)
     Right modules -> do
       let env = Env {modules, webOptions}
-      scottyT 3000 (flip runReaderT env) app
+      scottyT 8080 (flip runReaderT env) (app webOptions)
 
 renderHtml :: Monad m => Html () -> ActionT TL.Text m ()
 renderHtml = html . renderText
@@ -129,6 +146,7 @@ renderString = toS . renderStrict . layoutPretty defaultLayoutOptions
 data WebOptions
   = WebOptions
       { libraryPath :: Maybe FilePath,
+        staticFilesPath :: FilePath,
         tests :: Int,
         shrinkLevels :: Int
       }
@@ -142,6 +160,12 @@ optParser =
               <> Options.long "library-directory"
               <> Options.help "Directory containing compiled PureScript libraries used by WebCheck (falls back to the WEBCHECK_LIBRARY_DIR environment variable)"
           )
+      )
+    <*> Options.strOption
+      ( Options.short 's'
+          <> Options.long "static-files-directory"
+          <> Options.help "Directory containing static files"
+          <> Options.value "static"
       )
     <*> Options.option
       Options.auto

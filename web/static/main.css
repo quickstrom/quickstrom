@@ -1,0 +1,30 @@
+body {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+body > header,
+body > footer {
+    flex: 0 0 auto;
+    padding: 1rem;
+}
+
+body > header {
+    background: #ddd;
+    border-bottom: 1px solid #ccc;
+}
+
+body > main {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+}
+
+body > footer {
+    background: #ddd;
+    border-top: 1px solid #ccc;
+}
+
+header nav a {
+    color: inherit;
+}

@@ -20,6 +20,9 @@ executable webcheck-web
                     , process
                     , scotty
                     , text
+                    , wai
+                    , wai-middleware-static
+                    , wai-extra
                     , webcheck-runner
 
   main-is:            Main.hs

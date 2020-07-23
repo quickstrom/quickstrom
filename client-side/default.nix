@@ -12,13 +12,10 @@ let
     buildPhase = ''
       echo "Compiling ${src} ..."
       tsc
-      echo -e "window.webcheck = {}; (function (exports) {\n" >> dist/webcheck-bundle.js
-      cat dist/webcheck.js >> dist/webcheck-bundle.js
-      echo -e "\n})(window.webcheck);" >> dist/webcheck-bundle.js
     '';
     installPhase = ''
       mkdir $out
-      cp dist/webcheck-bundle.js $out/webcheck.js
+      cp dist/*.js $out/
     '';
   };
 

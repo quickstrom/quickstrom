@@ -435,7 +435,7 @@ renderString = Text.unpack . renderStrict . layoutPretty defaultLayoutOptions
 
 webcheckJs :: Runner Script
 webcheckJs = liftWebDriverTT . lift $ do
-  let key = "WEBCHECK_CLIENT_SIDE_BUNDLE"
+  let key = "WEBCHECK_CLIENT_SIDE_DIR"
   bundlePath <- maybe (fail (key <> " environment variable not set")) pure =<< lookupEnv key
   fromString . toS <$> readFile bundlePath
 

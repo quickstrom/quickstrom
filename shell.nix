@@ -52,6 +52,6 @@ in webcheck.haskellPackages.shellFor {
   ]);
   FONTCONFIG_FILE = pkgs.makeFontsConf { fontDirectories = fonts; };
   WEBCHECK_LIBRARY_DIR = "${dsl}";
-  WEBCHECK_CLIENT_SIDE_BUNDLE = "${client-side}/webcheck.js";
+  WEBCHECK_CLIENT_SIDE_DIR = "${client-side}";
 }
 

@@ -11,4 +11,4 @@ namespace WebCheck {
 }
 
 // @ts-ignore
-WebCheck.isElementVisible(arguments[0])
+return WebCheck.isElementVisible(arguments[0])

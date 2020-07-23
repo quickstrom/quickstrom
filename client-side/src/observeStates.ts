@@ -92,4 +92,4 @@ namespace WebCheck {
 }
 
 // @ts-ignore
-WebCheck.observeStates(arguments[0]);
+return WebCheck.observeStates(arguments[0]);

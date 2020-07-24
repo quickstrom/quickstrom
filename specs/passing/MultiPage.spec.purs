@@ -8,7 +8,10 @@ readyWhen :: String
 readyWhen = "body"
 
 actions :: Actions
-actions = clicks <> foci <> [ Tuple 1 (KeyPress ' '), Tuple 1 (KeyPress 'a') ]
+actions =
+  clicks
+    <> [ Tuple 5 (Focus "input[type=text]") ]
+    <> [ Tuple 5 (KeyPress ' '), Tuple 5 (KeyPress 'a') ]
 
 proposition :: Boolean
 proposition =

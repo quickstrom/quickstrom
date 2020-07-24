@@ -52,6 +52,7 @@ import Pipes ((>->), Consumer, Effect, Pipe, Producer)
 import qualified Pipes
 import qualified Pipes.Prelude as Pipes
 import System.Environment (lookupEnv)
+import System.FilePath ((</>))
 import qualified Test.QuickCheck as QuickCheck
 import Text.URI (URI)
 import qualified Text.URI as URI
@@ -61,7 +62,6 @@ import WebCheck.Prelude hiding (catchError, check, throwError, trace)
 import WebCheck.Result
 import WebCheck.Specification
 import WebCheck.Trace
-import System.FilePath ((</>))
 
 type Runner = WebDriverTT (ReaderT CheckEnv) IO
 
@@ -207,7 +207,6 @@ runActions' spec = do
     queries' = queries spec
     loop currentState = do
       action <- Pipes.await
-      -- lift (logInfoWD (renderString (prettyAction action)))
       newState <- observeManyStatesAfter queries' currentState action
       loop newState
 
@@ -239,17 +238,20 @@ generate :: QuickCheck.Gen a -> Runner a
 generate = liftWebDriverTT . lift . QuickCheck.generate
 
 generateValidActions :: Vector (Int, Action Selector) -> Producer (Action Selected) Runner ()
-generateValidActions possibleActions = forever do
-  validActions <- lift $ for (Vector.toList possibleActions) \(prob, action') -> do
-    fmap (prob,) <$> selectValidAction action'
-  case map (_2 %~ pure) (catMaybes validActions) of
-    [] -> pass
-    actions' ->
-      actions'
-        & QuickCheck.frequency
-        & generate
-        & lift
-        & (>>= Pipes.yield)
+generateValidActions possibleActions = loop
+  where
+    loop = do
+      validActions <- lift $ for (Vector.toList possibleActions) \(prob, action') -> do
+        fmap (prob,) <$> selectValidAction action'
+      case map (_2 %~ pure) (catMaybes validActions) of
+        [] -> lift (logInfoWD "Cannot generate any valid actions, aborting.")
+        actions' -> do
+          actions'
+            & QuickCheck.frequency
+            & generate
+            & lift
+            & (>>= Pipes.yield)
+          loop
 
 selectValidAction :: Action Selector -> Runner (Maybe (Action Selected))
 selectValidAction possibleAction =

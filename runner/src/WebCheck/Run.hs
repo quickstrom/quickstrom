@@ -62,6 +62,7 @@ import WebCheck.Prelude hiding (catchError, check, throwError, trace)
 import WebCheck.Result
 import WebCheck.Specification
 import WebCheck.Trace
+import WebCheck.Pretty (prettyTrace)
 
 type Runner = WebDriverTT (ReaderT CheckEnv) IO
 
@@ -120,11 +121,12 @@ runSingle spec size = do
       & runAndVerifyIsolated 0
   case result of
     Right trace -> do
-      case trace ^.. traceActionFailures of
-        [] -> pass
-        failures -> logInfoWD (renderString ("There were" <+> pretty (length failures) <+> "action failures"))
+      warnOnFewActions trace
+      warnOnActionFailures trace
       pure (Right ())
     f@(Left (FailingTest _ trace _)) -> do
+      warnOnFewActions trace
+      warnOnActionFailures trace
       CheckOptions {checkShrinkLevels} <- liftWebDriverTT (asks checkOptions)
       logInfoWD "Test failed. Shrinking..."
       let shrinks = shrinkForest (QuickCheck.shrinkList shrinkAction) checkShrinkLevels (trace ^.. traceActions)
@@ -135,7 +137,6 @@ runSingle spec size = do
       trace <- annotateStutteringSteps <$> inNewPrivateWindow do
         beforeRun spec
         elementsToTrace (producer >-> runActions' spec)
-      -- logInfoWD (renderString (prettyTrace ({- withoutStutterStates -} trace) <> line))
       case verify spec (trace ^.. nonStutterStates) of
         Right Accepted -> pure (Right trace)
         Right Rejected -> pure (Left (FailingTest n trace Nothing))
@@ -143,6 +144,20 @@ runSingle spec size = do
     runShrink (Shrink n actions') = do
       logInfoWD ("Running shrunk test at level " <> show n <> "...")
       runAndVerifyIsolated n (Pipes.each actions')
+    warnOnFewActions trace =
+      case length (trace ^.. traceActions) of
+        0 -> logInfoWD ("Could not generate any valid actions.")
+        numActions
+          | numActions < size ->
+            logInfoWD 
+            ("Could only generate " <> show numActions <> "/" <> show size <> " actions:\n"
+            <> (renderString (prettyTrace trace <> line))
+            )
+        _ -> pass
+    warnOnActionFailures trace =
+      case trace ^.. traceActionFailures of
+        [] -> pass
+        failures -> logInfoWD (renderString ("There were" <+> pretty (length failures) <+> "action failures"))
 
 runAll :: Specification spec => Int -> spec -> Effect Runner CheckResult
 runAll numTests spec' = (allTests $> CheckSuccess) >-> firstFailure
@@ -244,7 +259,7 @@ generateValidActions possibleActions = loop
       validActions <- lift $ for (Vector.toList possibleActions) \(prob, action') -> do
         fmap (prob,) <$> selectValidAction action'
       case map (_2 %~ pure) (catMaybes validActions) of
-        [] -> lift (logInfoWD "Cannot generate any valid actions, aborting.")
+        [] -> pass
         actions' -> do
           actions'
             & QuickCheck.frequency

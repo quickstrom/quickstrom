@@ -52,6 +52,7 @@ import Pipes ((>->), Consumer, Effect, Pipe, Producer)
 import qualified Pipes
 import qualified Pipes.Prelude as Pipes
 import System.Environment (lookupEnv)
+import System.FilePath ((</>))
 import qualified Test.QuickCheck as QuickCheck
 import Text.URI (URI)
 import qualified Text.URI as URI
@@ -62,7 +63,7 @@ import WebCheck.Result
 import WebCheck.Specification
 import WebCheck.Trace
 
-type Runner = WebDriverTT (ReaderT CheckOptions) IO
+type Runner = WebDriverTT (ReaderT CheckEnv) IO
 
 data FailingTest
   = FailingTest
@@ -75,13 +76,22 @@ data FailingTest
 data CheckResult = CheckSuccess | CheckFailure {failedAfter :: Int, failingTest :: FailingTest}
   deriving (Show, Generic)
 
+data CheckEnv = CheckEnv {checkOptions :: CheckOptions, checkScripts :: CheckScripts}
+
 data CheckOptions = CheckOptions {checkTests :: Int, checkShrinkLevels :: Int, checkOrigin :: URI}
+
+data CheckScripts
+  = CheckScripts
+      { isElementVisible :: Element -> Runner Bool,
+        observeStates :: Queries -> Runner ObservedState
+      }
 
 check :: Specification spec => CheckOptions -> spec -> IO CheckResult
 check opts@CheckOptions {checkTests} spec = do
   -- stdGen <- getStdGen
   logInfo ("Running " <> show checkTests <> " tests...")
-  runWebDriver opts (Pipes.runEffect (runAll checkTests spec))
+  env <- CheckEnv opts <$> readScripts
+  runWebDriver env (Pipes.runEffect (runAll checkTests spec))
 
 elementsToTrace :: Producer (TraceElement ()) Runner () -> Runner (Trace ())
 elementsToTrace = fmap Trace . Pipes.toListM
@@ -115,7 +125,7 @@ runSingle spec size = do
         failures -> logInfoWD (renderString ("There were" <+> pretty (length failures) <+> "action failures"))
       pure (Right ())
     f@(Left (FailingTest _ trace _)) -> do
-      CheckOptions {checkShrinkLevels} <- liftWebDriverTT ask
+      CheckOptions {checkShrinkLevels} <- liftWebDriverTT (asks checkOptions)
       logInfoWD "Test failed. Shrinking..."
       let shrinks = shrinkForest (QuickCheck.shrinkList shrinkAction) checkShrinkLevels (trace ^.. traceActions)
       shrunk <- minBy (lengthOf (field @"trace" . traceElements)) (traverseShrinks runShrink shrinks >-> select (preview _Left) >-> Pipes.take 5)
@@ -157,14 +167,14 @@ beforeRun :: Specification spec => spec -> Runner ()
 beforeRun spec = do
   navigateToOrigin
   awaitElement (readyWhen spec)
-  initializeScript
 
 observeManyStatesAfter :: Queries -> ObservedState -> Action Selected -> Pipe a (TraceElement ()) Runner ObservedState
 observeManyStatesAfter queries' initialState action = do
+  scripts <- lift (liftWebDriverTT (asks checkScripts))
   result <- lift (runAction action)
   -- observer <- lift (registerNextStateObserver queries')
   -- delta <- getNextOrFail observer
-  delta <- lift (observeStates queries')
+  delta <- lift (observeStates scripts queries')
   let afterDelta = delta <> initialState
   Pipes.yield (TraceAction () action result)
   nonStutters <-
@@ -180,22 +190,23 @@ observeManyStatesAfter queries' initialState action = do
     --     =<< lift (getNextState observer)
     loop :: ObservedState -> Producer ObservedState Runner ()
     loop currentState = do
+      scripts <- lift (liftWebDriverTT (asks checkScripts))
       Pipes.yield currentState
       -- delta <- getNextOrFail =<< lift (registerNextStateObserver queries')
-      delta <- lift (observeStates queries')
+      delta <- lift (observeStates scripts queries')
       loop (currentState <> delta)
 
 {-# SCC runActions' "runActions'" #-}
 runActions' :: Specification spec => spec -> Pipe (Action Selected) (TraceElement ()) Runner ()
 runActions' spec = do
-  state1 <- lift (observeStates queries')
+  scripts <- lift (liftWebDriverTT (asks checkScripts))
+  state1 <- lift (observeStates scripts queries')
   Pipes.yield (TraceState () state1)
   loop state1
   where
     queries' = queries spec
     loop currentState = do
       action <- Pipes.await
-      -- lift (logInfoWD (renderString (prettyAction action)))
       newState <- observeManyStatesAfter queries' currentState action
       loop newState
 
@@ -227,17 +238,20 @@ generate :: QuickCheck.Gen a -> Runner a
 generate = liftWebDriverTT . lift . QuickCheck.generate
 
 generateValidActions :: Vector (Int, Action Selector) -> Producer (Action Selected) Runner ()
-generateValidActions possibleActions = forever do
-  validActions <- lift $ for (Vector.toList possibleActions) \(prob, action') -> do
-    fmap (prob,) <$> selectValidAction action'
-  case map (_2 %~ pure) (catMaybes validActions) of
-    [] -> pass
-    actions' ->
-      actions'
-        & QuickCheck.frequency
-        & generate
-        & lift
-        & (>>= Pipes.yield)
+generateValidActions possibleActions = loop
+  where
+    loop = do
+      validActions <- lift $ for (Vector.toList possibleActions) \(prob, action') -> do
+        fmap (prob,) <$> selectValidAction action'
+      case map (_2 %~ pure) (catMaybes validActions) of
+        [] -> lift (logInfoWD "Cannot generate any valid actions, aborting.")
+        actions' -> do
+          actions'
+            & QuickCheck.frequency
+            & generate
+            & lift
+            & (>>= Pipes.yield)
+          loop
 
 selectValidAction :: Action Selector -> Runner (Maybe (Action Selected))
 selectValidAction possibleAction =
@@ -265,8 +279,9 @@ selectValidAction possibleAction =
         choices -> Just <$> generate (ctor . Selected sel <$> QuickCheck.elements (map fst choices))
     isNotActive e = (/= Just e) <$> activeElement
     activeElement = (Just <$> getActiveElement) `catchError` const (pure Nothing)
-    isClickable e =
-      andM [isElementEnabled (toRef e), isElementVisible e]
+    isClickable e = do
+      scripts <- liftWebDriverTT (asks checkScripts)
+      andM [isElementEnabled (toRef e), isElementVisible scripts e]
     isActiveInput =
       activeElement >>= \case
         Just el -> (`elem` ["input", "textarea"]) <$> getElementTagName el
@@ -274,7 +289,7 @@ selectValidAction possibleAction =
 
 navigateToOrigin :: Runner ()
 navigateToOrigin = do
-  CheckOptions {checkOrigin} <- liftWebDriverTT ask
+  CheckOptions {checkOrigin} <- liftWebDriverTT (asks checkOptions)
   navigateTo (toS (URI.renderStr checkOrigin))
 
 tryAction :: Runner ActionResult -> Runner ActionResult
@@ -314,7 +329,7 @@ runAction = \case
   Click s -> click s
   Navigate url -> tryAction (ActionSuccess <$ navigateTo (URI.renderStr url))
 
-runWebDriver :: CheckOptions -> Runner a -> IO a
+runWebDriver :: CheckEnv -> Runner a -> IO a
 runWebDriver opts ma = do
   mgr <- Http.newManager defaultManagerSettings
   let httpOptions :: Wreq.Options
@@ -400,10 +415,6 @@ logInfo = liftIO . hPutStrLn stderr
 logInfoWD :: String -> Runner ()
 logInfoWD = liftWebDriverTT . logInfo
 
-isElementVisible :: Element -> Runner Bool
-isElementVisible el =
-  (== JSON.Bool True) <$> executeScript "return window.webcheck.isElementVisible(arguments[0])" [JSON.toJSON el]
-
 awaitElement :: Selector -> Runner ()
 awaitElement sel = do
   let loop = do
@@ -419,43 +430,18 @@ executeScript' script args = do
     JSON.Success a -> pure a
     JSON.Error e -> fail e
 
--- executeAsyncScript' :: JSON.FromJSON r => Script -> [JSON.Value] -> Runner r
--- executeAsyncScript' script args = do
---   r <- executeAsyncScript script args
---   case JSON.fromJSON r of
---     JSON.Success a -> pure a
---     JSON.Error e -> fail e
-
-observeStates :: Queries -> Runner ObservedState
-observeStates queries' =
-  executeScript' "return window.webcheck.observeInitialStates(arguments[0])" [JSON.toJSON queries']
-
--- newtype StateObserver = StateObserver Text
--- deriving (Eq, Show)
-
--- registerNextStateObserver :: Queries -> Runner StateObserver
--- registerNextStateObserver queries' =
---   StateObserver
---     <$> executeScript'
---       "return window.webcheck.registerNextStateObserver(arguments[0])"
---       [JSON.toJSON queries']
-
--- getNextState :: StateObserver -> Runner (Either Text ObservedState)
--- getNextState (StateObserver sid) =
--- executeAsyncScript'
--- "window.webcheck.runPromiseEither(webcheck.getNextState(arguments[0]), arguments[1])"
--- [JSON.toJSON sid]
+readScripts :: IO CheckScripts
+readScripts = do
+  let key = "WEBCHECK_CLIENT_SIDE_DIR"
+  dir <- maybe (fail (key <> " environment variable not set")) pure =<< lookupEnv key
+  let readScript name = fromString . toS <$> readFile (dir </> name <> ".js")
+  isElementVisibleScript <- readScript "isElementVisible"
+  observeStatesScript <- readScript "observeStates"
+  pure
+    CheckScripts
+      { isElementVisible = \el -> (== JSON.Bool True) <$> executeScript isElementVisibleScript [JSON.toJSON el],
+        observeStates = \queries' -> executeScript' observeStatesScript [JSON.toJSON queries']
+      }
 
 renderString :: Doc AnsiStyle -> String
 renderString = Text.unpack . renderStrict . layoutPretty defaultLayoutOptions
-
-webcheckJs :: Runner Script
-webcheckJs = liftWebDriverTT . lift $ do
-  let key = "WEBCHECK_CLIENT_SIDE_BUNDLE"
-  bundlePath <- maybe (fail (key <> " environment variable not set")) pure =<< lookupEnv key
-  fromString . toS <$> readFile bundlePath
-
-initializeScript :: Runner ()
-initializeScript = do
-  js <- webcheckJs
-  void (executeScript js [])

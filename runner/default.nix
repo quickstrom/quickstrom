@@ -8,7 +8,7 @@ let
     pkgs.haskell.lib.overrideCabal drv (_: {
       preCheck = ''
         export WEBCHECK_LIBRARY_DIR="${dsl}";
-        export WEBCHECK_CLIENT_SIDE_BUNDLE="${client-side}/webcheck-client-side.js";
+        export WEBCHECK_CLIENT_SIDE_DIR="${client-side}";
       '';
     });
 in setCheckEnv (haskellPackages.callCabal2nix "webcheck-runner" "${src}" { })

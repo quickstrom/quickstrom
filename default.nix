@@ -41,7 +41,7 @@ let
       makeWrapper "${haskellPackages.webcheck-cli}/bin/webcheck" \
           $out/bin/webcheck \
           --set WEBCHECK_LIBRARY_DIR "${dsl}" \
-          --set WEBCHECK_CLIENT_SIDE_BUNDLE "${client-side}/webcheck.js"
+          --set WEBCHECK_CLIENT_SIDE_DIR "${client-side}"
     '';
   };
 

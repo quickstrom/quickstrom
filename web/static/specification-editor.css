@@ -1,0 +1,32 @@
+.specification-editor { 
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+}
+.specification-editor #editor { 
+    flex: 1 1 auto;
+    font-size: 100%;
+    font-family: monospace;
+}
+.specification-editor .check-controls {
+    display: flex;
+    align-items: stretch;
+    border-top: 1px solid #eee;
+    background: #f7f7f7;
+    padding: 1rem;
+}
+.specification-editor .ace_gutter {
+    border-right: 1px solid #eee;
+    background: #f7f7f7;
+}
+
+.specification-editor .check-controls [name=origin] {
+    flex: 1 1 auto;
+    margin-right: .5rem;
+}
+.specification-editor .check-controls [type=submit] {
+    background: rgb(18, 18, 219);
+    color: #eee;
+    border: none;
+}

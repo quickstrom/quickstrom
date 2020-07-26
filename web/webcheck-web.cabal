@@ -1,0 +1,32 @@
+cabal-version:        2.2
+
+name:                 webcheck-web
+version:              0.1.0.0
+author:               Oskar Wickström
+maintainer:           oskar@wickstrom.tech
+build-type:           Simple
+
+executable webcheck-web
+  build-depends:      base ^>= 4.12
+                    , containers
+                    , directory
+                    , lens
+                    , lucid
+                    , modern-uri
+                    , optparse-applicative
+                    , prettyprinter
+                    , prettyprinter-ansi-terminal
+                    , protolude
+                    , process
+                    , scotty
+                    , text
+                    , wai
+                    , wai-middleware-static
+                    , wai-extra
+                    , webcheck-runner
+
+  main-is:            Main.hs
+  hs-source-dirs:     src
+  default-language:   Haskell2010
+  default-extensions: NoImplicitPrelude
+  ghc-options:        -Wall

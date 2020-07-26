@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="Oskar Wickström" />
+  <title>WebCheck</title>
+  <style>
+      code{white-space: pre-wrap;}
+      span.smallcaps{font-variant: small-caps;}
+      span.underline{text-decoration: underline;}
+      div.column{display: inline-block; vertical-align: top; width: 50%;}
+  </style>
+  <style>
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    background-color: #ffffff;
+    color: #a0a0a0;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #a0a0a0;  padding-left: 4px; }
+div.sourceCode
+  { color: #1f1c1b; background-color: #ffffff; }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span. { color: #1f1c1b; } /* Normal */
+code span.al { color: #bf0303; background-color: #f7e6e6; font-weight: bold; } /* Alert */
+code span.an { color: #ca60ca; } /* Annotation */
+code span.at { color: #0057ae; } /* Attribute */
+code span.bn { color: #b08000; } /* BaseN */
+code span.bu { color: #644a9b; font-weight: bold; } /* BuiltIn */
+code span.cf { color: #1f1c1b; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #924c9d; } /* Char */
+code span.cn { color: #aa5500; } /* Constant */
+code span.co { color: #898887; } /* Comment */
+code span.cv { color: #0095ff; } /* CommentVar */
+code span.do { color: #607880; } /* Documentation */
+code span.dt { color: #0057ae; } /* DataType */
+code span.dv { color: #b08000; } /* DecVal */
+code span.er { color: #bf0303; text-decoration: underline; } /* Error */
+code span.ex { color: #0095ff; font-weight: bold; } /* Extension */
+code span.fl { color: #b08000; } /* Float */
+code span.fu { color: #644a9b; } /* Function */
+code span.im { color: #ff5500; } /* Import */
+code span.in { color: #b08000; } /* Information */
+code span.kw { color: #1f1c1b; font-weight: bold; } /* Keyword */
+code span.op { color: #1f1c1b; } /* Operator */
+code span.ot { color: #006e28; } /* Other */
+code span.pp { color: #006e28; } /* Preprocessor */
+code span.re { color: #0057ae; background-color: #e0e9f8; } /* RegionMarker */
+code span.sc { color: #3daee9; } /* SpecialChar */
+code span.ss { color: #ff5500; } /* SpecialString */
+code span.st { color: #bf0303; } /* String */
+code span.va { color: #0057ae; } /* Variable */
+code span.vs { color: #bf0303; } /* VerbatimString */
+code span.wa { color: #bf0303; } /* Warning */
+  </style>
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">WebCheck</h1>
+<p class="author">Oskar Wickström</p>
+<p class="date">2020-06-17</p>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#introduction">Introduction</a><ul>
+<li><a href="#how-it-works">How It Works</a></li>
+</ul></li>
+<li><a href="#temporal-logic-of-web-applications">Temporal Logic of Web Applications</a><ul>
+<li><a href="#syntax">Syntax</a></li>
+</ul></li>
+<li><a href="#example-deleting-drafts">Example: Deleting Drafts</a><ul>
+<li><a href="#a-specification-using-tlwa">A Specification using TLWA</a></li>
+</ul></li>
+<li><a href="#reading-material">Reading material</a></li>
+</ul>
+</nav>
+<h1 id="introduction">Introduction</h1>
+<p>This is a design document for my web testing platform, tentatively named <em>WebCheck</em>. It describes the motivation and design of a temporal logic used to specify the behavior of web applications. Further, it describes the design of tools used to check that web applications satisfy such specifications.</p>
+<h2 id="how-it-works">How It Works</h2>
+<p>In WebCheck, a tester writes <em>specifications</em> for web applications. When <em>checking</em> a specification, the following happens:</p>
+<ol type="1">
+<li>WebCheck navigates to the <em>origin page</em> of the web application, and waits for the <em>ready</em> condition, that a specified element is present in the DOM.</li>
+<li>It generates a random sequence of actions to simulate user interaction. Many types of actions can be generated, e.g. clicks, key presses, focus changes, reloads, navigations.</li>
+<li>Before each new action is picked, the DOM state is checked to find only the actions that are possible to take. For instance, you cannot click buttons that are not visible. From that subset, WebCheck picks the next action to take.</li>
+<li>After each action has been taken, WebCheck queries and records the state of relevant DOM elements. The sequence of observed states is called a <em>behavior</em>.</li>
+<li>The specification defines a proposition, a logical formula that evaluates to <em>true</em> or <em>false</em>, which is used to determine if the behavior is <em>accepted</em> or <em>rejected</em>.</li>
+<li>When a rejected behavior is found, WebCheck <em>shrinks</em> the sequence of actions to the <em>smallest</em>, <em>still failing</em>, sequence of actions. The tester is presented with a minimal failing test case.</li>
+</ol>
+<p>You might say “This is just property-based testing!” and “I can do this with state machine testing!” You’d be right, similar tests could be written using a state machine model, WebDriver, and property-based testing.</p>
+<p>With WebCheck, however, you don’t have to write a model that fully specifies the behavior of your system! Instead, you describe the most important state transitions and leave the rest unspecified. You can gradually adopt WebCheck and improve your specifications over time.</p>
+<p>Furthermore, in problem domains where there’s <em>essential complexity</em>, models tend to become as complex. It’s often hard to find a naive implementation for your model, when your modelling a business system with a myriad of arbitrary rules.</p>
+<p>Now, how do you write specifications and propositions? Let’s have a look at the <em>Temporal Logic of Web Applications</em>.</p>
+<h1 id="temporal-logic-of-web-applications">Temporal Logic of Web Applications</h1>
+<p>In WebCheck, the behavior of a web application is specified using the Temporal Logic of Web Applications (TLWA). It's a first-order temporal logic, heavily inspired by TLA+ and LTL, most notably adding web-specific operators.</p>
+<p>Like in TLA+, specifications in TLWA are based on state machines. A <em>behavior</em> is a sequence of states. A <em>step</em> is a tuple of two successive states in a behavior. A specification describes valid <em>behaviors</em> of a web application in terms of valid states and transitions between states.</p>
+<p>In TLWA, a syntactic form is called a <em>formula</em>, and every formula evalutes to a <em>value</em>. A <em>proposition</em> is a boolean formula, evaluating to either true or false. Formulae can also evaluate to text, numbers, sequences, and sets.</p>
+<h2 id="syntax">Syntax</h2>
+<ul>
+<li><p>From propositional logic we have the atoms and the logical connectives:</p>
+<dl>
+<dt><code>true</code></dt>
+<dd>is a proposition that is true.
+</dd>
+<dt><code>false</code></dt>
+<dd>is a proposition that is false.
+</dd>
+<dt><code>not(p)</code></dt>
+<dd>negates the proposition <code>p</code>.
+</dd>
+<dt><code>p and q</code></dt>
+<dd>is the logical AND, also known as <em>logical conjunction</em>, of <code>p</code> and <code>q</code>.
+</dd>
+<dt><code>p or q</code></dt>
+<dd>is the logical OR, also known as <em>logical disjunction</em>, of <code>p</code> and <code>q</code>.
+</dd>
+<dt><code>p =&gt; q</code></dt>
+<dd>is the logical implication, where <code>p</code> implies <code>q</code>. This is equivalent to <code>q or not(p)</code>.
+</dd>
+<dt><code>p == q</code></dt>
+<dd>is a proposition which is true if the values of <code>p</code> and <code>q</code> are equal. For propositions it is the same as <em>logical equivalence</em>, but in TLWA it is more general, as it compares values of any supported type.
+</dd>
+</dl></li>
+<li><p>From first-order logic, we have the universal and existential quantifiers:</p>
+<dl>
+<dt><code>forall x in S: p</code></dt>
+<dd>is true if for all <code>x</code> in the set <code>S</code> the proposition <code>p</code> holds (universal quantification).
+</dd>
+<dt><code>exists x in S: p</code></dt>
+<dd>is true if for at least one <code>x</code> in the set <code>S</code> the proposition <code>p</code> holds (existential quantification).
+</dd>
+</dl></li>
+<li><p>The temporal operators affects the temporal mode of a proposition:</p>
+<dl>
+<dt><code>next(p)</code></dt>
+<dd>evalutes to the value of the formula <code>p</code> in the <em>next</em> state. This operator cannot be nested, e.g. <code>next(next(...))</code>.
+</dd>
+<dt><code>always(p)</code></dt>
+<dd>is true if the proposition <span class="math inline"><em>p</em></span> is true in all future states, including the current state.
+</dd>
+</dl></li>
+<li><p>The web-specific operators allows for querying the DOM and the state of DOM elements:</p>
+<dl>
+<dt><code>query(selector)</code></dt>
+<dd>is the sequence of all elements in the DOM matching a CSS selector.
+</dd>
+<dt><code>element.text</code></dt>
+<dd>is the text content of an element.
+</dd>
+<dt><code>element.attributes(name)</code></dt>
+<dd>is the value of an element's attribute named <code>name</code>.
+</dd>
+<dt><code>element.style(name)</code></dt>
+<dd>is the computed CSS value named <code>name</code> of an element.
+</dd>
+<dt><code>element.visible</code></dt>
+<dd>is true if element is visible.
+</dd>
+</dl></li>
+<li><p>Sets and sequences are defined using literals, and set comprehensions allow filtering sequences and sets into new sets:</p>
+<dl>
+<dt><code>{x1, x2, ..., xN}</code></dt>
+<dd>defines a set containing values of the comma-separated forms (<code>x1</code>, <code>x2</code>, and so on).
+</dd>
+<dt><code>[x1, x2, ..., xN]</code></dt>
+<dd>defines a sequence containing values of the comma-separated forms (<code>x1</code>, <code>x2</code>, and so on).
+</dd>
+<dt><code>{x in S: y}</code></dt>
+<dd>defines a set including each <code>x</code> in the set <code>S</code> where <code>y</code> is true.
+</dd>
+</dl></li>
+<li><p>Finally, user operators are defined at the top level:</p>
+<dl>
+<dt><code>o(x1, x2, ..., xN) = p</code></dt>
+<dd>defines the operator <code>o</code>, with arguments <code>x1</code>, <code>x2</code>, and so on, to equal <code>p</code>. An operator with no arguments can be defined without parentheses as <code>o = p</code>. Operators cannot be self-recursive or mutually recursive.
+</dd>
+</dl></li>
+</ul>
+<h1 id="example-deleting-drafts">Example: Deleting Drafts</h1>
+<p>In this example, we have a list of drafts that can be deleted. The user selects one or more drafts, by checking the corresponding checkboxes, and clicks "Delete". A confirmation dialog is shown, and the user can either cancel or confirm the deletion.</p>
+<p>We want to show that when drafts are selected for deletion and the user has clicked "Delete", entering the <em>confirming</em> state, the deletion is either:</p>
+<ol type="1">
+<li><em>cancelled</em>, meaning that no drafts are deleted, the same set of drafts are selected, and the confirmation dialog is hidden, or</li>
+<li><em>confirmed</em>, meaning that the set of selected drafts are deleted from the drafts list and that the confirmation dialog is hidden</li>
+</ol>
+<p>These are the only two valid actions when in the <em>confirming</em> state.</p>
+<h2 id="a-specification-using-tlwa">A Specification using TLWA</h2>
+<p>The following formula defines the <code>confirming</code> state as the existence of an element <code>e</code> returned by querying the current DOM for the CSS selector `.confirm`, that is visible and has the text content "Are you sure?".</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1"></a>confirming <span class="op">=</span> </span>
+<span id="cb1-2"><a href="#cb1-2"></a>  exists e <span class="kw">in</span> query(<span class="st">&quot;.confirm&quot;</span>):</span>
+<span id="cb1-3"><a href="#cb1-3"></a>    e.visible <span class="kw">and</span> e.text <span class="op">==</span> <span class="st">&quot;Are you sure?&quot;</span></span></code></pre></div>
+<p>We also need the checkbox elements in the DOM:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1"></a>checkboxes <span class="op">==</span> query(<span class="st">&quot;.drafts input[type=checkbox]&quot;</span>)</span></code></pre></div>
+<p>And the checked and unchecked subsets of checkboxes:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1"></a>checked <span class="op">=</span> { c <span class="kw">in</span> checkboxes : c.<span class="bu">property</span>(<span class="st">&quot;checked&quot;</span>) }</span>
+<span id="cb3-2"><a href="#cb3-2"></a></span>
+<span id="cb3-3"><a href="#cb3-3"></a>unchecked <span class="op">=</span> { c <span class="kw">in</span> checkboxes : <span class="kw">not</span>(c.<span class="bu">property</span>(<span class="st">&quot;checked&quot;</span>)) }</span></code></pre></div>
+<p>We can now define the <code>cancel</code> action. It says that the set of drafts (or their checkboxes, rather) are the same in the current and next state, that the same checkboxes are checked, and that we're no longer confirming in the next state.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1"></a>cancel <span class="op">=</span></span>
+<span id="cb4-2"><a href="#cb4-2"></a>    checkboxes <span class="op">==</span> <span class="bu">next</span>(checkboxes)</span>
+<span id="cb4-3"><a href="#cb4-3"></a>    <span class="kw">and</span> checked <span class="op">==</span> <span class="bu">next</span>(checked)</span>
+<span id="cb4-4"><a href="#cb4-4"></a>    <span class="kw">and</span> <span class="bu">next</span>(<span class="kw">not</span>(confirming))</span></code></pre></div>
+<p>The <code>confirm</code> action is the other possibility. It says that the resulting set of checkboxes is equal to the currently non-checked ones, and that we're no longer confirming in the next state.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1"></a>confirm <span class="op">=</span> </span>
+<span id="cb5-2"><a href="#cb5-2"></a>    unchecked <span class="op">==</span> <span class="bu">next</span>(checkboxes)</span>
+<span id="cb5-3"><a href="#cb5-3"></a>    <span class="kw">and</span> <span class="bu">next</span>(<span class="kw">not</span>(confirming))</span></code></pre></div>
+<p>Finally, we can compose our building blocks to define the safety property. At all times (<code>always</code>), when we're confirming the deletion of selected drafts, we can either cancel or confirm.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1"></a>always(confirming <span class="op">=&gt;</span> cancel <span class="kw">or</span> confirm)</span></code></pre></div>
+<p>That's it. We've now specified the safety property of the draft deletion functionality using TLWA.</p>
+<h1 id="reading-material">Reading material</h1>
+<ul>
+<li><a href="http://santos.cs.ksu.edu/esscass04/papers/patterns-survey.pdf">LTL patterns survey</a></li>
+<li><a href="https://lamport.azurewebsites.net/pubs/intro-to-tla.pdf">Intro to TLA</a></li>
+<li><a href="https://www.microsoft.com/en-us/research/uploads/prod/2016/12/Specifying-Concurrent-Systems-with-TLA.pdf">Specifiying Concurrent Systems with TLA+</a></li>
+</ul>
+</body>
+</html>

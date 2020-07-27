@@ -1,14 +1,14 @@
-namespace WebCheck {
-  export function isElementVisible(el: HTMLElement): boolean {
-    const cs = window.getComputedStyle(el);
-    return (
-      cs.getPropertyValue("display") !== "none" &&
-      cs.getPropertyValue("visibility") !== "hidden" &&
-      cs.getPropertyValue("opacity") !== "0" &&
-      el.offsetParent !== null
-    );
-  }
+function isElementVisible(el: HTMLElement): boolean {
+  const cs = window.getComputedStyle(el);
+  return (
+    cs.getPropertyValue("display") !== "none" &&
+    cs.getPropertyValue("visibility") !== "hidden" &&
+    cs.getPropertyValue("opacity") !== "0" &&
+    el.offsetParent !== null
+  );
 }
 
 // @ts-ignore
-return WebCheck.isElementVisible(arguments[0])
+const [selector, done] = args;
+
+done({ Right: isElementVisible(selector) });

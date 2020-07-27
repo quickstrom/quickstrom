@@ -5,7 +5,8 @@ let
     (builtins.attrNames (builtins.readDir ./src/scripts));
   browserifyScript = scriptName: ''
     echo "Bundling script ${scriptName} ..."
-    browserify dist/scripts/${scriptName}.js -o dist/bundled/${scriptName}.js
+    echo "var args = arguments;" > dist/bundled/${scriptName}.js
+    browserify dist/scripts/${scriptName}.js >> dist/bundled/${scriptName}.js
   '';
   client-side = pkgs.stdenv.mkDerivation {
     inherit src;

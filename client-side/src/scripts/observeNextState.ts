@@ -7,7 +7,7 @@ import {
   Value,
   Queries,
   ObservedStateJSON,
-  observeStates,
+  observeState,
 } from "../queries";
 import { toArray } from "../arrays";
 import { deepEqual } from "../equality";
@@ -121,7 +121,7 @@ namespace WebCheck {
     queries: Queries
   ): Promise<ObservedStateJSON> {
     await Promise.race(queries.map(observeNextStateForQuery));
-    return observeStates(queries);
+    return observeState(queries);
   }
 
   function isStateEqual(map1: ObservedState, map2: ObservedState): boolean {
@@ -152,7 +152,7 @@ namespace WebCheck {
 }
 
 // @ts-ignore
-const [done, queries] = arguments;
+const [queries, done] = args;
 
 (function () {
     WebCheck.observeNextState(queries)

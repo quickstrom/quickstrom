@@ -440,9 +440,10 @@ awaitElement sel = do
 
 executeScript' :: JSON.FromJSON r => Script -> [JSON.Value] -> Runner r
 executeScript' script args = do
-  r <- executeScript script args
+  r <- executeAsyncScript script args
   case JSON.fromJSON r of
-    JSON.Success a -> pure a
+    JSON.Success (Right a) -> pure a
+    JSON.Success (Left e) -> fail e
     JSON.Error e -> fail e
 
 readScripts :: IO CheckScripts
@@ -451,11 +452,11 @@ readScripts = do
   dir <- maybe (fail (key <> " environment variable not set")) pure =<< lookupEnv key
   let readScript name = fromString . toS <$> readFile (dir </> name <> ".js")
   isElementVisibleScript <- readScript "isElementVisible"
-  observeStatesScript <- readScript "observeStates"
+  observeStateScript <- readScript "observeState"
   pure
     CheckScripts
-      { isElementVisible = \el -> (== JSON.Bool True) <$> executeScript isElementVisibleScript [JSON.toJSON el],
-        observeStates = \queries' -> executeScript' observeStatesScript [JSON.toJSON queries']
+      { isElementVisible = \el -> (== JSON.Bool True) <$> executeScript' isElementVisibleScript [JSON.toJSON el],
+        observeStates = \queries' -> executeScript' observeStateScript [JSON.toJSON queries']
       }
 
 renderString :: Doc AnsiStyle -> String

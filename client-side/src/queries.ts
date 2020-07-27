@@ -67,7 +67,7 @@ function mergeStates(states: ObservedState[]): ObservedState {
   return s;
 }
 
-export function observeStatesMap(queries: Queries): ObservedState {
+export function observeStateMap(queries: Queries): ObservedState {
   return mergeStates(queries.map(runQuery));
 }
 
@@ -79,6 +79,6 @@ function observedStateToJSON(s: ObservedState): ObservedStateJSON {
   return r;
 }
 
-export function observeStates(queries: Queries): ObservedStateJSON {
-  return observedStateToJSON(observeStatesMap(queries));
+export function observeState(queries: Queries): ObservedStateJSON {
+  return observedStateToJSON(observeStateMap(queries));
 }

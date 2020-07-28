@@ -78,7 +78,7 @@ data CheckResult = CheckSuccess | CheckFailure {failedAfter :: Int, failingTest 
 
 data CheckEnv = CheckEnv {checkOptions :: CheckOptions, checkScripts :: CheckScripts}
 
-data CheckOptions = CheckOptions {checkTests :: Int, checkShrinkLevels :: Int, checkOrigin :: URI}
+data CheckOptions = CheckOptions {checkTests :: Int, checkShrinkLevels :: Int, checkOrigin :: URI, checkMaxTrailingStateChanges :: Int }
 
 newtype Timeout = Timeout Word64
   deriving (Eq, Show, Generic, JSON.FromJSON, JSON.ToJSON)
@@ -201,14 +201,14 @@ takeWhileChanging = Pipes.await >>= loop
 
 observeManyStatesAfter :: Queries -> Action Selected -> Pipe a (TraceElement ()) Runner ()
 observeManyStatesAfter queries' action = do
-  scripts <- lift (liftWebDriverTT (asks checkScripts))
+  CheckEnv { checkScripts = scripts, checkOptions = CheckOptions {checkMaxTrailingStateChanges} } <- lift (liftWebDriverTT ask)
   observer <- lift (registerNextStateObserver scripts (Timeout 2000) queries')
   result <- lift (runAction action)
   newState <- lift (awaitNextState scripts observer)
   Pipes.yield (TraceAction () action result)
   Pipes.yield (TraceState () newState)
   nonStutters <-
-    (loop (Timeout 500) >-> takeWhileChanging >-> Pipes.take 5)
+    (loop (Timeout 500) >-> takeWhileChanging >-> Pipes.take checkMaxTrailingStateChanges)
       & Pipes.toListM
       & lift
   mapM_ (Pipes.yield . (TraceState ())) nonStutters

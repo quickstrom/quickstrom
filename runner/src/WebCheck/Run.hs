@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -35,7 +36,6 @@ import Data.Function ((&))
 import Data.Functor (($>))
 import Data.Generics.Product (field)
 import qualified Data.HashMap.Strict as HashMap
-import qualified Data.List.NonEmpty as NonEmpty
 import Data.Maybe (fromMaybe)
 import Data.String (String, fromString)
 import qualified Data.Text as Text
@@ -62,7 +62,6 @@ import WebCheck.Prelude hiding (catchError, check, throwError, trace)
 import WebCheck.Result
 import WebCheck.Specification
 import WebCheck.Trace
-import WebCheck.Pretty (prettyTrace)
 
 type Runner = WebDriverTT (ReaderT CheckEnv) IO
 
@@ -81,10 +80,15 @@ data CheckEnv = CheckEnv {checkOptions :: CheckOptions, checkScripts :: CheckScr
 
 data CheckOptions = CheckOptions {checkTests :: Int, checkShrinkLevels :: Int, checkOrigin :: URI}
 
+newtype ObserverId = ObserverId {unObserverId :: Text}
+  deriving (Eq, Show, Generic, JSON.FromJSON, JSON.ToJSON)
+
 data CheckScripts
   = CheckScripts
       { isElementVisible :: Element -> Runner Bool,
-        observeStates :: Queries -> Runner ObservedState
+        observeState :: Queries -> Runner ObservedState,
+        registerNextStateObserver :: Queries -> Runner ObserverId,
+        awaitNextState :: ObserverId -> Runner ObservedState
       }
 
 check :: Specification spec => CheckOptions -> spec -> IO CheckResult
@@ -149,10 +153,8 @@ runSingle spec size = do
         0 -> logInfoWD ("Could not generate any valid actions.")
         numActions
           | numActions < size ->
-            logInfoWD 
-            ("Could only generate " <> show numActions <> "/" <> show size <> " actions:\n"
-            <> (renderString (prettyTrace trace <> line))
-            )
+            logInfoWD
+              ("Could only generate " <> show numActions <> "/" <> show size <> " actions.")
         _ -> pass
     warnOnActionFailures trace =
       case trace ^.. traceActionFailures of
@@ -183,47 +185,41 @@ beforeRun spec = do
   navigateToOrigin
   awaitElement (readyWhen spec)
 
-observeManyStatesAfter :: Queries -> ObservedState -> Action Selected -> Pipe a (TraceElement ()) Runner ObservedState
-observeManyStatesAfter queries' initialState action = do
+observeManyStatesAfter :: Queries -> Action Selected -> Pipe a (TraceElement ()) Runner ()
+observeManyStatesAfter queries' action = do
   scripts <- lift (liftWebDriverTT (asks checkScripts))
+  observer <- lift (registerNextStateObserver scripts queries')
   result <- lift (runAction action)
-  -- observer <- lift (registerNextStateObserver queries')
-  -- delta <- getNextOrFail observer
-  delta <- lift (observeStates scripts queries')
-  let afterDelta = delta <> initialState
+  newState <- lift (awaitNextState scripts observer)
   Pipes.yield (TraceAction () action result)
+  Pipes.yield (TraceState () newState)
   nonStutters <-
-    (loop afterDelta >-> Pipes.takeWhile (/= afterDelta) >-> Pipes.take 5)
+    -- TODO: swap takeWhile for a "take while unequal to previous"
+    (loop >-> Pipes.takeWhile (/= newState) >-> Pipes.take 5)
       & Pipes.toListM
       & lift
-      & fmap (fromMaybe (pure afterDelta) . NonEmpty.nonEmpty)
   mapM_ (Pipes.yield . (TraceState ())) nonStutters
-  pure (NonEmpty.last nonStutters)
   where
-    -- getNextOrFail observer =
-    --   either (fail . Text.unpack) pure
-    --     =<< lift (getNextState observer)
-    loop :: ObservedState -> Producer ObservedState Runner ()
-    loop currentState = do
+    loop :: Producer ObservedState Runner ()
+    loop = do
       scripts <- lift (liftWebDriverTT (asks checkScripts))
-      Pipes.yield currentState
-      -- delta <- getNextOrFail =<< lift (registerNextStateObserver queries')
-      delta <- lift (observeStates scripts queries')
-      loop (currentState <> delta)
+      newState <- lift (awaitNextState scripts =<< registerNextStateObserver scripts queries')
+      Pipes.yield newState
+      loop
 
 {-# SCC runActions' "runActions'" #-}
 runActions' :: Specification spec => spec -> Pipe (Action Selected) (TraceElement ()) Runner ()
 runActions' spec = do
   scripts <- lift (liftWebDriverTT (asks checkScripts))
-  state1 <- lift (observeStates scripts queries')
+  state1 <- lift (observeState scripts queries')
   Pipes.yield (TraceState () state1)
-  loop state1
+  loop
   where
     queries' = queries spec
-    loop currentState = do
+    loop = do
       action <- Pipes.await
-      newState <- observeManyStatesAfter queries' currentState action
-      loop newState
+      observeManyStatesAfter queries' action
+      loop
 
 data Shrink a = Shrink Int a
 
@@ -450,13 +446,20 @@ readScripts :: IO CheckScripts
 readScripts = do
   let key = "WEBCHECK_CLIENT_SIDE_DIR"
   dir <- maybe (fail (key <> " environment variable not set")) pure =<< lookupEnv key
-  let readScript name = fromString . toS <$> readFile (dir </> name <> ".js")
+  let readScript :: JSON.FromJSON a => String -> IO ([JSON.Value] -> Runner a)
+      readScript name = do
+        code <- fromString . toS <$> readFile (dir </> name <> ".js")
+        pure (executeScript' code)
   isElementVisibleScript <- readScript "isElementVisible"
   observeStateScript <- readScript "observeState"
+  registerNextStateObserverScript <- readScript "registerNextStateObserver"
+  awaitNextStateScript <- readScript "awaitNextState"
   pure
     CheckScripts
-      { isElementVisible = \el -> (== JSON.Bool True) <$> executeScript' isElementVisibleScript [JSON.toJSON el],
-        observeStates = \queries' -> executeScript' observeStateScript [JSON.toJSON queries']
+      { isElementVisible = \el -> (== JSON.Bool True) <$> isElementVisibleScript [JSON.toJSON el],
+        observeState = \queries' -> observeStateScript [JSON.toJSON queries'],
+        registerNextStateObserver = \queries' -> registerNextStateObserverScript [JSON.toJSON queries'],
+        awaitNextState = \queries' -> awaitNextStateScript [JSON.toJSON queries']
       }
 
 renderString :: Doc AnsiStyle -> String

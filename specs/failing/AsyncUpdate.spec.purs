@@ -25,7 +25,7 @@ proposition =
     impactOrNoImpact =
       disabledLaunchWithMessage "Missiles launched."
         && next
-            ( disabledLaunchWithMessage "Boom"
+            ( disabledLaunchWithMessage "Boom!"
                 || disabledLaunchWithMessage "Missiles did not hit target."
             )
   in

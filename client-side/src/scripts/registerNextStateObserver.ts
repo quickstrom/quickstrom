@@ -11,6 +11,7 @@ import {
 } from "../queries";
 import { toArray } from "../arrays";
 import { deepEqual } from "../equality";
+import { emptyMap } from "../maps";
 
 namespace WebCheck {
   function matchesSelector(node: Node, selector: Selector): boolean {
@@ -144,20 +145,38 @@ namespace WebCheck {
     return true;
   }
 
-  function delay(ms: number): Promise<void> {
+  export function delay(ms: number): Promise<void> {
     return new Promise((resolve) => {
       setTimeout(resolve, ms);
     });
   }
+
+  export function uuidv4(): string {
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (
+      c
+    ) {
+      const r = (Math.random() * 16) | 0,
+        v = c == "x" ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
 }
+
+const registeredObservers: Map<string, Promise<ObservedStateJSON>> =
+  // @ts-ignore
+  window.registeredObservers || emptyMap();
+// @ts-ignore
+window.registeredObservers = registeredObservers;
 
 // @ts-ignore
 const [queries, done] = args;
 
 (function () {
-    WebCheck.observeNextState(queries)
-    .then((a) => ({ Right: a }))
-    .catch((e) => ({ Left: e }))
-    .then(done);
+  const id = WebCheck.uuidv4();
+  const p = Promise.race([
+    WebCheck.observeNextState(queries),
+    WebCheck.delay(1000).then(() => observeState(queries)),
+  ]);
+  registeredObservers.set(id, p);
+  done({ Right: id });
 })();
-

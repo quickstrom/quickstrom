@@ -25,9 +25,9 @@
         // Here's the bug. This should block clicks instantly, but is
         // asynchronous, and thus a race condition with subsequent
         // button clicks.
-        setTimeout(function () {
+        // setTimeout(function () {
             button.disabled = true;
-        }, 500);
+        // }, 500);
 
         message.innerText = "Missiles launched.";
 

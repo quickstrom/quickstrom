@@ -56,7 +56,7 @@ import System.FilePath ((</>))
 import qualified Test.QuickCheck as QuickCheck
 import Text.URI (URI)
 import qualified Text.URI as URI
-import Web.Api.WebDriver hiding (Action, Selector, hPutStrLn, runIsolated)
+import Web.Api.WebDriver hiding (Action, Selector, hPutStrLn, runIsolated, Timeout)
 import WebCheck.Element
 import WebCheck.Prelude hiding (catchError, check, throwError, trace)
 import WebCheck.Result
@@ -80,14 +80,20 @@ data CheckEnv = CheckEnv {checkOptions :: CheckOptions, checkScripts :: CheckScr
 
 data CheckOptions = CheckOptions {checkTests :: Int, checkShrinkLevels :: Int, checkOrigin :: URI}
 
-newtype ObserverId = ObserverId {unObserverId :: Text}
+newtype Timeout = Timeout Word64
+  deriving (Eq, Show, Generic, JSON.FromJSON, JSON.ToJSON)
+
+reduceTimeout :: Timeout -> Timeout
+reduceTimeout (Timeout ms) = Timeout (ms `div` 2)
+
+newtype ObserverId = ObserverId Text
   deriving (Eq, Show, Generic, JSON.FromJSON, JSON.ToJSON)
 
 data CheckScripts
   = CheckScripts
       { isElementVisible :: Element -> Runner Bool,
         observeState :: Queries -> Runner ObservedState,
-        registerNextStateObserver :: Queries -> Runner ObserverId,
+        registerNextStateObserver :: Timeout -> Queries -> Runner ObserverId,
         awaitNextState :: ObserverId -> Runner ObservedState
       }
 
@@ -185,27 +191,34 @@ beforeRun spec = do
   navigateToOrigin
   awaitElement (readyWhen spec)
 
+takeWhileChanging :: (Eq a, Functor m) => Pipe a a m ()
+takeWhileChanging = Pipes.await >>= loop
+  where
+    loop last = do
+      Pipes.yield last
+      next <- Pipes.await
+      if next == last then pass else loop next
+
 observeManyStatesAfter :: Queries -> Action Selected -> Pipe a (TraceElement ()) Runner ()
 observeManyStatesAfter queries' action = do
   scripts <- lift (liftWebDriverTT (asks checkScripts))
-  observer <- lift (registerNextStateObserver scripts queries')
+  observer <- lift (registerNextStateObserver scripts (Timeout 2000) queries')
   result <- lift (runAction action)
   newState <- lift (awaitNextState scripts observer)
   Pipes.yield (TraceAction () action result)
   Pipes.yield (TraceState () newState)
   nonStutters <-
-    -- TODO: swap takeWhile for a "take while unequal to previous"
-    (loop >-> Pipes.takeWhile (/= newState) >-> Pipes.take 5)
+    (loop (Timeout 500) >-> takeWhileChanging >-> Pipes.take 5)
       & Pipes.toListM
       & lift
   mapM_ (Pipes.yield . (TraceState ())) nonStutters
   where
-    loop :: Producer ObservedState Runner ()
-    loop = do
+    loop :: Timeout -> Producer ObservedState Runner ()
+    loop timeout = do
       scripts <- lift (liftWebDriverTT (asks checkScripts))
-      newState <- lift (awaitNextState scripts =<< registerNextStateObserver scripts queries')
+      newState <- lift (awaitNextState scripts =<< registerNextStateObserver scripts timeout queries')
       Pipes.yield newState
-      loop
+      loop (reduceTimeout timeout)
 
 {-# SCC runActions' "runActions'" #-}
 runActions' :: Specification spec => spec -> Pipe (Action Selected) (TraceElement ()) Runner ()
@@ -458,7 +471,7 @@ readScripts = do
     CheckScripts
       { isElementVisible = \el -> (== JSON.Bool True) <$> isElementVisibleScript [JSON.toJSON el],
         observeState = \queries' -> observeStateScript [JSON.toJSON queries'],
-        registerNextStateObserver = \queries' -> registerNextStateObserverScript [JSON.toJSON queries'],
+        registerNextStateObserver = \timeout queries' -> registerNextStateObserverScript [JSON.toJSON timeout, JSON.toJSON queries'],
         awaitNextState = \queries' -> awaitNextStateScript [JSON.toJSON queries']
       }
 

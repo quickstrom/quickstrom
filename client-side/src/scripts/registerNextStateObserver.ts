@@ -169,13 +169,13 @@ const registeredObservers: Map<string, Promise<ObservedStateJSON>> =
 window.registeredObservers = registeredObservers;
 
 // @ts-ignore
-const [queries, done] = args;
+const [timeoutMs, queries, done] = args;
 
 (function () {
   const id = WebCheck.uuidv4();
   const p = Promise.race([
     WebCheck.observeNextState(queries),
-    WebCheck.delay(1000).then(() => observeState(queries)),
+    WebCheck.delay(timeoutMs).then(() => observeState(queries)),
   ]);
   registeredObservers.set(id, p);
   done({ Right: id });

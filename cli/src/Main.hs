@@ -33,7 +33,9 @@ data WebCheckOptions
         origin :: Text,
         libraryPath :: Maybe FilePath,
         tests :: Int,
-        shrinkLevels :: Int
+        maxActions :: Int,
+        shrinkLevels :: Int,
+        maxTrailingStateChanges :: Int
       }
 
 optParser :: Parser WebCheckOptions
@@ -46,12 +48,13 @@ optParser =
       )
     <*> argument
       str
-      ( metavar "ORIGIN"
+      ( metavar "URI"
           <> help "The origin URI"
       )
     <*> optional
       ( strOption
           ( short 'l'
+              <> metavar "DIRECTORY"
               <> long "library-directory"
               <> help "Directory containing compiled PureScript libraries used by WebCheck (falls back to the WEBCHECK_LIBRARY_DIR environment variable)"
           )
@@ -60,15 +63,31 @@ optParser =
       auto
       ( short 'n'
           <> value 10
+          <> metavar "NUMBER"
           <> long "tests"
           <> help "How many tests to run"
       )
     <*> option
       auto
+      ( value 100
+          <> metavar "NUMBER"
+          <> long "max-actions"
+          <> help "Maximum number of actions to generate in the largest test"
+      )
+    <*> option
+      auto
       ( short 's'
           <> value 10
+          <> metavar "NUMBER"
           <> long "shrink-levels"
           <> help "How many levels to shrink the generated actions after a failed test"
+      )
+    <*> option
+      auto
+      ( value 0
+          <> metavar "NUMBER"
+          <> long "max-trailing-state-changes"
+          <> help "Maximum number of trailing state changes to await"
       )
 
 optsInfo :: ParserInfo WebCheckOptions
@@ -105,7 +124,13 @@ main = do
     Right spec -> do
       result <-
         WebCheck.check
-          WebCheck.CheckOptions {checkTests = tests, checkShrinkLevels = shrinkLevels, checkOrigin = originUri}
+          WebCheck.CheckOptions
+            { checkTests = tests,
+              checkMaxActions = maxActions,
+              checkShrinkLevels = shrinkLevels,
+              checkOrigin = originUri,
+              checkMaxTrailingStateChanges = maxTrailingStateChanges
+            }
           spec
       case result of
         WebCheck.CheckFailure {failedAfter, failingTest} -> do
@@ -118,7 +143,7 @@ main = do
           putStrLn . renderString . annotate (color Red) $
             "Failed after" <+> pretty failedAfter <+> "tests and" <+> pretty (WebCheck.numShrinks failingTest) <+> "levels of shrinking."
           exitWith (ExitFailure 1)
-        WebCheck.CheckSuccess -> 
+        WebCheck.CheckSuccess ->
           putStrLn . renderString . annotate (color Green) $
             "Passed" <+> pretty tests <+> "tests."
 

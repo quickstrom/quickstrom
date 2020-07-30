@@ -1,6 +1,13 @@
 { pkgs ? import ../nixpkgs.nix { } }:
 let
   src = pkgs.nix-gitignore.gitignoreSource [ ] ./.;
+  scriptNames = builtins.map (pkgs.lib.removeSuffix ".ts")
+    (builtins.attrNames (builtins.readDir ./src/scripts));
+  browserifyScript = scriptName: ''
+    echo "Bundling script ${scriptName} ..."
+    echo "var args = arguments;" > dist/bundled/${scriptName}.js
+    browserify dist/scripts/${scriptName}.js >> dist/bundled/${scriptName}.js
+  '';
   client-side = pkgs.stdenv.mkDerivation {
     inherit src;
     name = "webcheck-client-side";
@@ -11,11 +18,14 @@ let
     ];
     buildPhase = ''
       echo "Compiling ${src} ..."
-      tsc
+      tsc --outDir dist
+      mkdir -p dist/bundled
+      ${builtins.concatStringsSep "\n"
+      (builtins.map browserifyScript scriptNames)}
     '';
     installPhase = ''
       mkdir $out
-      cp dist/*.js $out/
+      cp dist/bundled/*.js $out/
     '';
   };
 

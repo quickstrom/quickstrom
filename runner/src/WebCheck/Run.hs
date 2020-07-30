@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -35,7 +36,6 @@ import Data.Function ((&))
 import Data.Functor (($>))
 import Data.Generics.Product (field)
 import qualified Data.HashMap.Strict as HashMap
-import qualified Data.List.NonEmpty as NonEmpty
 import Data.Maybe (fromMaybe)
 import Data.String (String, fromString)
 import qualified Data.Text as Text
@@ -56,7 +56,7 @@ import System.FilePath ((</>))
 import qualified Test.QuickCheck as QuickCheck
 import Text.URI (URI)
 import qualified Text.URI as URI
-import Web.Api.WebDriver hiding (Action, Selector, hPutStrLn, runIsolated)
+import Web.Api.WebDriver hiding (Action, Selector, Timeout, hPutStrLn, runIsolated)
 import WebCheck.Element
 import WebCheck.Prelude hiding (catchError, check, throwError, trace)
 import WebCheck.Result
@@ -78,12 +78,30 @@ data CheckResult = CheckSuccess | CheckFailure {failedAfter :: Int, failingTest 
 
 data CheckEnv = CheckEnv {checkOptions :: CheckOptions, checkScripts :: CheckScripts}
 
-data CheckOptions = CheckOptions {checkTests :: Int, checkShrinkLevels :: Int, checkOrigin :: URI}
+data CheckOptions
+  = CheckOptions
+      { checkTests :: Int,
+        checkMaxActions :: Int,
+        checkShrinkLevels :: Int,
+        checkOrigin :: URI,
+        checkMaxTrailingStateChanges :: Int
+      }
+
+newtype Timeout = Timeout Word64
+  deriving (Eq, Show, Generic, JSON.FromJSON, JSON.ToJSON)
+
+reduceTimeout :: Timeout -> Timeout
+reduceTimeout (Timeout ms) = Timeout (ms `div` 2)
+
+newtype ObserverId = ObserverId Text
+  deriving (Eq, Show, Generic, JSON.FromJSON, JSON.ToJSON)
 
 data CheckScripts
   = CheckScripts
       { isElementVisible :: Element -> Runner Bool,
-        observeStates :: Queries -> Runner ObservedState
+        observeState :: Queries -> Runner ObservedState,
+        registerNextStateObserver :: Timeout -> Queries -> Runner ObserverId,
+        awaitNextState :: ObserverId -> Runner ObservedState
       }
 
 check :: Specification spec => CheckOptions -> spec -> IO CheckResult
@@ -91,7 +109,7 @@ check opts@CheckOptions {checkTests} spec = do
   -- stdGen <- getStdGen
   logInfo ("Running " <> show checkTests <> " tests...")
   env <- CheckEnv opts <$> readScripts
-  runWebDriver env (Pipes.runEffect (runAll checkTests spec))
+  runWebDriver env (Pipes.runEffect (runAll opts spec))
 
 elementsToTrace :: Producer (TraceElement ()) Runner () -> Runner (Trace ())
 elementsToTrace = fmap Trace . Pipes.toListM
@@ -120,11 +138,12 @@ runSingle spec size = do
       & runAndVerifyIsolated 0
   case result of
     Right trace -> do
-      case trace ^.. traceActionFailures of
-        [] -> pass
-        failures -> logInfoWD (renderString ("There were" <+> pretty (length failures) <+> "action failures"))
+      warnOnFewActions trace
+      warnOnActionFailures trace
       pure (Right ())
     f@(Left (FailingTest _ trace _)) -> do
+      warnOnFewActions trace
+      warnOnActionFailures trace
       CheckOptions {checkShrinkLevels} <- liftWebDriverTT (asks checkOptions)
       logInfoWD "Test failed. Shrinking..."
       let shrinks = shrinkForest (QuickCheck.shrinkList shrinkAction) checkShrinkLevels (trace ^.. traceActions)
@@ -135,7 +154,6 @@ runSingle spec size = do
       trace <- annotateStutteringSteps <$> inNewPrivateWindow do
         beforeRun spec
         elementsToTrace (producer >-> runActions' spec)
-      -- logInfoWD (renderString (prettyTrace ({- withoutStutterStates -} trace) <> line))
       case verify spec (trace ^.. nonStutterStates) of
         Right Accepted -> pure (Right trace)
         Right Rejected -> pure (Left (FailingTest n trace Nothing))
@@ -143,16 +161,28 @@ runSingle spec size = do
     runShrink (Shrink n actions') = do
       logInfoWD ("Running shrunk test at level " <> show n <> "...")
       runAndVerifyIsolated n (Pipes.each actions')
+    warnOnFewActions trace =
+      case length (trace ^.. traceActions) of
+        0 -> logInfoWD ("Could not generate any valid actions.")
+        numActions
+          | numActions < size ->
+            logInfoWD
+              ("Could only generate " <> show numActions <> "/" <> show size <> " actions.")
+        _ -> pass
+    warnOnActionFailures trace =
+      case trace ^.. traceActionFailures of
+        [] -> pass
+        failures -> logInfoWD (renderString ("There were" <+> pretty (length failures) <+> "action failures"))
 
-runAll :: Specification spec => Int -> spec -> Effect Runner CheckResult
-runAll numTests spec' = (allTests $> CheckSuccess) >-> firstFailure
+runAll :: Specification spec => CheckOptions -> spec -> Effect Runner CheckResult
+runAll opts spec' = (allTests $> CheckSuccess) >-> firstFailure
   where
     runSingle' :: Int -> Producer (Either FailingTest ()) Runner ()
     runSingle' size = do
       lift (logInfoWD ("Running test with size: " <> show size))
       Pipes.yield =<< lift (runSingle spec' size)
     allTests :: Producer (Either FailingTest (), Int) Runner ()
-    allTests = Pipes.for (sizes numTests) runSingle' `Pipes.zip` Pipes.each [1 ..]
+    allTests = Pipes.for (sizes opts) runSingle' `Pipes.zip` Pipes.each [1 ..]
 
 firstFailure :: Functor m => Consumer (Either FailingTest (), Int) m CheckResult
 firstFailure =
@@ -160,55 +190,57 @@ firstFailure =
     (Right {}, _) -> firstFailure
     (Left failingTest, n) -> pure (CheckFailure n failingTest)
 
-sizes :: Functor m => Int -> Producer Int m ()
-sizes numSizes = Pipes.each (map (\n -> (n * 100 `div` numSizes)) [1 .. numSizes])
+sizes :: Functor m => CheckOptions -> Producer Int m ()
+sizes CheckOptions {checkMaxActions, checkTests} =
+  Pipes.each (map (\n -> (n * checkMaxActions `div` checkTests)) [1 .. checkTests])
 
 beforeRun :: Specification spec => spec -> Runner ()
 beforeRun spec = do
   navigateToOrigin
   awaitElement (readyWhen spec)
 
-observeManyStatesAfter :: Queries -> ObservedState -> Action Selected -> Pipe a (TraceElement ()) Runner ObservedState
-observeManyStatesAfter queries' initialState action = do
-  scripts <- lift (liftWebDriverTT (asks checkScripts))
+takeWhileChanging :: (Eq a, Functor m) => Pipe a a m ()
+takeWhileChanging = Pipes.await >>= loop
+  where
+    loop last = do
+      Pipes.yield last
+      next <- Pipes.await
+      if next == last then pass else loop next
+
+observeManyStatesAfter :: Queries -> Action Selected -> Pipe a (TraceElement ()) Runner ()
+observeManyStatesAfter queries' action = do
+  CheckEnv {checkScripts = scripts, checkOptions = CheckOptions {checkMaxTrailingStateChanges}} <- lift (liftWebDriverTT ask)
+  observer <- lift (registerNextStateObserver scripts (Timeout 2000) queries')
   result <- lift (runAction action)
-  -- observer <- lift (registerNextStateObserver queries')
-  -- delta <- getNextOrFail observer
-  delta <- lift (observeStates scripts queries')
-  let afterDelta = delta <> initialState
+  newState <- lift (awaitNextState scripts observer)
   Pipes.yield (TraceAction () action result)
+  Pipes.yield (TraceState () newState)
   nonStutters <-
-    (loop afterDelta >-> Pipes.takeWhile (/= afterDelta) >-> Pipes.take 5)
+    (loop (Timeout 500) >-> takeWhileChanging >-> Pipes.take checkMaxTrailingStateChanges)
       & Pipes.toListM
       & lift
-      & fmap (fromMaybe (pure afterDelta) . NonEmpty.nonEmpty)
   mapM_ (Pipes.yield . (TraceState ())) nonStutters
-  pure (NonEmpty.last nonStutters)
   where
-    -- getNextOrFail observer =
-    --   either (fail . Text.unpack) pure
-    --     =<< lift (getNextState observer)
-    loop :: ObservedState -> Producer ObservedState Runner ()
-    loop currentState = do
+    loop :: Timeout -> Producer ObservedState Runner ()
+    loop timeout = do
       scripts <- lift (liftWebDriverTT (asks checkScripts))
-      Pipes.yield currentState
-      -- delta <- getNextOrFail =<< lift (registerNextStateObserver queries')
-      delta <- lift (observeStates scripts queries')
-      loop (currentState <> delta)
+      newState <- lift (awaitNextState scripts =<< registerNextStateObserver scripts timeout queries')
+      Pipes.yield newState
+      loop (reduceTimeout timeout)
 
 {-# SCC runActions' "runActions'" #-}
 runActions' :: Specification spec => spec -> Pipe (Action Selected) (TraceElement ()) Runner ()
 runActions' spec = do
   scripts <- lift (liftWebDriverTT (asks checkScripts))
-  state1 <- lift (observeStates scripts queries')
+  state1 <- lift (observeState scripts queries')
   Pipes.yield (TraceState () state1)
-  loop state1
+  loop
   where
     queries' = queries spec
-    loop currentState = do
+    loop = do
       action <- Pipes.await
-      newState <- observeManyStatesAfter queries' currentState action
-      loop newState
+      observeManyStatesAfter queries' action
+      loop
 
 data Shrink a = Shrink Int a
 
@@ -244,7 +276,7 @@ generateValidActions possibleActions = loop
       validActions <- lift $ for (Vector.toList possibleActions) \(prob, action') -> do
         fmap (prob,) <$> selectValidAction action'
       case map (_2 %~ pure) (catMaybes validActions) of
-        [] -> lift (logInfoWD "Cannot generate any valid actions, aborting.")
+        [] -> pass
         actions' -> do
           actions'
             & QuickCheck.frequency
@@ -425,22 +457,30 @@ awaitElement sel = do
 
 executeScript' :: JSON.FromJSON r => Script -> [JSON.Value] -> Runner r
 executeScript' script args = do
-  r <- executeScript script args
+  r <- executeAsyncScript script args
   case JSON.fromJSON r of
-    JSON.Success a -> pure a
+    JSON.Success (Right a) -> pure a
+    JSON.Success (Left e) -> fail e
     JSON.Error e -> fail e
 
 readScripts :: IO CheckScripts
 readScripts = do
   let key = "WEBCHECK_CLIENT_SIDE_DIR"
   dir <- maybe (fail (key <> " environment variable not set")) pure =<< lookupEnv key
-  let readScript name = fromString . toS <$> readFile (dir </> name <> ".js")
+  let readScript :: JSON.FromJSON a => String -> IO ([JSON.Value] -> Runner a)
+      readScript name = do
+        code <- fromString . toS <$> readFile (dir </> name <> ".js")
+        pure (executeScript' code)
   isElementVisibleScript <- readScript "isElementVisible"
-  observeStatesScript <- readScript "observeStates"
+  observeStateScript <- readScript "observeState"
+  registerNextStateObserverScript <- readScript "registerNextStateObserver"
+  awaitNextStateScript <- readScript "awaitNextState"
   pure
     CheckScripts
-      { isElementVisible = \el -> (== JSON.Bool True) <$> executeScript isElementVisibleScript [JSON.toJSON el],
-        observeStates = \queries' -> executeScript' observeStatesScript [JSON.toJSON queries']
+      { isElementVisible = \el -> (== JSON.Bool True) <$> isElementVisibleScript [JSON.toJSON el],
+        observeState = \queries' -> observeStateScript [JSON.toJSON queries'],
+        registerNextStateObserver = \timeout queries' -> registerNextStateObserverScript [JSON.toJSON timeout, JSON.toJSON queries'],
+        awaitNextState = \queries' -> awaitNextStateScript [JSON.toJSON queries']
       }
 
 renderString :: Doc AnsiStyle -> String

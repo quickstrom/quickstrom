@@ -56,7 +56,7 @@ import System.FilePath ((</>))
 import qualified Test.QuickCheck as QuickCheck
 import Text.URI (URI)
 import qualified Text.URI as URI
-import Web.Api.WebDriver hiding (Action, Selector, hPutStrLn, runIsolated, Timeout)
+import Web.Api.WebDriver hiding (Action, Selector, Timeout, hPutStrLn, runIsolated)
 import WebCheck.Element
 import WebCheck.Prelude hiding (catchError, check, throwError, trace)
 import WebCheck.Result
@@ -78,7 +78,14 @@ data CheckResult = CheckSuccess | CheckFailure {failedAfter :: Int, failingTest 
 
 data CheckEnv = CheckEnv {checkOptions :: CheckOptions, checkScripts :: CheckScripts}
 
-data CheckOptions = CheckOptions {checkTests :: Int, checkShrinkLevels :: Int, checkOrigin :: URI, checkMaxTrailingStateChanges :: Int }
+data CheckOptions
+  = CheckOptions
+      { checkTests :: Int,
+        checkMaxActions :: Int,
+        checkShrinkLevels :: Int,
+        checkOrigin :: URI,
+        checkMaxTrailingStateChanges :: Int
+      }
 
 newtype Timeout = Timeout Word64
   deriving (Eq, Show, Generic, JSON.FromJSON, JSON.ToJSON)
@@ -102,7 +109,7 @@ check opts@CheckOptions {checkTests} spec = do
   -- stdGen <- getStdGen
   logInfo ("Running " <> show checkTests <> " tests...")
   env <- CheckEnv opts <$> readScripts
-  runWebDriver env (Pipes.runEffect (runAll checkTests spec))
+  runWebDriver env (Pipes.runEffect (runAll opts spec))
 
 elementsToTrace :: Producer (TraceElement ()) Runner () -> Runner (Trace ())
 elementsToTrace = fmap Trace . Pipes.toListM
@@ -167,15 +174,15 @@ runSingle spec size = do
         [] -> pass
         failures -> logInfoWD (renderString ("There were" <+> pretty (length failures) <+> "action failures"))
 
-runAll :: Specification spec => Int -> spec -> Effect Runner CheckResult
-runAll numTests spec' = (allTests $> CheckSuccess) >-> firstFailure
+runAll :: Specification spec => CheckOptions -> spec -> Effect Runner CheckResult
+runAll opts spec' = (allTests $> CheckSuccess) >-> firstFailure
   where
     runSingle' :: Int -> Producer (Either FailingTest ()) Runner ()
     runSingle' size = do
       lift (logInfoWD ("Running test with size: " <> show size))
       Pipes.yield =<< lift (runSingle spec' size)
     allTests :: Producer (Either FailingTest (), Int) Runner ()
-    allTests = Pipes.for (sizes numTests) runSingle' `Pipes.zip` Pipes.each [1 ..]
+    allTests = Pipes.for (sizes opts) runSingle' `Pipes.zip` Pipes.each [1 ..]
 
 firstFailure :: Functor m => Consumer (Either FailingTest (), Int) m CheckResult
 firstFailure =
@@ -183,8 +190,9 @@ firstFailure =
     (Right {}, _) -> firstFailure
     (Left failingTest, n) -> pure (CheckFailure n failingTest)
 
-sizes :: Functor m => Int -> Producer Int m ()
-sizes numSizes = Pipes.each (map (\n -> (n * 100 `div` numSizes)) [1 .. numSizes])
+sizes :: Functor m => CheckOptions -> Producer Int m ()
+sizes CheckOptions {checkMaxActions, checkTests} =
+  Pipes.each (map (\n -> (n * checkMaxActions `div` checkTests)) [1 .. checkTests])
 
 beforeRun :: Specification spec => spec -> Runner ()
 beforeRun spec = do
@@ -201,7 +209,7 @@ takeWhileChanging = Pipes.await >>= loop
 
 observeManyStatesAfter :: Queries -> Action Selected -> Pipe a (TraceElement ()) Runner ()
 observeManyStatesAfter queries' action = do
-  CheckEnv { checkScripts = scripts, checkOptions = CheckOptions {checkMaxTrailingStateChanges} } <- lift (liftWebDriverTT ask)
+  CheckEnv {checkScripts = scripts, checkOptions = CheckOptions {checkMaxTrailingStateChanges}} <- lift (liftWebDriverTT ask)
   observer <- lift (registerNextStateObserver scripts (Timeout 2000) queries')
   result <- lift (runAction action)
   newState <- lift (awaitNextState scripts observer)

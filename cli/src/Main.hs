@@ -33,6 +33,7 @@ data WebCheckOptions
         origin :: Text,
         libraryPath :: Maybe FilePath,
         tests :: Int,
+        maxActions :: Int,
         shrinkLevels :: Int,
         maxTrailingStateChanges :: Int
       }
@@ -65,6 +66,13 @@ optParser =
           <> metavar "NUMBER"
           <> long "tests"
           <> help "How many tests to run"
+      )
+    <*> option
+      auto
+      ( value 100
+          <> metavar "NUMBER"
+          <> long "max-actions"
+          <> help "Maximum number of actions to generate in the largest test"
       )
     <*> option
       auto
@@ -118,6 +126,7 @@ main = do
         WebCheck.check
           WebCheck.CheckOptions
             { checkTests = tests,
+              checkMaxActions = maxActions,
               checkShrinkLevels = shrinkLevels,
               checkOrigin = originUri,
               checkMaxTrailingStateChanges = maxTrailingStateChanges

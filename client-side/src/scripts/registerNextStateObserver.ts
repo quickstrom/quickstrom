@@ -4,7 +4,6 @@ import {
   runQuery,
   ObservedState,
   Query,
-  Value,
   Queries,
   ObservedStateJSON,
   observeState,
@@ -63,19 +62,13 @@ namespace WebCheck {
     selector: Selector,
     stateQuery: StateQuery
   ): Promise<void> {
-    function observeNextEvent(
-      eventType: string,
-      _extract: (node: any) => Value
-    ): Promise<void> {
+    function observeNextEvent(eventType: string): Promise<void> {
       return new Promise((resolve) => {
         (toArray(document.querySelectorAll(selector)) as Node[]).map(
           (element: Node) => {
             function handler(ev: Event) {
               element.removeEventListener(eventType, handler);
               if (ev.target != null) {
-                // const s: ObservedState = singletonMap(selector, [
-                //   singletonMap(stateQuery, extract(ev.target as Node)),
-                // ]);
                 resolve();
               }
             }
@@ -92,19 +85,22 @@ namespace WebCheck {
           case "value":
             return Promise.race(
               ["keyup", "change"].map((eventType) =>
-                observeNextEvent(
-                  eventType,
-                  (e: HTMLInputElement | HTMLTextAreaElement) => e.value
-                )
+                observeNextEvent(eventType)
               )
             );
           case "disabled":
-            return observeNextPropertyChange([selector, [stateQuery]]);
+            return Promise.race([
+              observeNextStateMutation(selector, stateQuery),
+              observeNextPropertyChange([selector, [stateQuery]]),
+            ]);
           default:
             return observeNextStateMutation(selector, stateQuery);
         }
       case "cssValue":
-        return observeNextPropertyChange([selector, [stateQuery]]);
+        return Promise.race([
+          observeNextStateMutation(selector, stateQuery),
+          observeNextPropertyChange([selector, [stateQuery]]),
+        ]);
       case "text":
         return observeNextStateMutation(selector, stateQuery);
     }

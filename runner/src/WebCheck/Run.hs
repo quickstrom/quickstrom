@@ -20,6 +20,9 @@ module WebCheck.Run
   ( CheckOptions (..),
     CheckResult (..),
     FailingTest (..),
+    Size (..),
+    CheckEvent (..),
+    TestEvent (..),
     check,
   )
 where
@@ -33,7 +36,6 @@ import Control.Monad.Trans.Class (MonadTrans)
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import qualified Data.Aeson as JSON
 import Data.Function ((&))
-import Data.Functor (($>))
 import Data.Generics.Product (field)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (fromMaybe)
@@ -48,7 +50,7 @@ import qualified Data.Vector as Vector
 import GHC.Generics (Generic)
 import Network.HTTP.Client as Http
 import qualified Network.Wreq as Wreq
-import Pipes ((>->), Consumer, Effect, Pipe, Producer)
+import Pipes ((>->), Pipe, Producer)
 import qualified Pipes
 import qualified Pipes.Prelude as Pipes
 import System.Environment (lookupEnv)
@@ -76,22 +78,29 @@ data FailingTest
 data CheckResult = CheckSuccess | CheckFailure {failedAfter :: Int, failingTest :: FailingTest}
   deriving (Show, Generic)
 
+data TestEvent = TestStarted
+
+data CheckEvent = CheckStarted | CheckTestEvent TestEvent
+
 data CheckEnv = CheckEnv {checkOptions :: CheckOptions, checkScripts :: CheckScripts}
 
 data CheckOptions
   = CheckOptions
       { checkTests :: Int,
-        checkMaxActions :: Int,
+        checkMaxActions :: Size,
         checkShrinkLevels :: Int,
         checkOrigin :: URI,
         checkMaxTrailingStateChanges :: Int
       }
 
+newtype Size = Size {unSize :: Word32}
+  deriving (Eq, Show, Generic, JSON.FromJSON, JSON.ToJSON)
+
 newtype Timeout = Timeout Word64
   deriving (Eq, Show, Generic, JSON.FromJSON, JSON.ToJSON)
 
-reduceTimeout :: Timeout -> Timeout
-reduceTimeout (Timeout ms) = Timeout (ms `div` 2)
+mapTimeout :: (Word64 -> Word64) -> Timeout -> Timeout
+mapTimeout f (Timeout ms) = Timeout (f ms)
 
 newtype ObserverId = ObserverId Text
   deriving (Eq, Show, Generic, JSON.FromJSON, JSON.ToJSON)
@@ -104,12 +113,12 @@ data CheckScripts
         awaitNextState :: ObserverId -> Runner ObservedState
       }
 
-check :: Specification spec => CheckOptions -> spec -> IO CheckResult
+check :: Specification spec => CheckOptions -> spec -> Pipes.Producer CheckEvent IO CheckResult
 check opts@CheckOptions {checkTests} spec = do
   -- stdGen <- getStdGen
   logInfo ("Running " <> show checkTests <> " tests...")
-  env <- CheckEnv opts <$> readScripts
-  runWebDriver env (Pipes.runEffect (runAll opts spec))
+  env <- CheckEnv opts <$> lift readScripts
+  Pipes.hoist (runWebDriver env) (runAll opts spec)
 
 elementsToTrace :: Producer (TraceElement ()) Runner () -> Runner (Trace ())
 elementsToTrace = fmap Trace . Pipes.toListM
@@ -130,11 +139,11 @@ select f = forever do
   x <- Pipes.await
   maybe (pure ()) Pipes.yield (f x)
 
-runSingle :: Specification spec => spec -> Int -> Runner (Either FailingTest ())
+runSingle :: Specification spec => spec -> Size -> Runner (Either FailingTest ())
 runSingle spec size = do
   result <-
     generateValidActions (actions spec)
-      >-> Pipes.take size
+      >-> Pipes.take (fromIntegral (unSize size))
       & runAndVerifyIsolated 0
   case result of
     Right trace -> do
@@ -165,34 +174,35 @@ runSingle spec size = do
       case length (trace ^.. traceActions) of
         0 -> logInfoWD ("Could not generate any valid actions.")
         numActions
-          | numActions < size ->
+          | numActions < fromIntegral (unSize size) ->
             logInfoWD
-              ("Could only generate " <> show numActions <> "/" <> show size <> " actions.")
+              ("Could only generate " <> show numActions <> "/" <> show (unSize size) <> " actions.")
         _ -> pass
     warnOnActionFailures trace =
       case trace ^.. traceActionFailures of
         [] -> pass
         failures -> logInfoWD (renderString ("There were" <+> pretty (length failures) <+> "action failures"))
 
-runAll :: Specification spec => CheckOptions -> spec -> Effect Runner CheckResult
-runAll opts spec' = (allTests $> CheckSuccess) >-> firstFailure
+runAll :: Specification spec => CheckOptions -> spec -> Producer CheckEvent Runner CheckResult
+runAll opts spec' = Pipes.yield CheckStarted >> untilFirstFailure
   where
-    runSingle' :: Int -> Producer (Either FailingTest ()) Runner ()
+    runSingle' :: Size -> Producer TestEvent Runner (Either FailingTest ())
     runSingle' size = do
-      lift (logInfoWD ("Running test with size: " <> show size))
-      Pipes.yield =<< lift (runSingle spec' size)
-    allTests :: Producer (Either FailingTest (), Int) Runner ()
-    allTests = Pipes.for (sizes opts) runSingle' `Pipes.zip` Pipes.each [1 ..]
+      lift (logInfoWD ("Running test with size: " <> show (unSize size)))
+      lift (runSingle spec' size)
+    untilFirstFailure :: Producer CheckEvent Runner CheckResult
+    untilFirstFailure = go (sizes opts `zip` [1 ..])
+      where
+        go :: [(Size, Int)] -> Producer CheckEvent Runner CheckResult
+        go [] = pure CheckSuccess
+        go ((size, n) : rest) =
+          (runSingle' size >-> Pipes.map CheckTestEvent) >>= \case
+            Right {} -> go rest
+            Left failingTest -> pure (CheckFailure n failingTest)
 
-firstFailure :: Functor m => Consumer (Either FailingTest (), Int) m CheckResult
-firstFailure =
-  Pipes.await >>= \case
-    (Right {}, _) -> firstFailure
-    (Left failingTest, n) -> pure (CheckFailure n failingTest)
-
-sizes :: Functor m => CheckOptions -> Producer Int m ()
-sizes CheckOptions {checkMaxActions, checkTests} =
-  Pipes.each (map (\n -> (n * checkMaxActions `div` checkTests)) [1 .. checkTests])
+sizes :: CheckOptions -> [Size]
+sizes CheckOptions {checkMaxActions = Size maxActions, checkTests} =
+  map (\n -> Size (n * maxActions `div` fromIntegral checkTests)) [1 .. fromIntegral checkTests]
 
 beforeRun :: Specification spec => spec -> Runner ()
 beforeRun spec = do
@@ -210,13 +220,13 @@ takeWhileChanging = Pipes.await >>= loop
 observeManyStatesAfter :: Queries -> Action Selected -> Pipe a (TraceElement ()) Runner ()
 observeManyStatesAfter queries' action = do
   CheckEnv {checkScripts = scripts, checkOptions = CheckOptions {checkMaxTrailingStateChanges}} <- lift (liftWebDriverTT ask)
-  observer <- lift (registerNextStateObserver scripts (Timeout 2000) queries')
+  observer <- lift (registerNextStateObserver scripts (Timeout 100) queries')
   result <- lift (runAction action)
   newState <- lift (awaitNextState scripts observer)
   Pipes.yield (TraceAction () action result)
   Pipes.yield (TraceState () newState)
   nonStutters <-
-    (loop (Timeout 500) >-> takeWhileChanging >-> Pipes.take checkMaxTrailingStateChanges)
+    (loop (Timeout 100) >-> takeWhileChanging >-> Pipes.take checkMaxTrailingStateChanges)
       & Pipes.toListM
       & lift
   mapM_ (Pipes.yield . (TraceState ())) nonStutters
@@ -226,7 +236,7 @@ observeManyStatesAfter queries' action = do
       scripts <- lift (liftWebDriverTT (asks checkScripts))
       newState <- lift (awaitNextState scripts =<< registerNextStateObserver scripts timeout queries')
       Pipes.yield newState
-      loop (reduceTimeout timeout)
+      loop (mapTimeout (* 2) timeout)
 
 {-# SCC runActions' "runActions'" #-}
 runActions' :: Specification spec => spec -> Pipe (Action Selected) (TraceElement ()) Runner ()
@@ -389,7 +399,7 @@ inNewPrivateWindow = runIsolated (reconfigure headlessFirefoxCapabilities)
               o
                 { _firefoxArgs = Just ["-headless", "-private"],
                   _firefoxPrefs = Just (HashMap.singleton "Dom.storage.enabled" (JSON.Bool False)),
-                  _firefoxLog = Just (FirefoxLog (Just LogWarn))
+                  _firefoxLog = Just (FirefoxLog (Just LogDebug))
                 }
         }
 

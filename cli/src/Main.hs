@@ -15,6 +15,7 @@ import Data.String (String)
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
 import Options.Applicative
+import qualified Pipes as Pipes
 import System.Directory (canonicalizePath)
 import System.Environment (lookupEnv)
 import Text.URI (URI)
@@ -33,7 +34,7 @@ data WebCheckOptions
         origin :: Text,
         libraryPath :: Maybe FilePath,
         tests :: Int,
-        maxActions :: Int,
+        maxActions :: WebCheck.Size,
         shrinkLevels :: Int,
         maxTrailingStateChanges :: Int
       }
@@ -67,13 +68,15 @@ optParser =
           <> long "tests"
           <> help "How many tests to run"
       )
-    <*> option
-      auto
-      ( value 100
-          <> metavar "NUMBER"
-          <> long "max-actions"
-          <> help "Maximum number of actions to generate in the largest test"
-      )
+    <*> ( WebCheck.Size
+            <$> option
+              auto
+              ( value 100
+                  <> metavar "NUMBER"
+                  <> long "max-actions"
+                  <> help "Maximum number of actions to generate in the largest test"
+              )
+        )
     <*> option
       auto
       ( short 's'
@@ -122,17 +125,15 @@ main = do
       hPutStrLn @Text stderr err
       exitWith (ExitFailure 1)
     Right spec -> do
-      result <-
-        WebCheck.check
-          WebCheck.CheckOptions
-            { checkTests = tests,
-              checkMaxActions = maxActions,
-              checkShrinkLevels = shrinkLevels,
-              checkOrigin = originUri,
-              checkMaxTrailingStateChanges = maxTrailingStateChanges
-            }
-          spec
-      case result of
+      let opts =
+            WebCheck.CheckOptions
+              { checkTests = tests,
+                checkMaxActions = maxActions,
+                checkShrinkLevels = shrinkLevels,
+                checkOrigin = originUri,
+                checkMaxTrailingStateChanges = maxTrailingStateChanges
+              }
+      Pipes.runEffect (Pipes.for (WebCheck.check opts spec) logEvent) >>= \case
         WebCheck.CheckFailure {failedAfter, failingTest} -> do
           putStrLn . renderString $
             WebCheck.prettyTrace (WebCheck.withoutStutterStates (WebCheck.trace failingTest))
@@ -154,6 +155,19 @@ libraryPathFromEnvironment = do
     Nothing -> throwError (key <> "is not set and command-line option is not provided")
   where
     key = "WEBCHECK_LIBRARY_DIR"
+
+logEvent :: WebCheck.CheckEvent -> Pipes.Effect IO ()
+logEvent e =
+  putStr (renderStrict (layoutPretty defaultLayoutOptions (renderCheckEvent e)))
+
+renderCheckEvent :: WebCheck.CheckEvent -> Doc AnsiStyle
+renderCheckEvent = \case
+  WebCheck.CheckStarted -> "Check started"
+  WebCheck.CheckTestEvent e -> renderTestEvent e
+
+renderTestEvent :: WebCheck.TestEvent -> Doc AnsiStyle
+renderTestEvent = \case
+  WebCheck.TestStarted -> "Test started"
 
 renderString :: Doc AnsiStyle -> String
 renderString = toS . renderStrict . layoutPretty defaultLayoutOptions

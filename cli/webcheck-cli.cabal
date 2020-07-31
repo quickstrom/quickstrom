@@ -13,6 +13,7 @@ executable webcheck
                     , lens
                     , modern-uri
                     , optparse-applicative
+                    , pipes
                     , prettyprinter
                     , prettyprinter-ansi-terminal
                     , protolude

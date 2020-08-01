@@ -1,3 +1,6 @@
 module WebCheck.LogLevel where
 
-data LogLevel = Error | Warn | Info | Debug
+import WebCheck.Prelude
+
+data LogLevel = LogDebug | LogInfo | LogWarn | LogError
+  deriving (Eq, Ord)

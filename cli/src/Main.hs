@@ -57,8 +57,7 @@ optParser =
       )
     <*> optional
       ( strOption
-          ( short 'l'
-              <> metavar "DIRECTORY"
+          ( metavar "DIRECTORY"
               <> long "library-directory"
               <> help "Directory containing compiled PureScript libraries used by WebCheck (falls back to the WEBCHECK_LIBRARY_DIR environment variable)"
           )
@@ -97,7 +96,7 @@ optParser =
       )
     <*> option
       parseLogLevel
-      ( value WebCheck.Info
+      ( value WebCheck.LogInfo
           <> metavar "LEVEL"
           <> long "log-level"
           <> short 'l'
@@ -105,12 +104,11 @@ optParser =
       )
   where
     parseLogLevel = eitherReader $ \case
-      "DEBUG" -> pure WebCheck.Debug
-      "INFO" -> pure WebCheck.Info
-      "WARN" -> pure WebCheck.Warn
-      "ERROR" -> pure WebCheck.Error
+      "DEBUG" -> pure WebCheck.LogDebug
+      "INFO" -> pure WebCheck.LogInfo
+      "WARN" -> pure WebCheck.LogWarn
+      "ERROR" -> pure WebCheck.LogError
       s -> Left ("Invalid log level: " <> s)
-      
 
 optsInfo :: ParserInfo WebCheckOptions
 optsInfo =
@@ -143,7 +141,7 @@ main = do
     Left err -> do
       hPutStrLn @Text stderr err
       exitWith (ExitFailure 1)
-    Right spec -> do
+    Right spec -> flip runReaderT logLevel $ do
       let opts =
             WebCheck.CheckOptions
               { checkTests = tests,
@@ -153,20 +151,20 @@ main = do
                 checkMaxTrailingStateChanges = maxTrailingStateChanges,
                 checkWebDriverLogLevel = logLevel
               }
-      result <- Pipes.runEffect (Pipes.for (WebCheck.check opts spec) logEvent)
-      logDoc $ line <> divider <> line
+      result <- Pipes.runEffect (Pipes.for (WebCheck.check opts spec) (lift . logDoc . renderCheckEvent))
+      logDoc . logSingle Nothing $ line <> divider <> line
       case result of
         WebCheck.CheckFailure {failedAfter, failingTest} -> do
-          logDoc $
+          logDoc . logSingle Nothing $
             WebCheck.prettyTrace (WebCheck.withoutStutterStates (WebCheck.trace failingTest))
           case WebCheck.reason failingTest of
-            Just err -> logDoc (line <> annotate (color Red) ("Test failed with error:" <+> err <> line))
+            Just err -> logDoc (logSingle Nothing (line <> annotate (color Red) ("Test failed with error:" <+> err <> line)))
             Nothing -> pure ()
-          logDoc . annotate (color Red) $
+          logDoc . logSingle Nothing . annotate (color Red) $
             line <> "Failed after" <+> pretty failedAfter <+> "tests and" <+> pretty (WebCheck.numShrinks failingTest) <+> "levels of shrinking." <> line
-          exitWith (ExitFailure 1)
+          liftIO (exitWith (ExitFailure 1))
         WebCheck.CheckSuccess ->
-          logDoc . annotate (color Green) $
+          logDoc . logSingle Nothing . annotate (color Green) $
             line <> "Passed" <+> pretty tests <+> "tests." <> line
 
 libraryPathFromEnvironment :: ExceptT Text IO FilePath
@@ -176,9 +174,6 @@ libraryPathFromEnvironment = do
     Nothing -> throwError (key <> "is not set and command-line option is not provided")
   where
     key = "WEBCHECK_LIBRARY_DIR"
-
-logEvent :: WebCheck.CheckEvent -> Pipes.Effect IO ()
-logEvent = lift . logDoc . renderCheckEvent
 
 logo :: Doc AnsiStyle
 logo =
@@ -195,38 +190,52 @@ logo =
 divider :: Doc ann
 divider = pageWidth $ \(AvailablePerLine w _) -> pretty (Text.replicate w "―")
 
-renderCheckEvent :: WebCheck.CheckEvent -> Doc AnsiStyle
+renderCheckEvent :: WebCheck.CheckEvent -> [(Maybe WebCheck.LogLevel, Doc AnsiStyle)]
 renderCheckEvent = \case
   WebCheck.CheckStarted n ->
-    annotate bold logo
-      <> line
-      <> line
-      <> ("Running" <+> annotate (color Blue) (pretty n) <+> "tests...")
+    logSingle Nothing $
+      annotate bold logo
+        <> line
+        <> line
+        <> ("Running" <+> annotate (color Blue) (pretty n) <+> "tests...")
   WebCheck.CheckTestEvent e -> renderTestEvent e
 
-renderTestEvent :: WebCheck.TestEvent -> Doc AnsiStyle
+renderTestEvent :: WebCheck.TestEvent -> [(Maybe WebCheck.LogLevel, Doc AnsiStyle)]
 renderTestEvent = \case
   WebCheck.TestStarted size ->
-    line
-      <> divider
-      <> line
-      <> line
-      <> annotate bold (renderSize size <+> "Actions")
+    logSingle Nothing $
+      line
+        <> divider
+        <> line
+        <> line
+        <> annotate bold (renderSize size <+> "Actions")
   WebCheck.TestPassed size trace' ->
     case traceWarnings size trace' of
-      [] -> annotate (color Green) "Test passed!"
+      [] ->
+        logSingle Nothing $ annotate (color Green) "Test passed!"
       warnings ->
-        annotate (color Yellow) "Test passed with warnings:"
-          <> line
-          <> line
-          <> renderList warnings
+        [ (Nothing, annotate (color Green) "Test passed!"),
+          ( Just WebCheck.LogWarn,
+            line
+              <> annotate (color Yellow) "Warnings:"
+              <> line
+              <> line
+              <> renderList warnings
+          )
+        ]
   WebCheck.TestFailed _size trace' ->
-    line <> annotate (color Red) "Test failed:" <> line <> WebCheck.prettyTrace trace'
+    logSingle Nothing $
+      line
+        <> annotate (color Red) "Test failed:"
+        <> line
+        <> WebCheck.prettyTrace trace'
   WebCheck.Shrinking level ->
-    line
-      <> annotate bold ("Shrinking failing test down to the" <+> ordinal level <+> "level..." <> line)
+    logSingle Nothing $
+      line
+        <> annotate bold ("Shrinking failing test down to the" <+> ordinal level <+> "level..." <> line)
   WebCheck.RunningShrink level ->
-    "Running shrunk test at level" <+> pretty level <> "."
+    logSingle (Just WebCheck.LogInfo) $
+      "Running shrunk test at level" <+> pretty level <> "."
   where
     traceWarnings :: WebCheck.Size -> WebCheck.Trace WebCheck.TraceElementEffect -> [Doc AnsiStyle]
     traceWarnings size trace' =
@@ -243,6 +252,9 @@ renderTestEvent = \case
               failures -> ["There were" <+> pretty (length failures) <+> "action failures"]
        in fewActions <> actionFailures
 
+logSingle :: Maybe WebCheck.LogLevel -> Doc AnsiStyle -> [(Maybe WebCheck.LogLevel, Doc AnsiStyle)]
+logSingle l d = [(l, d)]
+
 renderSize :: WebCheck.Size -> Doc AnsiStyle
 renderSize (WebCheck.Size s) = pretty s
 
@@ -256,5 +268,12 @@ ordinal n = pretty n <> case n `rem` 10 of
   3 -> "rd"
   _ -> "th"
 
-logDoc :: Doc AnsiStyle -> IO ()
-logDoc = putStrLn . renderStrict . layoutPretty defaultLayoutOptions
+logDoc :: (MonadReader WebCheck.LogLevel m, MonadIO m) => [(Maybe WebCheck.LogLevel, Doc AnsiStyle)] -> m ()
+logDoc logs = for_ logs $ \(logLevel, doc) -> do
+  minLogLevel <- ask
+  let logAction = putStrLn (renderStrict (layoutPretty defaultLayoutOptions doc))
+  case logLevel of
+    Just level
+      | level >= minLogLevel -> logAction
+      | otherwise -> pass
+    Nothing -> logAction

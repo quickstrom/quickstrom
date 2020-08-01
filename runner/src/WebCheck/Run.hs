@@ -123,12 +123,12 @@ data CheckScripts
         awaitNextState :: ObserverId -> Runner ObservedState
       }
 
-check :: Specification spec => CheckOptions -> spec -> Pipes.Producer CheckEvent IO CheckResult
+check :: (MonadIO m, Specification spec) => CheckOptions -> spec -> Pipes.Producer CheckEvent m CheckResult
 check opts@CheckOptions {checkTests} spec = do
   -- stdGen <- getStdGen
   Pipes.yield (CheckStarted checkTests)
   env <- CheckEnv opts <$> lift readScripts
-  Pipes.hoist (runWebDriver env) (runAll opts spec)
+  Pipes.hoist (liftIO . runWebDriver env) (runAll opts spec)
 
 elementsToTrace :: Producer (TraceElement ()) Runner () -> Runner (Trace ())
 elementsToTrace = fmap Trace . Pipes.toListM
@@ -405,10 +405,10 @@ inNewPrivateWindow CheckOptions {checkWebDriverLogLevel} =
                 }
         }
     webdriverLogLevel = \case
-      Debug -> WebDriver.LogDebug
-      Info -> WebDriver.LogInfo
-      Warn -> WebDriver.LogWarn
-      Error -> WebDriver.LogError
+      LogDebug -> WebDriver.LogDebug
+      LogInfo -> WebDriver.LogInfo
+      LogWarn -> WebDriver.LogWarn
+      LogError -> WebDriver.LogError
 
 -- | Mostly the same as the non-exported definition in 'Web.Api.WebDriver.Endpoints'.
 runIsolated ::
@@ -474,13 +474,13 @@ executeScript' script args = do
     JSON.Success (Left e) -> fail e
     JSON.Error e -> fail e
 
-readScripts :: IO CheckScripts
+readScripts :: MonadIO m => m CheckScripts
 readScripts = do
   let key = "WEBCHECK_CLIENT_SIDE_DIR"
-  dir <- maybe (fail (key <> " environment variable not set")) pure =<< lookupEnv key
-  let readScript :: JSON.FromJSON a => String -> IO ([JSON.Value] -> Runner a)
+  dir <- liftIO (maybe (fail (key <> " environment variable not set")) pure =<< lookupEnv key)
+  let readScript :: MonadIO m => JSON.FromJSON a => String -> m ([JSON.Value] -> Runner a)
       readScript name = do
-        code <- fromString . toS <$> readFile (dir </> name <> ".js")
+        code <- liftIO (fromString . toS <$> readFile (dir </> name <> ".js"))
         pure (executeScript' code)
   isElementVisibleScript <- readScript "isElementVisible"
   observeStateScript <- readScript "observeState"

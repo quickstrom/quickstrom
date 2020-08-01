@@ -23,6 +23,7 @@ import Text.URI (URI)
 import qualified Text.URI as URI
 import Text.URI.Lens (uriScheme)
 import qualified Text.URI.QQ as URI
+import qualified WebCheck.LogLevel as WebCheck
 import WebCheck.Prelude hiding (option)
 import qualified WebCheck.Pretty as WebCheck
 import qualified WebCheck.PureScript.Program as WebCheck
@@ -37,7 +38,8 @@ data WebCheckOptions
         tests :: Int,
         maxActions :: WebCheck.Size,
         shrinkLevels :: Int,
-        maxTrailingStateChanges :: Int
+        maxTrailingStateChanges :: Int,
+        logLevel :: WebCheck.LogLevel
       }
 
 optParser :: Parser WebCheckOptions
@@ -93,6 +95,22 @@ optParser =
           <> long "max-trailing-state-changes"
           <> help "Maximum number of trailing state changes to await"
       )
+    <*> option
+      parseLogLevel
+      ( value WebCheck.Info
+          <> metavar "LEVEL"
+          <> long "log-level"
+          <> short 'l'
+          <> help "Log level used by WebCheck and the backing WebDriver server (e.g. geckodriver)"
+      )
+  where
+    parseLogLevel = eitherReader $ \case
+      "DEBUG" -> pure WebCheck.Debug
+      "INFO" -> pure WebCheck.Info
+      "WARN" -> pure WebCheck.Warn
+      "ERROR" -> pure WebCheck.Error
+      s -> Left ("Invalid log level: " <> s)
+      
 
 optsInfo :: ParserInfo WebCheckOptions
 optsInfo =
@@ -132,7 +150,8 @@ main = do
                 checkMaxActions = maxActions,
                 checkShrinkLevels = shrinkLevels,
                 checkOrigin = originUri,
-                checkMaxTrailingStateChanges = maxTrailingStateChanges
+                checkMaxTrailingStateChanges = maxTrailingStateChanges,
+                checkWebDriverLogLevel = logLevel
               }
       result <- Pipes.runEffect (Pipes.for (WebCheck.check opts spec) logEvent)
       logDoc $ line <> divider <> line
@@ -174,7 +193,7 @@ logo =
     ]
 
 divider :: Doc ann
-divider = pretty (Text.replicate 80 "―")
+divider = pageWidth $ \(AvailablePerLine w _) -> pretty (Text.replicate w "―")
 
 renderCheckEvent :: WebCheck.CheckEvent -> Doc AnsiStyle
 renderCheckEvent = \case
@@ -239,47 +258,3 @@ ordinal n = pretty n <> case n `rem` 10 of
 
 logDoc :: Doc AnsiStyle -> IO ()
 logDoc = putStrLn . renderStrict . layoutPretty defaultLayoutOptions
-{-
-
--- Simple example: a button that can be clicked, which then shows a message
-buttonSpec :: Specification Formula
-buttonSpec =
-  Specification
-    { origin = Path ("file://" <> Text.pack cwd <> "/test/button.html"),
-      readyWhen = "button",
-      actions = clicks,
-      proposition =
-        let click = buttonIsEnabled /\ next (".message" `hasText` "Boom!" /\ neg buttonIsEnabled)
-         in buttonIsEnabled /\ always click
-    }
-
-ajaxSpec :: Specification Formula
-ajaxSpec =
-  Specification
-    { origin = Path ("file://" <> Text.pack cwd <> "/test/ajax.html"),
-      readyWhen = "button",
-      actions = clicks,
-      proposition =
-        let disabledLaunchWithMessage msg =
-              ".message" `hasText` msg /\ neg buttonIsEnabled
-            launch =
-              buttonIsEnabled
-                /\ next (disabledLaunchWithMessage "Missiles launched.")
-            impactOrNoImpact =
-              disabledLaunchWithMessage "Missiles launched."
-                /\ next
-                  ( disabledLaunchWithMessage "Boom"
-                      \/ disabledLaunchWithMessage "Missiles did not hit target."
-                  )
-         in buttonIsEnabled /\ always (launch \/ impactOrNoImpact)
-    }
-
-draftsSpec :: Specification Formula
-draftsSpec =
-  Specification
-    { origin = Path ("file://" <> Text.pack cwd <> "/test/drafts.html"),
-      readyWhen = "button",
-      actions = clicks,
-      proposition = top
-    }
--}

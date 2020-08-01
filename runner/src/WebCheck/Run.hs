@@ -58,8 +58,10 @@ import System.FilePath ((</>))
 import qualified Test.QuickCheck as QuickCheck
 import Text.URI (URI)
 import qualified Text.URI as URI
-import Web.Api.WebDriver hiding (Action, Selector, Timeout, hPutStrLn, runIsolated)
+import Web.Api.WebDriver hiding (Action, LogLevel (..), Selector, Timeout, hPutStrLn, runIsolated)
+import qualified Web.Api.WebDriver as WebDriver
 import WebCheck.Element
+import WebCheck.LogLevel
 import WebCheck.Prelude hiding (catchError, check, throwError, trace)
 import WebCheck.Result
 import WebCheck.Specification
@@ -97,7 +99,8 @@ data CheckOptions
         checkMaxActions :: Size,
         checkShrinkLevels :: Int,
         checkOrigin :: URI,
-        checkMaxTrailingStateChanges :: Int
+        checkMaxTrailingStateChanges :: Int,
+        checkWebDriverLogLevel :: LogLevel
       }
 
 newtype Size = Size {unSize :: Word32}
@@ -176,9 +179,11 @@ runSingle spec size = do
   where
     runAndVerifyIsolated :: Int -> Producer (Action Selected) Runner () -> Producer TestEvent Runner (Either FailingTest (Trace TraceElementEffect))
     runAndVerifyIsolated n producer = do
-      trace <- lift $ annotateStutteringSteps <$> inNewPrivateWindow do
-        beforeRun spec
-        elementsToTrace (producer >-> runActions' spec)
+      trace <- lift do
+        opts <- liftWebDriverTT (asks checkOptions)
+        annotateStutteringSteps <$> inNewPrivateWindow opts do
+          beforeRun spec
+          elementsToTrace (producer >-> runActions' spec)
       case verify spec (trace ^.. nonStutterStates) of
         Right Accepted -> pure (Right trace)
         Right Rejected -> pure (Left (FailingTest n trace Nothing))
@@ -385,8 +390,9 @@ runWebDriver opts ma = do
           _initialState = defaultWebDriverState {_httpOptions = httpOptions}
         }
 
-inNewPrivateWindow :: Runner a -> Runner a
-inNewPrivateWindow = runIsolated (reconfigure headlessFirefoxCapabilities)
+inNewPrivateWindow :: CheckOptions -> Runner a -> Runner a
+inNewPrivateWindow CheckOptions {checkWebDriverLogLevel} =
+  runIsolated (reconfigure headlessFirefoxCapabilities)
   where
     reconfigure c =
       c
@@ -395,9 +401,14 @@ inNewPrivateWindow = runIsolated (reconfigure headlessFirefoxCapabilities)
               o
                 { _firefoxArgs = Just ["-headless", "-private"],
                   _firefoxPrefs = Just (HashMap.singleton "Dom.storage.enabled" (JSON.Bool False)),
-                  _firefoxLog = Just (FirefoxLog (Just LogDebug))
+                  _firefoxLog = Just (FirefoxLog (Just (webdriverLogLevel checkWebDriverLogLevel)))
                 }
         }
+    webdriverLogLevel = \case
+      Debug -> WebDriver.LogDebug
+      Info -> WebDriver.LogInfo
+      Warn -> WebDriver.LogWarn
+      Error -> WebDriver.LogError
 
 -- | Mostly the same as the non-exported definition in 'Web.Api.WebDriver.Endpoints'.
 runIsolated ::

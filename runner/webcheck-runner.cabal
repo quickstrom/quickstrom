@@ -45,6 +45,7 @@ library
   import:             shared-deps
   exposed-modules:    WebCheck.Action
                     , WebCheck.Element
+                    , WebCheck.LogLevel
                     , WebCheck.Prelude
                     , WebCheck.Pretty
                     , WebCheck.PureScript.Eval

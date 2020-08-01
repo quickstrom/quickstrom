@@ -78,9 +78,16 @@ data FailingTest
 data CheckResult = CheckSuccess | CheckFailure {failedAfter :: Int, failingTest :: FailingTest}
   deriving (Show, Generic)
 
-data TestEvent = TestStarted
+data TestEvent
+  = TestStarted Size
+  | TestPassed Size (Trace TraceElementEffect)
+  | TestFailed Size (Trace TraceElementEffect)
+  | Shrinking Int
+  | RunningShrink Int
 
-data CheckEvent = CheckStarted | CheckTestEvent TestEvent
+data CheckEvent
+  = CheckStarted Int
+  | CheckTestEvent TestEvent
 
 data CheckEnv = CheckEnv {checkOptions :: CheckOptions, checkScripts :: CheckScripts}
 
@@ -116,7 +123,7 @@ data CheckScripts
 check :: Specification spec => CheckOptions -> spec -> Pipes.Producer CheckEvent IO CheckResult
 check opts@CheckOptions {checkTests} spec = do
   -- stdGen <- getStdGen
-  logInfo ("Running " <> show checkTests <> " tests...")
+  Pipes.yield (CheckStarted checkTests)
   env <- CheckEnv opts <$> lift readScripts
   Pipes.hoist (runWebDriver env) (runAll opts spec)
 
@@ -139,28 +146,37 @@ select f = forever do
   x <- Pipes.await
   maybe (pure ()) Pipes.yield (f x)
 
-runSingle :: Specification spec => spec -> Size -> Runner (Either FailingTest ())
+runSingle :: Specification spec => spec -> Size -> Producer TestEvent Runner (Either FailingTest ())
 runSingle spec size = do
+  Pipes.yield (TestStarted size)
   result <-
     generateValidActions (actions spec)
       >-> Pipes.take (fromIntegral (unSize size))
       & runAndVerifyIsolated 0
   case result of
     Right trace -> do
-      warnOnFewActions trace
-      warnOnActionFailures trace
+      Pipes.yield (TestPassed size trace)
       pure (Right ())
     f@(Left (FailingTest _ trace _)) -> do
-      warnOnFewActions trace
-      warnOnActionFailures trace
-      CheckOptions {checkShrinkLevels} <- liftWebDriverTT (asks checkOptions)
-      logInfoWD "Test failed. Shrinking..."
-      let shrinks = shrinkForest (QuickCheck.shrinkList shrinkAction) checkShrinkLevels (trace ^.. traceActions)
-      shrunk <- minBy (lengthOf (field @"trace" . traceElements)) (traverseShrinks runShrink shrinks >-> select (preview _Left) >-> Pipes.take 5)
-      pure (fromMaybe (void f) (Left <$> shrunk))
+      CheckOptions {checkShrinkLevels} <- lift (liftWebDriverTT (asks checkOptions))
+      Pipes.yield (TestFailed size trace)
+      if (checkShrinkLevels > 0)
+        then do
+          Pipes.yield (Shrinking checkShrinkLevels)
+          let shrinks = shrinkForest (QuickCheck.shrinkList shrinkAction) checkShrinkLevels (trace ^.. traceActions)
+          shrunk <-
+            minBy
+              (lengthOf (field @"trace" . traceElements))
+              ( traverseShrinks runShrink shrinks
+                  >-> select (preview _Left)
+                  >-> Pipes.take 5
+              )
+          pure (fromMaybe (void f) (Left <$> shrunk))
+        else pure (void f)
   where
+    runAndVerifyIsolated :: Int -> Producer (Action Selected) Runner () -> Producer TestEvent Runner (Either FailingTest (Trace TraceElementEffect))
     runAndVerifyIsolated n producer = do
-      trace <- annotateStutteringSteps <$> inNewPrivateWindow do
+      trace <- lift $ annotateStutteringSteps <$> inNewPrivateWindow do
         beforeRun spec
         elementsToTrace (producer >-> runActions' spec)
       case verify spec (trace ^.. nonStutterStates) of
@@ -168,35 +184,19 @@ runSingle spec size = do
         Right Rejected -> pure (Left (FailingTest n trace Nothing))
         Left err -> pure (Left (FailingTest n trace (Just err)))
     runShrink (Shrink n actions') = do
-      logInfoWD ("Running shrunk test at level " <> show n <> "...")
+      Pipes.yield (RunningShrink n)
       runAndVerifyIsolated n (Pipes.each actions')
-    warnOnFewActions trace =
-      case length (trace ^.. traceActions) of
-        0 -> logInfoWD ("Could not generate any valid actions.")
-        numActions
-          | numActions < fromIntegral (unSize size) ->
-            logInfoWD
-              ("Could only generate " <> show numActions <> "/" <> show (unSize size) <> " actions.")
-        _ -> pass
-    warnOnActionFailures trace =
-      case trace ^.. traceActionFailures of
-        [] -> pass
-        failures -> logInfoWD (renderString ("There were" <+> pretty (length failures) <+> "action failures"))
 
 runAll :: Specification spec => CheckOptions -> spec -> Producer CheckEvent Runner CheckResult
-runAll opts spec' = Pipes.yield CheckStarted >> untilFirstFailure
+runAll opts spec' = untilFirstFailure
   where
-    runSingle' :: Size -> Producer TestEvent Runner (Either FailingTest ())
-    runSingle' size = do
-      lift (logInfoWD ("Running test with size: " <> show (unSize size)))
-      lift (runSingle spec' size)
     untilFirstFailure :: Producer CheckEvent Runner CheckResult
     untilFirstFailure = go (sizes opts `zip` [1 ..])
       where
         go :: [(Size, Int)] -> Producer CheckEvent Runner CheckResult
         go [] = pure CheckSuccess
         go ((size, n) : rest) =
-          (runSingle' size >-> Pipes.map CheckTestEvent) >>= \case
+          (runSingle spec' size >-> Pipes.map CheckTestEvent) >>= \case
             Right {} -> go rest
             Left failingTest -> pure (CheckFailure n failingTest)
 
@@ -339,11 +339,7 @@ tryAction action =
   action
     `catchError` ( \case
                      ResponseError _ msg _ _ _ -> do
-                       logInfoWD (renderString (annotate (color Red) ("Action failed" <> colon) <+> pretty msg))
                        pure (ActionFailed (toS msg))
-                     NoSession -> do
-                       logInfoWD (renderString (annotate (color Red) ("No session" <> colon) <+> "Please try restarting geckodriver"))
-                       throwError NoSession
                      err -> throwError err
                  )
 
@@ -451,12 +447,6 @@ toRef (Element ref) = ElementRef (Text.unpack ref)
 fromRef :: ElementRef -> Element
 fromRef (ElementRef ref) = Element (Text.pack ref)
 
-logInfo :: MonadIO m => String -> m ()
-logInfo = liftIO . hPutStrLn stderr
-
-logInfoWD :: String -> Runner ()
-logInfoWD = liftWebDriverTT . logInfo
-
 awaitElement :: Selector -> Runner ()
 awaitElement sel = do
   let loop = do
@@ -492,6 +482,3 @@ readScripts = do
         registerNextStateObserver = \timeout queries' -> registerNextStateObserverScript [JSON.toJSON timeout, JSON.toJSON queries'],
         awaitNextState = \queries' -> awaitNextStateScript [JSON.toJSON queries']
       }
-
-renderString :: Doc AnsiStyle -> String
-renderString = Text.unpack . renderStrict . layoutPretty defaultLayoutOptions

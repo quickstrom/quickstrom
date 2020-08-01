@@ -11,9 +11,10 @@
 module Main where
 
 import Control.Lens hiding (argument)
-import Data.String (String)
+import qualified Data.Text as Text
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
+import Data.Text.Prettyprint.Doc.Symbols.Unicode (bullet)
 import Options.Applicative
 import qualified Pipes as Pipes
 import System.Directory (canonicalizePath)
@@ -133,20 +134,21 @@ main = do
                 checkOrigin = originUri,
                 checkMaxTrailingStateChanges = maxTrailingStateChanges
               }
-      Pipes.runEffect (Pipes.for (WebCheck.check opts spec) logEvent) >>= \case
+      result <- Pipes.runEffect (Pipes.for (WebCheck.check opts spec) logEvent)
+      logDoc $ line <> divider <> line
+      case result of
         WebCheck.CheckFailure {failedAfter, failingTest} -> do
-          putStrLn . renderString $
+          logDoc $
             WebCheck.prettyTrace (WebCheck.withoutStutterStates (WebCheck.trace failingTest))
-              <> line
           case WebCheck.reason failingTest of
-            Just err -> putStrLn (renderString (annotate (color Red) ("Verification failed with error:" <+> err <> line)))
+            Just err -> logDoc (line <> annotate (color Red) ("Test failed with error:" <+> err <> line))
             Nothing -> pure ()
-          putStrLn . renderString . annotate (color Red) $
-            "Failed after" <+> pretty failedAfter <+> "tests and" <+> pretty (WebCheck.numShrinks failingTest) <+> "levels of shrinking."
+          logDoc . annotate (color Red) $
+            line <> "Failed after" <+> pretty failedAfter <+> "tests and" <+> pretty (WebCheck.numShrinks failingTest) <+> "levels of shrinking." <> line
           exitWith (ExitFailure 1)
         WebCheck.CheckSuccess ->
-          putStrLn . renderString . annotate (color Green) $
-            "Passed" <+> pretty tests <+> "tests."
+          logDoc . annotate (color Green) $
+            line <> "Passed" <+> pretty tests <+> "tests." <> line
 
 libraryPathFromEnvironment :: ExceptT Text IO FilePath
 libraryPathFromEnvironment = do
@@ -157,20 +159,86 @@ libraryPathFromEnvironment = do
     key = "WEBCHECK_LIBRARY_DIR"
 
 logEvent :: WebCheck.CheckEvent -> Pipes.Effect IO ()
-logEvent e =
-  putStr (renderStrict (layoutPretty defaultLayoutOptions (renderCheckEvent e)))
+logEvent = lift . logDoc . renderCheckEvent
+
+logo :: Doc AnsiStyle
+logo =
+  -- http://patorjk.com/software/taag/#p=display&f=Ogre&t=WebCheck
+  -- with backslashes escaped
+  vsep
+    [ " __    __     _       ___ _               _    ",
+      "/ / /\\ \\ \\___| |__   / __\\ |__   ___  ___| | __",
+      "\\ \\/  \\/ / _ \\ '_ \\ / /  | '_ \\ / _ \\/ __| |/ /",
+      " \\  /\\  /  __/ |_) / /___| | | |  __/ (__|   < ",
+      "  \\/  \\/ \\___|_.__/\\____/|_| |_|\\___|\\___|_|\\_\\"
+    ]
+
+divider :: Doc ann
+divider = pretty (Text.replicate 80 "―")
 
 renderCheckEvent :: WebCheck.CheckEvent -> Doc AnsiStyle
 renderCheckEvent = \case
-  WebCheck.CheckStarted -> "Check started"
+  WebCheck.CheckStarted n ->
+    annotate bold logo
+      <> line
+      <> line
+      <> ("Running" <+> annotate (color Blue) (pretty n) <+> "tests...")
   WebCheck.CheckTestEvent e -> renderTestEvent e
 
 renderTestEvent :: WebCheck.TestEvent -> Doc AnsiStyle
 renderTestEvent = \case
-  WebCheck.TestStarted -> "Test started"
+  WebCheck.TestStarted size ->
+    line
+      <> divider
+      <> line
+      <> line
+      <> annotate bold (renderSize size <+> "Actions")
+  WebCheck.TestPassed size trace' ->
+    case traceWarnings size trace' of
+      [] -> annotate (color Green) "Test passed!"
+      warnings ->
+        annotate (color Yellow) "Test passed with warnings:"
+          <> line
+          <> line
+          <> renderList warnings
+  WebCheck.TestFailed _size trace' ->
+    line <> annotate (color Red) "Test failed:" <> line <> WebCheck.prettyTrace trace'
+  WebCheck.Shrinking level ->
+    line
+      <> annotate bold ("Shrinking failing test down to the" <+> ordinal level <+> "level..." <> line)
+  WebCheck.RunningShrink level ->
+    "Running shrunk test at level" <+> pretty level <> "."
+  where
+    traceWarnings :: WebCheck.Size -> WebCheck.Trace WebCheck.TraceElementEffect -> [Doc AnsiStyle]
+    traceWarnings size trace' =
+      let fewActions =
+            case length (trace' ^.. WebCheck.traceActions) of
+              0 -> ["Could not generate any valid actions."]
+              numActions
+                | numActions < fromIntegral (WebCheck.unSize size) ->
+                  ["Could only generate" <+> pretty numActions <> "/" <> renderSize size <+> "actions."]
+              _ -> []
+          actionFailures =
+            case trace' ^.. WebCheck.traceActionFailures of
+              [] -> []
+              failures -> ["There were" <+> pretty (length failures) <+> "action failures"]
+       in fewActions <> actionFailures
 
-renderString :: Doc AnsiStyle -> String
-renderString = toS . renderStrict . layoutPretty defaultLayoutOptions
+renderSize :: WebCheck.Size -> Doc AnsiStyle
+renderSize (WebCheck.Size s) = pretty s
+
+renderList :: [Doc ann] -> Doc ann
+renderList = vsep . map (\x -> bullet <+> align x)
+
+ordinal :: (Pretty n, Integral n) => n -> Doc ann
+ordinal n = pretty n <> case n `rem` 10 of
+  1 -> "st"
+  2 -> "nd"
+  3 -> "rd"
+  _ -> "th"
+
+logDoc :: Doc AnsiStyle -> IO ()
+logDoc = putStrLn . renderStrict . layoutPretty defaultLayoutOptions
 {-
 
 -- Simple example: a button that can be clicked, which then shows a message

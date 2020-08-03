@@ -19,7 +19,6 @@ import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
 import Data.Text.Prettyprint.Doc.Symbols.Unicode (bullet)
 import qualified Data.Vector as Vector
-import qualified Text.URI as URI
 import WebCheck.Element
 import WebCheck.Prelude
 import WebCheck.Trace
@@ -30,7 +29,7 @@ prettyAction = \case
   Focus sel -> "focus" <+> prettySelected sel
   KeyPress key -> "key press" <+> pretty (show key :: Text)
   EnterText t -> "enter text" <+> pretty (show t :: Text)
-  Navigate uri -> "navigate to" <+> pretty (URI.render uri)
+  Navigate uri -> "navigate to" <+> pretty uri
 
 prettySelected :: Selected -> Doc AnsiStyle
 prettySelected (Selected (Selector sel) i) = pretty sel <> brackets (pretty i)

@@ -5,13 +5,14 @@ editor.setTheme("ace/theme/github");
 editor.session.setMode("ace/mode/haskell");
 editor.setKeyboardHandler("ace/keyboard/vim");
 
-var textarea = document.querySelector('.specification-editor textarea[name=spec]');
-textarea.style.display = "none";
-
-editor.getSession().setValue(textarea.textContent);
-editor.getSession().on('change', function(){
-  textarea.textContent = editor.getSession().getValue();
-});
 
 editor.gotoLine(9, 14);
 editor.focus();
+
+var form = document.querySelector(".specification-editor");
+var submit = form.querySelector("[type=submit]");
+var origin = form.querySelector("[name=origin]");
+
+form.addEventListener("submit", (e) => {
+  e.preventDefault();
+});

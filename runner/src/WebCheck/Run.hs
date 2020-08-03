@@ -1,9 +1,9 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -43,7 +43,6 @@ import Data.String (String, fromString)
 import qualified Data.Text as Text
 import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
-import Data.Text.Prettyprint.Doc.Render.Terminal
 import Data.Tree
 import Data.Vector (Vector)
 import qualified Data.Vector as Vector
@@ -73,12 +72,12 @@ data FailingTest
   = FailingTest
       { numShrinks :: Int,
         trace :: Trace TraceElementEffect,
-        reason :: Maybe (Doc AnsiStyle)
+        reason :: Maybe Text
       }
-  deriving (Show, Generic)
+  deriving (Show, Generic, JSON.ToJSON)
 
 data CheckResult = CheckSuccess | CheckFailure {failedAfter :: Int, failingTest :: FailingTest}
-  deriving (Show, Generic)
+  deriving (Show, Generic, JSON.ToJSON)
 
 data TestEvent
   = TestStarted Size
@@ -86,10 +85,12 @@ data TestEvent
   | TestFailed Size (Trace TraceElementEffect)
   | Shrinking Int
   | RunningShrink Int
+  deriving (Show, Generic, JSON.ToJSON)
 
 data CheckEvent
   = CheckStarted Int
   | CheckTestEvent TestEvent
+  deriving (Show, Generic, JSON.ToJSON)
 
 data CheckEnv = CheckEnv {checkOptions :: CheckOptions, checkScripts :: CheckScripts}
 
@@ -370,7 +371,7 @@ runAction = \case
   KeyPress c -> sendKey c
   EnterText t -> sendKeys t
   Click s -> click s
-  Navigate url -> tryAction (ActionSuccess <$ navigateTo (URI.renderStr url))
+  Navigate uri -> tryAction (ActionSuccess <$ navigateTo (toS uri))
 
 runWebDriver :: CheckEnv -> Runner a -> IO a
 runWebDriver opts ma = do

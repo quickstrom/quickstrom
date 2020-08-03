@@ -8,18 +8,25 @@ build-type:           Simple
 
 executable webcheck-web
   build-depends:      base ^>= 4.12
+                    , aeson
+                    , binary
                     , containers
                     , directory
+                    , http-types
                     , lens
                     , lucid
                     , modern-uri
                     , optparse-applicative
+                    , pipes
                     , prettyprinter
                     , prettyprinter-ansi-terminal
                     , protolude
                     , process
                     , scotty
                     , text
+                    , unagi-chan
+                    , unordered-containers
+                    , uuid
                     , wai
                     , wai-middleware-static
                     , wai-extra

@@ -1,9 +1,9 @@
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -53,7 +53,7 @@ instance Monoid ObservedState where
   mempty = ObservedState mempty
 
 newtype Trace ann = Trace [TraceElement ann]
-  deriving (Show, Generic)
+  deriving (Show, Generic, ToJSON)
 
 traceElements :: Lens' (Trace ann) [TraceElement ann]
 traceElements = position @1
@@ -71,19 +71,19 @@ nonStutterStates :: Monoid r => Getting r (Trace TraceElementEffect) ObservedSta
 nonStutterStates = traceElements . traverse . _Ctor @"TraceState" . filtered ((== NoStutter) . fst) . position @2
 
 data ActionResult = ActionSuccess | ActionFailed Text | ActionImpossible
-  deriving (Show, Generic)
+  deriving (Show, Generic, ToJSON)
 
 data TraceElement ann
   = TraceAction ann (Action Selected) ActionResult
   | TraceState ann ObservedState
   -- TODO: `TraceEvent` when queried DOM nodes change
-  deriving (Show, Generic)
+  deriving (Show, Generic, ToJSON)
 
 ann :: Lens (TraceElement ann) (TraceElement ann2) ann ann2
 ann = position @1
 
 data TraceElementEffect = Stutter | NoStutter
-  deriving (Show, Eq)
+  deriving (Show, Eq, Generic, ToJSON)
 
 annotateStutteringSteps :: Trace a -> Trace TraceElementEffect
 annotateStutteringSteps (Trace els) = Trace (go els mempty)

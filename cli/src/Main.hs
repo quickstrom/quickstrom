@@ -95,20 +95,13 @@ optParser =
           <> help "Maximum number of trailing state changes to await"
       )
     <*> option
-      parseLogLevel
+      (eitherReader WebCheck.parseLogLevel)
       ( value WebCheck.LogInfo
           <> metavar "LEVEL"
           <> long "log-level"
           <> short 'l'
           <> help "Log level used by WebCheck and the backing WebDriver server (e.g. geckodriver)"
       )
-  where
-    parseLogLevel = eitherReader $ \case
-      "DEBUG" -> pure WebCheck.LogDebug
-      "INFO" -> pure WebCheck.LogInfo
-      "WARN" -> pure WebCheck.LogWarn
-      "ERROR" -> pure WebCheck.LogError
-      s -> Left ("Invalid log level: " <> s)
 
 optsInfo :: ParserInfo WebCheckOptions
 optsInfo =
@@ -158,7 +151,7 @@ main = do
           logDoc . logSingle Nothing $
             WebCheck.prettyTrace (WebCheck.withoutStutterStates (WebCheck.trace failingTest))
           case WebCheck.reason failingTest of
-            Just err -> logDoc (logSingle Nothing (line <> annotate (color Red) ("Test failed with error:" <+> err <> line)))
+            Just err -> logDoc (logSingle Nothing (line <> annotate (color Red) ("Test failed with error:" <+> pretty err <> line)))
             Nothing -> pure ()
           logDoc . logSingle Nothing . annotate (color Red) $
             line <> "Failed after" <+> pretty failedAfter <+> "tests and" <+> pretty (WebCheck.numShrinks failingTest) <+> "levels of shrinking." <> line

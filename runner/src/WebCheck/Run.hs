@@ -90,6 +90,7 @@ data TestEvent
 data CheckEvent
   = CheckStarted Int
   | CheckTestEvent TestEvent
+  | CheckFinished CheckResult
   deriving (Show, Generic, JSON.ToJSON)
 
 data CheckEnv = CheckEnv {checkOptions :: CheckOptions, checkScripts :: CheckScripts}
@@ -129,7 +130,9 @@ check opts@CheckOptions {checkTests} spec = do
   -- stdGen <- getStdGen
   Pipes.yield (CheckStarted checkTests)
   env <- CheckEnv opts <$> lift readScripts
-  Pipes.hoist (liftIO . runWebDriver env) (runAll opts spec)
+  res <- Pipes.hoist (liftIO . runWebDriver env) (runAll opts spec)
+  Pipes.yield (CheckFinished res)
+  pure res
 
 elementsToTrace :: Producer (TraceElement ()) Runner () -> Runner (Trace ())
 elementsToTrace = fmap Trace . Pipes.toListM

@@ -56,8 +56,9 @@ type App = ScottyT TL.Text (ReaderT Env IO) ()
 
 data ScheduledCheck
   = ScheduledCheck
-      { scheduledCheckEvents :: Chan.OutChan WebCheck.CheckEvent,
-        scheduledCheckResult :: Either Text (Maybe WebCheck.CheckResult)
+      { scheduledCheckEventsIn :: Chan.InChan WebCheck.CheckEvent,
+        scheduledCheckEventsOut :: Chan.OutChan WebCheck.CheckEvent,
+        scheduledCheckResult :: Maybe (Either Text WebCheck.CheckResult)
       }
 
 data SpecForm = SpecForm {code :: Text, origin :: Text}
@@ -113,11 +114,6 @@ homeView = layout "WebCheck" do
     script_ [src_ "/ace/ace.js"] (mempty @Text)
     script_ [src_ "/specification-editor.js"] (mempty @Text)
 
-checkResultsView :: Html () -> Html ()
-checkResultsView content = layout "Check Results" do
-  h1_ "Check Results"
-  content
-
 app :: WebOptions -> Env -> App
 app WebOptions {..} Env {..} = do
   middleware logStdoutDev
@@ -136,7 +132,7 @@ app WebOptions {..} Env {..} = do
       Right spec -> do
         checkId <- CheckId . UUID.toText <$> liftIO UUID.nextRandom
         (eventsIn, eventsOut) <- liftIO (Chan.newChan 1000)
-        modifyChecks (HashMap.insert checkId (ScheduledCheck eventsOut (Right Nothing)))
+        modifyChecks (HashMap.insert checkId (ScheduledCheck eventsIn eventsOut Nothing))
         let opts =
               WebCheck.CheckOptions
                 { checkTests = tests,
@@ -148,10 +144,10 @@ app WebOptions {..} Env {..} = do
                 }
         let action = do
               result <- Pipes.runEffect (Pipes.for (WebCheck.check opts spec) (liftIO . Chan.writeChan eventsIn))
-              modifyCheck checkId (\c -> c {scheduledCheckResult = Right (Just result)})
+              modifyCheck checkId (\c -> c {scheduledCheckResult = Just (Right result)})
         liftAndCatchIO . void . forkIO $
           action `catch` \(SomeException e) ->
-            modifyCheck checkId (\c -> c {scheduledCheckResult = Left (show e)})
+            modifyCheck checkId (\c -> c {scheduledCheckResult = Just (Left (show e))})
         let checkUri = baseUri <> "/checks/" <> unCheckId checkId
         json (CheckScheduledEntity Running checkUri "Check scheduled")
   get "/checks/:checkId" do
@@ -159,22 +155,24 @@ app WebOptions {..} Env {..} = do
     checks <- liftIO (readMVar scheduledChecks)
     case HashMap.lookup checkId checks of
       Just check' ->
-        either
-          (json . ErrorEntity)
-          (maybe (status HTTP.status202 >> json (ScheduledCheckEntity Running Nothing)) (json . ScheduledCheckEntity Finished . Just))
-          (scheduledCheckResult check')
+        case scheduledCheckResult check' of
+          Nothing -> (status HTTP.status202 >> json (ScheduledCheckEntity Running Nothing))
+          Just (Left err) -> json (ErrorEntity err)
+          Just (Right res) -> json (ScheduledCheckEntity Finished (Just res))
       Nothing -> status HTTP.status404 >> json (ErrorEntity "Check not found")
 
 sendCheckEvents :: MVar (HashMap CheckId ScheduledCheck) -> Middleware
 sendCheckEvents var app' req respond =
   case pathInfo req of
-    ["check", CheckId -> checkId, "events"] -> do
+    ["checks", CheckId -> checkId, "events"] -> do
       checks <- readMVar var
       case HashMap.lookup checkId checks of
-        Just ScheduledCheck {..} ->
+        Just ScheduledCheck {scheduledCheckEventsIn} -> do
+          out <- Chan.dupChan scheduledCheckEventsIn
           let nextEvent = do
-                ev <- Chan.readChan scheduledCheckEvents
-                pure (ServerEvent (Just "") Nothing [Builder.fromLazyByteString (JSON.encode ev)])
+                Chan.readChan out >>= \case
+                  WebCheck.CheckFinished{} -> pure CloseEvent
+                  ev -> pure (ServerEvent (Just "") Nothing [Builder.fromLazyByteString (JSON.encode ev)])
            in eventSourceAppIO nextEvent req respond
         Nothing -> respond (responseLBS HTTP.status404 [] "Check not found")
     _ -> app' req respond

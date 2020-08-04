@@ -192,6 +192,7 @@ renderCheckEvent = \case
         <> line
         <> ("Running" <+> annotate (color Blue) (pretty n) <+> "tests...")
   WebCheck.CheckTestEvent e -> renderTestEvent e
+  WebCheck.CheckFinished{} -> mempty
 
 renderTestEvent :: WebCheck.TestEvent -> [(Maybe WebCheck.LogLevel, Doc AnsiStyle)]
 renderTestEvent = \case

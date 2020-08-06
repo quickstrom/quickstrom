@@ -24,7 +24,7 @@ let
         inherit pkgs;
         haskellPackages = self;
       };
-      webcheck-web = import ./web {
+      webcheck-web-api = import ./web/api {
         inherit pkgs;
         haskellPackages = self;
       };

@@ -1,6 +1,6 @@
 cabal-version:        2.2
 
-name:                 webcheck-web
+name:                 webcheck-web-api
 version:              0.1.0.0
 author:               Oskar Wickström
 maintainer:           oskar@wickstrom.tech

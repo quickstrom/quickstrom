@@ -27,7 +27,6 @@ import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Text (renderStrict)
 import qualified Data.UUID as UUID
 import qualified Data.UUID.V4 as UUID
-import Lucid
 import qualified Network.HTTP.Types as HTTP
 import Network.Wai (Middleware, pathInfo, responseLBS)
 import Network.Wai.EventSource (ServerEvent (..), eventSourceAppIO)
@@ -37,6 +36,7 @@ import qualified Options.Applicative as Options
 import qualified Pipes as Pipes
 import System.Directory (canonicalizePath)
 import System.Environment (lookupEnv)
+import System.FilePath ((</>))
 import Text.URI (URI)
 import qualified Text.URI as URI
 import Text.URI.Lens (uriScheme)
@@ -76,51 +76,12 @@ data CheckScheduledEntity = CheckScheduledEntity {state :: ScheduledCheckState, 
 data ScheduledCheckEntity = ScheduledCheckEntity {state :: ScheduledCheckState, checkResult :: Maybe WebCheck.CheckResult}
   deriving (Show, Generic, JSON.ToJSON)
 
-layout :: Text -> Html () -> Html ()
-layout title content = do
-  html_ do
-    head_ do
-      title_ (toHtml title)
-      link_ [rel_ "stylesheet", href_ "/normalize.css"]
-      link_ [rel_ "stylesheet", href_ "/main.css"]
-      link_ [rel_ "stylesheet", href_ "/specification-editor.css"]
-    body_ do
-      header_ do
-        nav_ do
-          a_ [href_ "/"] "WebCheck"
-      main_ do
-        content
-    footer_ do
-      "Copyright "
-      toHtmlRaw @Text "&copy;"
-      " 2020 Oskar Wickström"
-
-homeView :: Html ()
-homeView = layout "WebCheck" do
-  form_ [class_ "specification-editor"] do
-    div_ [id_ "editor"] do
-      "module Specification where"
-      "\n\n"
-      "import WebCheck"
-      "\n\n"
-      "readyWhen = \"body\""
-      "\n\n"
-      "actions = clicks"
-      "\n\n"
-      "proposition = ?todo"
-    div_ [class_ "check-controls"] do
-      input_ [type_ "url", name_ "origin", placeholder_ "https://example.com"]
-      input_ [type_ "submit", value_ "Check"]
-    script_ [src_ "/ace/ace.js"] (mempty @Text)
-    script_ [src_ "/specification-editor.js"] (mempty @Text)
-
 app :: WebOptions -> Env -> App
 app WebOptions {..} Env {..} = do
   middleware logStdoutDev
   middleware (sendCheckEvents scheduledChecks)
   middleware (staticPolicy (addBase staticFilesPath))
-  get "/" do
-    renderHtml homeView
+  get "/" (file (staticFilesPath </> "index.html"))
   let modifyChecks f = liftIO (modifyMVar scheduledChecks (pure . (,()) . f))
       modifyCheck checkId f = modifyChecks (HashMap.adjust f checkId)
   post "/checks" do
@@ -143,7 +104,11 @@ app WebOptions {..} Env {..} = do
                   checkWebDriverLogLevel = logLevel
                 }
         let action = do
-              result <- Pipes.runEffect (Pipes.for (WebCheck.check opts spec) (liftIO . Chan.writeChan eventsIn))
+              result <-
+                Pipes.runEffect
+                  ( Pipes.for (WebCheck.check opts spec) \event ->
+                      liftIO (Chan.writeChan eventsIn event)
+                  )
               modifyCheck checkId (\c -> c {scheduledCheckResult = Just (Right result)})
         liftAndCatchIO . void . forkIO $
           action `catch` \(SomeException e) ->
@@ -167,12 +132,10 @@ sendCheckEvents var app' req respond =
     ["checks", CheckId -> checkId, "events"] -> do
       checks <- readMVar var
       case HashMap.lookup checkId checks of
-        Just ScheduledCheck {scheduledCheckEventsIn} -> do
-          out <- Chan.dupChan scheduledCheckEventsIn
+        Just ScheduledCheck {..} -> do
           let nextEvent = do
-                Chan.readChan out >>= \case
-                  WebCheck.CheckFinished{} -> pure CloseEvent
-                  ev -> pure (ServerEvent (Just "") Nothing [Builder.fromLazyByteString (JSON.encode ev)])
+                ev <- Chan.readChan scheduledCheckEventsOut
+                pure (ServerEvent (Just "") Nothing [Builder.fromLazyByteString (JSON.encode ev)])
            in eventSourceAppIO nextEvent req respond
         Nothing -> respond (responseLBS HTTP.status404 [] "Check not found")
     _ -> app' req respond
@@ -191,9 +154,6 @@ main = do
       scheduledChecks <- newMVar mempty
       let env = Env {modules, webOptions, scheduledChecks}
       scottyT 8080 (flip runReaderT env) (app webOptions env)
-
-renderHtml :: Monad m => Html () -> ActionT TL.Text m ()
-renderHtml = html . renderText
 
 renderString :: Doc () -> TL.Text
 renderString = toS . renderStrict . layoutPretty defaultLayoutOptions

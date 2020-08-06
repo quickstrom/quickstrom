@@ -1,19 +1,15 @@
 html {
     font-family: sans-serif;
 }
-body {
+html, body {
     display: flex;
     flex-direction: column;
     height: 100%;
 }
-body > header,
-body > footer {
+body > header {
     background: #eee;
     flex: 0 0 auto;
     padding: 1rem;
-}
-
-body > header {
     border-bottom: 1px solid #ccc;
 }
 
@@ -21,13 +17,6 @@ body > main {
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
-}
-
-body > footer {
-    font-size: .75rem;
-    color: #aaa;
-    text-align: center;
-    border-top: 1px solid #ccc;
 }
 
 header nav a {

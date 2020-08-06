@@ -14,7 +14,6 @@ executable webcheck-web
                     , directory
                     , http-types
                     , lens
-                    , lucid
                     , modern-uri
                     , optparse-applicative
                     , pipes

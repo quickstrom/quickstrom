@@ -211,7 +211,7 @@ instance MonadError EvalError m => ToHaskellValue m (Action Selector) where
       "KeyPress" -> KeyPress <$> toHaskellValue ss value
       "EnterText" -> EnterText <$> toHaskellValue ss value
       "Click" -> Click . Selector <$> toHaskellValue ss value
-      "Navigate" -> Navigate <$> (parseURI =<< toHaskellValue ss value)
+      "Navigate" -> Navigate <$> (fmap URI.render . parseURI =<< toHaskellValue ss value)
       _ -> throwError (ForeignFunctionError (Just ss) ("Unknown Action constructor: " <> ctor))
     where
       parseURI input =

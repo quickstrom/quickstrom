@@ -205,7 +205,7 @@ instance WebCheck.Specification SpecificationProgram where
 
   actions = specificationActions
 
-  verify sp states = (_Left %~ prettyEvalError) $ do
+  verify sp states = (_Left %~ (prettyText . prettyEvalError)) $ do
     valid <- toHaskellValue (moduleSourceSpan (programMain p)) =<< evalWithObservedStates p "proposition" states
     if valid then pure WebCheck.Accepted else pure WebCheck.Rejected
     where

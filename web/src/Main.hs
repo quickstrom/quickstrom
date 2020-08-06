@@ -1,5 +1,8 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
@@ -7,122 +10,139 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Main where
 
+import qualified Control.Concurrent.Chan.Unagi.Bounded as Chan
 import Control.Lens hiding (argument)
+import qualified Data.Aeson as JSON
+import qualified Data.Binary.Builder as Builder
+import Data.HashMap.Strict (HashMap)
+import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Text.Lazy as TL
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Text (renderStrict)
-import Lucid
+import qualified Data.UUID as UUID
+import qualified Data.UUID.V4 as UUID
+import qualified Network.HTTP.Types as HTTP
+import Network.Wai (Middleware, pathInfo, responseLBS)
+import Network.Wai.EventSource (ServerEvent (..), eventSourceAppIO)
 import Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import Network.Wai.Middleware.Static
 import qualified Options.Applicative as Options
+import qualified Pipes as Pipes
 import System.Directory (canonicalizePath)
 import System.Environment (lookupEnv)
+import System.FilePath ((</>))
 import Text.URI (URI)
 import qualified Text.URI as URI
 import Text.URI.Lens (uriScheme)
 import qualified Text.URI.QQ as URI
 import Web.Scotty.Trans
+import qualified WebCheck.LogLevel as WebCheck
 import WebCheck.Prelude hiding (get, option)
 import qualified WebCheck.PureScript.Program as WebCheck
 import qualified WebCheck.Run as WebCheck
-import qualified WebCheck.Trace as WebCheck
 
-data Env = Env {modules :: WebCheck.Modules, webOptions :: WebOptions}
+newtype CheckId = CheckId {unCheckId :: Text}
+  deriving (Eq, Show, Generic, Hashable)
+
+data Env = Env {modules :: WebCheck.Modules, webOptions :: WebOptions, scheduledChecks :: MVar (HashMap CheckId ScheduledCheck)}
 
 type App = ScottyT TL.Text (ReaderT Env IO) ()
 
-layout :: Text -> Html () -> Html ()
-layout title content = do
-  html_ do
-    head_ do
-      title_ (toHtml title)
-      link_ [rel_ "stylesheet", href_ "/normalize.css"]
-      link_ [rel_ "stylesheet", href_ "/main.css"]
-      link_ [rel_ "stylesheet", href_ "/specification-editor.css"]
-    body_ do
-      header_ do
-        nav_ do
-          a_ [href_ "/"] "WebCheck"
-      main_ do
-        content
-    footer_ do
-      "Copyright "
-      toHtmlRaw @Text "&copy;"
-      " 2020 Oskar Wickström"
+data ScheduledCheck
+  = ScheduledCheck
+      { scheduledCheckEventsIn :: Chan.InChan WebCheck.CheckEvent,
+        scheduledCheckEventsOut :: Chan.OutChan WebCheck.CheckEvent,
+        scheduledCheckResult :: Maybe (Either Text WebCheck.CheckResult)
+      }
 
-homeView :: Html ()
-homeView = layout "WebCheck" do
-  form_ [class_ "specification-editor", action_ "/checks", method_ "POST"] do
-    textarea_ [name_ "spec"] do
-      "module Specification where"
-      "\n\n"
-      "import WebCheck"
-      "\n\n"
-      "readyWhen = \"body\""
-      "\n\n"
-      "actions = clicks"
-      "\n\n"
-      "proposition = ?todo"
-    div_ [id_ "editor"] mempty
-    div_ [class_ "check-controls"] do
-      input_ [type_ "url", name_ "origin", placeholder_ "https://example.com"]
-      input_ [type_ "submit", value_ "Check"]
+data SpecForm = SpecForm {code :: Text, origin :: Text}
+  deriving (Eq, Show, Generic, JSON.FromJSON, JSON.ToJSON)
 
-    script_ [src_ "/ace/ace.js"] (mempty @Text)
-    script_ [src_ "/specification-editor.js"] (mempty @Text)
+data ErrorEntity = ErrorEntity {error :: Text}
+  deriving (Eq, Show, Generic, JSON.ToJSON)
 
-checkResultsView :: Html () -> Html ()
-checkResultsView content = layout "Check Results" do
-  h1_ "Check Results"
-  content
+data ScheduledCheckState = Running | Finished
+  deriving (Show, Generic, JSON.ToJSON)
 
-app :: WebOptions -> App
-app WebOptions {..} = do
+data CheckScheduledEntity = CheckScheduledEntity {state :: ScheduledCheckState, uri :: Text, message :: Text}
+  deriving (Show, Generic, JSON.ToJSON)
+
+data ScheduledCheckEntity = ScheduledCheckEntity {state :: ScheduledCheckState, checkResult :: Maybe WebCheck.CheckResult}
+  deriving (Show, Generic, JSON.ToJSON)
+
+app :: WebOptions -> Env -> App
+app WebOptions {..} Env {..} = do
   middleware logStdoutDev
+  middleware (sendCheckEvents scheduledChecks)
   middleware (staticPolicy (addBase staticFilesPath))
-  get "/" do
-    renderHtml homeView
+  get "/" (file (staticFilesPath </> "index.html"))
+  let modifyChecks f = liftIO (modifyMVar scheduledChecks (pure . (,()) . f))
+      modifyCheck checkId f = modifyChecks (HashMap.adjust f checkId)
   post "/checks" do
-    env <- ask
-    origin <- param "origin"
-    specCode <- param "spec"
-    originUri <- liftAndCatchIO (resolveAbsoluteURI origin)
-    specResult <- liftAndCatchIO (WebCheck.loadSpecification (modules env) specCode)
+    form <- jsonData
+    originUri <- liftAndCatchIO (resolveAbsoluteURI (origin form))
+    specResult <- liftAndCatchIO (WebCheck.loadSpecification modules (code form))
     case specResult of
-      Left err ->
-        renderHtml $ checkResultsView do
-          p_ do
-            "Check error:"
-            pre_ (code_ (toHtml err))
+      Left err -> status HTTP.status400 >> json err
       Right spec -> do
-        result <-
-          liftAndCatchIO $
-            WebCheck.check
-              WebCheck.CheckOptions {checkTests = tests, checkShrinkLevels = shrinkLevels, checkOrigin = originUri}
-              spec
-        case result of
-          WebCheck.CheckFailure {failedAfter, failingTest} -> do
-            let _trace' = (WebCheck.withoutStutterStates (WebCheck.trace failingTest))
-            renderHtml $ checkResultsView do
-              p_ do
-                "Check failed after "
-                toHtml @Text (show failedAfter)
-                "tests and"
-                toHtml @Text (show (WebCheck.numShrinks failingTest))
-                "levels of shrinking."
-              case WebCheck.reason failingTest of
-                Just err -> p_ (toHtml (renderString (unAnnotate err)))
-                Nothing -> mempty
-          WebCheck.CheckSuccess -> text "Check passed."
+        checkId <- CheckId . UUID.toText <$> liftIO UUID.nextRandom
+        (eventsIn, eventsOut) <- liftIO (Chan.newChan 1000)
+        modifyChecks (HashMap.insert checkId (ScheduledCheck eventsIn eventsOut Nothing))
+        let opts =
+              WebCheck.CheckOptions
+                { checkTests = tests,
+                  checkShrinkLevels = shrinkLevels,
+                  checkOrigin = originUri,
+                  checkMaxActions = maxActions,
+                  checkMaxTrailingStateChanges = maxTrailingStateChanges,
+                  checkWebDriverLogLevel = logLevel
+                }
+        let action = do
+              result <-
+                Pipes.runEffect
+                  ( Pipes.for (WebCheck.check opts spec) \event ->
+                      liftIO (Chan.writeChan eventsIn event)
+                  )
+              modifyCheck checkId (\c -> c {scheduledCheckResult = Just (Right result)})
+        liftAndCatchIO . void . forkIO $
+          action `catch` \(SomeException e) ->
+            modifyCheck checkId (\c -> c {scheduledCheckResult = Just (Left (show e))})
+        let checkUri = baseUri <> "/checks/" <> unCheckId checkId
+        json (CheckScheduledEntity Running checkUri "Check scheduled")
+  get "/checks/:checkId" do
+    checkId <- CheckId <$> param "checkId"
+    checks <- liftIO (readMVar scheduledChecks)
+    case HashMap.lookup checkId checks of
+      Just check' ->
+        case scheduledCheckResult check' of
+          Nothing -> (status HTTP.status202 >> json (ScheduledCheckEntity Running Nothing))
+          Just (Left err) -> json (ErrorEntity err)
+          Just (Right res) -> json (ScheduledCheckEntity Finished (Just res))
+      Nothing -> status HTTP.status404 >> json (ErrorEntity "Check not found")
+
+sendCheckEvents :: MVar (HashMap CheckId ScheduledCheck) -> Middleware
+sendCheckEvents var app' req respond =
+  case pathInfo req of
+    ["checks", CheckId -> checkId, "events"] -> do
+      checks <- readMVar var
+      case HashMap.lookup checkId checks of
+        Just ScheduledCheck {..} -> do
+          let nextEvent = do
+                ev <- Chan.readChan scheduledCheckEventsOut
+                pure (ServerEvent (Just "") Nothing [Builder.fromLazyByteString (JSON.encode ev)])
+           in eventSourceAppIO nextEvent req respond
+        Nothing -> respond (responseLBS HTTP.status404 [] "Check not found")
+    _ -> app' req respond
 
 main :: IO ()
 main = do
   webOptions <- Options.execParser optsInfo
-  putStrLn (staticFilesPath webOptions)
   modulesResult <- runExceptT do
     libPath <- maybe libraryPathFromEnvironment pure (libraryPath webOptions)
     ExceptT (WebCheck.loadLibraryModules libPath)
@@ -131,11 +151,9 @@ main = do
       hPutStrLn @Text stderr err
       exitWith (ExitFailure 1)
     Right modules -> do
-      let env = Env {modules, webOptions}
-      scottyT 8080 (flip runReaderT env) (app webOptions)
-
-renderHtml :: Monad m => Html () -> ActionT TL.Text m ()
-renderHtml = html . renderText
+      scheduledChecks <- newMVar mempty
+      let env = Env {modules, webOptions, scheduledChecks}
+      scottyT 8080 (flip runReaderT env) (app webOptions env)
 
 renderString :: Doc () -> TL.Text
 renderString = toS . renderStrict . layoutPretty defaultLayoutOptions
@@ -147,7 +165,11 @@ data WebOptions
       { libraryPath :: Maybe FilePath,
         staticFilesPath :: FilePath,
         tests :: Int,
-        shrinkLevels :: Int
+        shrinkLevels :: Int,
+        maxActions :: WebCheck.Size,
+        maxTrailingStateChanges :: Int,
+        logLevel :: WebCheck.LogLevel,
+        baseUri :: Text
       }
 
 optParser :: Options.Parser WebOptions
@@ -155,8 +177,7 @@ optParser =
   WebOptions
     <$> optional
       ( Options.strOption
-          ( Options.short 'l'
-              <> Options.long "library-directory"
+          ( Options.long "library-directory"
               <> Options.help "Directory containing compiled PureScript libraries used by WebCheck (falls back to the WEBCHECK_LIBRARY_DIR environment variable)"
           )
       )
@@ -179,6 +200,36 @@ optParser =
           <> Options.value 10
           <> Options.long "shrink-levels"
           <> Options.help "How many levels to shrink the generated actions after a failed test"
+      )
+    <*> ( WebCheck.Size
+            <$> Options.option
+              Options.auto
+              ( Options.value 100
+                  <> Options.metavar "NUMBER"
+                  <> Options.long "max-actions"
+                  <> Options.help "Maximum number of actions to generate in the largest test"
+              )
+        )
+    <*> Options.option
+      Options.auto
+      ( Options.value 0
+          <> Options.metavar "NUMBER"
+          <> Options.long "max-trailing-state-changes"
+          <> Options.help "Maximum number of trailing state changes to await"
+      )
+    <*> Options.option
+      (Options.eitherReader WebCheck.parseLogLevel)
+      ( Options.value WebCheck.LogInfo
+          <> Options.metavar "LEVEL"
+          <> Options.long "log-level"
+          <> Options.short 'l'
+          <> Options.help "Log level used by WebCheck and the backing WebDriver server (e.g. geckodriver)"
+      )
+    <*> Options.option
+      Options.str
+      ( Options.metavar "URI"
+          <> Options.long "base-uri"
+          <> Options.help "Base URI for links"
       )
 
 optsInfo :: Options.ParserInfo WebOptions

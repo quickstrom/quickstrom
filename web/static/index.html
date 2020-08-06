@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>WebCheck</title>
+    <link href="/normalize.css" rel="stylesheet" />
+    <link href="/main.css" rel="stylesheet" />
+    <link href="/specification-editor.css" rel="stylesheet" />
+  </head>
+  <body>
+    <header>
+      <nav><a href="/">WebCheck</a></nav>
+    </header>
+    <main>
+      <form action="/checks" method="POST" class="specification-editor">
+        <div class="main-pane">
+            <div id="editor">module Specification where
+
+import WebCheck
+import Data.Maybe (Maybe(..))
+import Data.Tuple (Tuple(Tuple))
+
+readyWhen = ".todoapp"
+
+actions = [Tuple 1 (Click ".todoapp a")]
+
+proposition = title == Just "React • TodoMVC"
+
+title = map _.textContent (queryOne "head title" { textContent })
+            </div>
+        </div>
+        <div class="side-pane run">
+            <ul class="check-log"></ul>
+            <div class="check-controls">
+                <input
+                    name="origin"
+                    type="url"
+                    value="http://todomvc.com/examples/react/"
+                    placeholder="https://example.com"
+                />
+                <input value="Check" type="submit" />
+            </div>
+        </div>
+      </form>
+    </main>
+    <script src="/ace/ace.js"></script>
+    <script src="/specification-editor.js"></script>
+  </body>
+</html>

@@ -11,7 +11,6 @@ module WebCheck.Specification where
 
 import Data.HashMap.Strict (HashMap)
 import Data.HashSet (HashSet)
-import Data.Text.Prettyprint.Doc (Doc)
 import Data.Vector (Vector)
 import WebCheck.Element
 import WebCheck.Prelude
@@ -24,4 +23,4 @@ class Specification s where
   readyWhen :: s -> Selector
   actions :: s -> Vector (Int, Action Selector)
   queries :: s -> Queries
-  verify :: s -> [ObservedState] -> Either (Doc ann) Result
+  verify :: s -> [ObservedState] -> Either Text Result

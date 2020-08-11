@@ -34,12 +34,12 @@ in webcheck.haskellPackages.shellFor {
   buildInputs = (with pkgs; [
     nixfmt
     ghcid
-    ghcide
+    webcheck.haskellPackages.haskell-language-server
     cabal-install
-    haskellPackages.ormolu
+    webcheck.haskellPackages.ormolu
     firefox
     geckodriver
-    haskellPackages.ghc-prof-flamegraph
+    webcheck.haskellPackages.ghc-prof-flamegraph
     easy-ps.purty
     # chromium
     # chromedriver

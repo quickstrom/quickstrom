@@ -59,7 +59,15 @@ data ScheduledCheck
         scheduledCheckResult :: Maybe (Either Text WebCheck.CheckResult)
       }
 
-data SpecForm = SpecForm {code :: Text, origin :: Text}
+data SpecForm = SpecForm {spec :: SpecSource, origin :: Text}
+  deriving (Eq, Show, Generic, JSON.FromJSON, JSON.ToJSON)
+
+-- TODO: Other sources, perhaps:
+-- * DB-persisted specs
+-- * Github repository specs
+-- * Gist specs
+-- * Pre-bundled specs
+data SpecSource = SpecCode { code :: Text }
   deriving (Eq, Show, Generic, JSON.FromJSON, JSON.ToJSON)
 
 data ErrorEntity = ErrorEntity {error :: Text}
@@ -83,7 +91,8 @@ app WebOptions {..} Env {..} = do
   post "/checks" do
     form <- jsonData
     originUri <- liftAndCatchIO (resolveAbsoluteURI (origin form))
-    specResult <- liftAndCatchIO (WebCheck.loadSpecification modules (code form))
+    let SpecCode code = spec form
+    specResult <- liftAndCatchIO (WebCheck.loadSpecification modules code)
     case specResult of
       Left err -> status HTTP.status400 >> json err
       Right spec -> do

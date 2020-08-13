@@ -1,58 +1,44 @@
-# WebCheck DSL
+This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
-This is the DSL used by testers when writing specifications. It's based on
-PureScript.
+## Available Scripts
 
-## Requirements
+In the project directory, you can run:
 
-- Nix
+### `yarn start`
 
-## Building
+Runs the app in the development mode.<br />
+Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
 
-A regular build, for use in WebCheck, is done with Nix:
+The page will reload if you make edits.<br />
+You will also see any lint errors in the console.
 
-```
-$ nix-build
-```
+### `yarn test`
 
-This creates a derivation with compiled externs and CoreFn
-representations of all dependencies, including the WebCheck modules in
-this package.
+Launches the test runner in the interactive watch mode.<br />
+See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
 
-WebCheck's Nix build invokes this build itself, so you generally don't
-need to run `nix-build` for this package.
+### `yarn build`
 
-## Hacking
+Builds the app for production to the `build` folder.<br />
+It correctly bundles React in production mode and optimizes the build for the best performance.
 
-First, install the packages in the Spago directory.
+The build is minified and the filenames include the hashes.<br />
+Your app is ready to be deployed!
 
+See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
 
-```
-$ nix-shell
-...
-$ spago2nix install -j 100
-```
+### `yarn eject`
 
-Now all dependencies should be in the standard Spago location, so that
-Spago and the PureScript IDE works as usual. Launch your editor and use
-this package as the project root, and it should work nicely!
+**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
 
-You can build the WebCheck libraries manually with spago. This is useful if
-you're hacking on these modules (or the specifications in `specs/`) and want
-to run WebCheck against your working copy (see `WEBCHECK_LIBRARY_DIR` in the
-root README).
+If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
 
-```
-$ spago build -u '-g corefn'
-```
+Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
 
-## Generating Spago Packages
+You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
 
-If the dependencies or package set change, the Spago packages file for
-Nix needs to be regenerated:
+## Learn More
 
-```
-$ nix-shell
-...
-$ spago2nix generate
-```
+You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+
+To learn React, check out the [React documentation](https://reactjs.org/).

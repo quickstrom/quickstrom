@@ -1,22 +1,14 @@
-{ pkgs ? import ../../nixpkgs.nix {} }:
+{ pkgs ? import ../../nixpkgs.nix { } }:
 let
-  easy-ps = import ./easy-ps.nix { inherit pkgs; };
-  
-  spagoPkgs = import ./spago-packages.nix { inherit pkgs; };
-
-  getQuotedSourceGlob = x: ''"${x.src}/src/**/*.purs"'';
-
-  psPkgs = (builtins.attrValues spagoPkgs.inputs) ++ [{ src = ./.; }];
-
-  source-globs = map getQuotedSourceGlob psPkgs;
-
-  bundle = pkgs.runCommand "bundle" {
-    buildInputs = [ easy-ps.purs-0_13_8 ];
-  } ''
-      mkdir $out
-      purs compile -g corefn ${toString source-globs} --output=$out
-    '';
-
-  in {
-    inherit source-globs bundle;
-  }
+  frontend = pkgs.mkYarnPackage {
+    name = "frontend";
+    src = ./.;
+    packageJSON = ./package.json;
+    yarnLock = ./yarn.lock;
+    # NOTE: this is optional and generated dynamically if omitted
+    yarnNix = ./yarn.nix;
+    buildPhase = "yarn build";
+    installPhase = "mv /build/$pname/deps/$pname/build $out";
+    distPhase = "true";
+  };
+in frontend

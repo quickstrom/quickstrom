@@ -41,6 +41,8 @@ in webcheck.haskellPackages.shellFor {
     geckodriver
     webcheck.haskellPackages.ghc-prof-flamegraph
     easy-ps.purty
+    yarn
+    yarn2nix
     # chromium
     # chromedriver
 

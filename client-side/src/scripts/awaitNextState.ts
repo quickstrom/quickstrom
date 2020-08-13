@@ -1,23 +1,13 @@
 import { ObservedStateJSON } from "../queries";
 
-const registeredObservers: Map<string, Promise<ObservedStateJSON>> =
-  (() => {
-    // @ts-ignore
-    const r = window.registeredObservers;
-    if (r) {
-      return r;
-    } else {
-      throw Error("Registered observers not initialized!");
-    }
-  })();
+const registeredObserver:
+  | Promise<ObservedStateJSON | null>
+  | undefined = (window as any).registeredObserver;
 
 // @ts-ignore
-const [id, done] = args;
+const [done] = args;
 
-(
-  registeredObservers.get(id) ||
-  Promise.reject(`No registered state observer for ID: ${id}`)
-)
+(registeredObserver || Promise.resolve(null))
   .then((x) => ({
     Right: x,
   }))

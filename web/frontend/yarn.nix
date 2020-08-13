@@ -1786,6 +1786,14 @@
       };
     }
     {
+      name = "ace_builds___ace_builds_1.4.12.tgz";
+      path = fetchurl {
+        name = "ace_builds___ace_builds_1.4.12.tgz";
+        url  = "https://registry.yarnpkg.com/ace-builds/-/ace-builds-1.4.12.tgz";
+        sha1 = "888efa386e36f4345f40b5233fcc4fe4c588fae7";
+      };
+    }
+    {
       name = "acorn_globals___acorn_globals_4.3.4.tgz";
       path = fetchurl {
         name = "acorn_globals___acorn_globals_4.3.4.tgz";
@@ -3751,6 +3759,14 @@
         name = "detect_port_alt___detect_port_alt_1.1.6.tgz";
         url  = "https://registry.yarnpkg.com/detect-port-alt/-/detect-port-alt-1.1.6.tgz";
         sha1 = "24707deabe932d4a3cf621302027c2b266568275";
+      };
+    }
+    {
+      name = "diff_match_patch___diff_match_patch_1.0.5.tgz";
+      path = fetchurl {
+        name = "diff_match_patch___diff_match_patch_1.0.5.tgz";
+        url  = "https://registry.yarnpkg.com/diff-match-patch/-/diff-match-patch-1.0.5.tgz";
+        sha1 = "abb584d5f10cd1196dfc55aa03701592ae3f7b37";
       };
     }
     {
@@ -6666,6 +6682,22 @@
       };
     }
     {
+      name = "lodash.get___lodash.get_4.4.2.tgz";
+      path = fetchurl {
+        name = "lodash.get___lodash.get_4.4.2.tgz";
+        url  = "https://registry.yarnpkg.com/lodash.get/-/lodash.get-4.4.2.tgz";
+        sha1 = "2d177f652fa31e939b4438d5341499dfa3825e99";
+      };
+    }
+    {
+      name = "lodash.isequal___lodash.isequal_4.5.0.tgz";
+      path = fetchurl {
+        name = "lodash.isequal___lodash.isequal_4.5.0.tgz";
+        url  = "https://registry.yarnpkg.com/lodash.isequal/-/lodash.isequal-4.5.0.tgz";
+        sha1 = "415c4478f2bcc30120c22ce10ed3226f7d3e18e0";
+      };
+    }
+    {
       name = "lodash.memoize___lodash.memoize_4.1.2.tgz";
       path = fetchurl {
         name = "lodash.memoize___lodash.memoize_4.1.2.tgz";
@@ -8919,6 +8951,14 @@
         name = "raw_body___raw_body_2.4.0.tgz";
         url  = "https://registry.yarnpkg.com/raw-body/-/raw-body-2.4.0.tgz";
         sha1 = "a1ce6fb9c9bc356ca52e89256ab59059e13d0332";
+      };
+    }
+    {
+      name = "react_ace___react_ace_9.1.3.tgz";
+      path = fetchurl {
+        name = "react_ace___react_ace_9.1.3.tgz";
+        url  = "https://registry.yarnpkg.com/react-ace/-/react-ace-9.1.3.tgz";
+        sha1 = "848dc3741d5460f3ac73468b6c39879aab9238bc";
       };
     }
     {

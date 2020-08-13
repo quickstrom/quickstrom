@@ -1,0 +1,22 @@
+.layout {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.nav ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    background: #222;
+    color: #fff;
+}
+.nav li {
+    padding: 1rem;
+}
+
+.layout main {
+    flex: 1 1 auto;
+}

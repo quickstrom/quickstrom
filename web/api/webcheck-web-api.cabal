@@ -12,7 +12,6 @@ executable webcheck-web
                     , binary
                     , containers
                     , directory
-                    , filepath
                     , http-types
                     , lens
                     , modern-uri
@@ -28,7 +27,6 @@ executable webcheck-web
                     , unordered-containers
                     , uuid
                     , wai
-                    , wai-middleware-static
                     , wai-extra
                     , webcheck-runner
 

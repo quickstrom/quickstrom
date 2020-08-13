@@ -31,12 +31,10 @@ import qualified Network.HTTP.Types as HTTP
 import Network.Wai (Middleware, pathInfo, responseLBS)
 import Network.Wai.EventSource (ServerEvent (..), eventSourceAppIO)
 import Network.Wai.Middleware.RequestLogger (logStdoutDev)
-import Network.Wai.Middleware.Static
 import qualified Options.Applicative as Options
 import qualified Pipes as Pipes
 import System.Directory (canonicalizePath)
 import System.Environment (lookupEnv)
-import System.FilePath ((</>))
 import Text.URI (URI)
 import qualified Text.URI as URI
 import Text.URI.Lens (uriScheme)
@@ -80,8 +78,6 @@ app :: WebOptions -> Env -> App
 app WebOptions {..} Env {..} = do
   middleware logStdoutDev
   middleware (sendCheckEvents scheduledChecks)
-  middleware (staticPolicy (addBase staticFilesPath))
-  get "/" (file (staticFilesPath </> "index.html"))
   let modifyChecks f = liftIO (modifyMVar scheduledChecks (pure . (,()) . f))
       modifyCheck checkId f = modifyChecks (HashMap.adjust f checkId)
   post "/checks" do
@@ -163,7 +159,6 @@ renderString = toS . renderStrict . layoutPretty defaultLayoutOptions
 data WebOptions
   = WebOptions
       { libraryPath :: Maybe FilePath,
-        staticFilesPath :: FilePath,
         tests :: Int,
         shrinkLevels :: Int,
         maxActions :: WebCheck.Size,
@@ -180,12 +175,6 @@ optParser =
           ( Options.long "library-directory"
               <> Options.help "Directory containing compiled PureScript libraries used by WebCheck (falls back to the WEBCHECK_LIBRARY_DIR environment variable)"
           )
-      )
-    <*> Options.strOption
-      ( Options.short 's'
-          <> Options.long "static-files-directory"
-          <> Options.help "Directory containing static files"
-          <> Options.value "static"
       )
     <*> Options.option
       Options.auto

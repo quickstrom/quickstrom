@@ -1,1 +1,1 @@
-packages: */*.cabal
+packages: */*.cabal */*/*.cabal

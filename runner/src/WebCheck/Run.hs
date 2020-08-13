@@ -1,6 +1,7 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
@@ -28,11 +29,9 @@ module WebCheck.Run
 where
 
 import Control.Lens hiding (each)
-import Control.Monad ((>=>), fail, forever, void, when)
-import Control.Monad (filterM)
+import Control.Monad (fail, filterM, forever, void, when, (>=>))
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Loops (andM)
-import Control.Monad.Trans.Class (MonadTrans)
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import qualified Data.Aeson as JSON
 import Data.Function ((&))
@@ -49,7 +48,7 @@ import qualified Data.Vector as Vector
 import GHC.Generics (Generic)
 import Network.HTTP.Client as Http
 import qualified Network.Wreq as Wreq
-import Pipes ((>->), Pipe, Producer)
+import Pipes (Pipe, Producer, (>->))
 import qualified Pipes
 import qualified Pipes.Prelude as Pipes
 import System.Environment (lookupEnv)
@@ -68,45 +67,46 @@ import WebCheck.Trace
 
 type Runner = WebDriverTT (ReaderT CheckEnv) IO
 
-data FailingTest
-  = FailingTest
-      { numShrinks :: Int,
-        trace :: Trace TraceElementEffect,
-        reason :: Maybe Text
-      }
+data FailingTest = FailingTest
+  { numShrinks :: Int,
+    trace :: Trace TraceElementEffect,
+    reason :: Maybe Text
+  }
   deriving (Show, Generic, JSON.ToJSON)
 
 data CheckResult = CheckSuccess | CheckFailure {failedAfter :: Int, failingTest :: FailingTest}
   deriving (Show, Generic, JSON.ToJSON)
 
 data TestEvent
-  = TestStarted Size
-  | TestPassed Size (Trace TraceElementEffect)
-  | TestFailed Size (Trace TraceElementEffect)
-  | Shrinking Int
-  | RunningShrink Int
+  = TestStarted {size :: Size}
+  | TestPassed {size :: Size, trace :: Trace TraceElementEffect}
+  | TestFailed {size :: Size, trace :: Trace TraceElementEffect}
+  | Shrinking { maxLevel :: Int }
+  | RunningShrink { level :: Int }
   deriving (Show, Generic, JSON.ToJSON)
 
 data CheckEvent
-  = CheckStarted Int
-  | CheckTestEvent TestEvent
-  | CheckFinished CheckResult
+  = CheckStarted { maxActions :: Int }
+  | CheckTestEvent { testEvent :: TestEvent }
+  | CheckFinished { result :: CheckResult }
   deriving (Show, Generic, JSON.ToJSON)
 
 data CheckEnv = CheckEnv {checkOptions :: CheckOptions, checkScripts :: CheckScripts}
 
-data CheckOptions
-  = CheckOptions
-      { checkTests :: Int,
-        checkMaxActions :: Size,
-        checkShrinkLevels :: Int,
-        checkOrigin :: URI,
-        checkMaxTrailingStateChanges :: Int,
-        checkWebDriverLogLevel :: LogLevel
-      }
+data CheckOptions = CheckOptions
+  { checkTests :: Int,
+    checkMaxActions :: Size,
+    checkShrinkLevels :: Int,
+    checkOrigin :: URI,
+    checkMaxTrailingStateChanges :: Int,
+    checkWebDriverLogLevel :: LogLevel
+  }
 
-newtype Size = Size {unSize :: Word32}
+newtype Size = Size Word32
   deriving (Eq, Show, Generic, JSON.FromJSON, JSON.ToJSON)
+
+unSize :: Size -> Word32
+unSize (Size s) = s
 
 newtype Timeout = Timeout Word64
   deriving (Eq, Show, Generic, JSON.FromJSON, JSON.ToJSON)
@@ -117,13 +117,12 @@ mapTimeout f (Timeout ms) = Timeout (f ms)
 newtype ObserverId = ObserverId Text
   deriving (Eq, Show, Generic, JSON.FromJSON, JSON.ToJSON)
 
-data CheckScripts
-  = CheckScripts
-      { isElementVisible :: Element -> Runner Bool,
-        observeState :: Queries -> Runner ObservedState,
-        registerNextStateObserver :: Timeout -> Queries -> Runner ObserverId,
-        awaitNextState :: ObserverId -> Runner ObservedState
-      }
+data CheckScripts = CheckScripts
+  { isElementVisible :: Element -> Runner Bool,
+    observeState :: Queries -> Runner ObservedState,
+    registerNextStateObserver :: Timeout -> Queries -> Runner ObserverId,
+    awaitNextState :: ObserverId -> Runner ObservedState
+  }
 
 check :: (MonadIO m, Specification spec) => CheckOptions -> spec -> Pipes.Producer CheckEvent m CheckResult
 check opts@CheckOptions {checkTests} spec = do
@@ -353,9 +352,10 @@ tryAction action =
                  )
 
 click :: Selected -> Runner ActionResult
-click = findSelected >=> \case
-  Just e -> tryAction (ActionSuccess <$ (elementClick (toRef e)))
-  Nothing -> pure ActionImpossible
+click =
+  findSelected >=> \case
+    Just e -> tryAction (ActionSuccess <$ (elementClick (toRef e)))
+    Nothing -> pure ActionImpossible
 
 sendKeys :: Text -> Runner ActionResult
 sendKeys t = tryAction (ActionSuccess <$ (getActiveElement >>= elementSendKeys (toS t)))
@@ -364,9 +364,10 @@ sendKey :: Char -> Runner ActionResult
 sendKey = sendKeys . Text.singleton
 
 focus :: Selected -> Runner ActionResult
-focus = findSelected >=> \case
-  Just e -> tryAction (ActionSuccess <$ (elementSendKeys "" (toRef e)))
-  Nothing -> pure ActionImpossible
+focus =
+  findSelected >=> \case
+    Just e -> tryAction (ActionSuccess <$ (elementSendKeys "" (toRef e)))
+    Nothing -> pure ActionImpossible
 
 runAction :: Action Selected -> Runner ActionResult
 runAction = \case
@@ -400,13 +401,14 @@ inNewPrivateWindow CheckOptions {checkWebDriverLogLevel} =
   where
     reconfigure c =
       c
-        { _firefoxOptions = (_firefoxOptions c)
-            <&> \o ->
-              o
-                { _firefoxArgs = Just ["-headless", "-private"],
-                  _firefoxPrefs = Just (HashMap.singleton "Dom.storage.enabled" (JSON.Bool False)),
-                  _firefoxLog = Just (FirefoxLog (Just (webdriverLogLevel checkWebDriverLogLevel)))
-                }
+        { _firefoxOptions =
+            (_firefoxOptions c)
+              <&> \o ->
+                o
+                  { _firefoxArgs = Just ["-headless", "-private"],
+                    _firefoxPrefs = Just (HashMap.singleton "Dom.storage.enabled" (JSON.Bool False)),
+                    _firefoxLog = Just (FirefoxLog (Just (webdriverLogLevel checkWebDriverLogLevel)))
+                  }
         }
     webdriverLogLevel = \case
       LogDebug -> WebDriver.LogDebug

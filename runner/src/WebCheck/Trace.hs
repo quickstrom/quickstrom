@@ -52,7 +52,7 @@ instance Semigroup ObservedState where
 instance Monoid ObservedState where
   mempty = ObservedState mempty
 
-newtype Trace ann = Trace [TraceElement ann]
+newtype Trace ann = Trace {elements :: [TraceElement ann]}
   deriving (Show, Generic, ToJSON)
 
 traceElements :: Lens' (Trace ann) [TraceElement ann]
@@ -70,13 +70,12 @@ traceActionFailures = traceElements . traverse . _Ctor @"TraceAction" . position
 nonStutterStates :: Monoid r => Getting r (Trace TraceElementEffect) ObservedState
 nonStutterStates = traceElements . traverse . _Ctor @"TraceState" . filtered ((== NoStutter) . fst) . position @2
 
-data ActionResult = ActionSuccess | ActionFailed Text | ActionImpossible
+data ActionResult = ActionSuccess | ActionFailed {reason :: Text} | ActionImpossible
   deriving (Show, Generic, ToJSON)
 
 data TraceElement ann
-  = TraceAction ann (Action Selected) ActionResult
-  | TraceState ann ObservedState
-  -- TODO: `TraceEvent` when queried DOM nodes change
+  = TraceAction {annotation :: ann, action :: Action Selected, result :: ActionResult}
+  | TraceState {annotation :: ann, state :: ObservedState}
   deriving (Show, Generic, ToJSON)
 
 ann :: Lens (TraceElement ann) (TraceElement ann2) ann ann2
@@ -89,8 +88,8 @@ annotateStutteringSteps :: Trace a -> Trace TraceElementEffect
 annotateStutteringSteps (Trace els) = Trace (go els mempty)
   where
     -- TODO: Not tail-recursive, might neeu optimization
-    go (TraceAction _ action result : rest) lastState =
-      (TraceAction NoStutter action result : go rest lastState)
+    go (TraceAction _ action' result' : rest) lastState =
+      (TraceAction NoStutter action' result' : go rest lastState)
     go (TraceState _ newState : rest) lastState =
       let ann' = if newState == lastState then Stutter else NoStutter
        in TraceState ann' newState : go rest newState

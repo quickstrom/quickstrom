@@ -15,4 +15,4 @@ jobs:
         # Only needed for private caches
         #authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
     - run: nix-build
-    - run: nix-shell --run "specs/run-all.sh"
+    - run: nix-shell --run "WEBCHECK=result/bin/webcheck specs/run-all.sh"

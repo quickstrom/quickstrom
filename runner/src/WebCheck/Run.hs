@@ -114,15 +114,12 @@ newtype Timeout = Timeout Word64
 mapTimeout :: (Word64 -> Word64) -> Timeout -> Timeout
 mapTimeout f (Timeout ms) = Timeout (f ms)
 
-newtype ObserverId = ObserverId Text
-  deriving (Eq, Show, Generic, JSON.FromJSON, JSON.ToJSON)
-
 data CheckScripts
   = CheckScripts
       { isElementVisible :: Element -> Runner Bool,
         observeState :: Queries -> Runner ObservedState,
-        registerNextStateObserver :: Timeout -> Queries -> Runner ObserverId,
-        awaitNextState :: ObserverId -> Runner ObservedState
+        registerNextStateObserver :: Timeout -> Queries -> Runner (),
+        awaitNextState :: Runner (Maybe ObservedState)
       }
 
 check :: (MonadIO m, Specification spec) => CheckOptions -> spec -> Pipes.Producer CheckEvent m CheckResult
@@ -229,9 +226,11 @@ takeWhileChanging = Pipes.await >>= loop
 observeManyStatesAfter :: Queries -> Action Selected -> Pipe a (TraceElement ()) Runner ()
 observeManyStatesAfter queries' action = do
   CheckEnv {checkScripts = scripts, checkOptions = CheckOptions {checkMaxTrailingStateChanges}} <- lift (liftWebDriverTT ask)
-  observer <- lift (registerNextStateObserver scripts (Timeout 100) queries')
+  lift (registerNextStateObserver scripts (Timeout 100) queries')
   result <- lift (runAction action)
-  newState <- lift (awaitNextState scripts observer)
+  newState <- lift (awaitNextState scripts) >>= \case
+    Just state' -> pure state'
+    Nothing -> lift (observeState scripts queries')
   Pipes.yield (TraceAction () action result)
   Pipes.yield (TraceState () newState)
   nonStutters <-
@@ -243,7 +242,11 @@ observeManyStatesAfter queries' action = do
     loop :: Timeout -> Producer ObservedState Runner ()
     loop timeout = do
       scripts <- lift (liftWebDriverTT (asks checkScripts))
-      newState <- lift (awaitNextState scripts =<< registerNextStateObserver scripts timeout queries')
+      newState <- lift do
+        registerNextStateObserver scripts timeout queries'
+        awaitNextState scripts >>= \case
+          Just state' -> pure state'
+          Nothing -> observeState scripts queries'
       Pipes.yield newState
       loop (mapTimeout (* 2) timeout)
 
@@ -495,5 +498,5 @@ readScripts = do
       { isElementVisible = \el -> (== JSON.Bool True) <$> isElementVisibleScript [JSON.toJSON el],
         observeState = \queries' -> observeStateScript [JSON.toJSON queries'],
         registerNextStateObserver = \timeout queries' -> registerNextStateObserverScript [JSON.toJSON timeout, JSON.toJSON queries'],
-        awaitNextState = \queries' -> awaitNextStateScript [JSON.toJSON queries']
+        awaitNextState = awaitNextStateScript []
       }

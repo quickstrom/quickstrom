@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Form</title>
+</head>
+<body>
+    <form action="MultiPage.html">
+        <input type="text" name="message">
+        <input type="submit" value="Go">
+    </form>
+    <p style="display: none;" id="message"></p>
+    <script>
+        const form = document.querySelector("form");
+        const msg = document.querySelector("#message");
+        const params = new URLSearchParams(window.location.search);
+        const msg = params.get('message');
+        if (msg) {
+            form.remove();
+            msg.textContent = msg;
+        }
+    </script>
+</body>
+</html>

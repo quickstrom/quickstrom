@@ -466,12 +466,14 @@ fromRef :: ElementRef -> Element
 fromRef (ElementRef ref) = Element (Text.pack ref)
 
 awaitElement :: Selector -> Runner ()
-awaitElement sel = do
-  let loop = do
-        findAll sel >>= \case
-          [] -> liftWebDriverTT (liftIO (threadDelay 1000000)) >> loop
-          _ -> pass
-  loop
+awaitElement sel@(Selector s) =
+  let loop n
+        | n > 10  = fail ("Giving up after having waited 10 seconds for selector to match an element: " <> toS s)
+        | otherwise =
+            findAll sel >>= \case
+              [] -> liftWebDriverTT (liftIO (threadDelay 1000000)) >> loop (n + 1)
+              _ -> pass
+  in loop (1 :: Int)
 
 executeScript' :: JSON.FromJSON r => Script -> [JSON.Value] -> Runner r
 executeScript' script args = do

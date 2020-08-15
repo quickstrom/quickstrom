@@ -13,9 +13,11 @@ function run_test {
     uri="$2"
     options="${3:---tests 10 --max-actions 100}"
     expected_exit_code="$4"
-    echo "Specification: $spec_file"
-    echo "Origin: $uri"
-    echo "Options: $options"
+    echo "################################################################################"
+    echo "# Specification: $spec_file"
+    echo "# Origin:        $uri"
+    echo "# Options:       $options"
+    echo -e "################################################################################\n"
 
     # shellcheck disable=SC2086
     $WEBCHECK "$spec_file" "$uri" $options
@@ -38,7 +40,8 @@ function run_group {
         run_test "${page%.*}.spec.purs" "$page" "$options" "$expected_exit_code"
     done
 }
-echo "Running WebCheck integration tests..."
+
+echo -e "Running WebCheck integration tests...\n"
 run_group "specs/passing" "--tests 5 --max-actions 50" 0
 run_group "specs/failing" "--tests 10 --max-actions 100 --shrink-levels=0" 1
 run_test "specs/other/TodoMVC.spec.purs" http://todomvc.com/examples/vue/ "--max-trailing-state-changes=0" 0

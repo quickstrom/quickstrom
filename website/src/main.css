@@ -192,6 +192,13 @@ section.what-does-it-look-like .inner {
     color: red;
     font-weight: 600;
 }
+@media screen and (max-width: 800px) {
+    .code-sample {
+        padding-left: 0;
+        padding-right: 0;
+        border-left: none;
+    }
+}
 
 section.sign-up {
     background: #222;

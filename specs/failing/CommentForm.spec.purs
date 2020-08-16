@@ -15,18 +15,21 @@ actions = clicks <> foci <> [ Tuple 1 (KeyPress ' '), Tuple 1 (KeyPress 'a') ]
 proposition :: Boolean
 proposition =
   let
-    commentPosted = isVisible ".comment-display" && commentIsValid && not (isVisible "form")
+    commentPosted = commentIsVisible && commentIsValid && not formIsVisible
 
-    invalidComment = not (isVisible ".comment-display") && isVisible "form"
+    invalidComment = not commentIsVisible && formIsVisible
 
-    postComment = isVisible "form" && next (commentPosted || invalidComment)
+    postComment = formIsVisible && next (commentPosted || invalidComment)
   in
-    isVisible "form" && always postComment
+    formIsVisible && always postComment
 
 commentIsValid :: Boolean
 commentIsValid = commentLength (fromMaybe "" (_.textContent <$> queryOne ".comment" { textContent })) >= 3
   where
   commentLength t = length (trim (fromMaybe "" (head =<< tail (split (Pattern ": ") t))))
 
-isVisible :: Selector -> Boolean
-isVisible sel = Just "block" == (_.display <$> queryOne sel { display: cssValue "display" })
+commentIsVisible :: Boolean
+commentIsVisible = Just "block" == (_.display <$> queryOne ".comment-display" { display: cssValue "display" })
+
+formIsVisible :: Boolean
+formIsVisible = Just "block" == (_.display <$> queryOne "form" { display: cssValue "display" })

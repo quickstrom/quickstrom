@@ -133,7 +133,7 @@ main = do
   case specResult of
     Left err -> do
       hPutStrLn @Text stderr err
-      exitWith (ExitFailure 1)
+      exitWith (ExitFailure 2)
     Right spec -> flip runReaderT logLevel $ do
       let opts =
             WebCheck.CheckOptions
@@ -155,7 +155,7 @@ main = do
             Nothing -> pure ()
           logDoc . logSingle Nothing . annotate (color Red) $
             line <> "Failed after" <+> pretty failedAfter <+> "tests and" <+> pretty (WebCheck.numShrinks failingTest) <+> "levels of shrinking." <> line
-          liftIO (exitWith (ExitFailure 1))
+          liftIO (exitWith (ExitFailure 3))
         WebCheck.CheckSuccess ->
           logDoc . logSingle Nothing . annotate (color Green) $
             line <> "Passed" <+> pretty tests <+> "tests." <> line

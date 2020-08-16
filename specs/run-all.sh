@@ -4,6 +4,8 @@ WEBCHECK=${WEBCHECK:-cabal run webcheck --}
 
 geckodriver > /dev/null 2>&1 &
 geckodriver_pid="$!"
+
+# shellcheck disable=SC2064
 trap "kill $geckodriver_pid" EXIT
 
 echo "Geckodriver running ($geckodriver_pid)..."

@@ -320,6 +320,8 @@ foreignFunctions =
       (ffName "Data.Semigroup" "concatArray", foreignFunction (op2 ((<>) @(Vector (Value EvalAnn))))),
       (ffName "Data.String.CodePoints" "_unsafeCodePointAt0", foreignFunction unsafeCodePointAt0),
       (ffName "Data.String.CodePoints" "_toCodePointArray", foreignFunction toCodePointArray),
+      (ffName "Data.String.CodeUnits" "drop", foreignFunction (op2 Text.drop)),
+      (ffName "Data.String.CodeUnits" "length", foreignFunction (op1 Text.length)),
       notSupported (ffName "Data.String.Common" "_localeCompare"),
       (ffName "Data.String.Common" "replace", foreignFunction (op3 Text.replace)),
       (ffName "Data.String.Common" "split", foreignFunction (op2 Text.splitOn)),
@@ -327,7 +329,9 @@ foreignFunctions =
       (ffName "Data.String.Common" "toUpper", foreignFunction (op1 Text.toUpper)),
       (ffName "Data.String.Common" "trim", foreignFunction (op1 Text.strip)),
       (ffName "Data.String.Common" "joinWith", foreignFunction (op2 Text.intercalate)),
+      (ffName "Data.String.Unsafe" "charAt", foreignFunction (op2 (flip Text.index))),
       (ffName "Data.Unfoldable" "unfoldrArrayImpl", foreignFunction unfoldrArrayImpl),
+      (ffName "Data.Unfoldable1" "unfoldr1ArrayImpl", foreignFunction unfoldr1ArrayImpl),
       (ffName "Data.Unit" "unit", foreignFunction unit),
       (ffName "Global" "infinity", foreignFunction (op0 (read "Infinity" :: Double))),
       (ffName "Global" "nan", foreignFunction (op0 (read "NaN" :: Double))),
@@ -430,6 +434,27 @@ foreignFunctions =
             a <- fst' tuple
             b' <- snd' tuple
             pure (Just (a, b'))
+    unfoldr1ArrayImpl ::
+      Monad m =>
+      (Value EvalAnn -> Ret m Bool) -> -- isNothing
+      (Value EvalAnn -> Ret m (Value EvalAnn)) -> -- fromJust
+      (Value EvalAnn -> Ret m (Value EvalAnn)) -> -- fst
+      (Value EvalAnn -> Ret m (Value EvalAnn)) -> -- snd
+      (Value EvalAnn -> Ret m (Value EvalAnn)) -> -- f
+      Value EvalAnn -> -- b
+      Ret m (Vector (Value EvalAnn))
+    unfoldr1ArrayImpl isNothing' fromJust' fst' snd' f initial =
+      flip Vector.unfoldrM (Just initial) $ \case
+        Nothing -> pure Nothing
+        Just b -> do
+          tuple <- f b
+          a <- fst' tuple
+          b' <- snd' tuple
+          isNothing' b' >>= \case
+            True -> pure (Just (a, Nothing))
+            False -> do
+              seed <- fromJust' b'
+              pure (Just (a, Just seed))
     unsafePartial :: Eval r m => Value EvalAnn -> Ret m (Value EvalAnn)
     unsafePartial f = Ret $ do
       env' <- view (field @"env")

@@ -63,6 +63,7 @@ library
                     , WebCheck.PureScript.Value
                     , WebCheck.Result
                     , WebCheck.Run
+                    , WebCheck.Run.WebDriverW3C
                     , WebCheck.Specification
                     , WebCheck.Trace
   hs-source-dirs:     src

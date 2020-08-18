@@ -12,6 +12,7 @@ executable webcheck-web
                     , binary
                     , containers
                     , directory
+                    , filepath
                     , http-types
                     , lens
                     , modern-uri

@@ -45,6 +45,7 @@ import Web.Scotty.Trans
 import qualified WebCheck.LogLevel as WebCheck
 import WebCheck.Prelude hiding (get, option)
 import qualified WebCheck.PureScript.Program as WebCheck
+import qualified WebCheck.Run.WebDriverW3C as WebDriverW3C
 import qualified WebCheck.Run as WebCheck
 
 newtype CheckId = CheckId {unCheckId :: Text}
@@ -54,12 +55,11 @@ data Env = Env {modules :: WebCheck.Modules, webOptions :: WebOptions, scheduled
 
 type App = ScottyT TL.Text (ReaderT Env IO) ()
 
-data ScheduledCheck
-  = ScheduledCheck
-      { scheduledCheckEventsIn :: Chan.InChan WebCheck.CheckEvent,
-        scheduledCheckEventsOut :: Chan.OutChan WebCheck.CheckEvent,
-        scheduledCheckResult :: Maybe (Either Text WebCheck.CheckResult)
-      }
+data ScheduledCheck = ScheduledCheck
+  { scheduledCheckEventsIn :: Chan.InChan WebCheck.CheckEvent,
+    scheduledCheckEventsOut :: Chan.OutChan WebCheck.CheckEvent,
+    scheduledCheckResult :: Maybe (Either Text WebCheck.CheckResult)
+  }
 
 data SpecForm = SpecForm {code :: Text, origin :: Text}
   deriving (Eq, Show, Generic, JSON.FromJSON, JSON.ToJSON)
@@ -106,10 +106,11 @@ app WebOptions {..} Env {..} = do
         let action = do
               result <-
                 Pipes.runEffect
-                  ( Pipes.for (WebCheck.check opts spec) \event ->
+                  ( Pipes.for (WebCheck.check opts WebDriverW3C.runWebDriver spec) \event ->
                       liftIO (Chan.writeChan eventsIn event)
                   )
-              modifyCheck checkId (\c -> c {scheduledCheckResult = Just (Right result)})
+                & runExceptT
+              modifyCheck checkId (\c -> c {scheduledCheckResult = Just (result & _Left %~ show)})
         liftAndCatchIO . void . forkIO $
           action `catch` \(SomeException e) ->
             modifyCheck checkId (\c -> c {scheduledCheckResult = Just (Left (show e))})
@@ -160,17 +161,16 @@ renderString = toS . renderStrict . layoutPretty defaultLayoutOptions
 
 -- * Options
 
-data WebOptions
-  = WebOptions
-      { libraryPath :: Maybe FilePath,
-        staticFilesPath :: FilePath,
-        tests :: Int,
-        shrinkLevels :: Int,
-        maxActions :: WebCheck.Size,
-        maxTrailingStateChanges :: Int,
-        logLevel :: WebCheck.LogLevel,
-        baseUri :: Text
-      }
+data WebOptions = WebOptions
+  { libraryPath :: Maybe FilePath,
+    staticFilesPath :: FilePath,
+    tests :: Int,
+    shrinkLevels :: Int,
+    maxActions :: WebCheck.Size,
+    maxTrailingStateChanges :: Int,
+    logLevel :: WebCheck.LogLevel,
+    baseUri :: Text
+  }
 
 optParser :: Options.Parser WebOptions
 optParser =

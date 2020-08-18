@@ -28,6 +28,7 @@ import WebCheck.Prelude hiding (option)
 import qualified WebCheck.Pretty as WebCheck
 import qualified WebCheck.PureScript.Program as WebCheck
 import qualified WebCheck.Run as WebCheck
+import qualified WebCheck.Run.WebDriverW3C as WebDriverW3C
 import qualified WebCheck.Trace as WebCheck
 
 data WebCheckOptions
@@ -144,10 +145,12 @@ main = do
                 checkMaxTrailingStateChanges = maxTrailingStateChanges,
                 checkWebDriverLogLevel = logLevel
               }
-      result <- Pipes.runEffect (Pipes.for (WebCheck.check opts spec) (lift . logDoc . renderCheckEvent))
+      result <- 
+        Pipes.runEffect (Pipes.for (WebCheck.check opts WebDriverW3C.runWebDriver spec) (lift . logDoc . renderCheckEvent))
+        & runExceptT
       logDoc . logSingle Nothing $ line <> divider <> line
       case result of
-        WebCheck.CheckFailure {failedAfter, failingTest} -> do
+        Right WebCheck.CheckFailure {failedAfter, failingTest} -> do
           logDoc . logSingle Nothing $
             WebCheck.prettyTrace (WebCheck.withoutStutterStates (WebCheck.trace failingTest))
           case WebCheck.reason failingTest of
@@ -156,9 +159,16 @@ main = do
           logDoc . logSingle Nothing . annotate (color Red) $
             line <> "Failed after" <+> pretty failedAfter <+> "tests and" <+> pretty (WebCheck.numShrinks failingTest) <+> "levels of shrinking." <> line
           liftIO (exitWith (ExitFailure 3))
-        WebCheck.CheckSuccess ->
+        Right WebCheck.CheckSuccess ->
           logDoc . logSingle Nothing . annotate (color Green) $
             line <> "Passed" <+> pretty tests <+> "tests." <> line
+        Left err -> do
+          logDoc . logSingle Nothing . annotate (color Red) $
+            line <> "Check encountered an error:" <+> prettyError err <> line
+          liftIO (exitWith (ExitFailure 1))
+
+prettyError :: WebCheck.WebDriverError -> Doc AnsiStyle
+prettyError (WebCheck.WebDriverError t) = pretty t
 
 libraryPathFromEnvironment :: ExceptT Text IO FilePath
 libraryPathFromEnvironment = do

@@ -38,6 +38,7 @@ common shared-deps
                     , transformers
                     , unordered-containers
                     , vector
+                    , webdriver
                     , webdriver-w3c
                     , wreq
 
@@ -63,6 +64,7 @@ library
                     , WebCheck.PureScript.Value
                     , WebCheck.Result
                     , WebCheck.Run
+                    , WebCheck.Run.WebDriverClient
                     , WebCheck.Run.WebDriverW3C
                     , WebCheck.Specification
                     , WebCheck.Trace

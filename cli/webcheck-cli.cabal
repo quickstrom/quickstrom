@@ -10,6 +10,7 @@ executable webcheck
   build-depends:      base ^>= 4.12
                     , containers
                     , directory
+                    , exceptions
                     , lens
                     , modern-uri
                     , optparse-applicative

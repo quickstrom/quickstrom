@@ -1,17 +1,19 @@
-{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module WebCheck.Run.WebDriverW3C where
 
 import Control.Lens
 import Control.Monad (Monad (fail))
+import Control.Monad.Catch (MonadThrow (..))
 import Control.Monad.Trans.Class (MonadTrans)
+import Control.Monad.Trans.Identity (IdentityT (..))
 import qualified Data.Aeson as JSON
 import qualified Data.HashMap.Strict as HashMap
 import Data.String (String)
@@ -19,49 +21,56 @@ import qualified Data.String as String
 import qualified Data.Text as Text
 import qualified Network.HTTP.Client as Http
 import qualified Network.Wreq as Wreq
-import Protolude
 import Web.Api.WebDriver hiding (Action, LogLevel (..), Selector, Timeout, hPutStrLn, runIsolated, throwError)
+import Protolude.Error (error)
 import qualified Web.Api.WebDriver as WebDriver
 import WebCheck.Element
+import WebCheck.Prelude hiding (catch)
 import WebCheck.LogLevel
 import WebCheck.Run
-import Control.Monad.Trans.Identity (IdentityT(..))
-import Protolude.Error (error)
 
-newtype WebDriverW3C m a = WebDriverW3C { unWebDriverW3C :: WebDriverTT IdentityT m a }
+newtype WebDriverW3C m a = WebDriverW3C {unWebDriverW3C :: WebDriverTT IdentityT m a}
   deriving (Functor, Applicative, Monad)
 
 instance MonadTrans WebDriverW3C where
-    lift = WebDriverW3C . liftWebDriverTT . IdentityT
+  lift = WebDriverW3C . liftWebDriverTT . IdentityT
 
 instance MonadIO m => MonadIO (WebDriverW3C m) where
   liftIO = WebDriverW3C . liftWebDriverTT . liftIO
 
-instance MonadError WebDriverError m => MonadError WebDriverError (WebDriverW3C m) where
-  catchError (WebDriverW3C ma) f = WebDriverW3C $ ma `WebDriver.catchError` \case
-    ResponseError _ msg _ _ _ -> unWebDriverW3C (f (WebDriverError (toS msg)))
-    err -> unWebDriverW3C (f (WebDriverError (show err)))
-  throwError err = lift (throwError err)
-
 instance MonadReader e m => MonadReader e (WebDriverW3C m) where
   ask = lift ask
   local = error "Can't use local"
-    
+
+instance MonadIO m => MonadThrow (WebDriverW3C m) where
+  throwM = liftIO . throwM
+
+rethrow :: (MonadTrans t, Monad (t m), MonadIO (t m), Monad m) => WebDriverTT t m a -> WebDriverTT t m a
+rethrow ma =
+  ma `WebDriver.catchError` \case
+    ResponseError _ msg _ _ _ -> liftWebDriverTT (throwIO (WebDriverResponseError (toS msg)))
+    err -> liftWebDriverTT (throwIO (WebDriverOtherError (show err)))
 
 instance MonadIO m => WebDriver (WebDriverW3C m) where
-  getActiveElement = fromRef <$> WebDriverW3C WebDriver.getActiveElement
-  isElementEnabled = WebDriverW3C . WebDriver.isElementEnabled . toRef
-  getElementTagName = map toS . WebDriverW3C . WebDriver.getElementTagName . toRef
-  elementClick = WebDriverW3C . WebDriver.elementClick . toRef
-  elementSendKeys keys = WebDriverW3C . WebDriver.elementSendKeys (toS keys) . toRef
-  findAll (Selector s) = map fromRef <$> WebDriverW3C (findElements CssSelector (Text.unpack s))
-  navigateTo = WebDriverW3C . WebDriver.navigateTo . toS
+  getActiveElement = fromRef <$> WebDriverW3C (rethrow WebDriver.getActiveElement)
+  isElementEnabled = WebDriverW3C . rethrow . WebDriver.isElementEnabled . toRef
+  getElementTagName = map toS . WebDriverW3C . rethrow . WebDriver.getElementTagName . toRef
+  elementClick = WebDriverW3C . rethrow . WebDriver.elementClick . toRef
+  elementSendKeys keys = WebDriverW3C . rethrow . WebDriver.elementSendKeys (toS keys) . toRef
+  findAll (Selector s) = map fromRef <$> WebDriverW3C (rethrow (findElements CssSelector (Text.unpack s)))
+  navigateTo = WebDriverW3C . rethrow . WebDriver.navigateTo . toS
   runScript script args = do
-    r <- WebDriverW3C (executeAsyncScript (String.fromString (toS script)) args)
+    r <- WebDriverW3C (rethrow (executeAsyncScript (String.fromString (toS script)) args))
     case JSON.fromJSON r of
       JSON.Success (Right a) -> pure a
-      JSON.Success (Left e) -> liftIO (fail e)
-      JSON.Error e -> liftIO (fail e)
+      JSON.Success (Left e) -> throwIO (WebDriverOtherError e)
+      JSON.Error e -> throwIO (WebDriverOtherError (toS e))
+
+  catchResponseError (WebDriverW3C ma) f = WebDriverW3C $
+    ma `WebDriver.catchError` \case
+      ResponseError _ msg _ _ _ -> liftWebDriverTT (liftIO (f (WebDriverResponseError (toS msg))))
+      err -> liftWebDriverTT (throwIO (WebDriverOtherError (show err)))
+
   inNewPrivateWindow CheckOptions {checkWebDriverLogLevel} =
     runIsolated (reconfigure headlessFirefoxCapabilities)
     where
@@ -97,8 +106,8 @@ runWebDriver (WebDriverW3C ma) = do
             (_environment c)
               { _logEntryPrinter = \_ _ -> Nothing
               },
-          _initialState = defaultWebDriverState {_httpOptions = httpOptions}
-          , _evaluator = liftIO . _evaluator c
+          _initialState = defaultWebDriverState {_httpOptions = httpOptions},
+          _evaluator = liftIO . _evaluator c
         }
 
 -- | Mostly the same as the non-exported definition in 'Web.Api.WebDriver.Endpoints'.

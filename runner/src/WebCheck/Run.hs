@@ -20,7 +20,8 @@
 
 module WebCheck.Run
   ( WebDriver (..),
-    WebDriverError (..),
+    WebDriverResponseError (..),
+    WebDriverOtherError (..),
     CheckEnv (..),
     CheckOptions (..),
     CheckResult (..),
@@ -74,6 +75,7 @@ class Monad m => WebDriver (m :: Type -> Type) where
   findAll :: Selector -> m [Element]
   navigateTo :: Text -> m ()
   runScript :: JSON.FromJSON r => Text -> [JSON.Value] -> m r
+  catchResponseError :: m a -> (WebDriverResponseError -> IO a) -> m a
   inNewPrivateWindow :: CheckOptions -> m a -> m a
 
 instance WebDriver m => WebDriver (ReaderT e m) where
@@ -85,19 +87,20 @@ instance WebDriver m => WebDriver (ReaderT e m) where
   findAll = lift . findAll
   navigateTo = lift . navigateTo
   runScript s = lift . runScript s
+  catchResponseError ma f = ReaderT (\r -> catchResponseError (runReaderT ma r) f)
   inNewPrivateWindow opts (ReaderT ma) = ReaderT (inNewPrivateWindow opts . ma)
 
-data WebDriverError = WebDriverError Text
-  deriving (Show, Generic, JSON.ToJSON)
+data WebDriverResponseError = WebDriverResponseError Text
+  deriving (Show, Generic, JSON.ToJSON, Exception)
 
-instance Exception WebDriverError
+data WebDriverOtherError = WebDriverOtherError Text
+  deriving (Show, Generic, JSON.ToJSON, Exception)
 
 type Runner m =
   ( Monad m,
     MonadIO m,
     WebDriver m,
-    MonadReader CheckEnv m,
-    MonadError WebDriverError m
+    MonadReader CheckEnv m
   )
 
 data FailingTest = FailingTest
@@ -373,14 +376,14 @@ selectValidAction possibleAction =
       found <- findAll sel
       validChoices <-
         ( filterM
-            (\(_, e) -> isValid e `catchError` const (pure False))
+            (\(_, e) -> isValid e `catchResponseError` const (pure False))
             (zip [0 ..] found)
           )
       case validChoices of
         [] -> pure Nothing
         choices -> Just <$> generate (ctor . Selected sel <$> QuickCheck.elements (map fst choices))
     isNotActive e = (/= Just e) <$> activeElement
-    activeElement = (Just <$> getActiveElement) `catchError` const (pure Nothing)
+    activeElement = (Just <$> getActiveElement) `catchResponseError` const (pure Nothing)
     isClickable e = do
       scripts <- asks checkScripts
       andM [isElementEnabled e, runCheckScript (isElementVisible scripts e)]
@@ -397,9 +400,7 @@ navigateToOrigin = do
 tryAction :: Runner m => m ActionResult -> m ActionResult
 tryAction action =
   action
-    `catchError` ( \err ->
-                     throwError err
-                 )
+    `catchResponseError` (\(WebDriverResponseError msg) -> pure (ActionFailed msg))
 
 click :: Runner m => Selected -> m ActionResult
 click =

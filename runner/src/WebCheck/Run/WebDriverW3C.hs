@@ -45,22 +45,16 @@ instance MonadReader e m => MonadReader e (WebDriverW3C m) where
 instance MonadIO m => MonadThrow (WebDriverW3C m) where
   throwM = liftIO . throwM
 
-rethrow :: (MonadTrans t, Monad (t m), MonadIO (t m), Monad m) => WebDriverTT t m a -> WebDriverTT t m a
-rethrow ma =
-  ma `WebDriver.catchError` \case
-    ResponseError _ msg _ _ _ -> liftWebDriverTT (throwIO (WebDriverResponseError (toS msg)))
-    err -> liftWebDriverTT (throwIO (WebDriverOtherError (show err)))
-
 instance MonadIO m => WebDriver (WebDriverW3C m) where
-  getActiveElement = fromRef <$> WebDriverW3C (rethrow WebDriver.getActiveElement)
-  isElementEnabled = WebDriverW3C . rethrow . WebDriver.isElementEnabled . toRef
-  getElementTagName = map toS . WebDriverW3C . rethrow . WebDriver.getElementTagName . toRef
-  elementClick = WebDriverW3C . rethrow . WebDriver.elementClick . toRef
-  elementSendKeys keys = WebDriverW3C . rethrow . WebDriver.elementSendKeys (toS keys) . toRef
-  findAll (Selector s) = map fromRef <$> WebDriverW3C (rethrow (findElements CssSelector (Text.unpack s)))
-  navigateTo = WebDriverW3C . rethrow . WebDriver.navigateTo . toS
+  getActiveElement = fromRef <$> WebDriverW3C WebDriver.getActiveElement
+  isElementEnabled = WebDriverW3C . WebDriver.isElementEnabled . toRef
+  getElementTagName = map toS . WebDriverW3C . WebDriver.getElementTagName . toRef
+  elementClick = WebDriverW3C . WebDriver.elementClick . toRef
+  elementSendKeys keys = WebDriverW3C . WebDriver.elementSendKeys (toS keys) . toRef
+  findAll (Selector s) = map fromRef <$> WebDriverW3C (findElements CssSelector (Text.unpack s))
+  navigateTo = WebDriverW3C . WebDriver.navigateTo . toS
   runScript script args = do
-    r <- WebDriverW3C (rethrow (executeAsyncScript (String.fromString (toS script)) args))
+    r <- WebDriverW3C (executeAsyncScript (String.fromString (toS script)) args)
     case JSON.fromJSON r of
       JSON.Success (Right a) -> pure a
       JSON.Success (Left e) -> throwIO (WebDriverOtherError e)

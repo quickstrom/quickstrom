@@ -45,6 +45,6 @@ function run_group {
 
 echo -e "Running WebCheck integration tests...\n"
 run_group "specs/passing" "--tests=5 --max-actions=50" 0
-run_group "specs/failing" "--tests=10 --max-actions=100 --shrink-levels=0" 3
+run_group "specs/failing" "--tests=50 --max-actions=100 --shrink-levels=0" 3
 run_test "specs/other/TodoMVC.spec.purs" http://todomvc.com/examples/vue/ "--max-trailing-state-changes=0" 0
 run_test "specs/other/TodoMVC.spec.purs" http://todomvc.com/examples/angularjs/ "--shrink-levels=0" 3

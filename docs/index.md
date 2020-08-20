@@ -68,7 +68,7 @@ logic and functional language, heavily inspired by TLA+ and LTL, most notably
 adding web-specific operators.
 
 Like in TLA+, specifications in Quickstrom are based on state machines. A
-*behavior* is a sequence of states. A *step* is a tuple of two
+*behavior* is a finite sequence of states. A *step* is a tuple of two
 successive states in a behavior. A specification describes valid
 *behaviors* of a web application in terms of valid states and
 transitions between states.

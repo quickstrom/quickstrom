@@ -25,11 +25,11 @@ import qualified Text.URI as URI
 import Text.URI.Lens (uriScheme)
 import qualified Text.URI.QQ as URI
 import qualified WebCheck.LogLevel as WebCheck
-import WebCheck.Prelude hiding (try, option)
+import WebCheck.Prelude hiding (option, try)
 import qualified WebCheck.Pretty as WebCheck
 import qualified WebCheck.PureScript.Program as WebCheck
 import qualified WebCheck.Run as WebCheck
-import qualified WebCheck.Run.WebDriverW3C as WebDriver
+import qualified WebCheck.WebDriver.WebDriverW3C as WebDriver
 import qualified WebCheck.Trace as WebCheck
 
 data WebCheckOptions = WebCheckOptions
@@ -162,7 +162,7 @@ main = do
         Right WebCheck.CheckSuccess ->
           logDoc . logSingle Nothing . annotate (color Green) $
             line <> "Passed" <+> pretty tests <+> "tests." <> line
-        Left err@SomeException{} -> do
+        Left err@SomeException {} -> do
           logDoc . logSingle Nothing . annotate (color Red) $
             line <> "Check encountered an error:" <+> pretty (show err :: Text) <> line
           liftIO (exitWith (ExitFailure 1))

@@ -45,7 +45,7 @@ import Web.Scotty.Trans
 import qualified WebCheck.LogLevel as WebCheck
 import WebCheck.Prelude hiding (get, option)
 import qualified WebCheck.PureScript.Program as WebCheck
-import qualified WebCheck.Run.WebDriverW3C as WebDriverW3C
+import qualified WebCheck.WebDriver.WebDriverW3C as WebDriver
 import qualified WebCheck.Run as WebCheck
 
 newtype CheckId = CheckId {unCheckId :: Text}
@@ -106,7 +106,7 @@ app WebOptions {..} Env {..} = do
         let action = do
               result <-
                 Pipes.runEffect
-                  ( Pipes.for (WebCheck.check opts WebDriverW3C.runWebDriver spec) \event ->
+                  ( Pipes.for (WebCheck.check opts WebDriver.runWebDriver spec) \event ->
                       liftIO (Chan.writeChan eventsIn event)
                   )
               modifyCheck checkId (\c -> c {scheduledCheckResult = Just (Right result)})

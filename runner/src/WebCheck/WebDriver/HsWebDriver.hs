@@ -7,13 +7,12 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module WebCheck.Run.WebDriverClient where
+module WebCheck.WebDriver.HsWebDriver where
 
 import Control.Monad (Monad (fail))
 import Control.Monad.Catch (MonadCatch (catch), MonadThrow)
 import qualified Test.WebDriver as WebDriver
 import WebCheck.Element
-import WebCheck.LogLevel
 import WebCheck.Prelude hiding (catch)
 import WebCheck.Run
 
@@ -37,10 +36,10 @@ instance WebDriver WebDriverClient where
   catchResponseError ma f =
     ma `catch` \case
       WebDriver.FailedCommand _type msg -> liftIO (f (WebDriverResponseError (toS (WebDriver.errMsg msg))))
-  inNewPrivateWindow CheckOptions {checkWebDriverLogLevel} = identity -- (WebDriverClient action) =
-  -- WebDriverClient $ do
-  -- caps <- WebDriver.getActualCaps
-  -- WebDriver.finallyClose (WebDriver.createSession caps >> action)
+  inNewPrivateWindow _logLevel (WebDriverClient action) =
+    WebDriverClient $ do
+      caps <- WebDriver.getActualCaps
+      WebDriver.finallyClose (WebDriver.createSession caps >> action)
 
 runWebDriver :: MonadIO m => WebDriverClient b -> m b
 runWebDriver (WebDriverClient ma) =

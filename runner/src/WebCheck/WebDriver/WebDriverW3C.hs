@@ -7,7 +7,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module WebCheck.Run.WebDriverW3C where
+module WebCheck.WebDriver.WebDriverW3C where
 
 import Control.Lens
 import Control.Monad (Monad (fail))
@@ -65,7 +65,7 @@ instance MonadIO m => WebDriver (WebDriverW3C m) where
       ResponseError _ msg _ _ _ -> liftWebDriverTT (liftIO (f (WebDriverResponseError (toS msg))))
       err -> liftWebDriverTT (throwIO (WebDriverOtherError (show err)))
 
-  inNewPrivateWindow CheckOptions {checkWebDriverLogLevel} =
+  inNewPrivateWindow logLevel =
     runIsolated (reconfigure headlessFirefoxCapabilities)
     where
       reconfigure c =
@@ -76,7 +76,7 @@ instance MonadIO m => WebDriver (WebDriverW3C m) where
                   o
                     { _firefoxArgs = Just ["-headless", "-private"],
                       _firefoxPrefs = Just (HashMap.singleton "Dom.storage.enabled" (JSON.Bool False)),
-                      _firefoxLog = Just (FirefoxLog (Just (webdriverLogLevel checkWebDriverLogLevel)))
+                      _firefoxLog = Just (FirefoxLog (Just (webdriverLogLevel logLevel)))
                     }
           }
       webdriverLogLevel = \case

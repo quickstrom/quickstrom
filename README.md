@@ -56,17 +56,17 @@ nix-build
 Now, Quickstrom is available in the `result`:
 
 ```
-result/bin/quickstrom <YOUR SPEC FILE> <ORIGIN URL>
+result/bin/quickstrom check <YOUR SPEC FILE> <ORIGIN URL>
 ```
 
 Alternatively, install it directly into your environment:
 
 ```
 nix-env -i -A quickstrom -f default.nix
-quickstrom <YOUR SPEC FILE> <ORIGIN URL>
+quickstrom check <YOUR SPEC FILE> <ORIGIN URL>
 ```
 
-**NOTE:** You need to also run geckodriver for Quickstrom to work. See \*[Running](#running) below.
+**NOTE:** You need to also run geckodriver for Quickstrom to work. See [Running](#running) below.
 
 ### Starting a Shell
 
@@ -89,23 +89,23 @@ To check a specification, you must have a running `geckodriver` instance:
 geckodriver 2>&1 > /dev/null
 ```
 
-Next, run `quickstrom` and supply the path to the specification file along with
-the origin URL (can also be a local file path). Let's run it through Cabal
-(assuming you're in a nix-shell):
+Next, run `quickstrom check` and supply the path to the specification file
+along with the origin URL (can also be a local file path). Let's run it
+through Cabal (assuming you're in a nix-shell):
 
 ```
-cabal run quickstrom -- /path/to/my/specification http://example.com
+cabal run quickstrom -- check /path/to/my/specification http://example.com
 ```
 
-For instance, you can run the TodoMVC React specification:
+For instance, you can check the TodoMVC React implementation:
 
 ```
-cabal run quickstrom -- specs/other/TodoMVC.spec.purs http://todomvc.com/examples/react
+cabal run quickstrom -- check specs/other/TodoMVC.spec.purs http://todomvc.com/examples/react
 ```
 
 **NOTE:** Running tests can take a lot of time, especially if there's a
 failure and Quickstrom tries to shrink to the minimal failing trace.
-Optimizations are due, but for now it's _slow_.
+Optimizations are due, but for now it's pretty slow.
 
 ### No WebDriver Session
 

@@ -22,7 +22,7 @@ function run_test {
     echo -e "################################################################################\n"
 
     # shellcheck disable=SC2086
-    $QUICKSTROM "$spec_file" "$uri" $options
+    $QUICKSTROM check "$spec_file" "$uri" $options
     exit_code=$?
 
     if [ $exit_code == "$expected_exit_code" ]; then

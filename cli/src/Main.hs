@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
@@ -18,24 +19,27 @@ import Data.Text.Prettyprint.Doc.Render.Terminal
 import Data.Text.Prettyprint.Doc.Symbols.Unicode (bullet)
 import Options.Applicative
 import qualified Pipes as Pipes
+import qualified Quickstrom.LogLevel as Quickstrom
+import Quickstrom.Prelude hiding (option, try)
+import qualified Quickstrom.Pretty as Quickstrom
+import qualified Quickstrom.PureScript.Program as Quickstrom
+import qualified Quickstrom.Run as Quickstrom
+import qualified Quickstrom.Trace as Quickstrom
+import qualified Quickstrom.WebDriver.WebDriverW3C as WebDriver
 import System.Directory (canonicalizePath)
 import System.Environment (lookupEnv)
 import Text.URI (URI)
 import qualified Text.URI as URI
 import Text.URI.Lens (uriScheme)
 import qualified Text.URI.QQ as URI
-import qualified Quickstrom.LogLevel as Quickstrom
-import Quickstrom.Prelude hiding (option, try)
-import qualified Quickstrom.Pretty as Quickstrom
-import qualified Quickstrom.PureScript.Program as Quickstrom
-import qualified Quickstrom.Run as Quickstrom
-import qualified Quickstrom.WebDriver.WebDriverW3C as WebDriver
-import qualified Quickstrom.Trace as Quickstrom
 
-data QuickstromOptions = QuickstromOptions
+data CLI = CLI {chosenCommand :: Command, libraryPath :: Maybe FilePath}
+
+data Command = Check CheckOptions | Lint LintOptions
+
+data CheckOptions = CheckOptions
   { specPath :: FilePath,
     origin :: Text,
-    libraryPath :: Maybe FilePath,
     tests :: Int,
     maxActions :: Quickstrom.Size,
     shrinkLevels :: Int,
@@ -43,9 +47,13 @@ data QuickstromOptions = QuickstromOptions
     logLevel :: Quickstrom.LogLevel
   }
 
-optParser :: Parser QuickstromOptions
-optParser =
-  QuickstromOptions
+data LintOptions = LintOptions
+  { specPath :: FilePath
+  }
+
+checkOptionsParser :: Parser CheckOptions
+checkOptionsParser =
+  CheckOptions
     <$> argument
       str
       ( metavar "SPECIFICATION_FILE"
@@ -55,13 +63,6 @@ optParser =
       str
       ( metavar "URI"
           <> help "The origin URI"
-      )
-    <*> optional
-      ( strOption
-          ( metavar "DIRECTORY"
-              <> long "library-directory"
-              <> help "Directory containing compiled PureScript libraries used by Quickstrom (falls back to the QUICKSTROM_LIBRARY_DIR environment variable)"
-          )
       )
     <*> option
       auto
@@ -104,10 +105,37 @@ optParser =
           <> help "Log level used by Quickstrom and the backing WebDriver server (e.g. geckodriver)"
       )
 
-optsInfo :: ParserInfo QuickstromOptions
+lintOptionsParser :: Parser LintOptions
+lintOptionsParser =
+  LintOptions
+    <$> argument
+      str
+      ( metavar "SPECIFICATION_FILE"
+          <> help "A specification file to check"
+      )
+
+cliParser :: Parser CLI
+cliParser =
+  CLI
+    <$> cmds
+      <*> optional
+        ( strOption
+            ( metavar "DIRECTORY"
+                <> long "library-directory"
+                <> help "Directory containing compiled PureScript libraries used by Quickstrom (falls back to the QUICKSTROM_LIBRARY_DIR environment variable)"
+            )
+        )
+  where
+    cmds =
+      subparser
+        ( command "check" (info (Check <$> checkOptionsParser) (progDesc "Check a web application using a specification"))
+            <> command "lint" (info (Lint <$> lintOptionsParser) (progDesc "Lint a specification"))
+        )
+
+optsInfo :: ParserInfo CLI
 optsInfo =
   info
-    (optParser <**> helper)
+    (cliParser <**> helper)
     ( fullDesc
         <> header "Quickstrom: High-confidence browser testing"
     )
@@ -125,57 +153,64 @@ resolveAbsoluteURI t = do
 
 main :: IO ()
 main = do
-  QuickstromOptions {..} <- execParser optsInfo
-  originUri <- resolveAbsoluteURI origin
-  specResult <- runExceptT $ do
-    libPath <- maybe libraryPathFromEnvironment pure libraryPath
-    modules <- ExceptT (Quickstrom.loadLibraryModules libPath)
-    ExceptT (Quickstrom.loadSpecificationFile modules specPath)
-  case specResult of
-    Left err -> do
-      hPutStrLn @Text stderr err
-      exitWith (ExitFailure 2)
-    Right spec -> flip runReaderT logLevel $ do
-      let opts =
-            Quickstrom.CheckOptions
-              { checkTests = tests,
-                checkMaxActions = maxActions,
-                checkShrinkLevels = shrinkLevels,
-                checkOrigin = originUri,
-                checkMaxTrailingStateChanges = maxTrailingStateChanges,
-                checkWebDriverLogLevel = logLevel
-              }
-      result <-
-        Pipes.runEffect (Pipes.for (Quickstrom.check opts WebDriver.runWebDriver spec) (lift . logDoc . renderCheckEvent))
-          & try
-      logDoc . logSingle Nothing $ line <> divider <> line
-      case result of
-        Right Quickstrom.CheckFailure {failedAfter, failingTest} -> do
-          logDoc . logSingle Nothing $
-            Quickstrom.prettyTrace (Quickstrom.withoutStutterStates (Quickstrom.trace failingTest))
-          case Quickstrom.reason failingTest of
-            Just err -> logDoc (logSingle Nothing (line <> annotate (color Red) ("Test failed with error:" <+> pretty err <> line)))
-            Nothing -> pure ()
-          logDoc . logSingle Nothing . annotate (color Red) $
-            line <> "Failed after" <+> pretty failedAfter <+> "tests and" <+> pretty (Quickstrom.numShrinks failingTest) <+> "levels of shrinking." <> line
-          liftIO (exitWith (ExitFailure 3))
-        Right Quickstrom.CheckError {checkError} -> do
-          logDoc . logSingle Nothing . annotate (color Red) $
-            line <> "Check encountered an error:" <+> pretty checkError <> line
-          liftIO (exitWith (ExitFailure 1))
-        Right Quickstrom.CheckSuccess ->
-          logDoc . logSingle Nothing . annotate (color Green) $
-            line <> "Passed" <+> pretty tests <+> "tests." <> line
-        Left err@SomeException {} -> do
-          logDoc . logSingle Nothing . annotate (color Red) $
-            line <> "Check encountered an error:" <+> pretty (show err :: Text) <> line
-          liftIO (exitWith (ExitFailure 1))
+  CLI{..} <- execParser optsInfo
+  libPath <- maybe libraryPathFromEnvironment pure libraryPath
+  case chosenCommand of
+    Check CheckOptions {..} -> do
+      originUri <- resolveAbsoluteURI origin
+      specResult <- runExceptT $ do
+        modules <- ExceptT (Quickstrom.loadLibraryModules libPath)
+        ExceptT (Quickstrom.loadSpecificationFile modules specPath)
+      case specResult of
+        Left err -> do
+          hPutStrLn @Text stderr err
+          exitWith (ExitFailure 2)
+        Right spec -> flip runReaderT logLevel $ do
+          let opts =
+                Quickstrom.CheckOptions
+                  { checkTests = tests,
+                    checkMaxActions = maxActions,
+                    checkShrinkLevels = shrinkLevels,
+                    checkOrigin = originUri,
+                    checkMaxTrailingStateChanges = maxTrailingStateChanges,
+                    checkWebDriverLogLevel = logLevel
+                  }
+          result <-
+            Pipes.runEffect (Pipes.for (Quickstrom.check opts WebDriver.runWebDriver spec) (lift . logDoc . renderCheckEvent))
+              & try
+          logDoc . logSingle Nothing $ line <> divider <> line
+          case result of
+            Right Quickstrom.CheckFailure {failedAfter, failingTest} -> do
+              logDoc . logSingle Nothing $
+                Quickstrom.prettyTrace (Quickstrom.withoutStutterStates (Quickstrom.trace failingTest))
+              case Quickstrom.reason failingTest of
+                Just err -> logDoc (logSingle Nothing (line <> annotate (color Red) ("Test failed with error:" <+> pretty err <> line)))
+                Nothing -> pure ()
+              logDoc . logSingle Nothing . annotate (color Red) $
+                line <> "Failed after" <+> pretty failedAfter <+> "tests and" <+> pretty (Quickstrom.numShrinks failingTest) <+> "levels of shrinking." <> line
+              liftIO (exitWith (ExitFailure 3))
+            Right Quickstrom.CheckError {checkError} -> do
+              logDoc . logSingle Nothing . annotate (color Red) $
+                line <> "Check encountered an error:" <+> pretty checkError <> line
+              liftIO (exitWith (ExitFailure 1))
+            Right Quickstrom.CheckSuccess ->
+              logDoc . logSingle Nothing . annotate (color Green) $
+                line <> "Passed" <+> pretty tests <+> "tests." <> line
+            Left err@SomeException {} -> do
+              logDoc . logSingle Nothing . annotate (color Red) $
+                line <> "Check encountered an error:" <+> pretty (show err :: Text) <> line
+              liftIO (exitWith (ExitFailure 1))
+    Lint LintOptions {..} -> do
+      hPutStrLn stderr ("Lint is not implemented yet" :: Text)
+      liftIO (exitWith (ExitFailure 1))
 
-libraryPathFromEnvironment :: ExceptT Text IO FilePath
+libraryPathFromEnvironment :: IO FilePath
 libraryPathFromEnvironment = do
-  liftIO (lookupEnv (toS key)) >>= \case
+  lookupEnv key >>= \case
     Just p -> pure p
-    Nothing -> throwError (key <> "is not set and command-line option is not provided")
+    Nothing -> do
+      hPutStrLn stderr (key <> "is not set and command-line option is not provided")
+      exitWith (ExitFailure 1)
   where
     key = "QUICKSTROM_LIBRARY_DIR"
 

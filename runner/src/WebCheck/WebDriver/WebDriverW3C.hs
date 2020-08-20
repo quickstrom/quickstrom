@@ -7,7 +7,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module WebCheck.WebDriver.WebDriverW3C where
+module Quickstrom.WebDriver.WebDriverW3C where
 
 import Control.Lens
 import Control.Monad (Monad (fail))
@@ -24,10 +24,10 @@ import qualified Network.Wreq as Wreq
 import Web.Api.WebDriver hiding (Action, LogLevel (..), Selector, Timeout, hPutStrLn, runIsolated, throwError)
 import Protolude.Error (error)
 import qualified Web.Api.WebDriver as WebDriver
-import WebCheck.Element
-import WebCheck.Prelude hiding (catch)
-import WebCheck.LogLevel
-import WebCheck.Run
+import Quickstrom.Element
+import Quickstrom.Prelude hiding (catch)
+import Quickstrom.LogLevel
+import Quickstrom.Run
 
 newtype WebDriverW3C m a = WebDriverW3C {unWebDriverW3C :: WebDriverTT IdentityT m a}
   deriving (Functor, Applicative, Monad)

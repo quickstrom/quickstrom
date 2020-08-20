@@ -11,7 +11,7 @@ import {
 import { toArray } from "../arrays";
 import { deepEqual } from "../equality";
 
-namespace WebCheck {
+namespace Quickstrom {
   function matchesSelector(node: Node, selector: Selector): boolean {
     return node instanceof Element && node.matches(selector);
   }
@@ -152,8 +152,8 @@ const [timeoutMs, queries, done] = args;
 
 (function () {
   (window as any).registeredObserver = Promise.race([
-    WebCheck.observeNextState(queries),
-    WebCheck.delay(timeoutMs).then(() => observeState(queries)),
+    Quickstrom.observeNextState(queries),
+    Quickstrom.delay(timeoutMs).then(() => observeState(queries)),
   ]);
   done({ Right: [] });
 })();

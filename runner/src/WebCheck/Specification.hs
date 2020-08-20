@@ -7,15 +7,15 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TupleSections #-}
 
-module WebCheck.Specification where
+module Quickstrom.Specification where
 
 import Data.HashMap.Strict (HashMap)
 import Data.HashSet (HashSet)
 import Data.Vector (Vector)
-import WebCheck.Element
-import WebCheck.Prelude
-import WebCheck.Result
-import WebCheck.Trace
+import Quickstrom.Element
+import Quickstrom.Prelude
+import Quickstrom.Result
+import Quickstrom.Trace
 
 type Queries = HashMap Selector (HashSet ElementState)
 

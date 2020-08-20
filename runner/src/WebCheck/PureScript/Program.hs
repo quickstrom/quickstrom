@@ -8,7 +8,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 
-module WebCheck.PureScript.Program where
+module Quickstrom.PureScript.Program where
 
 import Control.Lens hiding (op)
 import Control.Monad.Except (liftEither)
@@ -34,17 +34,17 @@ import Language.PureScript.CoreFn.FromJSON (moduleFromJSON)
 import System.FilePath ((</>))
 import System.FilePath.Glob (glob)
 import Text.Read (read)
-import qualified WebCheck.Action as WebCheck
-import qualified WebCheck.Element as WebCheck
-import WebCheck.Prelude hiding (moduleName, uncons)
-import qualified WebCheck.PureScript.Analyze as Analyze
-import WebCheck.PureScript.Eval
-import WebCheck.PureScript.ForeignFunction
-import WebCheck.PureScript.Pretty
-import WebCheck.PureScript.Value
-import qualified WebCheck.Result as WebCheck
-import qualified WebCheck.Specification as WebCheck
-import qualified WebCheck.Trace as WebCheck
+import qualified Quickstrom.Action as Quickstrom
+import qualified Quickstrom.Element as Quickstrom
+import Quickstrom.Prelude hiding (moduleName, uncons)
+import qualified Quickstrom.PureScript.Analyze as Analyze
+import Quickstrom.PureScript.Eval
+import Quickstrom.PureScript.ForeignFunction
+import Quickstrom.PureScript.Pretty
+import Quickstrom.PureScript.Value
+import qualified Quickstrom.Result as Quickstrom
+import qualified Quickstrom.Specification as Quickstrom
+import qualified Quickstrom.Trace as Quickstrom
 
 initialEnv :: Eval r m => Env' m
 initialEnv =
@@ -113,23 +113,23 @@ data Modules
   deriving (Show)
 
 loadModulesFromCoreFn :: FilePath -> ExceptT Text IO [Module CF.Ann]
-loadModulesFromCoreFn webcheckPursDir = do
+loadModulesFromCoreFn quickstromPursDir = do
   let coreFnPath :: Text -> FilePath
-      coreFnPath mn' = webcheckPursDir </> toS mn' </> "corefn.json"
+      coreFnPath mn' = quickstromPursDir </> toS mn' </> "corefn.json"
   paths <- liftIO (glob (coreFnPath "*"))
   traverse loadModuleFromCoreFn paths
 
 loadExterns :: P.ModuleName -> FilePath -> ExceptT Text IO P.ExternsFile
-loadExterns (P.ModuleName mn) webcheckPursDir = do
-  let path = webcheckPursDir </> toS mn </> "externs.cbor"
+loadExterns (P.ModuleName mn) quickstromPursDir = do
+  let path = quickstromPursDir </> toS mn </> "externs.cbor"
   withExceptT show (P.readExternsFile path) >>= \case
     Just ext -> pure ext
     Nothing -> throwError ("Could not read externs file: " <> toS path)
 
 loadLibraryModules :: FilePath -> IO (Either Text Modules)
-loadLibraryModules webcheckPursDir = runExceptT $ do
-  libModules <- loadModulesFromCoreFn webcheckPursDir
-  externs <- for libModules $ \m -> loadExterns (moduleName m) webcheckPursDir
+loadLibraryModules quickstromPursDir = runExceptT $ do
+  libModules <- loadModulesFromCoreFn quickstromPursDir
+  externs <- for libModules $ \m -> loadExterns (moduleName m) quickstromPursDir
   sortedExterns <- withExceptT show . fmap fst $ P.sortModules externModuleSignature externs
   namesEnv <- withExceptT show . fmap fst . runWriterT $ foldM P.externsEnv P.primEnv sortedExterns
   let initEnv = foldl' (flip P.applyExternsFileToEnvironment) P.initEnvironment sortedExterns
@@ -194,20 +194,20 @@ loadProgram ms input = runExceptT $ do
 
 data SpecificationProgram
   = SpecificationProgram
-      { specificationReadyWhen :: WebCheck.Selector,
-        specificationActions :: Vector (Int, WebCheck.Action WebCheck.Selector),
-        specificationQueries :: WebCheck.Queries,
+      { specificationReadyWhen :: Quickstrom.Selector,
+        specificationActions :: Vector (Int, Quickstrom.Action Quickstrom.Selector),
+        specificationQueries :: Quickstrom.Queries,
         specificationProgram :: Program WithObservedStates
       }
 
-instance WebCheck.Specification SpecificationProgram where
+instance Quickstrom.Specification SpecificationProgram where
   readyWhen = specificationReadyWhen
 
   actions = specificationActions
 
   verify sp states = (_Left %~ (prettyText . prettyEvalError)) $ do
     valid <- toHaskellValue (moduleSourceSpan (programMain p)) =<< evalWithObservedStates p "proposition" states
-    if valid then pure WebCheck.Accepted else pure WebCheck.Rejected
+    if valid then pure Quickstrom.Accepted else pure Quickstrom.Rejected
     where
       p = specificationProgram sp
 
@@ -224,7 +224,7 @@ loadSpecification ms input = runExceptT $ do
     queries <- extractQueries p2 "proposition"
     pure
       ( SpecificationProgram
-          { specificationReadyWhen = WebCheck.Selector readyWhen,
+          { specificationReadyWhen = Quickstrom.Selector readyWhen,
             specificationActions = actions,
             specificationQueries = queries,
             specificationProgram = p
@@ -237,7 +237,7 @@ loadSpecificationFile ms input = loadSpecification ms =<< readFile input
 evalWithObservedStates ::
   Program WithObservedStates ->
   Text ->
-  [WebCheck.ObservedState] ->
+  [Quickstrom.ObservedState] ->
   Either EvalError (Value EvalAnn)
 evalWithObservedStates p n states = do
   qn <- programQualifiedName n p
@@ -246,7 +246,7 @@ evalWithObservedStates p n states = do
     states
     (evalEntryPoint qn)
 
-extractQueries :: Program Analyze.SimpleEval -> Text -> Either EvalError WebCheck.Queries
+extractQueries :: Program Analyze.SimpleEval -> Text -> Either EvalError Quickstrom.Queries
 extractQueries p n = do
   qn <- programQualifiedName n p
   Analyze.runExtract

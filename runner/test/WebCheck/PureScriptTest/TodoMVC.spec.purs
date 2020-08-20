@@ -1,6 +1,6 @@
 module TodoMVC where
 
-import WebCheck
+import Quickstrom
 import Data.Array (filter, foldMap, head, last, zip)
 import Data.Foldable (length)
 import Data.Int as Int

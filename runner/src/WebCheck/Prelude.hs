@@ -1,4 +1,4 @@
-module WebCheck.Prelude
+module Quickstrom.Prelude
   ( module Exports,
   )
 where

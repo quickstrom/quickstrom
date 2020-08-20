@@ -1,13 +1,13 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module WebCheck.PureScript.Pretty where
+module Quickstrom.PureScript.Pretty where
 
 import Data.Text.Prettyprint.Doc
 import Language.PureScript.AST (SourceSpan, sourcePosColumn, sourcePosLine, spanEnd, spanName, spanStart)
-import WebCheck.Prelude
-import WebCheck.PureScript.Eval.Error
-import WebCheck.PureScript.Eval.Name
+import Quickstrom.Prelude
+import Quickstrom.PureScript.Eval.Error
+import Quickstrom.PureScript.Eval.Name
 
 prettySourceSpan :: SourceSpan -> Doc ann
 prettySourceSpan ss =
@@ -38,7 +38,7 @@ prettyEvalError = \case
   EntryPointNotDefined qn -> "Entry point not in scope:" <+> prettyQualifiedName qn
   InvalidEntryPoint n -> "Entry point is invalid:" <+> prettyName n
   NotInScope _ qn -> "Not in scope:" <+> either prettyQualifiedName prettyName qn
-  ForeignFunctionNotSupported _ qn -> "Foreign function is not supported in WebCheck:" <+> prettyQualifiedName qn
+  ForeignFunctionNotSupported _ qn -> "Foreign function is not supported in Quickstrom:" <+> prettyQualifiedName qn
   InvalidString _ -> "Invalid string"
   InvalidBuiltInFunctionApplication _ _fn _param -> "Invalid function application"
   ForeignFunctionError _ t -> pretty t

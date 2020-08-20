@@ -1,4 +1,4 @@
-module WebCheck.Selector where
+module Quickstrom.Selector where
 
 type Selector
   = String

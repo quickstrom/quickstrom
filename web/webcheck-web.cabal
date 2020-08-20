@@ -1,12 +1,12 @@
 cabal-version:        2.2
 
-name:                 webcheck-web
+name:                 quickstrom-web
 version:              0.1.0.0
 author:               Oskar Wickström
 maintainer:           oskar@wickstrom.tech
 build-type:           Simple
 
-executable webcheck-web
+executable quickstrom-web
   build-depends:      base ^>= 4.12
                     , aeson
                     , binary
@@ -30,7 +30,7 @@ executable webcheck-web
                     , wai
                     , wai-middleware-static
                     , wai-extra
-                    , webcheck-runner
+                    , quickstrom-runner
 
   main-is:            Main.hs
   hs-source-dirs:     src

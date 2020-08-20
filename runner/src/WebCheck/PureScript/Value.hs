@@ -5,7 +5,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module WebCheck.PureScript.Value where
+module Quickstrom.PureScript.Value where
 
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
@@ -14,9 +14,9 @@ import Data.Vector (Vector)
 import qualified Data.Vector as Vector
 import Language.PureScript.CoreFn
 import Language.PureScript.Names
-import qualified WebCheck.Element as Element
-import WebCheck.Prelude
-import WebCheck.PureScript.Eval.Env
+import qualified Quickstrom.Element as Element
+import Quickstrom.Prelude
+import Quickstrom.PureScript.Eval.Env
 
 data Value ann
   = VBool Bool

@@ -6,7 +6,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 
-module WebCheck.PureScript.Analyze where
+module Quickstrom.PureScript.Analyze where
 
 import Control.Lens
 import Control.Monad.Fix (MonadFix)
@@ -17,10 +17,10 @@ import Data.HashSet (HashSet)
 import qualified Language.PureScript.AST.SourcePos as P
 import qualified Language.PureScript.CoreFn as P
 import qualified Language.PureScript.Names as P
-import WebCheck.Element (Selector (..))
-import WebCheck.Prelude
-import WebCheck.PureScript.Eval
-import WebCheck.Specification (Queries)
+import Quickstrom.Element (Selector (..))
+import Quickstrom.Prelude
+import Quickstrom.PureScript.Eval
+import Quickstrom.Specification (Queries)
 
 data SimpleEvalEnv
   = SimpleEvalEnv

@@ -1,6 +1,6 @@
 module Spec where
 
-import WebCheck
+import Quickstrom
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Array (length)
 

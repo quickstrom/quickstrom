@@ -1,11 +1,11 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 
-module WebCheck.Action where
+module Quickstrom.Action where
 
 import GHC.Generics (Generic)
-import WebCheck.Element
-import WebCheck.Prelude
+import Quickstrom.Element
+import Quickstrom.Prelude
 import Data.Aeson (ToJSON)
 
 data Selected = Selected Selector Int

@@ -2,4 +2,4 @@
 , haskellPackages }:
 let
   src = pkgs.nix-gitignore.gitignoreSource [ ] ./.;
-in haskellPackages.callCabal2nix "webcheck-web" "${src}" { }
+in haskellPackages.callCabal2nix "quickstrom-web" "${src}" { }

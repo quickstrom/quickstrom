@@ -1,6 +1,6 @@
 module SpinnersSpecification where
 
-import WebCheck
+import Quickstrom
 import Data.Array (length)
 
 readyWhen :: String

@@ -19,7 +19,7 @@
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module WebCheck.PureScript.ForeignFunction where
+module Quickstrom.PureScript.ForeignFunction where
 
 import Control.Monad.Writer.Strict (MonadWriter)
 import Data.HashMap.Strict (HashMap)
@@ -31,14 +31,14 @@ import Text.Megaparsec (Parsec)
 import qualified Text.Megaparsec as Parsec
 import qualified Text.URI as URI
 import Text.URI (URI)
-import WebCheck.Action (Action (..))
-import WebCheck.Element (Selector (..))
-import WebCheck.Prelude
-import WebCheck.PureScript.Eval.Ann
-import WebCheck.PureScript.Eval.Error
-import WebCheck.PureScript.Eval.Interpret
-import WebCheck.PureScript.Eval.Name
-import WebCheck.PureScript.Value
+import Quickstrom.Action (Action (..))
+import Quickstrom.Element (Selector (..))
+import Quickstrom.Prelude
+import Quickstrom.PureScript.Eval.Ann
+import Quickstrom.PureScript.Eval.Error
+import Quickstrom.PureScript.Eval.Interpret
+import Quickstrom.PureScript.Eval.Name
+import Quickstrom.PureScript.Value
 
 data ForeignFunction m arity where
   Base :: FromHaskellValue a => m a -> ForeignFunction m 0

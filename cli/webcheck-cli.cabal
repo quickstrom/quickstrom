@@ -1,12 +1,12 @@
 cabal-version:        2.2
 
-name:                 webcheck-cli
+name:                 quickstrom-cli
 version:              0.1.0.0
 author:               Oskar Wickström
 maintainer:           oskar@wickstrom.tech
 build-type:           Simple
 
-executable webcheck
+executable quickstrom
   build-depends:      base ^>= 4.12
                     , containers
                     , directory
@@ -20,7 +20,7 @@ executable webcheck
                     , protolude
                     , process
                     , text
-                    , webcheck-runner
+                    , quickstrom-runner
 
   main-is:            Main.hs
   hs-source-dirs:     src

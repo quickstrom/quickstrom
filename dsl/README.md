@@ -1,4 +1,4 @@
-# WebCheck DSL
+# Quickstrom DSL
 
 This is the DSL used by testers when writing specifications. It's based on
 PureScript.
@@ -9,17 +9,17 @@ PureScript.
 
 ## Building
 
-A regular build, for use in WebCheck, is done with Nix:
+A regular build, for use in Quickstrom, is done with Nix:
 
 ```
 $ nix-build
 ```
 
 This creates a derivation with compiled externs and CoreFn
-representations of all dependencies, including the WebCheck modules in
+representations of all dependencies, including the Quickstrom modules in
 this package.
 
-WebCheck's Nix build invokes this build itself, so you generally don't
+Quickstrom's Nix build invokes this build itself, so you generally don't
 need to run `nix-build` for this package.
 
 ## Hacking
@@ -37,9 +37,9 @@ Now all dependencies should be in the standard Spago location, so that
 Spago and the PureScript IDE works as usual. Launch your editor and use
 this package as the project root, and it should work nicely!
 
-You can build the WebCheck libraries manually with spago. This is useful if
+You can build the Quickstrom libraries manually with spago. This is useful if
 you're hacking on these modules (or the specifications in `specs/`) and want
-to run WebCheck against your working copy (see `WEBCHECK_LIBRARY_DIR` in the
+to run Quickstrom against your working copy (see `WEBCHECK_LIBRARY_DIR` in the
 root README).
 
 ```

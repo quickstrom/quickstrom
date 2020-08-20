@@ -10,7 +10,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 
-module WebCheck.Element where
+module Quickstrom.Element where
 
 import Data.Aeson as JSON
 import Data.Aeson.Types (parseFail)
@@ -19,7 +19,7 @@ import Data.String (IsString)
 import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
 import GHC.Generics (Generic)
-import WebCheck.Prelude
+import Quickstrom.Prelude
 
 newtype Element = Element {ref :: Text}
   deriving (Eq, Ord, Show, Hashable, Pretty)

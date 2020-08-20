@@ -13,7 +13,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
-module WebCheck.Trace
+module Quickstrom.Trace
   ( Selected (..),
     Action (..),
     ObservedState (..),
@@ -39,8 +39,8 @@ import Data.HashMap.Strict (HashMap)
 import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
 import GHC.Generics (Generic)
-import WebCheck.Action
-import WebCheck.Element
+import Quickstrom.Action
+import Quickstrom.Element
 import Prelude hiding (Bool (..), not)
 
 newtype ObservedState = ObservedState (HashMap Selector [HashMap ElementState Value])

@@ -2,12 +2,12 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module WebCheck.PureScript.Eval.Env where
+module Quickstrom.PureScript.Eval.Env where
 
 import qualified Data.HashMap.Strict as HashMap
 import Data.HashMap.Strict (HashMap)
-import WebCheck.Prelude
-import WebCheck.PureScript.Eval.Name
+import Quickstrom.Prelude
+import Quickstrom.PureScript.Eval.Name
 
 data Env expr value ff ann
   = Env

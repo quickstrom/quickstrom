@@ -4,14 +4,14 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module WebCheck.PureScript.Eval.Class where
+module Quickstrom.PureScript.Eval.Class where
 
 import Control.Monad.Fix (MonadFix)
 import Language.PureScript.CoreFn (Expr)
-import WebCheck.Prelude
-import WebCheck.PureScript.Eval.Ann
-import WebCheck.PureScript.Eval.Error (EvalError)
-import WebCheck.PureScript.Value (Value)
+import Quickstrom.Prelude
+import Quickstrom.PureScript.Eval.Ann
+import Quickstrom.PureScript.Eval.Error (EvalError)
+import Quickstrom.PureScript.Value (Value)
 
 class (MonadError EvalError m, MonadFix m) => MonadEvalQuery m where
   evalQuery :: Expr EvalAnn -> Expr EvalAnn -> m (Value EvalAnn)

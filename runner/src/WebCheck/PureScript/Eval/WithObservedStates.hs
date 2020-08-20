@@ -12,7 +12,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module WebCheck.PureScript.Eval.WithObservedStates where
+module Quickstrom.PureScript.Eval.WithObservedStates where
 
 import Control.Lens hiding (op)
 import Control.Monad.Fix (MonadFix)
@@ -21,13 +21,13 @@ import Data.Generics.Product (field)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Scientific (floatingOrInteger)
 import qualified Data.Vector as Vector
-import WebCheck.Element (ElementState (..), Selector (..))
-import WebCheck.Prelude
-import WebCheck.PureScript.Eval.Class
-import WebCheck.PureScript.Eval.Error
-import WebCheck.PureScript.Eval.Interpret
-import WebCheck.PureScript.Value
-import WebCheck.Trace (ObservedState (..))
+import Quickstrom.Element (ElementState (..), Selector (..))
+import Quickstrom.Prelude
+import Quickstrom.PureScript.Eval.Class
+import Quickstrom.PureScript.Eval.Error
+import Quickstrom.PureScript.Eval.Interpret
+import Quickstrom.PureScript.Value
+import Quickstrom.Trace (ObservedState (..))
 
 data WithObservedStatesEnv
   = WithObservedStatesEnv

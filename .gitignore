@@ -5,8 +5,8 @@ cabal.project.local
 *.hi
 
 # profiling/flamegraph
-webcheck.prof
-webcheck.svg
+quickstrom.prof
+quickstrom.svg
 
 /output
 /generated-docs

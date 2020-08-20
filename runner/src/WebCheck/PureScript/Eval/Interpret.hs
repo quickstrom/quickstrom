@@ -22,7 +22,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 
-module WebCheck.PureScript.Eval.Interpret where
+module Quickstrom.PureScript.Eval.Interpret where
 
 import Control.Lens hiding (op)
 import Control.Monad.Fix (MonadFix)
@@ -36,17 +36,17 @@ import Language.PureScript.CoreFn hiding (Ann)
 import qualified Language.PureScript.CoreFn as CF
 import qualified Language.PureScript.Names as P
 import Language.PureScript.PSString (PSString, decodeString, mkString)
-import qualified WebCheck.Element as WebCheck
-import WebCheck.Prelude hiding (HasField)
-import WebCheck.PureScript.Eval.Ann
-import WebCheck.PureScript.Eval.Class
-import WebCheck.PureScript.Eval.Env
-import WebCheck.PureScript.Eval.Error
-import WebCheck.PureScript.Eval.Name
-import WebCheck.PureScript.Value
+import qualified Quickstrom.Element as Quickstrom
+import Quickstrom.Prelude hiding (HasField)
+import Quickstrom.PureScript.Eval.Ann
+import Quickstrom.PureScript.Eval.Class
+import Quickstrom.PureScript.Eval.Env
+import Quickstrom.PureScript.Eval.Error
+import Quickstrom.PureScript.Eval.Name
+import Quickstrom.PureScript.Value
 
 pattern BuiltIn :: Text -> a -> Expr a -> Expr a
-pattern BuiltIn name ann p <- CF.App ann (CF.Var _ (P.Qualified (Just (P.ModuleName "WebCheck")) (P.Ident name))) p
+pattern BuiltIn name ann p <- CF.App ann (CF.Var _ (P.Qualified (Just (P.ModuleName "Quickstrom")) (P.Ident name))) p
 
 pattern Always :: a -> Expr a -> Expr a
 pattern Always ann p <- BuiltIn "always" ann p
@@ -86,13 +86,13 @@ eval expr = do
       eval p
     BuiltIn "_property" _ p -> do
       name <- require (exprSourceSpan p) (Proxy @"VString") =<< eval p
-      pure (VElementState (WebCheck.Property name))
+      pure (VElementState (Quickstrom.Property name))
     BuiltIn "_attribute" _ p -> do
       name <- require (exprSourceSpan p) (Proxy @"VString") =<< eval p
-      pure (VElementState (WebCheck.Attribute name))
+      pure (VElementState (Quickstrom.Attribute name))
     BuiltIn "cssValue" _ p -> do
       name <- require (exprSourceSpan p) (Proxy @"VString") =<< eval p
-      pure (VElementState (WebCheck.CssValue name))
+      pure (VElementState (Quickstrom.CssValue name))
     -- General cases
     Literal (EvalAnn ss _ _) lit -> case lit of
       NumericLiteral n' -> pure (either (VInt . fromInteger) (VNumber . realToFrac) n')

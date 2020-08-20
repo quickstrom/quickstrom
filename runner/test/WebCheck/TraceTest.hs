@@ -1,13 +1,13 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeApplications #-}
 
-module WebCheck.TraceTest where
+module Quickstrom.TraceTest where
 
 import Control.Lens
 import Test.QuickCheck ((===), Property, forAll)
-import qualified WebCheck.Gen as Gen
-import WebCheck.Prelude
-import WebCheck.Trace
+import qualified Quickstrom.Gen as Gen
+import Quickstrom.Prelude
+import Quickstrom.Trace
 
 prop_all_empty_are_stuttering :: Property
 prop_all_empty_are_stuttering = forAll Gen.trace $ \t -> do

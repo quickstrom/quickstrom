@@ -5,7 +5,7 @@
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Oskar Wickström" />
-  <title>WebCheck</title>
+  <title>Quickstrom</title>
   <style>
       code{white-space: pre-wrap;}
       span.smallcaps{font-variant: small-caps;}
@@ -85,7 +85,7 @@ code span.wa { color: #bf0303; } /* Warning */
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">WebCheck</h1>
+<h1 class="title">Quickstrom</h1>
 <p class="author">Oskar Wickström</p>
 <p class="date">2020-06-17</p>
 </header>
@@ -104,23 +104,23 @@ code span.wa { color: #bf0303; } /* Warning */
 </ul>
 </nav>
 <h1 id="introduction">Introduction</h1>
-<p>This is a design document for my web testing platform, tentatively named <em>WebCheck</em>. It describes the motivation and design of a temporal logic used to specify the behavior of web applications. Further, it describes the design of tools used to check that web applications satisfy such specifications.</p>
+<p>This is a design document for my web testing platform, tentatively named <em>Quickstrom</em>. It describes the motivation and design of a temporal logic used to specify the behavior of web applications. Further, it describes the design of tools used to check that web applications satisfy such specifications.</p>
 <h2 id="how-it-works">How It Works</h2>
-<p>In WebCheck, a tester writes <em>specifications</em> for web applications. When <em>checking</em> a specification, the following happens:</p>
+<p>In Quickstrom, a tester writes <em>specifications</em> for web applications. When <em>checking</em> a specification, the following happens:</p>
 <ol type="1">
-<li>WebCheck navigates to the <em>origin page</em> of the web application, and waits for the <em>ready</em> condition, that a specified element is present in the DOM.</li>
+<li>Quickstrom navigates to the <em>origin page</em> of the web application, and waits for the <em>ready</em> condition, that a specified element is present in the DOM.</li>
 <li>It generates a random sequence of actions to simulate user interaction. Many types of actions can be generated, e.g. clicks, key presses, focus changes, reloads, navigations.</li>
-<li>Before each new action is picked, the DOM state is checked to find only the actions that are possible to take. For instance, you cannot click buttons that are not visible. From that subset, WebCheck picks the next action to take.</li>
-<li>After each action has been taken, WebCheck queries and records the state of relevant DOM elements. The sequence of observed states is called a <em>behavior</em>.</li>
+<li>Before each new action is picked, the DOM state is checked to find only the actions that are possible to take. For instance, you cannot click buttons that are not visible. From that subset, Quickstrom picks the next action to take.</li>
+<li>After each action has been taken, Quickstrom queries and records the state of relevant DOM elements. The sequence of observed states is called a <em>behavior</em>.</li>
 <li>The specification defines a proposition, a logical formula that evaluates to <em>true</em> or <em>false</em>, which is used to determine if the behavior is <em>accepted</em> or <em>rejected</em>.</li>
-<li>When a rejected behavior is found, WebCheck <em>shrinks</em> the sequence of actions to the <em>smallest</em>, <em>still failing</em>, sequence of actions. The tester is presented with a minimal failing test case.</li>
+<li>When a rejected behavior is found, Quickstrom <em>shrinks</em> the sequence of actions to the <em>smallest</em>, <em>still failing</em>, sequence of actions. The tester is presented with a minimal failing test case.</li>
 </ol>
 <p>You might say “This is just property-based testing!” and “I can do this with state machine testing!” You’d be right, similar tests could be written using a state machine model, WebDriver, and property-based testing.</p>
-<p>With WebCheck, however, you don’t have to write a model that fully specifies the behavior of your system! Instead, you describe the most important state transitions and leave the rest unspecified. You can gradually adopt WebCheck and improve your specifications over time.</p>
+<p>With Quickstrom, however, you don’t have to write a model that fully specifies the behavior of your system! Instead, you describe the most important state transitions and leave the rest unspecified. You can gradually adopt Quickstrom and improve your specifications over time.</p>
 <p>Furthermore, in problem domains where there’s <em>essential complexity</em>, models tend to become as complex. It’s often hard to find a naive implementation for your model, when your modelling a business system with a myriad of arbitrary rules.</p>
 <p>Now, how do you write specifications and propositions? Let’s have a look at the <em>Temporal Logic of Web Applications</em>.</p>
 <h1 id="temporal-logic-of-web-applications">Temporal Logic of Web Applications</h1>
-<p>In WebCheck, the behavior of a web application is specified using the Temporal Logic of Web Applications (TLWA). It's a first-order temporal logic, heavily inspired by TLA+ and LTL, most notably adding web-specific operators.</p>
+<p>In Quickstrom, the behavior of a web application is specified using the Temporal Logic of Web Applications (TLWA). It's a first-order temporal logic, heavily inspired by TLA+ and LTL, most notably adding web-specific operators.</p>
 <p>Like in TLA+, specifications in TLWA are based on state machines. A <em>behavior</em> is a sequence of states. A <em>step</em> is a tuple of two successive states in a behavior. A specification describes valid <em>behaviors</em> of a web application in terms of valid states and transitions between states.</p>
 <p>In TLWA, a syntactic form is called a <em>formula</em>, and every formula evalutes to a <em>value</em>. A <em>proposition</em> is a boolean formula, evaluating to either true or false. Formulae can also evaluate to text, numbers, sequences, and sets.</p>
 <h2 id="syntax">Syntax</h2>

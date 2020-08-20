@@ -1,6 +1,6 @@
 cabal-version:        2.2
 
-name:                 webcheck-runner
+name:                 quickstrom-runner
 version:              0.1.0.0
 author:               Oskar Wickström
 maintainer:           oskar@wickstrom.tech
@@ -45,47 +45,47 @@ common shared-deps
 
 library
   import:             shared-deps
-  exposed-modules:    WebCheck.Action
-                    , WebCheck.Element
-                    , WebCheck.LogLevel
-                    , WebCheck.Prelude
-                    , WebCheck.Pretty
-                    , WebCheck.PureScript.Eval
-                    , WebCheck.PureScript.Eval.Ann
-                    , WebCheck.PureScript.Eval.Env
-                    , WebCheck.PureScript.Eval.Error
-                    , WebCheck.PureScript.Eval.Class
-                    , WebCheck.PureScript.Eval.Interpret
-                    , WebCheck.PureScript.Eval.Name
-                    , WebCheck.PureScript.Eval.WithObservedStates
-                    , WebCheck.PureScript.Analyze
-                    , WebCheck.PureScript.ForeignFunction
-                    , WebCheck.PureScript.Pretty
-                    , WebCheck.PureScript.Program
-                    , WebCheck.PureScript.Value
-                    , WebCheck.Result
-                    , WebCheck.Run
-                    , WebCheck.Specification
-                    , WebCheck.Trace
-                    , WebCheck.WebDriver.Class
-                    , WebCheck.WebDriver.HsWebDriver
-                    , WebCheck.WebDriver.WebDriverW3C
+  exposed-modules:    Quickstrom.Action
+                    , Quickstrom.Element
+                    , Quickstrom.LogLevel
+                    , Quickstrom.Prelude
+                    , Quickstrom.Pretty
+                    , Quickstrom.PureScript.Eval
+                    , Quickstrom.PureScript.Eval.Ann
+                    , Quickstrom.PureScript.Eval.Env
+                    , Quickstrom.PureScript.Eval.Error
+                    , Quickstrom.PureScript.Eval.Class
+                    , Quickstrom.PureScript.Eval.Interpret
+                    , Quickstrom.PureScript.Eval.Name
+                    , Quickstrom.PureScript.Eval.WithObservedStates
+                    , Quickstrom.PureScript.Analyze
+                    , Quickstrom.PureScript.ForeignFunction
+                    , Quickstrom.PureScript.Pretty
+                    , Quickstrom.PureScript.Program
+                    , Quickstrom.PureScript.Value
+                    , Quickstrom.Result
+                    , Quickstrom.Run
+                    , Quickstrom.Specification
+                    , Quickstrom.Trace
+                    , Quickstrom.WebDriver.Class
+                    , Quickstrom.WebDriver.HsWebDriver
+                    , Quickstrom.WebDriver.WebDriverW3C
   hs-source-dirs:     src
   default-language:   Haskell2010
   default-extensions: NoImplicitPrelude
   ghc-options:        -Wall -Werror=incomplete-patterns -Wredundant-constraints
 
-test-suite webcheck-runner-test
+test-suite quickstrom-runner-test
   import:             shared-deps
   type:               exitcode-stdio-1.0
   main-is:            Main.hs
   hs-source-dirs:     test
-  other-modules:      WebCheck.Gen
-                    , WebCheck.PureScript.AnalyzeTest
-                    , WebCheck.PureScriptTest
-                    , WebCheck.TraceTest
+  other-modules:      Quickstrom.Gen
+                    , Quickstrom.PureScript.AnalyzeTest
+                    , Quickstrom.PureScriptTest
+                    , Quickstrom.TraceTest
   build-depends:      base
-                    , webcheck-runner
+                    , quickstrom-runner
                     , tasty
                     , tasty-discover
                     , tasty-hspec

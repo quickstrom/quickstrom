@@ -1,11 +1,11 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE KindSignatures #-}
 
-module WebCheck.WebDriver.Class where
+module Quickstrom.WebDriver.Class where
 
-import WebCheck.Element (Element, Selector)
-import WebCheck.LogLevel
-import WebCheck.Prelude
+import Quickstrom.Element (Element, Selector)
+import Quickstrom.LogLevel
+import Quickstrom.Prelude
 import qualified Data.Aeson as JSON
 
 class Monad m => WebDriver (m :: Type -> Type) where

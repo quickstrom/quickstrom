@@ -1,6 +1,6 @@
-module WebCheck.Result where
+module Quickstrom.Result where
 
-import WebCheck.Prelude
+import Quickstrom.Prelude
 
 data Result
   = Accepted

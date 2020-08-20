@@ -2,10 +2,10 @@ PANDOC_OPTS=-V"date=$(shell date --iso)" \
 						--highlight-style=kate \
 						--toc
 
-all: webcheck.html webcheck.pdf
+all: quickstrom.html quickstrom.pdf
 
 clean:
-	rm -rf webcheck.pdf webcheck.html
+	rm -rf quickstrom.pdf quickstrom.html
 
 %.pdf: %.md
 	pandoc \

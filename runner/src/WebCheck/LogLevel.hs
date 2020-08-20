@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
-module WebCheck.LogLevel where
+module Quickstrom.LogLevel where
 
-import WebCheck.Prelude
+import Quickstrom.Prelude
 import Data.String (String)
 
 data LogLevel = LogDebug | LogInfo | LogWarn | LogError

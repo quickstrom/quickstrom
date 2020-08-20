@@ -16,30 +16,30 @@ let
       # haskell-src = self.callHackage "haskell-src" "1.0.3.0" { };
       # HTF = pkgs.haskell.lib.dontCheck (self.callHackage "HTF" "0.13.2.5" { });
 
-      webcheck-runner = import ./runner {
+      quickstrom-runner = import ./runner {
         inherit pkgs;
         haskellPackages = self;
       };
-      webcheck-cli = import ./cli {
+      quickstrom-cli = import ./cli {
         inherit pkgs;
         haskellPackages = self;
       };
-      webcheck-web = import ./web {
+      quickstrom-web = import ./web {
         inherit pkgs;
         haskellPackages = self;
       };
     };
   };
 
-  webcheck = pkgs.stdenv.mkDerivation {
-    name = "webcheck";
+  quickstrom = pkgs.stdenv.mkDerivation {
+    name = "quickstrom";
     unpackPhase = "true";
     buildPhase = "";
     nativeBuildInputs = [ pkgs.makeWrapper ];
     installPhase = ''
       mkdir -p $out/bin
-      makeWrapper "${haskellPackages.webcheck-cli}/bin/webcheck" \
-          $out/bin/webcheck \
+      makeWrapper "${haskellPackages.quickstrom-cli}/bin/quickstrom" \
+          $out/bin/quickstrom \
           --set WEBCHECK_LIBRARY_DIR "${dsl}" \
           --set WEBCHECK_CLIENT_SIDE_DIR "${client-side}"
     '';
@@ -47,6 +47,6 @@ let
 
 in {
   inherit haskellPackages;
-  webcheck = webcheck;
+  quickstrom = quickstrom;
 }
 

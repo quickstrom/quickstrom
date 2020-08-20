@@ -1,12 +1,12 @@
-module WebCheck.PureScript.Eval
+module Quickstrom.PureScript.Eval
   ( module Exports,
   )
 where
 
-import WebCheck.PureScript.Eval.Ann as Exports
-import WebCheck.PureScript.Eval.Class as Exports
-import WebCheck.PureScript.Eval.Env as Exports
-import WebCheck.PureScript.Eval.Error as Exports
-import WebCheck.PureScript.Eval.Interpret as Exports
-import WebCheck.PureScript.Eval.Name as Exports
-import WebCheck.PureScript.Eval.WithObservedStates as Exports
+import Quickstrom.PureScript.Eval.Ann as Exports
+import Quickstrom.PureScript.Eval.Class as Exports
+import Quickstrom.PureScript.Eval.Env as Exports
+import Quickstrom.PureScript.Eval.Error as Exports
+import Quickstrom.PureScript.Eval.Interpret as Exports
+import Quickstrom.PureScript.Eval.Name as Exports
+import Quickstrom.PureScript.Eval.WithObservedStates as Exports

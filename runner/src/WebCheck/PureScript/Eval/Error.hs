@@ -9,7 +9,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
-module WebCheck.PureScript.Eval.Error where
+module Quickstrom.PureScript.Eval.Error where
 
 import Control.Lens ((^?))
 import Data.Generics.Sum (AsConstructor, _Ctor)
@@ -18,9 +18,9 @@ import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Text as Text
 import Language.PureScript.AST (SourceSpan)
 import Language.PureScript.CoreFn (Expr)
-import WebCheck.Prelude
-import WebCheck.PureScript.Eval.Name
-import WebCheck.PureScript.Value
+import Quickstrom.Prelude
+import Quickstrom.PureScript.Eval.Name
+import Quickstrom.PureScript.Value
 
 data EvalError
   = UnexpectedError (Maybe SourceSpan) Text

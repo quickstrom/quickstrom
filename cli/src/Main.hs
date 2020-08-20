@@ -24,28 +24,28 @@ import Text.URI (URI)
 import qualified Text.URI as URI
 import Text.URI.Lens (uriScheme)
 import qualified Text.URI.QQ as URI
-import qualified WebCheck.LogLevel as WebCheck
-import WebCheck.Prelude hiding (option, try)
-import qualified WebCheck.Pretty as WebCheck
-import qualified WebCheck.PureScript.Program as WebCheck
-import qualified WebCheck.Run as WebCheck
-import qualified WebCheck.WebDriver.WebDriverW3C as WebDriver
-import qualified WebCheck.Trace as WebCheck
+import qualified Quickstrom.LogLevel as Quickstrom
+import Quickstrom.Prelude hiding (option, try)
+import qualified Quickstrom.Pretty as Quickstrom
+import qualified Quickstrom.PureScript.Program as Quickstrom
+import qualified Quickstrom.Run as Quickstrom
+import qualified Quickstrom.WebDriver.WebDriverW3C as WebDriver
+import qualified Quickstrom.Trace as Quickstrom
 
-data WebCheckOptions = WebCheckOptions
+data QuickstromOptions = QuickstromOptions
   { specPath :: FilePath,
     origin :: Text,
     libraryPath :: Maybe FilePath,
     tests :: Int,
-    maxActions :: WebCheck.Size,
+    maxActions :: Quickstrom.Size,
     shrinkLevels :: Int,
     maxTrailingStateChanges :: Int,
-    logLevel :: WebCheck.LogLevel
+    logLevel :: Quickstrom.LogLevel
   }
 
-optParser :: Parser WebCheckOptions
+optParser :: Parser QuickstromOptions
 optParser =
-  WebCheckOptions
+  QuickstromOptions
     <$> argument
       str
       ( metavar "SPECIFICATION_FILE"
@@ -60,7 +60,7 @@ optParser =
       ( strOption
           ( metavar "DIRECTORY"
               <> long "library-directory"
-              <> help "Directory containing compiled PureScript libraries used by WebCheck (falls back to the WEBCHECK_LIBRARY_DIR environment variable)"
+              <> help "Directory containing compiled PureScript libraries used by Quickstrom (falls back to the WEBCHECK_LIBRARY_DIR environment variable)"
           )
       )
     <*> option
@@ -71,7 +71,7 @@ optParser =
           <> long "tests"
           <> help "How many tests to run"
       )
-    <*> ( WebCheck.Size
+    <*> ( Quickstrom.Size
             <$> option
               auto
               ( value 100
@@ -96,20 +96,20 @@ optParser =
           <> help "Maximum number of trailing state changes to await"
       )
     <*> option
-      (eitherReader WebCheck.parseLogLevel)
-      ( value WebCheck.LogInfo
+      (eitherReader Quickstrom.parseLogLevel)
+      ( value Quickstrom.LogInfo
           <> metavar "LEVEL"
           <> long "log-level"
           <> short 'l'
-          <> help "Log level used by WebCheck and the backing WebDriver server (e.g. geckodriver)"
+          <> help "Log level used by Quickstrom and the backing WebDriver server (e.g. geckodriver)"
       )
 
-optsInfo :: ParserInfo WebCheckOptions
+optsInfo :: ParserInfo QuickstromOptions
 optsInfo =
   info
     (optParser <**> helper)
     ( fullDesc
-        <> header "WebCheck: High-confidence browser testing"
+        <> header "Quickstrom: High-confidence browser testing"
     )
 
 fileScheme :: URI.RText 'URI.Scheme
@@ -125,19 +125,19 @@ resolveAbsoluteURI t = do
 
 main :: IO ()
 main = do
-  WebCheckOptions {..} <- execParser optsInfo
+  QuickstromOptions {..} <- execParser optsInfo
   originUri <- resolveAbsoluteURI origin
   specResult <- runExceptT $ do
     libPath <- maybe libraryPathFromEnvironment pure libraryPath
-    modules <- ExceptT (WebCheck.loadLibraryModules libPath)
-    ExceptT (WebCheck.loadSpecificationFile modules specPath)
+    modules <- ExceptT (Quickstrom.loadLibraryModules libPath)
+    ExceptT (Quickstrom.loadSpecificationFile modules specPath)
   case specResult of
     Left err -> do
       hPutStrLn @Text stderr err
       exitWith (ExitFailure 2)
     Right spec -> flip runReaderT logLevel $ do
       let opts =
-            WebCheck.CheckOptions
+            Quickstrom.CheckOptions
               { checkTests = tests,
                 checkMaxActions = maxActions,
                 checkShrinkLevels = shrinkLevels,
@@ -146,24 +146,24 @@ main = do
                 checkWebDriverLogLevel = logLevel
               }
       result <-
-        Pipes.runEffect (Pipes.for (WebCheck.check opts WebDriver.runWebDriver spec) (lift . logDoc . renderCheckEvent))
+        Pipes.runEffect (Pipes.for (Quickstrom.check opts WebDriver.runWebDriver spec) (lift . logDoc . renderCheckEvent))
           & try
       logDoc . logSingle Nothing $ line <> divider <> line
       case result of
-        Right WebCheck.CheckFailure {failedAfter, failingTest} -> do
+        Right Quickstrom.CheckFailure {failedAfter, failingTest} -> do
           logDoc . logSingle Nothing $
-            WebCheck.prettyTrace (WebCheck.withoutStutterStates (WebCheck.trace failingTest))
-          case WebCheck.reason failingTest of
+            Quickstrom.prettyTrace (Quickstrom.withoutStutterStates (Quickstrom.trace failingTest))
+          case Quickstrom.reason failingTest of
             Just err -> logDoc (logSingle Nothing (line <> annotate (color Red) ("Test failed with error:" <+> pretty err <> line)))
             Nothing -> pure ()
           logDoc . logSingle Nothing . annotate (color Red) $
-            line <> "Failed after" <+> pretty failedAfter <+> "tests and" <+> pretty (WebCheck.numShrinks failingTest) <+> "levels of shrinking." <> line
+            line <> "Failed after" <+> pretty failedAfter <+> "tests and" <+> pretty (Quickstrom.numShrinks failingTest) <+> "levels of shrinking." <> line
           liftIO (exitWith (ExitFailure 3))
-        Right WebCheck.CheckError {checkError} -> do
+        Right Quickstrom.CheckError {checkError} -> do
           logDoc . logSingle Nothing . annotate (color Red) $
             line <> "Check encountered an error:" <+> pretty checkError <> line
           liftIO (exitWith (ExitFailure 1))
-        Right WebCheck.CheckSuccess ->
+        Right Quickstrom.CheckSuccess ->
           logDoc . logSingle Nothing . annotate (color Green) $
             line <> "Passed" <+> pretty tests <+> "tests." <> line
         Left err@SomeException {} -> do
@@ -181,7 +181,7 @@ libraryPathFromEnvironment = do
 
 logo :: Doc AnsiStyle
 logo =
-  -- http://patorjk.com/software/taag/#p=display&f=Ogre&t=WebCheck
+  -- http://patorjk.com/software/taag/#p=display&f=Ogre&t=Quickstrom
   -- with backslashes escaped
   vsep
     [ " __    __     _       ___ _               _    ",
@@ -194,33 +194,33 @@ logo =
 divider :: Doc ann
 divider = pageWidth $ \(AvailablePerLine w _) -> pretty (Text.replicate w "―")
 
-renderCheckEvent :: WebCheck.CheckEvent -> [(Maybe WebCheck.LogLevel, Doc AnsiStyle)]
+renderCheckEvent :: Quickstrom.CheckEvent -> [(Maybe Quickstrom.LogLevel, Doc AnsiStyle)]
 renderCheckEvent = \case
-  WebCheck.CheckStarted n ->
+  Quickstrom.CheckStarted n ->
     logSingle Nothing $
       annotate bold logo
         <> line
         <> line
         <> ("Running" <+> annotate (color Blue) (pretty n) <+> "tests...")
-  WebCheck.CheckTestEvent e -> renderTestEvent e
-  WebCheck.CheckFinished {} -> mempty
+  Quickstrom.CheckTestEvent e -> renderTestEvent e
+  Quickstrom.CheckFinished {} -> mempty
 
-renderTestEvent :: WebCheck.TestEvent -> [(Maybe WebCheck.LogLevel, Doc AnsiStyle)]
+renderTestEvent :: Quickstrom.TestEvent -> [(Maybe Quickstrom.LogLevel, Doc AnsiStyle)]
 renderTestEvent = \case
-  WebCheck.TestStarted size ->
+  Quickstrom.TestStarted size ->
     logSingle Nothing $
       line
         <> divider
         <> line
         <> line
         <> annotate bold (renderSize size <+> "Actions")
-  WebCheck.TestPassed size trace' ->
+  Quickstrom.TestPassed size trace' ->
     case traceWarnings size trace' of
       [] ->
         logSingle Nothing $ annotate (color Green) "Test passed!"
       warnings ->
         [ (Nothing, annotate (color Green) "Test passed!"),
-          ( Just WebCheck.LogWarn,
+          ( Just Quickstrom.LogWarn,
             line
               <> annotate (color Yellow) "Warnings:"
               <> line
@@ -228,40 +228,40 @@ renderTestEvent = \case
               <> renderList warnings
           )
         ]
-  WebCheck.TestFailed _size trace' ->
+  Quickstrom.TestFailed _size trace' ->
     logSingle Nothing $
       line
         <> annotate (color Red) "Test failed:"
         <> line
-        <> WebCheck.prettyTrace trace'
-  WebCheck.Shrinking level ->
+        <> Quickstrom.prettyTrace trace'
+  Quickstrom.Shrinking level ->
     logSingle Nothing $
       line
         <> annotate bold ("Shrinking failing test down to the" <+> ordinal level <+> "level..." <> line)
-  WebCheck.RunningShrink level ->
-    logSingle (Just WebCheck.LogInfo) $
+  Quickstrom.RunningShrink level ->
+    logSingle (Just Quickstrom.LogInfo) $
       "Running shrunk test at level" <+> pretty level <> "."
   where
-    traceWarnings :: WebCheck.Size -> WebCheck.Trace WebCheck.TraceElementEffect -> [Doc AnsiStyle]
+    traceWarnings :: Quickstrom.Size -> Quickstrom.Trace Quickstrom.TraceElementEffect -> [Doc AnsiStyle]
     traceWarnings size trace' =
       let fewActions =
-            case length (trace' ^.. WebCheck.traceActions) of
+            case length (trace' ^.. Quickstrom.traceActions) of
               0 -> ["Could not generate any valid actions."]
               numActions
-                | numActions < fromIntegral (WebCheck.unSize size) ->
+                | numActions < fromIntegral (Quickstrom.unSize size) ->
                   ["Could only generate" <+> pretty numActions <> "/" <> renderSize size <+> "actions."]
               _ -> []
           actionFailures =
-            case trace' ^.. WebCheck.traceActionFailures of
+            case trace' ^.. Quickstrom.traceActionFailures of
               [] -> []
               failures -> ["There were" <+> pretty (length failures) <+> "action failures"]
        in fewActions <> actionFailures
 
-logSingle :: Maybe WebCheck.LogLevel -> Doc AnsiStyle -> [(Maybe WebCheck.LogLevel, Doc AnsiStyle)]
+logSingle :: Maybe Quickstrom.LogLevel -> Doc AnsiStyle -> [(Maybe Quickstrom.LogLevel, Doc AnsiStyle)]
 logSingle l d = [(l, d)]
 
-renderSize :: WebCheck.Size -> Doc AnsiStyle
-renderSize (WebCheck.Size s) = pretty s
+renderSize :: Quickstrom.Size -> Doc AnsiStyle
+renderSize (Quickstrom.Size s) = pretty s
 
 renderList :: [Doc ann] -> Doc ann
 renderList = vsep . map (\x -> bullet <+> align x)
@@ -274,7 +274,7 @@ ordinal n =
     3 -> "rd"
     _ -> "th"
 
-logDoc :: (MonadReader WebCheck.LogLevel m, MonadIO m) => [(Maybe WebCheck.LogLevel, Doc AnsiStyle)] -> m ()
+logDoc :: (MonadReader Quickstrom.LogLevel m, MonadIO m) => [(Maybe Quickstrom.LogLevel, Doc AnsiStyle)] -> m ()
 logDoc logs = for_ logs $ \(logLevel, doc) -> do
   minLogLevel <- ask
   let logAction = putStrLn (renderStrict (layoutPretty defaultLayoutOptions doc))

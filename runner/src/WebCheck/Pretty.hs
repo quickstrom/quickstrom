@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module WebCheck.Pretty
+module Quickstrom.Pretty
   ( prettyAction,
     prettyActions,
     prettyTrace,
@@ -19,9 +19,9 @@ import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
 import Data.Text.Prettyprint.Doc.Symbols.Unicode (bullet)
 import qualified Data.Vector as Vector
-import WebCheck.Element
-import WebCheck.Prelude
-import WebCheck.Trace
+import Quickstrom.Element
+import Quickstrom.Prelude
+import Quickstrom.Trace
 
 prettyAction :: Action Selected -> Doc AnsiStyle
 prettyAction = \case

@@ -1,5 +1,5 @@
 ---
-title: WebCheck
+title: Quickstrom
 author: Oskar Wickström
 
 documentclass: scrartcl
@@ -12,17 +12,17 @@ header-includes: |
 # Introduction
 
 This is a design document for my web testing platform, tentatively named
-_WebCheck_. It describes the motivation and design of a temporal logic
+_Quickstrom_. It describes the motivation and design of a temporal logic
 used to specify the behavior of web applications. Further, it describes
 the design of tools used to check that web applications satisfy such
 specifications.
 
 ## How It Works
 
-In WebCheck, a tester writes _specifications_ for web
+In Quickstrom, a tester writes _specifications_ for web
 applications. When _checking_ a specification, the following happens:
 
-1. WebCheck navigates to the _origin page_, and
+1. Quickstrom navigates to the _origin page_, and
    waits for the _ready_ condition, that a specified element is
    present in the DOM.
 1. It generates a random sequence of actions to simulate user
@@ -30,15 +30,15 @@ applications. When _checking_ a specification, the following happens:
    key presses, focus changes, reloads, navigations.
 1. Before each new action is picked, the DOM state is checked to find
    only the actions that are possible to take. For instance, you cannot
-   click buttons that are not visible. From that subset, WebCheck picks
+   click buttons that are not visible. From that subset, Quickstrom picks
    the next action to take.
-1. After each action has been taken, WebCheck queries and records the
+1. After each action has been taken, Quickstrom queries and records the
    state of relevant DOM elements. The sequence of observed states is
    called a _behavior_.
 1. The specification defines a proposition, a logical formula that
    evaluates to _true_ or _false_, which is used to determine if the
    behavior is _accepted_ or _rejected_.
-1. When a rejected behavior is found, WebCheck _shrinks_ the sequence
+1. When a rejected behavior is found, Quickstrom _shrinks_ the sequence
    of actions to the _smallest_, _still failing_, sequence of
    actions. The tester is presented with a minimal failing test case.
 
@@ -47,10 +47,10 @@ this with state machine testing!" You'd be right, similar tests could
 be written using a state machine model, WebDriver, and property-based
 testing.
 
-With WebCheck, however, you don't have to write a model that fully
+With Quickstrom, however, you don't have to write a model that fully
 specifies the behavior of your system! Instead, you describe the most
 important state transitions and leave the rest unspecified. You can
-gradually adopt WebCheck and improve your specifications over time.
+gradually adopt Quickstrom and improve your specifications over time.
 
 Furthermore, in problem domains where there's _essential complexity_,
 models tend to become as complex. It's often hard to find a naive
@@ -62,18 +62,18 @@ look at the _Temporal Logic of Web Applications_.
 
 # Temporal Logic of Web Applications
 
-In WebCheck, the behavior of a web application is specified using a custom
+In Quickstrom, the behavior of a web application is specified using a custom
 specification language based on PureScript. It\'s a first-order temporal
 logic and functional language, heavily inspired by TLA+ and LTL, most notably
 adding web-specific operators.
 
-Like in TLA+, specifications in WebCheck are based on state machines. A
+Like in TLA+, specifications in Quickstrom are based on state machines. A
 *behavior* is a sequence of states. A *step* is a tuple of two
 successive states in a behavior. A specification describes valid
 *behaviors* of a web application in terms of valid states and
 transitions between states.
 
-In WebCheck, a syntactic form is called a *formula*, and every formula
+In Quickstrom, a syntactic form is called a *formula*, and every formula
 evalutes to a *value*. A *proposition* is a boolean formula, evaluating
 to either true or false.
 
@@ -106,7 +106,7 @@ to either true or false.
     `p == q`
     : is a proposition which is true if the values of `p` and `q` are
       equal. For propositions it is the same as _logical equivalence_,
-      but in WebCheck it is more general, as it compares values of any
+      but in Quickstrom it is more general, as it compares values of any
       supported type.
 
 -   From first-order logic, we have the universal and existential
@@ -189,7 +189,7 @@ either:
 
 These are the only two valid actions when in the *confirming* state.
 
-## A Specification using WebCheck
+## A Specification using Quickstrom
 
 The following formula defines the `confirming` state as the existence of
 an element `e` returned by querying the current DOM for the CSS selector
@@ -247,7 +247,7 @@ always(confirming => cancel or confirm)
 ```
 
 That\'s it. We\'ve now specified the safety property of the draft
-deletion functionality using WebCheck.
+deletion functionality using Quickstrom.
 
 # Reading material
 

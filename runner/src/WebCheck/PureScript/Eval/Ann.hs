@@ -1,11 +1,11 @@
 {-# LANGUAGE DeriveGeneric #-}
 
-module WebCheck.PureScript.Eval.Ann where
+module Quickstrom.PureScript.Eval.Ann where
 
 import qualified Language.PureScript as P
 import qualified Language.PureScript.CoreFn as CF
-import WebCheck.Prelude
-import WebCheck.PureScript.Eval.Name
+import Quickstrom.Prelude
+import Quickstrom.PureScript.Eval.Name
 
 data ApplyForeign = ApplyForeign QualifiedName [Name]
   deriving (Show, Generic)

@@ -19,7 +19,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
-module WebCheck.Run
+module Quickstrom.Run
   ( WebDriver (..),
     WebDriverResponseError (..),
     WebDriverOtherError (..),
@@ -61,13 +61,13 @@ import System.FilePath ((</>))
 import qualified Test.QuickCheck as QuickCheck
 import Text.URI (URI)
 import qualified Text.URI as URI
-import WebCheck.Element
-import WebCheck.LogLevel
-import WebCheck.Prelude hiding (catch, check, trace)
-import WebCheck.Result
-import WebCheck.Specification
-import WebCheck.Trace
-import WebCheck.WebDriver.Class
+import Quickstrom.Element
+import Quickstrom.LogLevel
+import Quickstrom.Prelude hiding (catch, check, trace)
+import Quickstrom.Result
+import Quickstrom.Specification
+import Quickstrom.Trace
+import Quickstrom.WebDriver.Class
 
 newtype Runner m a = Runner (ReaderT CheckEnv m a)
   deriving (Functor, Applicative, Monad, MonadIO, WebDriver, MonadReader CheckEnv, MonadThrow, MonadCatch)

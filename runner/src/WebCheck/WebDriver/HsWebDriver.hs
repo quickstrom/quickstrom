@@ -7,14 +7,14 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module WebCheck.WebDriver.HsWebDriver where
+module Quickstrom.WebDriver.HsWebDriver where
 
 import Control.Monad (Monad (fail))
 import Control.Monad.Catch (MonadCatch (catch), MonadThrow)
 import qualified Test.WebDriver as WebDriver
-import WebCheck.Element
-import WebCheck.Prelude hiding (catch)
-import WebCheck.Run
+import Quickstrom.Element
+import Quickstrom.Prelude hiding (catch)
+import Quickstrom.Run
 
 newtype WebDriverClient a = WebDriverClient {unWebDriverClient :: WebDriver.WD a}
   deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch)

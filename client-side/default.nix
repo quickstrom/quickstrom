@@ -10,7 +10,7 @@ let
   '';
   client-side = pkgs.stdenv.mkDerivation {
     inherit src;
-    name = "webcheck-client-side";
+    name = "quickstrom-client-side";
     buildInputs = with pkgs; [
       # nodejs
       nodePackages.typescript

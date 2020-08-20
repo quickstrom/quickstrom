@@ -42,23 +42,23 @@ import qualified Text.URI as URI
 import Text.URI.Lens (uriScheme)
 import qualified Text.URI.QQ as URI
 import Web.Scotty.Trans
-import qualified WebCheck.LogLevel as WebCheck
-import WebCheck.Prelude hiding (get, option)
-import qualified WebCheck.PureScript.Program as WebCheck
-import qualified WebCheck.WebDriver.WebDriverW3C as WebDriver
-import qualified WebCheck.Run as WebCheck
+import qualified Quickstrom.LogLevel as Quickstrom
+import Quickstrom.Prelude hiding (get, option)
+import qualified Quickstrom.PureScript.Program as Quickstrom
+import qualified Quickstrom.WebDriver.WebDriverW3C as WebDriver
+import qualified Quickstrom.Run as Quickstrom
 
 newtype CheckId = CheckId {unCheckId :: Text}
   deriving (Eq, Show, Generic, Hashable)
 
-data Env = Env {modules :: WebCheck.Modules, webOptions :: WebOptions, scheduledChecks :: MVar (HashMap CheckId ScheduledCheck)}
+data Env = Env {modules :: Quickstrom.Modules, webOptions :: WebOptions, scheduledChecks :: MVar (HashMap CheckId ScheduledCheck)}
 
 type App = ScottyT TL.Text (ReaderT Env IO) ()
 
 data ScheduledCheck = ScheduledCheck
-  { scheduledCheckEventsIn :: Chan.InChan WebCheck.CheckEvent,
-    scheduledCheckEventsOut :: Chan.OutChan WebCheck.CheckEvent,
-    scheduledCheckResult :: Maybe (Either Text WebCheck.CheckResult)
+  { scheduledCheckEventsIn :: Chan.InChan Quickstrom.CheckEvent,
+    scheduledCheckEventsOut :: Chan.OutChan Quickstrom.CheckEvent,
+    scheduledCheckResult :: Maybe (Either Text Quickstrom.CheckResult)
   }
 
 data SpecForm = SpecForm {code :: Text, origin :: Text}
@@ -73,7 +73,7 @@ data ScheduledCheckState = Running | Finished
 data CheckScheduledEntity = CheckScheduledEntity {state :: ScheduledCheckState, uri :: Text, message :: Text}
   deriving (Show, Generic, JSON.ToJSON)
 
-data ScheduledCheckEntity = ScheduledCheckEntity {state :: ScheduledCheckState, checkResult :: Maybe WebCheck.CheckResult}
+data ScheduledCheckEntity = ScheduledCheckEntity {state :: ScheduledCheckState, checkResult :: Maybe Quickstrom.CheckResult}
   deriving (Show, Generic, JSON.ToJSON)
 
 app :: WebOptions -> Env -> App
@@ -87,7 +87,7 @@ app WebOptions {..} Env {..} = do
   post "/checks" do
     form <- jsonData
     originUri <- liftAndCatchIO (resolveAbsoluteURI (origin form))
-    specResult <- liftAndCatchIO (WebCheck.loadSpecification modules (code form))
+    specResult <- liftAndCatchIO (Quickstrom.loadSpecification modules (code form))
     case specResult of
       Left err -> status HTTP.status400 >> json err
       Right spec -> do
@@ -95,7 +95,7 @@ app WebOptions {..} Env {..} = do
         (eventsIn, eventsOut) <- liftIO (Chan.newChan 1000)
         modifyChecks (HashMap.insert checkId (ScheduledCheck eventsIn eventsOut Nothing))
         let opts =
-              WebCheck.CheckOptions
+              Quickstrom.CheckOptions
                 { checkTests = tests,
                   checkShrinkLevels = shrinkLevels,
                   checkOrigin = originUri,
@@ -106,7 +106,7 @@ app WebOptions {..} Env {..} = do
         let action = do
               result <-
                 Pipes.runEffect
-                  ( Pipes.for (WebCheck.check opts WebDriver.runWebDriver spec) \event ->
+                  ( Pipes.for (Quickstrom.check opts WebDriver.runWebDriver spec) \event ->
                       liftIO (Chan.writeChan eventsIn event)
                   )
               modifyCheck checkId (\c -> c {scheduledCheckResult = Just (Right result)})
@@ -145,7 +145,7 @@ main = do
   webOptions <- Options.execParser optsInfo
   modulesResult <- runExceptT do
     libPath <- maybe libraryPathFromEnvironment pure (libraryPath webOptions)
-    ExceptT (WebCheck.loadLibraryModules libPath)
+    ExceptT (Quickstrom.loadLibraryModules libPath)
   case modulesResult of
     Left err -> do
       hPutStrLn @Text stderr err
@@ -165,9 +165,9 @@ data WebOptions = WebOptions
     staticFilesPath :: FilePath,
     tests :: Int,
     shrinkLevels :: Int,
-    maxActions :: WebCheck.Size,
+    maxActions :: Quickstrom.Size,
     maxTrailingStateChanges :: Int,
-    logLevel :: WebCheck.LogLevel,
+    logLevel :: Quickstrom.LogLevel,
     baseUri :: Text
   }
 
@@ -177,7 +177,7 @@ optParser =
     <$> optional
       ( Options.strOption
           ( Options.long "library-directory"
-              <> Options.help "Directory containing compiled PureScript libraries used by WebCheck (falls back to the WEBCHECK_LIBRARY_DIR environment variable)"
+              <> Options.help "Directory containing compiled PureScript libraries used by Quickstrom (falls back to the WEBCHECK_LIBRARY_DIR environment variable)"
           )
       )
     <*> Options.strOption
@@ -200,7 +200,7 @@ optParser =
           <> Options.long "shrink-levels"
           <> Options.help "How many levels to shrink the generated actions after a failed test"
       )
-    <*> ( WebCheck.Size
+    <*> ( Quickstrom.Size
             <$> Options.option
               Options.auto
               ( Options.value 100
@@ -217,12 +217,12 @@ optParser =
           <> Options.help "Maximum number of trailing state changes to await"
       )
     <*> Options.option
-      (Options.eitherReader WebCheck.parseLogLevel)
-      ( Options.value WebCheck.LogInfo
+      (Options.eitherReader Quickstrom.parseLogLevel)
+      ( Options.value Quickstrom.LogInfo
           <> Options.metavar "LEVEL"
           <> Options.long "log-level"
           <> Options.short 'l'
-          <> Options.help "Log level used by WebCheck and the backing WebDriver server (e.g. geckodriver)"
+          <> Options.help "Log level used by Quickstrom and the backing WebDriver server (e.g. geckodriver)"
       )
     <*> Options.option
       Options.str
@@ -236,7 +236,7 @@ optsInfo =
   Options.info
     (optParser <**> Options.helper)
     ( Options.fullDesc
-        <> Options.header "WebCheck: High-confidence browser testing"
+        <> Options.header "Quickstrom: High-confidence browser testing"
     )
 
 fileScheme :: URI.RText 'URI.Scheme

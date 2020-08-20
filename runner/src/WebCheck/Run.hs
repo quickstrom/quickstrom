@@ -1,8 +1,11 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
@@ -17,7 +20,11 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 
 module WebCheck.Run
-  ( CheckOptions (..),
+  ( WebDriver (..),
+    WebDriverResponseError (..),
+    WebDriverOtherError (..),
+    CheckEnv (..),
+    CheckOptions (..),
     CheckResult (..),
     FailingTest (..),
     Size (..),
@@ -28,28 +35,24 @@ module WebCheck.Run
 where
 
 import Control.Lens hiding (each)
-import Control.Monad ((>=>), fail, forever, void, when)
-import Control.Monad (filterM)
+import Control.Monad (fail, filterM, forever, void, when, (>=>))
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Loops (andM)
-import Control.Monad.Trans.Class (MonadTrans)
 import Control.Monad.Trans.Class (MonadTrans (lift))
+import Control.Natural (type (~>))
 import qualified Data.Aeson as JSON
 import Data.Function ((&))
 import Data.Generics.Product (field)
-import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (fromMaybe)
 import Data.String (String, fromString)
-import qualified Data.Text as Text
 import Data.Text (Text)
+import qualified Data.Text as Text
 import Data.Text.Prettyprint.Doc
 import Data.Tree
 import Data.Vector (Vector)
 import qualified Data.Vector as Vector
 import GHC.Generics (Generic)
-import Network.HTTP.Client as Http
-import qualified Network.Wreq as Wreq
-import Pipes ((>->), Pipe, Producer)
+import Pipes (Pipe, Producer, (>->))
 import qualified Pipes
 import qualified Pipes.Prelude as Pipes
 import System.Environment (lookupEnv)
@@ -57,27 +60,70 @@ import System.FilePath ((</>))
 import qualified Test.QuickCheck as QuickCheck
 import Text.URI (URI)
 import qualified Text.URI as URI
-import Web.Api.WebDriver hiding (Action, LogLevel (..), Selector, Timeout, hPutStrLn, runIsolated)
-import qualified Web.Api.WebDriver as WebDriver
 import WebCheck.Element
 import WebCheck.LogLevel
-import WebCheck.Prelude hiding (catchError, check, throwError, trace)
+import WebCheck.Prelude hiding (catch, check, trace)
 import WebCheck.Result
 import WebCheck.Specification
 import WebCheck.Trace
 
-type Runner = WebDriverTT (ReaderT CheckEnv) IO
+class Monad m => WebDriver (m :: Type -> Type) where
+  getActiveElement :: m Element
+  isElementEnabled :: Element -> m Bool
+  getElementTagName :: Element -> m Text
+  elementClick :: Element -> m ()
+  elementSendKeys :: Text -> Element -> m ()
+  findAll :: Selector -> m [Element]
+  navigateTo :: Text -> m ()
+  runScript :: JSON.FromJSON r => Text -> [JSON.Value] -> m r
+  catchResponseError :: m a -> (WebDriverResponseError -> IO a) -> m a
+  inNewPrivateWindow :: CheckOptions -> m a -> m a
 
-data FailingTest
-  = FailingTest
-      { numShrinks :: Int,
-        trace :: Trace TraceElementEffect,
-        reason :: Maybe Text
-      }
-  deriving (Show, Generic, JSON.ToJSON)
+instance WebDriver m => WebDriver (ReaderT e m) where
+  getActiveElement = lift getActiveElement
+  isElementEnabled = lift . isElementEnabled
+  getElementTagName = lift . getElementTagName
+  elementClick = lift . elementClick
+  elementSendKeys keys = lift . elementSendKeys keys
+  findAll = lift . findAll
+  navigateTo = lift . navigateTo
+  runScript s = lift . runScript s
+  catchResponseError ma f = ReaderT (\r -> catchResponseError (runReaderT ma r) f)
+  inNewPrivateWindow opts (ReaderT ma) = ReaderT (inNewPrivateWindow opts . ma)
 
-data CheckResult = CheckSuccess | CheckFailure {failedAfter :: Int, failingTest :: FailingTest}
-  deriving (Show, Generic, JSON.ToJSON)
+data WebDriverResponseError = WebDriverResponseError Text
+  deriving (Show, Generic)
+
+instance Exception WebDriverResponseError
+
+data WebDriverOtherError = WebDriverOtherError Text
+  deriving (Show, Generic)
+
+instance Exception WebDriverOtherError
+
+newtype Runner m a = Runner (ReaderT CheckEnv m a)
+  deriving (Functor, Applicative, Monad, MonadIO, WebDriver, MonadReader CheckEnv)
+
+run :: CheckEnv -> Runner m a -> m a
+run env (Runner ma) = runReaderT ma env
+
+data FailingTest = FailingTest
+  { numShrinks :: Int,
+    trace :: Trace TraceElementEffect,
+    reason :: Maybe Text
+  }
+  deriving (Show, Generic)
+
+instance JSON.ToJSON FailingTest where
+  toJSON = JSON.genericToJSON JSON.defaultOptions
+
+data CheckResult
+  = CheckSuccess
+  | CheckFailure {failedAfter :: Int, failingTest :: FailingTest}
+  deriving (Show, Generic)
+
+instance JSON.ToJSON CheckResult where
+  toJSON = JSON.genericToJSON JSON.defaultOptions
 
 data TestEvent
   = TestStarted Size
@@ -85,25 +131,30 @@ data TestEvent
   | TestFailed Size (Trace TraceElementEffect)
   | Shrinking Int
   | RunningShrink Int
-  deriving (Show, Generic, JSON.ToJSON)
+  deriving (Show, Generic)
+
+instance JSON.ToJSON TestEvent where
+  toJSON = JSON.genericToJSON JSON.defaultOptions
 
 data CheckEvent
   = CheckStarted Int
   | CheckTestEvent TestEvent
   | CheckFinished CheckResult
-  deriving (Show, Generic, JSON.ToJSON)
+  deriving (Show, Generic)
+
+instance JSON.ToJSON CheckEvent where
+  toJSON = JSON.genericToJSON JSON.defaultOptions
 
 data CheckEnv = CheckEnv {checkOptions :: CheckOptions, checkScripts :: CheckScripts}
 
-data CheckOptions
-  = CheckOptions
-      { checkTests :: Int,
-        checkMaxActions :: Size,
-        checkShrinkLevels :: Int,
-        checkOrigin :: URI,
-        checkMaxTrailingStateChanges :: Int,
-        checkWebDriverLogLevel :: LogLevel
-      }
+data CheckOptions = CheckOptions
+  { checkTests :: Int,
+    checkMaxActions :: Size,
+    checkShrinkLevels :: Int,
+    checkOrigin :: URI,
+    checkMaxTrailingStateChanges :: Int,
+    checkWebDriverLogLevel :: LogLevel
+  }
 
 newtype Size = Size {unSize :: Word32}
   deriving (Eq, Show, Generic, JSON.FromJSON, JSON.ToJSON)
@@ -114,24 +165,30 @@ newtype Timeout = Timeout Word64
 mapTimeout :: (Word64 -> Word64) -> Timeout -> Timeout
 mapTimeout f (Timeout ms) = Timeout (f ms)
 
-data CheckScripts
-  = CheckScripts
-      { isElementVisible :: Element -> Runner Bool,
-        observeState :: Queries -> Runner ObservedState,
-        registerNextStateObserver :: Timeout -> Queries -> Runner (),
-        awaitNextState :: Runner (Maybe ObservedState)
-      }
+data CheckScript a = CheckScript {runCheckScript :: forall m. WebDriver m => m a}
 
-check :: (MonadIO m, Specification spec) => CheckOptions -> spec -> Pipes.Producer CheckEvent m CheckResult
-check opts@CheckOptions {checkTests} spec = do
+data CheckScripts = CheckScripts
+  { isElementVisible :: Element -> CheckScript Bool,
+    observeState :: Queries -> CheckScript ObservedState,
+    registerNextStateObserver :: Timeout -> Queries -> CheckScript (),
+    awaitNextState :: CheckScript (Maybe ObservedState)
+  }
+
+check ::
+  (Specification spec, MonadIO n, WebDriver m, MonadIO m) =>
+  CheckOptions ->
+  (m ~> n) ->
+  spec ->
+  Pipes.Producer CheckEvent n CheckResult
+check opts@CheckOptions {checkTests} runWebDriver spec = do
   -- stdGen <- getStdGen
   Pipes.yield (CheckStarted checkTests)
   env <- CheckEnv opts <$> lift readScripts
-  res <- Pipes.hoist (liftIO . runWebDriver env) (runAll opts spec)
+  res <- Pipes.hoist (runWebDriver . run env) (runAll opts spec)
   Pipes.yield (CheckFinished res)
   pure res
 
-elementsToTrace :: Producer (TraceElement ()) Runner () -> Runner (Trace ())
+elementsToTrace :: Monad m => Producer (TraceElement ()) (Runner m) () -> Runner m (Trace ())
 elementsToTrace = fmap Trace . Pipes.toListM
 
 minBy :: (Monad m, Ord b) => (a -> b) -> Producer a m () -> m (Maybe a)
@@ -150,7 +207,7 @@ select f = forever do
   x <- Pipes.await
   maybe (pure ()) Pipes.yield (f x)
 
-runSingle :: Specification spec => spec -> Size -> Producer TestEvent Runner (Either FailingTest ())
+runSingle :: (MonadIO m, WebDriver m, Specification spec) => spec -> Size -> Producer TestEvent (Runner m) (Either FailingTest ())
 runSingle spec size = do
   Pipes.yield (TestStarted size)
   result <-
@@ -162,7 +219,7 @@ runSingle spec size = do
       Pipes.yield (TestPassed size trace)
       pure (Right ())
     f@(Left (FailingTest _ trace _)) -> do
-      CheckOptions {checkShrinkLevels} <- lift (liftWebDriverTT (asks checkOptions))
+      CheckOptions {checkShrinkLevels} <- lift (asks checkOptions)
       Pipes.yield (TestFailed size trace)
       if (checkShrinkLevels > 0)
         then do
@@ -178,10 +235,14 @@ runSingle spec size = do
           pure (fromMaybe (void f) (Left <$> shrunk))
         else pure (void f)
   where
-    runAndVerifyIsolated :: Int -> Producer (Action Selected) Runner () -> Producer TestEvent Runner (Either FailingTest (Trace TraceElementEffect))
+    runAndVerifyIsolated ::
+      (MonadIO m, WebDriver m) =>
+      Int ->
+      Producer (Action Selected) (Runner m) () ->
+      Producer TestEvent (Runner m) (Either FailingTest (Trace TraceElementEffect))
     runAndVerifyIsolated n producer = do
       trace <- lift do
-        opts <- liftWebDriverTT (asks checkOptions)
+        opts <- asks checkOptions
         annotateStutteringSteps <$> inNewPrivateWindow opts do
           beforeRun spec
           elementsToTrace (producer >-> runActions' spec)
@@ -193,13 +254,13 @@ runSingle spec size = do
       Pipes.yield (RunningShrink n)
       runAndVerifyIsolated n (Pipes.each actions')
 
-runAll :: Specification spec => CheckOptions -> spec -> Producer CheckEvent Runner CheckResult
+runAll :: (MonadIO m, WebDriver m, Specification spec) => CheckOptions -> spec -> Producer CheckEvent (Runner m) CheckResult
 runAll opts spec' = untilFirstFailure
   where
-    untilFirstFailure :: Producer CheckEvent Runner CheckResult
+    untilFirstFailure :: (MonadIO m, WebDriver m) => Producer CheckEvent (Runner m) CheckResult
     untilFirstFailure = go (sizes opts `zip` [1 ..])
       where
-        go :: [(Size, Int)] -> Producer CheckEvent Runner CheckResult
+        go :: (MonadIO m, WebDriver m) => [(Size, Int)] -> Producer CheckEvent (Runner m) CheckResult
         go [] = pure CheckSuccess
         go ((size, n) : rest) =
           (runSingle spec' size >-> Pipes.map CheckTestEvent) >>= \case
@@ -210,7 +271,7 @@ sizes :: CheckOptions -> [Size]
 sizes CheckOptions {checkMaxActions = Size maxActions, checkTests} =
   map (\n -> Size (n * maxActions `div` fromIntegral checkTests)) [1 .. fromIntegral checkTests]
 
-beforeRun :: Specification spec => spec -> Runner ()
+beforeRun :: (MonadIO m, WebDriver m, Specification spec) => spec -> Runner m ()
 beforeRun spec = do
   navigateToOrigin
   awaitElement (readyWhen spec)
@@ -223,14 +284,15 @@ takeWhileChanging = Pipes.await >>= loop
       next <- Pipes.await
       if next == last then pass else loop next
 
-observeManyStatesAfter :: Queries -> Action Selected -> Pipe a (TraceElement ()) Runner ()
+observeManyStatesAfter :: WebDriver m => Queries -> Action Selected -> Pipe a (TraceElement ()) (Runner m) ()
 observeManyStatesAfter queries' action = do
-  CheckEnv {checkScripts = scripts, checkOptions = CheckOptions {checkMaxTrailingStateChanges}} <- lift (liftWebDriverTT ask)
-  lift (registerNextStateObserver scripts (Timeout 100) queries')
+  CheckEnv {checkScripts = scripts, checkOptions = CheckOptions {checkMaxTrailingStateChanges}} <- lift ask
+  lift (runCheckScript (registerNextStateObserver scripts (Timeout 100) queries'))
   result <- lift (runAction action)
-  newState <- lift (awaitNextState scripts) >>= \case
-    Just state' -> pure state'
-    Nothing -> lift (observeState scripts queries')
+  newState <-
+    lift (runCheckScript (awaitNextState scripts)) >>= \case
+      Just state' -> pure state'
+      Nothing -> lift (runCheckScript (observeState scripts queries'))
   Pipes.yield (TraceAction () action result)
   Pipes.yield (TraceState () newState)
   nonStutters <-
@@ -239,22 +301,22 @@ observeManyStatesAfter queries' action = do
       & lift
   mapM_ (Pipes.yield . (TraceState ())) nonStutters
   where
-    loop :: Timeout -> Producer ObservedState Runner ()
+    loop :: WebDriver m => Timeout -> Producer ObservedState (Runner m) ()
     loop timeout = do
-      scripts <- lift (liftWebDriverTT (asks checkScripts))
+      scripts <- lift (asks checkScripts)
       newState <- lift do
-        registerNextStateObserver scripts timeout queries'
-        awaitNextState scripts >>= \case
+        runCheckScript (registerNextStateObserver scripts timeout queries')
+        runCheckScript (awaitNextState scripts) >>= \case
           Just state' -> pure state'
-          Nothing -> observeState scripts queries'
+          Nothing -> runCheckScript (observeState scripts queries')
       Pipes.yield newState
       loop (mapTimeout (* 2) timeout)
 
 {-# SCC runActions' "runActions'" #-}
-runActions' :: Specification spec => spec -> Pipe (Action Selected) (TraceElement ()) Runner ()
+runActions' :: (WebDriver m, Specification spec) => spec -> Pipe (Action Selected) (TraceElement ()) (Runner m) ()
 runActions' spec = do
-  scripts <- lift (liftWebDriverTT (asks checkScripts))
-  state1 <- lift (observeState scripts queries')
+  scripts <- lift (asks checkScripts)
+  state1 <- lift (runCheckScript (observeState scripts queries'))
   Pipes.yield (TraceState () state1)
   loop
   where
@@ -288,10 +350,10 @@ traverseShrinks test = go
 shrinkAction :: Action sel -> [Action sel]
 shrinkAction _ = [] -- TODO?
 
-generate :: QuickCheck.Gen a -> Runner a
-generate = liftWebDriverTT . lift . QuickCheck.generate
+generate :: MonadIO m => QuickCheck.Gen a -> m a
+generate = liftIO . QuickCheck.generate
 
-generateValidActions :: Vector (Int, Action Selector) -> Producer (Action Selected) Runner ()
+generateValidActions :: (MonadIO m, WebDriver m) => Vector (Int, Action Selector) -> Producer (Action Selected) (Runner m) ()
 generateValidActions possibleActions = loop
   where
     loop = do
@@ -307,7 +369,7 @@ generateValidActions possibleActions = loop
             & (>>= Pipes.yield)
           loop
 
-selectValidAction :: Action Selector -> Runner (Maybe (Action Selected))
+selectValidAction :: (MonadIO m, WebDriver m) => Action Selector -> Runner m (Maybe (Action Selected))
 selectValidAction possibleAction =
   case possibleAction of
     KeyPress k -> do
@@ -317,188 +379,99 @@ selectValidAction possibleAction =
       active <- isActiveInput
       if active then (pure (Just (EnterText t))) else pure Nothing
     Navigate p -> pure (Just (Navigate p))
-    Focus sel -> selectOne sel Focus (isNotActive . toRef)
+    Focus sel -> selectOne sel Focus isNotActive
     Click sel -> selectOne sel Click isClickable
   where
-    selectOne :: Selector -> (Selected -> Action Selected) -> (Element -> Runner Bool) -> Runner (Maybe (Action Selected))
+    selectOne ::
+      (MonadIO m, WebDriver m) =>
+      Selector ->
+      (Selected -> Action Selected) ->
+      (Element -> (Runner m) Bool) ->
+      Runner m (Maybe (Action Selected))
     selectOne sel ctor isValid = do
       found <- findAll sel
       validChoices <-
         ( filterM
-            (\(_, e) -> isValid e `catchError` (const (pure False)))
+            (\(_, e) -> isValid e `catchResponseError` const (pure False))
             (zip [0 ..] found)
           )
       case validChoices of
         [] -> pure Nothing
         choices -> Just <$> generate (ctor . Selected sel <$> QuickCheck.elements (map fst choices))
     isNotActive e = (/= Just e) <$> activeElement
-    activeElement = (Just <$> getActiveElement) `catchError` const (pure Nothing)
+    activeElement = (Just <$> getActiveElement) `catchResponseError` const (pure Nothing)
     isClickable e = do
-      scripts <- liftWebDriverTT (asks checkScripts)
-      andM [isElementEnabled (toRef e), isElementVisible scripts e]
+      scripts <- asks checkScripts
+      andM [isElementEnabled e, runCheckScript (isElementVisible scripts e)]
     isActiveInput =
       activeElement >>= \case
         Just el -> (`elem` ["input", "textarea"]) <$> getElementTagName el
         Nothing -> pure False
 
-navigateToOrigin :: Runner ()
+navigateToOrigin :: WebDriver m => Runner m ()
 navigateToOrigin = do
-  CheckOptions {checkOrigin} <- liftWebDriverTT (asks checkOptions)
-  navigateTo (toS (URI.renderStr checkOrigin))
+  CheckOptions {checkOrigin} <- asks checkOptions
+  navigateTo (URI.render checkOrigin)
 
-tryAction :: Runner ActionResult -> Runner ActionResult
+tryAction :: WebDriver m => Runner m ActionResult -> Runner m ActionResult
 tryAction action =
   action
-    `catchError` ( \case
-                     ResponseError _ msg _ _ _ -> do
-                       pure (ActionFailed (toS msg))
-                     err -> throwError err
-                 )
+    `catchResponseError` (\(WebDriverResponseError msg) -> pure (ActionFailed msg))
 
-click :: Selected -> Runner ActionResult
-click = findSelected >=> \case
-  Just e -> tryAction (ActionSuccess <$ (elementClick (toRef e)))
-  Nothing -> pure ActionImpossible
+click :: WebDriver m => Selected -> Runner m ActionResult
+click =
+  findSelected >=> \case
+    Just e -> tryAction (ActionSuccess <$ (elementClick e))
+    Nothing -> pure ActionImpossible
 
-sendKeys :: Text -> Runner ActionResult
-sendKeys t = tryAction (ActionSuccess <$ (getActiveElement >>= elementSendKeys (toS t)))
+sendKeys :: WebDriver m => Text -> Runner m ActionResult
+sendKeys t = tryAction (ActionSuccess <$ (getActiveElement >>= elementSendKeys t))
 
-sendKey :: Char -> Runner ActionResult
+sendKey :: WebDriver m => Char -> Runner m ActionResult
 sendKey = sendKeys . Text.singleton
 
-focus :: Selected -> Runner ActionResult
-focus = findSelected >=> \case
-  Just e -> tryAction (ActionSuccess <$ (elementSendKeys "" (toRef e)))
-  Nothing -> pure ActionImpossible
+focus :: WebDriver m => Selected -> Runner m ActionResult
+focus =
+  findSelected >=> \case
+    Just e -> tryAction (ActionSuccess <$ (elementSendKeys "" e))
+    Nothing -> pure ActionImpossible
 
-runAction :: Action Selected -> Runner ActionResult
+runAction :: WebDriver m => Action Selected -> Runner m ActionResult
 runAction = \case
   Focus s -> focus s
   KeyPress c -> sendKey c
   EnterText t -> sendKeys t
   Click s -> click s
-  Navigate uri -> tryAction (ActionSuccess <$ navigateTo (toS uri))
+  Navigate uri -> tryAction (ActionSuccess <$ navigateTo uri)
 
-runWebDriver :: CheckEnv -> Runner a -> IO a
-runWebDriver opts ma = do
-  mgr <- Http.newManager defaultManagerSettings
-  let httpOptions :: Wreq.Options
-      httpOptions = Wreq.defaults & Wreq.manager .~ Right mgr
-  runReaderT (execWebDriverTT (reconfigure defaultWebDriverConfig httpOptions) ma) opts >>= \case
-    (Right x, _, _) -> pure x
-    (Left err, _, _) -> fail (show err)
-  where
-    reconfigure c httpOptions =
-      c
-        { _environment =
-            (_environment c)
-              { _logEntryPrinter = \_ _ -> Nothing
-              },
-          _initialState = defaultWebDriverState {_httpOptions = httpOptions}
-        }
-
-inNewPrivateWindow :: CheckOptions -> Runner a -> Runner a
-inNewPrivateWindow CheckOptions {checkWebDriverLogLevel} =
-  runIsolated (reconfigure headlessFirefoxCapabilities)
-  where
-    reconfigure c =
-      c
-        { _firefoxOptions = (_firefoxOptions c)
-            <&> \o ->
-              o
-                { _firefoxArgs = Just ["-headless", "-private"],
-                  _firefoxPrefs = Just (HashMap.singleton "Dom.storage.enabled" (JSON.Bool False)),
-                  _firefoxLog = Just (FirefoxLog (Just (webdriverLogLevel checkWebDriverLogLevel)))
-                }
-        }
-    webdriverLogLevel = \case
-      LogDebug -> WebDriver.LogDebug
-      LogInfo -> WebDriver.LogInfo
-      LogWarn -> WebDriver.LogWarn
-      LogError -> WebDriver.LogError
-
--- | Mostly the same as the non-exported definition in 'Web.Api.WebDriver.Endpoints'.
-runIsolated ::
-  (Monad eff, Monad (t eff), MonadTrans t) =>
-  Capabilities ->
-  WebDriverTT t eff a ->
-  WebDriverTT t eff a
-runIsolated caps theSession = cleanupOnError do
-  sid <- newSession caps
-  modifyState (setSessionId (Just sid))
-  a <- theSession
-  deleteSession
-  modifyState (setSessionId Nothing)
-  pure a
-
--- | Same as the non-exported definition in 'Web.Api.WebDriver.Endpoints'.
-cleanupOnError ::
-  (Monad eff, Monad (t eff), MonadTrans t) =>
-  -- | `WebDriver` session that may throw errors
-  WebDriverTT t eff a ->
-  WebDriverTT t eff a
-cleanupOnError x =
-  catchAnyError
-    x
-    (\e -> deleteSession >> throwError e)
-    (\e -> deleteSession >> throwHttpException e)
-    (\e -> deleteSession >> throwIOException e)
-    (\e -> deleteSession >> throwJsonError e)
-
--- | Same as the non-exported definition in 'Web.Api.WebDriver.Endpoints'.
-setSessionId ::
-  Maybe String ->
-  S WDState ->
-  S WDState
-setSessionId x st = st {_userState = (_userState st) {_sessionId = x}}
-
-findSelected :: Selected -> Runner (Maybe Element)
+findSelected :: WebDriver m => Selected -> Runner m (Maybe Element)
 findSelected (Selected s i) =
   findAll s >>= \es -> pure ((es ^? ix i))
 
-findAll :: Selector -> Runner [Element]
-findAll (Selector s) = map fromRef <$> findElements CssSelector (Text.unpack s)
-
-toRef :: Element -> ElementRef
-toRef (Element ref) = ElementRef (Text.unpack ref)
-
-fromRef :: ElementRef -> Element
-fromRef (ElementRef ref) = Element (Text.pack ref)
-
-awaitElement :: Selector -> Runner ()
+awaitElement :: (MonadIO m, WebDriver m) => Selector -> Runner m ()
 awaitElement sel@(Selector s) =
   let loop n
-        | n > 10  = fail ("Giving up after having waited 10 seconds for selector to match an element: " <> toS s)
+        | n > 10 = fail ("Giving up after having waited 10 seconds for selector to match an element: " <> toS s)
         | otherwise =
-            findAll sel >>= \case
-              [] -> liftWebDriverTT (liftIO (threadDelay 1000000)) >> loop (n + 1)
-              _ -> pass
-  in loop (1 :: Int)
-
-executeScript' :: JSON.FromJSON r => Script -> [JSON.Value] -> Runner r
-executeScript' script args = do
-  r <- executeAsyncScript script args
-  case JSON.fromJSON r of
-    JSON.Success (Right a) -> pure a
-    JSON.Success (Left e) -> fail e
-    JSON.Error e -> fail e
+          findAll sel >>= \case
+            [] -> liftIO (threadDelay 1000000) >> loop (n + 1)
+            _ -> pass
+   in loop (1 :: Int)
 
 readScripts :: MonadIO m => m CheckScripts
 readScripts = do
   let key = "WEBCHECK_CLIENT_SIDE_DIR"
   dir <- liftIO (maybe (fail (key <> " environment variable not set")) pure =<< lookupEnv key)
-  let readScript :: MonadIO m => JSON.FromJSON a => String -> m ([JSON.Value] -> Runner a)
-      readScript name = do
-        code <- liftIO (fromString . toS <$> readFile (dir </> name <> ".js"))
-        pure (executeScript' code)
+  let readScript :: MonadIO m => String -> m Text
+      readScript name = liftIO (fromString . toS <$> readFile (dir </> name <> ".js"))
   isElementVisibleScript <- readScript "isElementVisible"
   observeStateScript <- readScript "observeState"
   registerNextStateObserverScript <- readScript "registerNextStateObserver"
   awaitNextStateScript <- readScript "awaitNextState"
   pure
     CheckScripts
-      { isElementVisible = \el -> (== JSON.Bool True) <$> isElementVisibleScript [JSON.toJSON el],
-        observeState = \queries' -> observeStateScript [JSON.toJSON queries'],
-        registerNextStateObserver = \timeout queries' -> registerNextStateObserverScript [JSON.toJSON timeout, JSON.toJSON queries'],
-        awaitNextState = awaitNextStateScript []
+      { isElementVisible = \el -> CheckScript ((== JSON.Bool True) <$> runScript isElementVisibleScript [JSON.toJSON el]),
+        observeState = \queries' -> CheckScript (runScript observeStateScript [JSON.toJSON queries']),
+        registerNextStateObserver = \timeout queries' -> CheckScript (runScript registerNextStateObserverScript [JSON.toJSON timeout, JSON.toJSON queries']),
+        awaitNextState = CheckScript (runScript awaitNextStateScript [])
       }

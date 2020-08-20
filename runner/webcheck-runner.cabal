@@ -14,6 +14,7 @@ common shared-deps
                     , containers
                     , directory
                     , filepath
+                    , exceptions
                     , generic-lens
                     , Glob
                     , hashable
@@ -38,6 +39,7 @@ common shared-deps
                     , transformers
                     , unordered-containers
                     , vector
+                    , webdriver
                     , webdriver-w3c
                     , wreq
 
@@ -63,6 +65,8 @@ library
                     , WebCheck.PureScript.Value
                     , WebCheck.Result
                     , WebCheck.Run
+                    , WebCheck.Run.WebDriverClient
+                    , WebCheck.Run.WebDriverW3C
                     , WebCheck.Specification
                     , WebCheck.Trace
   hs-source-dirs:     src

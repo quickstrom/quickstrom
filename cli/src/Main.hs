@@ -11,6 +11,7 @@
 module Main where
 
 import Control.Lens hiding (argument)
+import Control.Monad.Catch (try)
 import qualified Data.Text as Text
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
@@ -24,23 +25,23 @@ import qualified Text.URI as URI
 import Text.URI.Lens (uriScheme)
 import qualified Text.URI.QQ as URI
 import qualified WebCheck.LogLevel as WebCheck
-import WebCheck.Prelude hiding (option)
+import WebCheck.Prelude hiding (try, option)
 import qualified WebCheck.Pretty as WebCheck
 import qualified WebCheck.PureScript.Program as WebCheck
 import qualified WebCheck.Run as WebCheck
+import qualified WebCheck.Run.WebDriverW3C as WebDriver
 import qualified WebCheck.Trace as WebCheck
 
-data WebCheckOptions
-  = WebCheckOptions
-      { specPath :: FilePath,
-        origin :: Text,
-        libraryPath :: Maybe FilePath,
-        tests :: Int,
-        maxActions :: WebCheck.Size,
-        shrinkLevels :: Int,
-        maxTrailingStateChanges :: Int,
-        logLevel :: WebCheck.LogLevel
-      }
+data WebCheckOptions = WebCheckOptions
+  { specPath :: FilePath,
+    origin :: Text,
+    libraryPath :: Maybe FilePath,
+    tests :: Int,
+    maxActions :: WebCheck.Size,
+    shrinkLevels :: Int,
+    maxTrailingStateChanges :: Int,
+    logLevel :: WebCheck.LogLevel
+  }
 
 optParser :: Parser WebCheckOptions
 optParser =
@@ -144,10 +145,12 @@ main = do
                 checkMaxTrailingStateChanges = maxTrailingStateChanges,
                 checkWebDriverLogLevel = logLevel
               }
-      result <- Pipes.runEffect (Pipes.for (WebCheck.check opts spec) (lift . logDoc . renderCheckEvent))
+      result <-
+        Pipes.runEffect (Pipes.for (WebCheck.check opts WebDriver.runWebDriver spec) (lift . logDoc . renderCheckEvent))
+          & try
       logDoc . logSingle Nothing $ line <> divider <> line
       case result of
-        WebCheck.CheckFailure {failedAfter, failingTest} -> do
+        Right WebCheck.CheckFailure {failedAfter, failingTest} -> do
           logDoc . logSingle Nothing $
             WebCheck.prettyTrace (WebCheck.withoutStutterStates (WebCheck.trace failingTest))
           case WebCheck.reason failingTest of
@@ -156,9 +159,13 @@ main = do
           logDoc . logSingle Nothing . annotate (color Red) $
             line <> "Failed after" <+> pretty failedAfter <+> "tests and" <+> pretty (WebCheck.numShrinks failingTest) <+> "levels of shrinking." <> line
           liftIO (exitWith (ExitFailure 3))
-        WebCheck.CheckSuccess ->
+        Right WebCheck.CheckSuccess ->
           logDoc . logSingle Nothing . annotate (color Green) $
             line <> "Passed" <+> pretty tests <+> "tests." <> line
+        Left err@SomeException{} -> do
+          logDoc . logSingle Nothing . annotate (color Red) $
+            line <> "Check encountered an error:" <+> pretty (show err :: Text) <> line
+          liftIO (exitWith (ExitFailure 1))
 
 libraryPathFromEnvironment :: ExceptT Text IO FilePath
 libraryPathFromEnvironment = do
@@ -192,7 +199,7 @@ renderCheckEvent = \case
         <> line
         <> ("Running" <+> annotate (color Blue) (pretty n) <+> "tests...")
   WebCheck.CheckTestEvent e -> renderTestEvent e
-  WebCheck.CheckFinished{} -> mempty
+  WebCheck.CheckFinished {} -> mempty
 
 renderTestEvent :: WebCheck.TestEvent -> [(Maybe WebCheck.LogLevel, Doc AnsiStyle)]
 renderTestEvent = \case
@@ -256,11 +263,12 @@ renderList :: [Doc ann] -> Doc ann
 renderList = vsep . map (\x -> bullet <+> align x)
 
 ordinal :: (Pretty n, Integral n) => n -> Doc ann
-ordinal n = pretty n <> case n `rem` 10 of
-  1 -> "st"
-  2 -> "nd"
-  3 -> "rd"
-  _ -> "th"
+ordinal n =
+  pretty n <> case n `rem` 10 of
+    1 -> "st"
+    2 -> "nd"
+    3 -> "rd"
+    _ -> "th"
 
 logDoc :: (MonadReader WebCheck.LogLevel m, MonadIO m) => [(Maybe WebCheck.LogLevel, Doc AnsiStyle)] -> m ()
 logDoc logs = for_ logs $ \(logLevel, doc) -> do

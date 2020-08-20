@@ -10,7 +10,16 @@ readyWhen :: String
 readyWhen = "form"
 
 actions :: Actions
-actions = clicks <> foci <> [ Tuple 1 (KeyPress ' '), Tuple 1 (KeyPress 'a') ]
+actions =
+  [ Tuple 3 (Focus "input[type=text]:nth-child(1)")
+  -- This spec is flaky. It only finds the bug on some runs, so the following action
+  -- is commented out to increase chances of a failed example:
+  --
+  --   , Tuple 1 (Focus "input[type=text]:nth-child(2)")
+  , Tuple 5 (Click "input[type=submit]")
+  , Tuple 5 (KeyPress ' ')
+  , Tuple 5 (KeyPress 'a')
+  ]
 
 proposition :: Boolean
 proposition =

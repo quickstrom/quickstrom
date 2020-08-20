@@ -95,7 +95,6 @@
 .spago/refs/v4.1.0/src/Effect/Ref.purs:foreign import read :: forall s. Ref s -> Effect s
 .spago/refs/v4.1.0/src/Effect/Ref.purs:foreign import modify' :: forall s b. (s -> { state :: s, value :: b }) -> Ref s -> Effect b
 .spago/refs/v4.1.0/src/Effect/Ref.purs:foreign import write :: forall s. s -> Ref s -> Effect Unit
-.spago/unfoldable/v4.1.0/src/Data/Unfoldable1.purs:foreign import unfoldr1ArrayImpl
 .spago/arrays/v5.3.1/src/Data/Array/ST.purs:foreign import unsafeFreeze :: forall h a. STArray h a -> ST h (Array a)
 .spago/arrays/v5.3.1/src/Data/Array/ST.purs:foreign import unsafeThaw :: forall h a. Array a -> ST h (STArray h a)
 .spago/arrays/v5.3.1/src/Data/Array/ST.purs:foreign import empty :: forall h a. ST h (STArray h a)
@@ -142,7 +141,6 @@
 .spago/numbers/v7.0.0/src/Data/Number/Format.purs:foreign import toExponentialNative ∷ Int → Number → String
 .spago/numbers/v7.0.0/src/Data/Number/Format.purs:foreign import toString ∷ Number → String
 .spago/prelude/v4.1.1/src/Data/Ord/Unsafe.purs:foreign import unsafeCompareImpl
-.spago/strings/v4.0.1/src/Data/String/Unsafe.purs:foreign import charAt :: Int -> String -> Char
 .spago/strings/v4.0.1/src/Data/String/Unsafe.purs:foreign import char :: String -> Char
 .spago/strings/v4.0.1/src/Data/String/Regex.purs:foreign import showRegex' :: Regex -> String
 .spago/strings/v4.0.1/src/Data/String/Regex.purs:foreign import regex'
@@ -159,7 +157,6 @@
 .spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import toCharArray :: String -> Array Char
 .spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import _charAt
 .spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import _toChar
-.spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import length :: String -> Int
 .spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import countPrefix :: (Char -> Boolean) -> String -> Int
 .spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import _indexOf
 .spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import _indexOf'

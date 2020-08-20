@@ -1,10 +1,6 @@
 { pkgs ? import ./nixpkgs.nix { config = { allowBroken = true; }; }
 , compiler ? "ghc865" }:
 let
-  ghcide = (import (builtins.fetchTarball
-    "https://github.com/cachix/ghcide-nix/tarball/master")
-    { }).${"ghcide-${compiler}"};
-
   fonts = with pkgs; [ libre-baskerville iosevka opensans-ttf ];
 
   easy-ps = import ./dsl/easy-ps.nix { inherit pkgs; };
@@ -37,10 +33,10 @@ in webcheck.haskellPackages.shellFor {
     webcheck.haskellPackages.haskell-language-server
     cabal-install
     webcheck.haskellPackages.ormolu
+    easy-ps.purty
+
     firefox
     geckodriver
-    webcheck.haskellPackages.ghc-prof-flamegraph
-    easy-ps.purty
     # chromium
     # chromedriver
 

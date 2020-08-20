@@ -29,7 +29,7 @@ import WebCheck.Prelude hiding (try, option)
 import qualified WebCheck.Pretty as WebCheck
 import qualified WebCheck.PureScript.Program as WebCheck
 import qualified WebCheck.Run as WebCheck
-import qualified WebCheck.Run.WebDriverW3C as WebDriverW3C
+import qualified WebCheck.Run.WebDriverW3C as WebDriver
 import qualified WebCheck.Trace as WebCheck
 
 data WebCheckOptions = WebCheckOptions
@@ -146,7 +146,7 @@ main = do
                 checkWebDriverLogLevel = logLevel
               }
       result <-
-        Pipes.runEffect (Pipes.for (WebCheck.check opts WebDriverW3C.runWebDriver spec) (lift . logDoc . renderCheckEvent))
+        Pipes.runEffect (Pipes.for (WebCheck.check opts WebDriver.runWebDriver spec) (lift . logDoc . renderCheckEvent))
           & try
       logDoc . logSingle Nothing $ line <> divider <> line
       case result of

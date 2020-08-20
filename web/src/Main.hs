@@ -109,8 +109,7 @@ app WebOptions {..} Env {..} = do
                   ( Pipes.for (WebCheck.check opts WebDriverW3C.runWebDriver spec) \event ->
                       liftIO (Chan.writeChan eventsIn event)
                   )
-                & runExceptT
-              modifyCheck checkId (\c -> c {scheduledCheckResult = Just (result & _Left %~ show)})
+              modifyCheck checkId (\c -> c {scheduledCheckResult = Just (Right result)})
         liftAndCatchIO . void . forkIO $
           action `catch` \(SomeException e) ->
             modifyCheck checkId (\c -> c {scheduledCheckResult = Just (Left (show e))})

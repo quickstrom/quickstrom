@@ -2,7 +2,7 @@
 <h1>Quickstrom</h1>
 <p>High-confidence browser testing</p>
 <p>
-  <img src="https://github.com/quickstrom-tools/quickstrom/workflows/Test/badge.svg?branch=master" />
+  <img src="https://github.com/quickstrom-tools/quickstrom/workflows/Test/badge.svg?branch=main" />
 </p>
 </div>
 

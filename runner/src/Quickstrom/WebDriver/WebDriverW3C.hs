@@ -22,7 +22,6 @@ import qualified Data.Text as Text
 import qualified Network.HTTP.Client as Http
 import qualified Network.Wreq as Wreq
 import Web.Api.WebDriver hiding (Action, LogLevel (..), Selector, Timeout, hPutStrLn, runIsolated, throwError)
-import Protolude.Error (error)
 import qualified Web.Api.WebDriver as WebDriver
 import Quickstrom.Element
 import Quickstrom.Prelude hiding (catch)
@@ -37,10 +36,6 @@ instance MonadTrans WebDriverW3C where
 
 instance MonadIO m => MonadIO (WebDriverW3C m) where
   liftIO = WebDriverW3C . liftWebDriverTT . liftIO
-
-instance MonadReader e m => MonadReader e (WebDriverW3C m) where
-  ask = lift ask
-  local = error "Can't use local"
 
 instance MonadIO m => MonadThrow (WebDriverW3C m) where
   throwM = liftIO . throwM

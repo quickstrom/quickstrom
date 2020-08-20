@@ -159,6 +159,10 @@ main = do
           logDoc . logSingle Nothing . annotate (color Red) $
             line <> "Failed after" <+> pretty failedAfter <+> "tests and" <+> pretty (WebCheck.numShrinks failingTest) <+> "levels of shrinking." <> line
           liftIO (exitWith (ExitFailure 3))
+        Right WebCheck.CheckError {checkError} -> do
+          logDoc . logSingle Nothing . annotate (color Red) $
+            line <> "Check encountered an error:" <+> pretty checkError <> line
+          liftIO (exitWith (ExitFailure 1))
         Right WebCheck.CheckSuccess ->
           logDoc . logSingle Nothing . annotate (color Green) $
             line <> "Passed" <+> pretty tests <+> "tests." <> line

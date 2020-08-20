@@ -4,9 +4,9 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -36,6 +36,7 @@ where
 
 import Control.Lens hiding (each)
 import Control.Monad (fail, filterM, forever, void, when, (>=>))
+import Control.Monad.Catch (MonadCatch, MonadThrow, catch)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Loops (andM)
 import Control.Monad.Trans.Class (MonadTrans (lift))
@@ -69,7 +70,7 @@ import WebCheck.Trace
 import WebCheck.WebDriver.Class
 
 newtype Runner m a = Runner (ReaderT CheckEnv m a)
-  deriving (Functor, Applicative, Monad, MonadIO, WebDriver, MonadReader CheckEnv)
+  deriving (Functor, Applicative, Monad, MonadIO, WebDriver, MonadReader CheckEnv, MonadThrow, MonadCatch)
 
 run :: CheckEnv -> Runner m a -> m a
 run env (Runner ma) = runReaderT ma env
@@ -87,6 +88,7 @@ instance JSON.ToJSON FailingTest where
 data CheckResult
   = CheckSuccess
   | CheckFailure {failedAfter :: Int, failingTest :: FailingTest}
+  | CheckError { checkError :: Text }
   deriving (Show, Generic)
 
 instance JSON.ToJSON CheckResult where
@@ -142,7 +144,7 @@ data CheckScripts = CheckScripts
   }
 
 check ::
-  (Specification spec, MonadIO n, WebDriver m, MonadIO m) =>
+  (Specification spec, MonadIO n, MonadCatch n, WebDriver m, MonadIO m) =>
   CheckOptions ->
   (m ~> n) ->
   spec ->
@@ -152,6 +154,7 @@ check opts@CheckOptions {checkTests} runWebDriver spec = do
   Pipes.yield (CheckStarted checkTests)
   env <- CheckEnv opts <$> lift readScripts
   res <- Pipes.hoist (runWebDriver . run env) (runAll opts spec)
+        & (`catch` \err@SomeException {} -> pure (CheckError (show err)))
   Pipes.yield (CheckFinished res)
   pure res
 
@@ -222,17 +225,15 @@ runSingle spec size = do
       runAndVerifyIsolated n (Pipes.each actions')
 
 runAll :: (MonadIO m, WebDriver m, Specification spec) => CheckOptions -> spec -> Producer CheckEvent (Runner m) CheckResult
-runAll opts spec' = untilFirstFailure
+runAll opts spec' = go (sizes opts `zip` [1 ..])
   where
-    untilFirstFailure :: (MonadIO m, WebDriver m) => Producer CheckEvent (Runner m) CheckResult
-    untilFirstFailure = go (sizes opts `zip` [1 ..])
-      where
-        go :: (MonadIO m, WebDriver m) => [(Size, Int)] -> Producer CheckEvent (Runner m) CheckResult
-        go [] = pure CheckSuccess
-        go ((size, n) : rest) =
-          (runSingle spec' size >-> Pipes.map CheckTestEvent) >>= \case
-            Right {} -> go rest
-            Left failingTest -> pure (CheckFailure n failingTest)
+    go :: (MonadIO m, WebDriver m) => [(Size, Int)] -> Producer CheckEvent (Runner m) CheckResult
+    go [] = pure CheckSuccess
+    go ((size, n) : rest) =
+      (runSingle spec' size >-> Pipes.map CheckTestEvent)
+        >>= \case
+          Right {} -> go rest
+          Left failingTest -> pure (CheckFailure n failingTest)
 
 sizes :: CheckOptions -> [Size]
 sizes CheckOptions {checkMaxActions = Size maxActions, checkTests} =

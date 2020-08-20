@@ -7,8 +7,8 @@ let
   setCheckEnv = drv:
     pkgs.haskell.lib.overrideCabal drv (_: {
       preCheck = ''
-        export WEBCHECK_LIBRARY_DIR="${dsl}";
-        export WEBCHECK_CLIENT_SIDE_DIR="${client-side}";
+        export QUICKSTROM_LIBRARY_DIR="${dsl}";
+        export QUICKSTROM_CLIENT_SIDE_DIR="${client-side}";
       '';
     });
 in setCheckEnv (haskellPackages.callCabal2nix "quickstrom-runner" "${src}" { })

@@ -177,7 +177,7 @@ optParser =
     <$> optional
       ( Options.strOption
           ( Options.long "library-directory"
-              <> Options.help "Directory containing compiled PureScript libraries used by Quickstrom (falls back to the WEBCHECK_LIBRARY_DIR environment variable)"
+              <> Options.help "Directory containing compiled PureScript libraries used by Quickstrom (falls back to the QUICKSTROM_LIBRARY_DIR environment variable)"
           )
       )
     <*> Options.strOption
@@ -256,4 +256,4 @@ libraryPathFromEnvironment = do
     Just p -> pure p
     Nothing -> throwError (key <> "is not set and command-line option is not provided")
   where
-    key = "WEBCHECK_LIBRARY_DIR"
+    key = "QUICKSTROM_LIBRARY_DIR"

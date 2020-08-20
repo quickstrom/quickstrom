@@ -40,8 +40,8 @@ let
       mkdir -p $out/bin
       makeWrapper "${haskellPackages.quickstrom-cli}/bin/quickstrom" \
           $out/bin/quickstrom \
-          --set WEBCHECK_LIBRARY_DIR "${dsl}" \
-          --set WEBCHECK_CLIENT_SIDE_DIR "${client-side}"
+          --set QUICKSTROM_LIBRARY_DIR "${dsl}" \
+          --set QUICKSTROM_CLIENT_SIDE_DIR "${client-side}"
     '';
   };
 

@@ -47,7 +47,7 @@ in quickstrom.haskellPackages.shellFor {
     client-side
   ]);
   FONTCONFIG_FILE = pkgs.makeFontsConf { fontDirectories = fonts; };
-  WEBCHECK_LIBRARY_DIR = "${dsl}";
-  WEBCHECK_CLIENT_SIDE_DIR = "${client-side}";
+  QUICKSTROM_LIBRARY_DIR = "${dsl}";
+  QUICKSTROM_CLIENT_SIDE_DIR = "${client-side}";
 }
 

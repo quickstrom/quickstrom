@@ -39,7 +39,7 @@ this package as the project root, and it should work nicely!
 
 You can build the Quickstrom libraries manually with spago. This is useful if
 you're hacking on these modules (or the specifications in `specs/`) and want
-to run Quickstrom against your working copy (see `WEBCHECK_LIBRARY_DIR` in the
+to run Quickstrom against your working copy (see `QUICKSTROM_LIBRARY_DIR` in the
 root README).
 
 ```

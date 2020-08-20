@@ -16,7 +16,7 @@ import Quickstrom.PureScript.Program
 
 loadModules :: IO Modules
 loadModules = do
-  let key = "WEBCHECK_LIBRARY_DIR"
+  let key = "QUICKSTROM_LIBRARY_DIR"
   quickstromPursDir <-
     maybe (fail (key <> " environment variable is not set")) pure
       =<< lookupEnv key

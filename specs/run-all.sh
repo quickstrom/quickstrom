@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-WEBCHECK=${WEBCHECK:-cabal run quickstrom --}
+QUICKSTROM=${QUICKSTROM:-cabal run quickstrom --}
 
 geckodriver > /dev/null 2>&1 &
 geckodriver_pid="$!"
@@ -22,7 +22,7 @@ function run_test {
     echo -e "################################################################################\n"
 
     # shellcheck disable=SC2086
-    $WEBCHECK "$spec_file" "$uri" $options
+    $QUICKSTROM "$spec_file" "$uri" $options
     exit_code=$?
 
     if [ $exit_code == "$expected_exit_code" ]; then

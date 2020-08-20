@@ -142,7 +142,7 @@ The following instructions are helpful if you want to work on Quickstrom.
 
 To run the tests, you need to have a built version of the
 [dsl](dsl) package, and set the
-`PURESCRIPT_WEBCHECK` environment variable to the package's output
+`PURESCRIPT_QUICKSTROM` environment variable to the package's output
 directory.
 
 The good news is, if you're running a `nix-shell` from the root of
@@ -162,7 +162,7 @@ output directory anyway. If so, use the following command after having built
 the package with Spago.
 
 ```
-WEBCHECK_LIBRARY_DIR=dsl/output cabal test
+QUICKSTROM_LIBRARY_DIR=dsl/output cabal test
 ```
 
 

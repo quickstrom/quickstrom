@@ -428,7 +428,7 @@ awaitElement sel@(Selector s) =
 
 readScripts :: MonadIO m => m CheckScripts
 readScripts = do
-  let key = "WEBCHECK_CLIENT_SIDE_DIR"
+  let key = "QUICKSTROM_CLIENT_SIDE_DIR"
   dir <- liftIO (maybe (fail (key <> " environment variable not set")) pure =<< lookupEnv key)
   let readScript :: MonadIO m => String -> m Text
       readScript name = liftIO (fromString . toS <$> readFile (dir </> name <> ".js"))

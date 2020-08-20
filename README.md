@@ -8,25 +8,25 @@
 
 <hr>
 
-* **Reduce testing effort**
+- **Reduce testing effort**
 
   Generate thousands of test cases instead of writing them manually. Lower
   the maintenance burden of your browser testing by writing concise
   specifications with looser coupling to your implementation.
 
-* **Find complex bugs**
+- **Find complex bugs**
 
   Quickstrom simulates complex and unexpected user behavior using generative
   random testing. When the specification is violated, Quickstrom finds a
   minimal failing example.
 
-* **Understand your system**
+- **Understand your system**
 
   Focus on specifying your system, not on writing test cases. A specification
   lets you run Quickstrom, but can also increase your team's understanding of
   the system.
 
-* **Adopt gradually**
+- **Adopt gradually**
 
   Quickstrom works with any web application that renders DOM elements. Start
   simple, and gradually refine your specification to increase coverage and
@@ -39,11 +39,9 @@ scarce. The situation will improve.
 
 ## Getting Started
 
-
 ### Prerequisites
 
-* Nix (see [nix.dev](https://nix.dev/) for installation instructions and guides)
-
+- Nix (see [nix.dev](https://nix.dev/) for installation instructions and guides)
 
 ### Installation (with Nix)
 
@@ -68,8 +66,7 @@ nix-env -i -A quickstrom -f default.nix
 quickstrom <YOUR SPEC FILE> <ORIGIN URL>
 ```
 
-**NOTE:** You need to also run geckodriver for Quickstrom to work. See
-*[Running](#running) below.
+**NOTE:** You need to also run geckodriver for Quickstrom to work. See \*[Running](#running) below.
 
 ### Starting a Shell
 
@@ -165,7 +162,6 @@ the package with Spago.
 QUICKSTROM_LIBRARY_DIR=dsl/output cabal test
 ```
 
-
 ### Formatting
 
 In a Nix shell, run the following command to format all Haskell sources:
@@ -173,3 +169,9 @@ In a Nix shell, run the following command to format all Haskell sources:
 ```bash
 quickstrom-format-sources
 ```
+
+## License and Copyright
+
+Quickstrom is licensed under [GNU Affero General Public License version 3](https://www.gnu.org/licenses/agpl-3.0.html).
+
+&copy; 2020 Oskar Wickström

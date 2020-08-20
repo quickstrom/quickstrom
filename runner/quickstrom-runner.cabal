@@ -5,7 +5,8 @@ version:              0.1.0.0
 author:               Oskar Wickström
 maintainer:           oskar@wickstrom.tech
 build-type:           Simple
-extra-source-files:   CHANGELOG.md
+license:              AGPL-3
+copyright:            Oskar Wickström
 
 common shared-deps
   build-depends:      base ^>= 4.12

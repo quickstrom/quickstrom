@@ -11,4 +11,4 @@ let
         export WEBCHECK_CLIENT_SIDE_DIR="${client-side}";
       '';
     });
-in setCheckEnv (haskellPackages.callCabal2nix "webcheck-runner" "${src}" { })
+in setCheckEnv (haskellPackages.callCabal2nix "quickstrom-runner" "${src}" { })

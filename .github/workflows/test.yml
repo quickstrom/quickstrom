@@ -10,9 +10,9 @@ jobs:
     - uses: cachix/install-nix-action@v10
     - uses: cachix/cachix-action@v6
       with:
-        name: webcheck
+        name: quickstrom
         signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
         # Only needed for private caches
         #authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
     - run: nix-build
-    - run: nix-shell --run "WEBCHECK=result/bin/webcheck specs/run-all.sh"
+    - run: nix-shell --run "WEBCHECK=result/bin/quickstrom specs/run-all.sh"

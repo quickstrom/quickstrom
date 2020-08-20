@@ -1,8 +1,8 @@
 <div align=center>
-<h1>WebCheck</h1>
+<h1>Quickstrom</h1>
 <p>High-confidence browser testing</p>
 <p>
-  <img src="https://github.com/webcheck-tools/webcheck/workflows/Test/badge.svg?branch=master" />
+  <img src="https://github.com/quickstrom-tools/quickstrom/workflows/Test/badge.svg?branch=master" />
 </p>
 </div>
 
@@ -16,25 +16,25 @@
 
 * **Find complex bugs**
 
-  WebCheck simulates complex and unexpected user behavior using generative
-  random testing. When the specification is violated, WebCheck finds a
+  Quickstrom simulates complex and unexpected user behavior using generative
+  random testing. When the specification is violated, Quickstrom finds a
   minimal failing example.
 
 * **Understand your system**
 
   Focus on specifying your system, not on writing test cases. A specification
-  lets you run WebCheck, but can also increase your team's understanding of
+  lets you run Quickstrom, but can also increase your team's understanding of
   the system.
 
 * **Adopt gradually**
 
-  WebCheck works with any web application that renders DOM elements. Start
+  Quickstrom works with any web application that renders DOM elements. Start
   simple, and gradually refine your specification to increase coverage and
   confidence.
 
 <hr>
 
-**NOTE:** The WebCheck project is in a very early phase, so documentation is
+**NOTE:** The Quickstrom project is in a very early phase, so documentation is
 scarce. The situation will improve.
 
 ## Getting Started
@@ -47,28 +47,28 @@ scarce. The situation will improve.
 
 ### Installation (with Nix)
 
-If you're only looking to run WebCheck, not hack on it, you can use Cachix
+If you're only looking to run Quickstrom, not hack on it, you can use Cachix
 and Nix to get an executable:
 
 ```
-cachix use webcheck
+cachix use quickstrom
 nix-build
 ```
 
-Now, WebCheck is available in the `result`:
+Now, Quickstrom is available in the `result`:
 
 ```
-result/bin/webcheck <YOUR SPEC FILE> <ORIGIN URL>
+result/bin/quickstrom <YOUR SPEC FILE> <ORIGIN URL>
 ```
 
 Alternatively, install it directly into your environment:
 
 ```
-nix-env -i -A webcheck -f default.nix
-webcheck <YOUR SPEC FILE> <ORIGIN URL>
+nix-env -i -A quickstrom -f default.nix
+quickstrom <YOUR SPEC FILE> <ORIGIN URL>
 ```
 
-**NOTE:** You need to also run geckodriver for WebCheck to work. See
+**NOTE:** You need to also run geckodriver for Quickstrom to work. See
 *[Running](#running) below.
 
 ### Starting a Shell
@@ -92,22 +92,22 @@ To check a specification, you must have a running `geckodriver` instance:
 geckodriver 2>&1 > /dev/null
 ```
 
-Next, run `webcheck` and supply the path to the specification file along with
+Next, run `quickstrom` and supply the path to the specification file along with
 the origin URL (can also be a local file path). Let's run it through Cabal
 (assuming you're in a nix-shell):
 
 ```
-cabal run webcheck -- /path/to/my/specification http://example.com
+cabal run quickstrom -- /path/to/my/specification http://example.com
 ```
 
 For instance, you can run the TodoMVC React specification:
 
 ```
-cabal run webcheck -- specs/other/TodoMVC.spec.purs http://todomvc.com/examples/react
+cabal run quickstrom -- specs/other/TodoMVC.spec.purs http://todomvc.com/examples/react
 ```
 
 **NOTE:** Running tests can take a lot of time, especially if there's a
-failure and WebCheck tries to shrink to the minimal failing trace.
+failure and Quickstrom tries to shrink to the minimal failing trace.
 Optimizations are due, but for now it's _slow_.
 
 ### No WebDriver Session
@@ -115,30 +115,30 @@ Optimizations are due, but for now it's _slow_.
 If you get the following error:
 
 ```
-webcheck: user error (E NoSession)
+quickstrom: user error (E NoSession)
 ```
 
-It's probably because the WebDriver package in WebCheck failed to clean up
+It's probably because the WebDriver package in Quickstrom failed to clean up
 its session. This is a known bug. To work around it, restart Geckodriver:
 
 ```
 geckodriver 2>&1 > /dev/null
 ```
 
-And rerun your WebCheck command.
+And rerun your Quickstrom command.
 
 ### Help
 
-There are various flags and options for the `webcheck` executable. Run with
+There are various flags and options for the `quickstrom` executable. Run with
 `--help` to learn more.
 
 ## Development
 
-The following instructions are helpful if you want to work on WebCheck.
+The following instructions are helpful if you want to work on Quickstrom.
 
 ### Testing
 
-(Testing WebCheck itself, that is. Not specifications.)
+(Testing Quickstrom itself, that is. Not specifications.)
 
 To run the tests, you need to have a built version of the
 [dsl](dsl) package, and set the
@@ -171,5 +171,5 @@ WEBCHECK_LIBRARY_DIR=dsl/output cabal test
 In a Nix shell, run the following command to format all Haskell sources:
 
 ```bash
-webcheck-format-sources
+quickstrom-format-sources
 ```

@@ -1,6 +1,6 @@
 module CommentFormSpecification where
 
-import WebCheck
+import Quickstrom
 import Data.Array (head, tail)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String (Pattern(..), length, split, trim)

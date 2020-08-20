@@ -117,10 +117,10 @@ section.header .project-name .lead {
     }
 }
 
-section.why-webcheck .inner {
+section.why-quickstrom .inner {
     flex-basis: 1200px;
 }
-section.why-webcheck ul {
+section.why-quickstrom ul {
     display: flex;
     align-items: flex-start;
     justify-content: flex-start;
@@ -129,7 +129,7 @@ section.why-webcheck ul {
     padding: 0;
     margin: 0 0 4em;
 }
-section.why-webcheck li {
+section.why-quickstrom li {
     display: flex;
     align-items: center;
     flex: 1 1 50%;
@@ -138,26 +138,26 @@ section.why-webcheck li {
     padding: 1rem;
 }
 
-section.why-webcheck li:last-child {
+section.why-quickstrom li:last-child {
     margin-right: 0;
 }
-section.why-webcheck li h3 {
+section.why-quickstrom li h3 {
     text-align: center;
 }
-section.why-webcheck .icon {
+section.why-quickstrom .icon {
     flex: 0 0 auto;
     font-size: 400%;
     color: #aaa;
     text-align: center;
 }
-section.why-webcheck .icon i {
+section.why-quickstrom .icon i {
     line-height: 1;
 }
-section.why-webcheck .content {
+section.why-quickstrom .content {
 }
 
 @media screen and (max-width: 800px) {
-    section.why-webcheck li {
+    section.why-quickstrom li {
         flex-basis: 100%;
     }
 }

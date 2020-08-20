@@ -1,11 +1,11 @@
 cradle: 
   # cabal: 
   #   - path: "."
-  #     component: "lib:webcheck"
+  #     component: "lib:quickstrom"
   #   - path: "."
-  #     component: "exe:webcheck"
+  #     component: "exe:quickstrom"
   #   - path: "."
-  #     component: "test:webcheck-test"
+  #     component: "test:quickstrom-test"
   direct: 
     arguments:
       - -XNoImplicitPrelude

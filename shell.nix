@@ -1,17 +1,13 @@
 { pkgs ? import ./nixpkgs.nix { config = { allowBroken = true; }; }
 , compiler ? "ghc865" }:
 let
-  ghcide = (import (builtins.fetchTarball
-    "https://github.com/cachix/ghcide-nix/tarball/master")
-    { }).${"ghcide-${compiler}"};
-
   fonts = with pkgs; [ libre-baskerville iosevka opensans-ttf ];
 
   easy-ps = import ./dsl/easy-ps.nix { inherit pkgs; };
   dsl = import ./dsl { inherit pkgs; };
   client-side = import ./client-side { inherit pkgs; };
 
-  webcheck-purs-ide = pkgs.writeShellScriptBin "webcheck-purs-ide" ''
+  quickstrom-purs-ide = pkgs.writeShellScriptBin "quickstrom-purs-ide" ''
     ${easy-ps.purs-0_13_8}/bin/purs ide server \
       --log-level all \
       --output-directory dsl/output \
@@ -20,32 +16,32 @@ let
       'specs/**/*.purs'
   '';
 
-  webcheck-format-sources =
-    pkgs.writeShellScriptBin "webcheck-format-sources" ''
+  quickstrom-format-sources =
+    pkgs.writeShellScriptBin "quickstrom-format-sources" ''
       find . -not -path './dist-newstyle/*' -name '*.hs' -exec ormolu -m inplace {} \;
       find . -not -path './dsl/.spago/*' -name '*.purs' -exec purty --write {} \;
     '';
 
-  webcheck = import ./. { inherit pkgs compiler; };
+  quickstrom = import ./. { inherit pkgs compiler; };
 
-in webcheck.haskellPackages.shellFor {
+in quickstrom.haskellPackages.shellFor {
   withHoogle = true;
-  packages = with pkgs.lib; (p: attrValues (filterAttrs (n: _: hasPrefix "webcheck-" n) p));
+  packages = with pkgs.lib; (p: attrValues (filterAttrs (n: _: hasPrefix "quickstrom-" n) p));
   buildInputs = (with pkgs; [
     nixfmt
     ghcid
-    webcheck.haskellPackages.haskell-language-server
+    quickstrom.haskellPackages.haskell-language-server
     cabal-install
-    webcheck.haskellPackages.ormolu
+    quickstrom.haskellPackages.ormolu
+    easy-ps.purty
+
     firefox
     geckodriver
-    webcheck.haskellPackages.ghc-prof-flamegraph
-    easy-ps.purty
     # chromium
     # chromedriver
 
-    webcheck-purs-ide
-    webcheck-format-sources
+    quickstrom-purs-ide
+    quickstrom-format-sources
     # only for lorri
     dsl
     client-side

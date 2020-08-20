@@ -1,7 +1,7 @@
--- webcheck specs/other/SwedishTaxCalculation.spec.purs https://app.skatteverket.se/rakna-skatt-client-skut-skatteutrakning/lon-efter-skattetabell/fyll-i-dina-uppgifter
+-- quickstrom specs/other/SwedishTaxCalculation.spec.purs https://app.skatteverket.se/rakna-skatt-client-skut-skatteutrakning/lon-efter-skattetabell/fyll-i-dina-uppgifter
 module Spec where
 
-import WebCheck
+import Quickstrom
 import Control.MonadZero (guard)
 import Data.Array (null)
 import Data.Array as Array

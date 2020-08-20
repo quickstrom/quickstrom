@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8"/>
-    <title>WebCheck</title>
+    <title>Quickstrom</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="High-confidence browser testing" />
     <link href="main.css" rel="stylesheet"/>
@@ -15,14 +15,14 @@
         <div class="inner">
           <div class="project-name">
             <p class="lead">Coming soon:</p>
-            <h1>WebCheck</h1>
+            <h1>Quickstrom</h1>
             <p class="subtitle">High-confidence browser testing</p>
           </div>
         </div>
       </section>
-      <section class="why-webcheck">
+      <section class="why-quickstrom">
         <div class="inner">
-          <h2>Why use WebCheck?</h2>
+          <h2>Why use Quickstrom?</h2>
           <ul>
             <li>
               <div class="icon">
@@ -42,9 +42,9 @@
               </div>
               <div class="content">
                 <h3>Find complex bugs</h3>
-                <p>WebCheck simulates complex and unexpected user
+                <p>Quickstrom simulates complex and unexpected user
                   behavior using generative random testing. When the
-                  specification is violated, WebCheck finds a minimal
+                  specification is violated, Quickstrom finds a minimal
                   failing example.</p>
               </div>
             </li>
@@ -55,7 +55,7 @@
               <div class="content">
                 <h3>Understand your system</h3>
                 <p>Focus on specifying your system, not on writing
-                  test cases. A specification lets you run WebCheck,
+                  test cases. A specification lets you run Quickstrom,
                   but can also increase your team's understanding of
                   the system.</p>
               </div>
@@ -66,7 +66,7 @@
               </div>
               <div class="content">
                 <h3>Adopt gradually</h3>
-                <p>WebCheck works with any web application that renders
+                <p>Quickstrom works with any web application that renders
                   DOM elements. Start simple, and gradually refine your
                   specification to increase coverage and confidence.</p>
               </div>
@@ -102,7 +102,7 @@
                 <td>
                   <pre>actions = clicks</pre>
                 </td>
-                <td>WebCheck generates <code>click</code> actions for all clickable elements.</td>
+                <td>Quickstrom generates <code>click</code> actions for all clickable elements.</td>
               </tr>
               <tr>
                 <td>
@@ -118,12 +118,12 @@
             </tbody>
           </table>
           </div>
-          <p>Now, let's run WebCheck with a broken implementation
+          <p>Now, let's run Quickstrom with a broken implementation
           of the record player. We get a minimal behavior that 
           violates the specification:
           </p>
           <div class="code-sample">
-          <pre>$ <strong>webcheck RecordPlayer.spec.purs record-player.html</strong>
+          <pre>$ <strong>quickstrom RecordPlayer.spec.purs record-player.html</strong>
 Running test with size: 10
 Test failed. Shrinking...
 1. State
@@ -144,7 +144,7 @@ Test failed. Shrinking...
       <section class="roadmap">
         <div class="inner">
           <h2>Roadmap</h2>
-          <p>Interested in WebCheck? Great! It's is currently in the
+          <p>Interested in Quickstrom? Great! It's is currently in the
             making. Early prototypes showed very promising results,
             and a simple specification
             found <a href="https://github.com/tastejs/todomvc/issues/2116">inconsistencies
@@ -159,12 +159,12 @@ Test failed. Shrinking...
             <li>tight integration with GitHub, GitLab, and various CI services</li>
           </ul>
           <p>
-            If you're wondering how it works under the hood, detailed blogs post are coming. In the meantime, I wrote <a href="https://lobste.rs/s/mdmvuw/webcheck_high_confidence_browser#c_4kjqpg">a quick reply on lobste.rs</a>.
+            If you're wondering how it works under the hood, detailed blogs post are coming. In the meantime, I wrote <a href="https://lobste.rs/s/mdmvuw/quickstrom_high_confidence_browser#c_4kjqpg">a quick reply on lobste.rs</a>.
           </p>
           <p>Subscribe to the newsletter below and get updates on the
             project, and <a href="https://twitter.com/owickstrom">find
             me on Twitter</a> and give feedback. I'm interested in
-            discussing how WebCheck could fit your project!</p>
+            discussing how Quickstrom could fit your project!</p>
         </div>
       </section>
       <section class="sign-up">
@@ -173,10 +173,10 @@ Test failed. Shrinking...
           <p class="signup-message">Sign up for the newsletter to learn
             more and get project updates. No spam, promise.</p>
           <form
-            action="https://buttondown.email/api/emails/embed-subscribe/webcheck"
+            action="https://buttondown.email/api/emails/embed-subscribe/quickstrom"
             method="post"
             target="popupwindow"
-            onsubmit="window.open('https://buttondown.email/webcheck', 'popupwindow')"
+            onsubmit="window.open('https://buttondown.email/quickstrom', 'popupwindow')"
             class="embeddable-buttondown-form"
             >
             <input placeholder="Enter your email" type="email" name="email" id="bd-email">
@@ -185,7 +185,7 @@ Test failed. Shrinking...
           </form>
           <p class="powered-by">
             The newsletter is powered
-            by <a href="https://buttondown.email/webcheck">ButtonDown</a>.
+            by <a href="https://buttondown.email/quickstrom">ButtonDown</a>.
           </p>
         </div>
       </section>

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-WEBCHECK=${WEBCHECK:-cabal run webcheck --}
+WEBCHECK=${WEBCHECK:-cabal run quickstrom --}
 
 geckodriver > /dev/null 2>&1 &
 geckodriver_pid="$!"
@@ -43,7 +43,7 @@ function run_group {
     done
 }
 
-echo -e "Running WebCheck integration tests...\n"
+echo -e "Running Quickstrom integration tests...\n"
 run_group "specs/passing" "--tests=5 --max-actions=50" 0
 run_group "specs/failing" "--tests=50 --max-actions=100 --shrink-levels=0" 3
 run_test "specs/other/TodoMVC.spec.purs" http://todomvc.com/examples/vue/ "--max-trailing-state-changes=0" 0

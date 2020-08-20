@@ -1,4 +1,4 @@
-module WebCheck.Spec
+module Quickstrom.Spec
   ( Path
   , Action(..)
   , Actions
@@ -12,7 +12,7 @@ module WebCheck.Spec
   ) where
 
 import Prelude
-import WebCheck.Selector (Selector)
+import Quickstrom.Selector (Selector)
 import Data.Tuple (Tuple(..))
 import Data.Array (range)
 import Data.Char (fromCharCode)
@@ -28,7 +28,7 @@ import Partial.Unsafe (unsafePartial)
 type Path
   = String
 
--- | A possible action to generate. WebCheck uses action values when searching the
+-- | A possible action to generate. Quickstrom uses action values when searching the
 -- | DOM for possible actions to generate and perform.
 data Action
   = Focus Selector

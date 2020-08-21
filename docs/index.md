@@ -1,25 +1,16 @@
 ---
 title: Quickstrom
-author: Oskar Wickström
-
-documentclass: scrartcl
-header-includes: |
-    \usepackage{fontspec}
-    \usepackage[libertine,tt=false]{libertine}
-    \setmonofont[Scale=MatchLowercase]{Iosevka}
 ---
 
-* [Install](install.md)
+_Quickstrom_ is a new testing tool for the web. It can find bugs in any type
+of web application that renders to the DOM. Quickstrom explores your
+application and present minimal failing cases. Start with a simple
+specification and gradually refine it to increase your confidence.
+
 * [Introduction](introduction.md)
+* [Installation](installation.md)
+* [Running](running.md)
 * [FAQ](faq.md)
-
-# Introduction
-
-This is a design document for my web testing platform, tentatively named
-_Quickstrom_. It describes the motivation and design of a temporal logic
-used to specify the behavior of web applications. Further, it describes
-the design of tools used to check that web applications satisfy such
-specifications.
 
 ## How It Works
 

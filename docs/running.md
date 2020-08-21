@@ -3,7 +3,7 @@
 To check a specification, you must have a running `geckodriver` instance. Run this in a separate tab in your terminal:
 
 ```shell
-geckodriver 2>&1 > /dev/null
+geckodriver
 ```
 
 Next, run `quickstrom check` and supply the path to the specification file
@@ -35,7 +35,7 @@ It's probably because the WebDriver package in Quickstrom failed to clean up
 its session. This is a known bug. To work around it, restart Geckodriver:
 
 ```
-geckodriver 2>&1 > /dev/null
+geckodriver
 ```
 
 And rerun your Quickstrom command.

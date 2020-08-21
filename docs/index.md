@@ -9,6 +9,10 @@ header-includes: |
     \setmonofont[Scale=MatchLowercase]{Iosevka}
 ---
 
+* [Install](install.md)
+* [Introduction](introduction.md)
+* [FAQ](faq.md)
+
 # Introduction
 
 This is a design document for my web testing platform, tentatively named

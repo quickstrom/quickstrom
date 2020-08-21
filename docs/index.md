@@ -6,7 +6,7 @@ title: Quickstrom
 
 _Quickstrom_ is a new testing tool for the web. It can find bugs in any type
 of web application that renders to the DOM. Quickstrom explores your
-application and present minimal failing cases. Start with a simple
+application and presents minimal failing cases. Start with a simple
 specification and gradually refine it to increase your confidence.
 
 Interested? Let's get started!
@@ -26,9 +26,9 @@ Interested? Let's get started!
   class="embeddable-buttondown-form"
 >
   <p><label for="bd-email">Sign up for the newsletter!</label></p>
-  <input type="email" name="email" id="bd-email"></input>
-  <input type="hidden" value="1" name="embed"></input>
-  <input type="submit" value="Subscribe"></input>
+  <input type="email" name="email" id="bd-email" />
+  <input type="hidden" value="1" name="embed" />
+  <input type="submit" value="Subscribe" />
   <p>
     <a href="https://buttondown.email" target="_blank">Powered by Buttondown.</a>
   </p>

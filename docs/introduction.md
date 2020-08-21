@@ -1,6 +1,6 @@
 # Introduction
 
-Quickstrom aims for you to:
+By using Quickstrom, you will:
 
 - **Reduce testing effort**
 

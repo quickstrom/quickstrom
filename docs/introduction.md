@@ -26,6 +26,13 @@ By using Quickstrom, you will:
   simple, and gradually refine your specification to increase coverage and
   confidence.
 
+That sounds cool, but does it actually work?
+
+Yes! Check out [The TodoMVC
+Showdown](https://wickstrom.tech/programming/2020/07/02/the-todomvc-showdown-testing-with-webcheck.html)
+case study and learn how Quickstrom (previously called _WebCheck_) found problems
+in multiple implementations of TodoMVC.
+
 ## How It Works
 
 In Quickstrom, a tester writes _specifications_ for web
@@ -177,7 +184,8 @@ changes, and the proposition thus describes the system as a state machine.
 The following specifies a record player, featuring a button that toggles
 between the paused and playing states.
 
-It waits for a DOM element matching the CSS selector .record-player before taking any action.
+It waits for a DOM element matching the CSS selector .record-player before
+taking any action.
 
 ```purescript
 readyWhen = ".record-player"
@@ -190,14 +198,14 @@ buttonText =
   map _.textContent (queryOne ".play-pause" { textContent })
 ```
 
-WebCheck generates click actions for all clickable elements.
+Quickstrom generates click actions for all clickable elements.
 
 ```purescript
 actions = clicks
 ```
 
-The proposition describes the correctness of the web application. Here we
-start in the paused state, and a valid transition is either play or pause.
+The proposition describes the correct behavior of the web application. Here
+we start in the paused state, and a valid transition is either play or pause.
 
 ```purescript
 proposition =
@@ -207,6 +215,29 @@ proposition =
       pause = playing && next paused
   in paused && always (play || pause)
 ```
+
+Now, let's run Quickstrom with a broken implementation of the record player.
+We get a minimal behavior that violates the specification:
+
+```shell
+$ quickstrom check RecordPlayer.spec.purs record-player.html
+Running test with size: 10
+Test failed. Shrinking...
+1. State
+  • .play-pause
+      - textContent = "Play"
+2. click button[0]
+3. State
+  • .play-pause
+      - textContent = "Pause"
+4. click button[0]
+5. State
+  • .play-pause
+      - textContent = "undefined"
+```
+
+Although not highlighted, the last item with the `undefined` text is where we
+have our problem. Looks like pausing broke the record player!
 
 ## Going Further
 

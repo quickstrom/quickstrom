@@ -1,10 +1,11 @@
 The Specification Language
 ==========================
 
-In Quickstrom, the behavior of a web application is specified using a
-language based on PureScript. It’s a propositional temporal logic and
-functional language, heavily inspired by TLA+ and LTL, most notably
-adding web-specific operators.
+In Quickstrom, the behavior of a web application is described in a
+specification language. It’s a propositional temporal logic and functional
+language, heavily inspired by TLA+ and LTL, most notably adding web-specific
+operators. The specification language of Quickstrom is based on `PureScript
+<https://www.purescript.org/>`__.
 
 Like in TLA+, specifications in Quickstrom are based on state machines.
 A *behavior* is a finite sequence of states. A *step* is a tuple of two
@@ -26,7 +27,7 @@ behavior could therefore be:
    ... -- more definitions, explained further down
 
 To define a useful specification, though, we need to perform *queries*
-and desribe how things change over time (using *temporal operators*).
+and describe how things change over time (using *temporal operators*).
 
 Queries
 -------

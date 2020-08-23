@@ -94,11 +94,11 @@ Let’s modify the previous proposition to describe a state change:
 
    proposition = always (goToAbout || goToContact || goHome)
 
-   goToAbout = title == Just "Home" && next title == "About"
+   goToAbout = title == Just "Home" && next title == Just "About"
 
-   goToContact = title == Just "Home" && next title == "Contact"
+   goToContact = title == Just "Home" && next title == Just "Contact"
 
-   goHome = title == title /= "Home" && next title == "Home"
+   goHome = title /= Just "Home" && next title == Just "Home"
 
    title = map _.textContent (queryOne "h1" { textContent })
 

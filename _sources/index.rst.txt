@@ -11,6 +11,7 @@ Interested? Let’s get started!
 
 .. toctree::
    :maxdepth: 2
+   :titlesonly:
 
    introduction
    installation

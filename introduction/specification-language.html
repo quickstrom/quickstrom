@@ -164,10 +164,10 @@
             
   <div class="section" id="the-specification-language">
 <h1>The Specification Language<a class="headerlink" href="#the-specification-language" title="Permalink to this headline">¶</a></h1>
-<p>In Quickstrom, the behavior of a web application is specified using a
-language based on PureScript. It’s a propositional temporal logic and
-functional language, heavily inspired by TLA+ and LTL, most notably
-adding web-specific operators.</p>
+<p>In Quickstrom, the behavior of a web application is described in a
+specification language. It’s a propositional temporal logic and functional
+language, heavily inspired by TLA+ and LTL, most notably adding web-specific
+operators. The specification language of Quickstrom is based on <a class="reference external" href="https://www.purescript.org/">PureScript</a>.</p>
 <p>Like in TLA+, specifications in Quickstrom are based on state machines.
 A <em>behavior</em> is a finite sequence of states. A <em>step</em> is a tuple of two
 successive states in a behavior. A specification describes valid
@@ -185,7 +185,7 @@ behavior could therefore be:</p>
 </pre></div>
 </div>
 <p>To define a useful specification, though, we need to perform <em>queries</em>
-and desribe how things change over time (using <em>temporal operators</em>).</p>
+and describe how things change over time (using <em>temporal operators</em>).</p>
 <div class="section" id="queries">
 <h2>Queries<a class="headerlink" href="#queries" title="Permalink to this headline">¶</a></h2>
 <p>Quickstrom provides two ways of querying the DOM in your specification:</p>
@@ -235,19 +235,19 @@ must always be “Home”.</p>
 <p>Let’s modify the previous proposition to describe a state change:</p>
 <div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">proposition</span> <span class="ow">=</span> <span class="n">always</span> <span class="p">(</span><span class="n">goToAbout</span> <span class="o">||</span> <span class="n">goToContact</span> <span class="o">||</span> <span class="n">goHome</span><span class="p">)</span>
 
-<span class="nf">goToAbout</span> <span class="ow">=</span> <span class="n">title</span> <span class="o">==</span> <span class="kt">Just</span> <span class="s">&quot;Home&quot;</span> <span class="o">&amp;&amp;</span> <span class="n">next</span> <span class="n">title</span> <span class="o">==</span> <span class="s">&quot;About&quot;</span>
+<span class="nf">goToAbout</span> <span class="ow">=</span> <span class="n">title</span> <span class="o">==</span> <span class="kt">Just</span> <span class="s">&quot;Home&quot;</span> <span class="o">&amp;&amp;</span> <span class="n">next</span> <span class="n">title</span> <span class="o">==</span> <span class="kt">Just</span> <span class="s">&quot;About&quot;</span>
 
-<span class="nf">goToContact</span> <span class="ow">=</span> <span class="n">title</span> <span class="o">==</span> <span class="kt">Just</span> <span class="s">&quot;Home&quot;</span> <span class="o">&amp;&amp;</span> <span class="n">next</span> <span class="n">title</span> <span class="o">==</span> <span class="s">&quot;Contact&quot;</span>
+<span class="nf">goToContact</span> <span class="ow">=</span> <span class="n">title</span> <span class="o">==</span> <span class="kt">Just</span> <span class="s">&quot;Home&quot;</span> <span class="o">&amp;&amp;</span> <span class="n">next</span> <span class="n">title</span> <span class="o">==</span> <span class="kt">Just</span> <span class="s">&quot;Contact&quot;</span>
 
-<span class="nf">goHome</span> <span class="ow">=</span> <span class="n">title</span> <span class="o">==</span> <span class="n">title</span> <span class="o">/=</span> <span class="s">&quot;Home&quot;</span> <span class="o">&amp;&amp;</span> <span class="n">next</span> <span class="n">title</span> <span class="o">==</span> <span class="s">&quot;Home&quot;</span>
+<span class="nf">goHome</span> <span class="ow">=</span> <span class="n">title</span> <span class="o">/=</span> <span class="kt">Just</span> <span class="s">&quot;Home&quot;</span> <span class="o">&amp;&amp;</span> <span class="n">next</span> <span class="n">title</span> <span class="o">==</span> <span class="kt">Just</span> <span class="s">&quot;Home&quot;</span>
 
 <span class="nf">title</span> <span class="ow">=</span> <span class="n">map</span> <span class="kr">_</span><span class="o">.</span><span class="n">textContent</span> <span class="p">(</span><span class="n">queryOne</span> <span class="s">&quot;h1&quot;</span> <span class="p">{</span> <span class="n">textContent</span> <span class="p">})</span>
 </pre></div>
 </div>
-<p>We’re now saying that it’s always the case that one or another <em>action</em> is
-taken. An action is a boolean expression that uses queries and <code class="docutils literal notranslate"><span class="pre">next</span></code> to
-describe the current and the next state, i.e. a state transition.</p>
-<p>The <code class="docutils literal notranslate"><span class="pre">goToAbout</span></code>, <code class="docutils literal notranslate"><span class="pre">goToContact</span></code>, and <code class="docutils literal notranslate"><span class="pre">goHome</span></code> actions specify how the
+<p>We’re now saying that it’s always the case that one or another state
+transition occurs. An state transition is represented as a boolean expression,
+using queries and <code class="docutils literal notranslate"><span class="pre">next</span></code> to describe the current and the next state.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">goToAbout</span></code>, <code class="docutils literal notranslate"><span class="pre">goToContact</span></code>, and <code class="docutils literal notranslate"><span class="pre">goHome</span></code> transitions specify how the
 title of the page changes, and the <code class="docutils literal notranslate"><span class="pre">proposition</span></code> thus describes the system
 as a state machine. It can be visualized as follows:</p>
 <div class="graphviz"><img src="../_images/graphviz-b0a4e8d8e3161b8c4a3543fdc9c235d447bd8d37.png" alt="digraph foo {
@@ -264,6 +264,45 @@ as a state machine. It can be visualized as follows:</p>
   About -&gt; Home [ label = &quot;goHome&quot; ];
   Contact -&gt; Home [ label = &quot;goHome&quot; ];
 }" class="graphviz" /></div>
+</div>
+</div>
+<div class="section" id="actions">
+<h2>Actions<a class="headerlink" href="#actions" title="Permalink to this headline">¶</a></h2>
+<p>We must instruct Quickstrom what actions it should try. The <code class="docutils literal notranslate"><span class="pre">actions</span></code>
+definition in a specification module has the following type:</p>
+<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="kt">Array</span> <span class="p">(</span><span class="kt">Tuple</span> <span class="kt">Int</span> <span class="kt">Action</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>It’s an array of pairs, or tuples, where each pair holds a weight and an
+action specifier. The weight specifies the intended probability of the action
+being picked, relative to the other actions.</p>
+<p>To illustrate, in the following array of actions, the probability of <code class="docutils literal notranslate"><span class="pre">a1</span></code>
+being picked is 40%, while the others are at 20% each. This is assuming all
+actions are <em>possible</em> at each point an action is being picked.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">actions</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">Tuple</span> <span class="mi">2</span> <span class="n">a1</span><span class="p">,</span>
+    <span class="n">Tuple</span> <span class="mi">1</span> <span class="n">a2</span><span class="p">,</span>
+    <span class="n">Tuple</span> <span class="mi">1</span> <span class="n">a3</span><span class="p">,</span>
+    <span class="n">Tuple</span> <span class="mi">1</span> <span class="n">a4</span>
+  <span class="p">]</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">Action</span></code> data type is defined in the Quickstrom library, along with
+some aliases for common actions. For instance, here’s the definition of
+<code class="docutils literal notranslate"><span class="pre">foci</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">--</span> <span class="o">|</span> <span class="n">Generate</span> <span class="n">focus</span> <span class="n">actions</span> <span class="n">on</span> <span class="n">common</span> <span class="n">focusable</span> <span class="n">elements</span><span class="o">.</span>
+<span class="n">foci</span> <span class="p">::</span> <span class="n">Actions</span>
+<span class="n">foci</span> <span class="o">=</span> <span class="p">[</span> <span class="n">Tuple</span> <span class="mi">1</span> <span class="p">(</span><span class="n">Focus</span> <span class="s2">&quot;input&quot;</span><span class="p">),</span> <span class="n">Tuple</span> <span class="mi">1</span> <span class="p">(</span><span class="n">Focus</span> <span class="s2">&quot;textarea&quot;</span><span class="p">)</span> <span class="p">]</span>
+</pre></div>
+</div>
+<p>More action constructors and aliases should be introduced as Quickstrom
+evolves.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>When specifying complex web applications, one must often carefully pick
+selectors, actions, and weights, to effectively test enough within
+a reasonable time. Aliases like <code class="docutils literal notranslate"><span class="pre">clicks</span></code> and <code class="docutils literal notranslate"><span class="pre">foci</span></code> might not work
+well in such situations.</p>
 </div>
 </div>
 </div>

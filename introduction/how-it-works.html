@@ -177,14 +177,15 @@ only the actions that are possible to take. For instance, you cannot
 click buttons that are not visible. From that subset, Quickstrom
 picks the next action to take.</p></li>
 <li><p>After each action has been taken, Quickstrom queries and records the
-state of relevant DOM elements. The sequence of observed states is
-called a <em>behavior</em>.</p></li>
+state of relevant DOM elements. The sequence of actions takens and
+observed states is called a <em>behavior</em>.</p></li>
 <li><p>The specification defines a proposition, a logical formula that
 evaluates to <em>true</em> or <em>false</em>, which is used to determine if the
 behavior is <em>accepted</em> or <em>rejected</em>.</p></li>
 <li><p>When a rejected behavior is found, Quickstrom <em>shrinks</em> the sequence
 of actions to the <em>smallest</em>, <em>still failing</em>, behavior. The tester
-is presented with a minimal failing test case.</p></li>
+is presented with a minimal failing test case based on the original
+larger behavior.</p></li>
 </ol>
 <p>You might say “This is just property-based testing!” and “I can do this
 with state machine testing!” You’d be right, similar tests could be

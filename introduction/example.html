@@ -191,6 +191,12 @@ or pause.</p>
   <span class="kr">in</span> <span class="n">paused</span> <span class="o">&amp;&amp;</span> <span class="n">always</span> <span class="p">(</span><span class="n">play</span> <span class="o">||</span> <span class="n">pause</span><span class="p">)</span>
 </pre></div>
 </div>
+<p>The last line, <code class="docutils literal notranslate"><span class="pre">paused</span> <span class="pre">&amp;&amp;</span> <span class="pre">always</span> <span class="pre">(play</span> <span class="pre">||</span> <span class="pre">pause)</span></code>,
+can be read in English as:</p>
+<blockquote>
+<div><p>Initially, the record player is paused, and from there on one can either
+play or pause, indefinitely.</p>
+</div></blockquote>
 <p>Now, let’s run Quickstrom with a broken implementation of the record
 player. We get a minimal behavior that violates the specification:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ quickstrom check RecordPlayer.spec.purs record-player.html

@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>The Quickstrom Specification Language &mdash; Quickstrom 0.1.0 documentation</title>
+  <title>The Specification Language &mdash; Quickstrom 0.1.0 documentation</title>
   
 
   
@@ -35,6 +35,7 @@
   
   <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Example: Record Player" href="example.html" />
@@ -85,7 +86,7 @@
               <ul class="current">
 <li class="toctree-l1 current"><a class="reference internal" href="../introduction.html">Introduction</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="how-it-works.html">How It Works</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">The Quickstrom Specification Language</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">The Specification Language</a></li>
 <li class="toctree-l2"><a class="reference internal" href="example.html">Example: Record Player</a></li>
 <li class="toctree-l2"><a class="reference internal" href="next-steps.html">Next Steps</a></li>
 </ul>
@@ -140,7 +141,7 @@
         
           <li><a href="../introduction.html">Introduction</a> &raquo;</li>
         
-      <li>The Quickstrom Specification Language</li>
+      <li>The Specification Language</li>
     
     
       <li class="wy-breadcrumbs-aside">
@@ -161,8 +162,8 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
             
-  <div class="section" id="the-quickstrom-specification-language">
-<h1>The Quickstrom Specification Language<a class="headerlink" href="#the-quickstrom-specification-language" title="Permalink to this headline">¶</a></h1>
+  <div class="section" id="the-specification-language">
+<h1>The Specification Language<a class="headerlink" href="#the-specification-language" title="Permalink to this headline">¶</a></h1>
 <p>In Quickstrom, the behavior of a web application is specified using a
 language based on PureScript. It’s a propositional temporal logic and
 functional language, heavily inspired by TLA+ and LTL, most notably
@@ -232,21 +233,37 @@ must always be “Home”.</p>
 <div class="section" id="next">
 <h3>Next<a class="headerlink" href="#next" title="Permalink to this headline">¶</a></h3>
 <p>Let’s modify the previous proposition to describe a state change:</p>
-<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">proposition</span> <span class="ow">=</span> <span class="n">always</span> <span class="p">(</span><span class="n">goToAbout</span> <span class="o">||</span> <span class="n">goToContact</span><span class="p">)</span>
+<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">proposition</span> <span class="ow">=</span> <span class="n">always</span> <span class="p">(</span><span class="n">goToAbout</span> <span class="o">||</span> <span class="n">goToContact</span> <span class="o">||</span> <span class="n">goHome</span><span class="p">)</span>
 
 <span class="nf">goToAbout</span> <span class="ow">=</span> <span class="n">title</span> <span class="o">==</span> <span class="kt">Just</span> <span class="s">&quot;Home&quot;</span> <span class="o">&amp;&amp;</span> <span class="n">next</span> <span class="n">title</span> <span class="o">==</span> <span class="s">&quot;About&quot;</span>
 
 <span class="nf">goToContact</span> <span class="ow">=</span> <span class="n">title</span> <span class="o">==</span> <span class="kt">Just</span> <span class="s">&quot;Home&quot;</span> <span class="o">&amp;&amp;</span> <span class="n">next</span> <span class="n">title</span> <span class="o">==</span> <span class="s">&quot;Contact&quot;</span>
 
+<span class="nf">goHome</span> <span class="ow">=</span> <span class="n">title</span> <span class="o">==</span> <span class="n">title</span> <span class="o">/=</span> <span class="s">&quot;Home&quot;</span> <span class="o">&amp;&amp;</span> <span class="n">next</span> <span class="n">title</span> <span class="o">==</span> <span class="s">&quot;Home&quot;</span>
+
 <span class="nf">title</span> <span class="ow">=</span> <span class="n">map</span> <span class="kr">_</span><span class="o">.</span><span class="n">textContent</span> <span class="p">(</span><span class="n">queryOne</span> <span class="s">&quot;h1&quot;</span> <span class="p">{</span> <span class="n">textContent</span> <span class="p">})</span>
 </pre></div>
 </div>
-<p>We’re now saying that it’s always the case that one or another <em>action</em>
-is taken. An action is a boolean expression that uses <code class="docutils literal notranslate"><span class="pre">next</span></code> to
-describe the current and the next state, i.e. a state transition.</p>
-<p>The <code class="docutils literal notranslate"><span class="pre">goToAbout</span></code> and <code class="docutils literal notranslate"><span class="pre">goToContact</span></code> actions specifies how the title of
-the page changes, and the proposition thus describes the system as a
-state machine.</p>
+<p>We’re now saying that it’s always the case that one or another <em>action</em> is
+taken. An action is a boolean expression that uses queries and <code class="docutils literal notranslate"><span class="pre">next</span></code> to
+describe the current and the next state, i.e. a state transition.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">goToAbout</span></code>, <code class="docutils literal notranslate"><span class="pre">goToContact</span></code>, and <code class="docutils literal notranslate"><span class="pre">goHome</span></code> actions specify how the
+title of the page changes, and the <code class="docutils literal notranslate"><span class="pre">proposition</span></code> thus describes the system
+as a state machine. It can be visualized as follows:</p>
+<div class="graphviz"><img src="../_images/graphviz-b0a4e8d8e3161b8c4a3543fdc9c235d447bd8d37.png" alt="digraph foo {
+  graph [ dpi = 300 ];
+  splines=true;
+  esep=10;
+  size=&quot;5&quot;;
+  rankdir=LR;
+  edge [ fontname = &quot;Open Sans&quot; ];
+  node [ fontname = &quot;Open Sans Bold&quot;, margin = &quot;0.5,0.5&quot; ];
+
+  Home -&gt; About [ label = &quot;goToAbout&quot; ];
+  Home -&gt; Contact [ label = &quot;goToContact&quot; ];
+  About -&gt; Home [ label = &quot;goHome&quot; ];
+  Contact -&gt; Home [ label = &quot;goHome&quot; ];
+}" class="graphviz" /></div>
 </div>
 </div>
 </div>

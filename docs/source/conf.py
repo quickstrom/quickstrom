@@ -107,6 +107,16 @@ html_theme_options = {
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
+html_context = {
+    "display_github": True,
+    "github_host": 'github.com',
+    "github_user": 'quickstrom',
+    "github_repo": 'quickstrom',
+    "github_version": 'HEAD',
+    "conf_py_path": '/docs/source/',
+    "source_suffix": '.rst'
+}
+
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.
 #

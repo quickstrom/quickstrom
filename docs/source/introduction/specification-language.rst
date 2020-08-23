@@ -126,3 +126,50 @@ as a state machine. It can be visualized as follows:
      About -> Home [ label = "goHome" ];
      Contact -> Home [ label = "goHome" ];
    }
+
+Actions
+-------
+
+We must instruct Quickstrom what actions it should try. The ``actions``
+definition in a specification module has the following type:
+
+.. code:: haskell
+
+   Array (Tuple Int Action)
+
+It's an array of pairs, or tuples, where each pair holds a weight and an
+action specifier. The weight specifies the intended probability of the action
+being picked, relative to the other actions.
+
+To illustrate, in the following array of actions, the probability of ``a1``
+being picked is 40%, while the others are at 20% each. This is assuming all
+actions are *possible* at each point an action is being picked.
+
+.. code::
+
+   actions = [
+       Tuple 2 a1,
+       Tuple 1 a2,
+       Tuple 1 a3,
+       Tuple 1 a4
+     ]
+
+The ``Action`` data type is defined in the Quickstrom library, along with
+some aliases for common actions. For instance, here's the definition of
+``foci``:
+
+.. code::
+
+   -- | Generate focus actions on common focusable elements.
+   foci :: Actions
+   foci = [ Tuple 1 (Focus "input"), Tuple 1 (Focus "textarea") ]
+
+More action constructors and aliases should be introduced as Quickstrom
+evolves.
+
+.. note::
+
+   When specifying complex web applications, one must often carefully pick
+   selectors, actions, and weights, to effectively test enough within
+   a reasonable time. Aliases like ``clicks`` and ``foci`` might not work
+   well in such situations.

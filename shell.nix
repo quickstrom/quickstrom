@@ -2,6 +2,8 @@
 , compiler ? "ghc865" }:
 let
   fonts = with pkgs; [ libre-baskerville iosevka opensans-ttf ];
+  inherit (pkgs.lib.systems.elaborate { system = builtins.currentSystem; })
+    isLinux;
 
   easy-ps = import ./dsl/easy-ps.nix { inherit pkgs; };
   dsl = import ./dsl { inherit pkgs; };
@@ -37,11 +39,6 @@ in quickstrom.haskellPackages.shellFor {
     quickstrom.haskellPackages.ormolu
     easy-ps.purty
 
-    firefox
-    geckodriver
-    # chromium
-    # chromedriver
-
     quickstrom-purs-ide
     quickstrom-format-sources
 
@@ -51,6 +48,11 @@ in quickstrom.haskellPackages.shellFor {
     # only for lorri
     dsl
     client-side
+  ] ++ lib.optional isLinux [
+    firefox
+    geckodriver
+    # chromium
+    # chromedriver
   ]);
   FONTCONFIG_FILE = pkgs.makeFontsConf { fontDirectories = fonts; };
   QUICKSTROM_LIBRARY_DIR = "${dsl}";

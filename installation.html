@@ -1,0 +1,244 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Installation &mdash; Quickstrom 0.1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+        <script type="text/javascript" src="_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Running" href="running.html" />
+    <link rel="prev" title="Introduction" href="introduction.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home"> Quickstrom
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#prerequisites">Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#from-source">From Source</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="running.html">Running</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Quickstrom</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>Installation</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/installation.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="installation">
+<h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h1>
+<p>Follow these steps to install Quickstrom on your machine. For the
+moment, the only supported installation method is Nix. Other options
+might be described in the future.</p>
+<div class="section" id="prerequisites">
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>Nix (see <a class="reference external" href="https://nix.dev/">nix.dev</a> for installation instructions
+and guides)</li>
+</ul>
+</div>
+<div class="section" id="from-source">
+<h2>From Source<a class="headerlink" href="#from-source" title="Permalink to this headline">¶</a></h2>
+<p>First, clone and enter the repository:</p>
+<div class="code shell highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">clone</span> <span class="n">git</span><span class="nd">@github</span><span class="o">.</span><span class="n">com</span><span class="p">:</span><span class="n">quickstrom</span><span class="o">/</span><span class="n">quickstrom</span><span class="o">.</span><span class="n">git</span>
+<span class="n">cd</span> <span class="n">quickstrom</span>
+</pre></div>
+</div>
+<p>To install the <code class="docutils literal notranslate"><span class="pre">quickstrom</span></code> executable, use Cachix and Nix to get an
+executable:</p>
+<div class="code shell highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cachix</span> <span class="n">use</span> <span class="n">quickstrom</span> <span class="c1"># optional, but good if you don&#39;t like waiting</span>
+<span class="n">nix</span><span class="o">-</span><span class="n">build</span>
+</pre></div>
+</div>
+<p>Now, Quickstrom is available in the <code class="docutils literal notranslate"><span class="pre">result</span></code>:</p>
+<div class="code shell highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">result</span><span class="o">/</span><span class="nb">bin</span><span class="o">/</span><span class="n">quickstrom</span> <span class="n">check</span> <span class="o">&lt;</span><span class="n">YOUR</span> <span class="n">SPEC</span> <span class="n">FILE</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">ORIGIN</span> <span class="n">URL</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<p>Alternatively, install it directly into your environment:</p>
+<div class="code shell highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">nix</span><span class="o">-</span><span class="n">env</span> <span class="o">-</span><span class="n">i</span> <span class="o">-</span><span class="n">A</span> <span class="n">quickstrom</span> <span class="o">-</span><span class="n">f</span> <span class="n">default</span><span class="o">.</span><span class="n">nix</span>
+<span class="n">quickstrom</span> <span class="n">check</span> <span class="o">&lt;</span><span class="n">YOUR</span> <span class="n">SPEC</span> <span class="n">FILE</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">ORIGIN</span> <span class="n">URL</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<p><strong>NOTE:</strong> You need to also run geckodriver for Quickstrom to work. See
+<a class="reference external" href="#running">Running</a> for more information how to run Quickstrom.</p>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="running.html" class="btn btn-neutral float-right" title="Running" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="introduction.html" class="btn btn-neutral float-left" title="Introduction" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 1970, Oskar Wickström
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

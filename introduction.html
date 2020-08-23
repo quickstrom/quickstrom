@@ -1,0 +1,434 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Introduction &mdash; Quickstrom 0.1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+        <script type="text/javascript" src="_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Installation" href="installation.html" />
+    <link rel="prev" title="Quickstrom" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home"> Quickstrom
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Introduction</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#how-it-works">How It Works</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#the-quickstrom-specification-language">The Quickstrom Specification Language</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#queries">Queries</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#temporal-operators">Temporal Operators</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#always">Always</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#next">Next</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#example-record-player">Example: Record Player</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#going-further">Going Further</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="running.html">Running</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Quickstrom</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>Introduction</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/introduction.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="introduction">
+<h1>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h1>
+<p>By using Quickstrom, you will:</p>
+<ul>
+<li><p class="first"><strong>Reduce testing effort</strong></p>
+<p>Generate thousands of test cases instead of writing them manually.
+Lower the maintenance burden of your browser testing by writing
+concise specifications with looser coupling to your implementation.</p>
+</li>
+<li><p class="first"><strong>Find complex bugs</strong></p>
+<p>Quickstrom simulates complex and unexpected user behavior using
+generative random testing. When the specification is violated,
+Quickstrom finds a minimal failing example.</p>
+</li>
+<li><p class="first"><strong>Understand your system</strong></p>
+<p>Focus on specifying your system, not on writing test cases. A
+specification lets you run Quickstrom, but can also increase your
+team’s understanding of the system.</p>
+</li>
+<li><p class="first"><strong>Adopt gradually</strong></p>
+<p>Quickstrom works with any web application that renders DOM elements.
+Start simple, and gradually refine your specification to increase
+coverage and confidence.</p>
+</li>
+</ul>
+<p>That sounds cool, but does it actually work?</p>
+<p>Yes! Check out <a class="reference external" href="https://wickstrom.tech/programming/2020/07/02/the-todomvc-showdown-testing-with-webcheck.html">The TodoMVC
+Showdown</a>
+case study and learn how Quickstrom (previously called <em>WebCheck</em>) found
+problems in multiple implementations of TodoMVC.</p>
+<div class="section" id="how-it-works">
+<h2>How It Works<a class="headerlink" href="#how-it-works" title="Permalink to this headline">¶</a></h2>
+<p>In Quickstrom, a tester writes <em>specifications</em> for web applications.
+When <em>checking</em> a specification, the following happens:</p>
+<ol class="arabic simple">
+<li>Quickstrom navigates to the <em>origin page</em>, and awaits the <em>readyWhen</em>
+condition, that a specified element is present in the DOM.</li>
+<li>It generates a random sequence of actions to simulate user
+interaction. Many types of actions can be generated, e.g.&nbsp;clicks, key
+presses, focus changes, reloads, navigations.</li>
+<li>Before each new action is picked, the DOM state is checked to find
+only the actions that are possible to take. For instance, you cannot
+click buttons that are not visible. From that subset, Quickstrom
+picks the next action to take.</li>
+<li>After each action has been taken, Quickstrom queries and records the
+state of relevant DOM elements. The sequence of observed states is
+called a <em>behavior</em>.</li>
+<li>The specification defines a proposition, a logical formula that
+evaluates to <em>true</em> or <em>false</em>, which is used to determine if the
+behavior is <em>accepted</em> or <em>rejected</em>.</li>
+<li>When a rejected behavior is found, Quickstrom <em>shrinks</em> the sequence
+of actions to the <em>smallest</em>, <em>still failing</em>, behavior. The tester
+is presented with a minimal failing test case.</li>
+</ol>
+<p>You might say “This is just property-based testing!” and “I can do this
+with state machine testing!” You’d be right, similar tests could be
+written using a state machine model, WebDriver, and property-based
+testing.</p>
+<p>With Quickstrom, however, you don’t have to write a model that fully
+specifies the behavior of your system! Instead, you describe the most
+important state transitions and leave the rest unspecified. You can
+gradually adopt Quickstrom and improve your specifications over time.</p>
+<p>Furthermore, in problem domains where there’s <em>essential complexity</em>,
+models tend to become as complex. It’s often hard to find a naive
+implementation for your model, when your modelling a business system
+with a myriad of arbitrary rules.</p>
+<p>Now, how do you write specifications and propositions? Let’s have a look
+at the specification language.</p>
+</div>
+<div class="section" id="the-quickstrom-specification-language">
+<h2>The Quickstrom Specification Language<a class="headerlink" href="#the-quickstrom-specification-language" title="Permalink to this headline">¶</a></h2>
+<p>In Quickstrom, the behavior of a web application is specified using a
+language based on PureScript. It’s a propositional temporal logic and
+functional language, heavily inspired by TLA+ and LTL, most notably
+adding web-specific operators.</p>
+<p>Like in TLA+, specifications in Quickstrom are based on state machines.
+A <em>behavior</em> is a finite sequence of states. A <em>step</em> is a tuple of two
+successive states in a behavior. A specification describes valid
+<em>behaviors</em> of a web application in terms of valid states and
+transitions between states.</p>
+<p>As in regular PureScript, every expression evaluates to a <em>value</em>. A
+<em>proposition</em> is a boolean expression in a specification, evaluating to
+either <code class="docutils literal notranslate"><span class="pre">true</span></code> or <code class="docutils literal notranslate"><span class="pre">false</span></code>. A specification that accepts <em>any</em>
+behavior could therefore be:</p>
+<div class="code haskell highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">module</span> <span class="n">Spec</span> <span class="n">where</span>
+
+<span class="n">proposition</span> <span class="o">=</span> <span class="n">true</span>
+
+<span class="o">...</span> <span class="o">--</span> <span class="n">more</span> <span class="n">definitions</span><span class="p">,</span> <span class="n">explained</span> <span class="n">further</span> <span class="n">down</span>
+</pre></div>
+</div>
+<p>To define a useful specification, though, we need to perform <em>queries</em>
+and desribe how things change over time (using <em>temporal operators</em>).</p>
+<div class="section" id="queries">
+<h3>Queries<a class="headerlink" href="#queries" title="Permalink to this headline">¶</a></h3>
+<p>Quickstrom provides two ways of querying the DOM in your specification:</p>
+<ul class="simple">
+<li><code class="docutils literal notranslate"><span class="pre">queryAll</span></code></li>
+<li><code class="docutils literal notranslate"><span class="pre">queryOne</span></code></li>
+</ul>
+<p>Both take a CSS selector and a record of element state specifiers, e.g.
+attributes or properties that you’re interested in.</p>
+<p>For example, the following query finds all buttons, including their text
+contents and disabled flags:</p>
+<div class="code haskell highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">myButtons</span> <span class="o">=</span> <span class="n">queryAll</span> <span class="s2">&quot;button&quot;</span> <span class="p">{</span> <span class="n">textContent</span><span class="p">,</span> <span class="n">disabled</span> <span class="p">}</span>
+</pre></div>
+</div>
+<p>The type of the above expression is:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Array</span> <span class="p">{</span> <span class="n">textContent</span> <span class="p">::</span> <span class="n">String</span><span class="p">,</span> <span class="n">disabled</span> <span class="p">::</span> <span class="n">Boolean</span> <span class="p">}</span>
+</pre></div>
+</div>
+<p>You can use regular PureScript function to map, filter, or whatever
+you’d like, on the array of button records.</p>
+<p>In contrast to <code class="docutils literal notranslate"><span class="pre">queryAll</span></code> returning an <code class="docutils literal notranslate"><span class="pre">Array</span></code>, <code class="docutils literal notranslate"><span class="pre">queryOne</span></code> returns
+a <code class="docutils literal notranslate"><span class="pre">Maybe</span></code>.</p>
+</div>
+<div class="section" id="temporal-operators">
+<h3>Temporal Operators<a class="headerlink" href="#temporal-operators" title="Permalink to this headline">¶</a></h3>
+<p>In Quickstrom specifications, there are two temporal operators:</p>
+<ul class="simple">
+<li><code class="docutils literal notranslate"><span class="pre">next</span> <span class="pre">::</span> <span class="pre">forall</span> <span class="pre">a.</span> <span class="pre">a</span> <span class="pre">-&gt;</span> <span class="pre">a</span></code></li>
+<li><code class="docutils literal notranslate"><span class="pre">always</span> <span class="pre">::</span> <span class="pre">forall</span> <span class="pre">a.</span> <span class="pre">a</span> <span class="pre">-&gt;</span> <span class="pre">a</span></code></li>
+</ul>
+<p>They change the <em>modality</em> of the sub-expression, i.e.&nbsp;in what state of
+the recorded behavior it is evaluated.</p>
+<div class="section" id="always">
+<h4>Always<a class="headerlink" href="#always" title="Permalink to this headline">¶</a></h4>
+<p>Let’s say we have the following proposition:</p>
+<div class="code haskell highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">proposition</span> <span class="o">=</span> <span class="n">always</span> <span class="p">(</span><span class="n">title</span> <span class="o">==</span> <span class="n">Just</span> <span class="s2">&quot;Home&quot;</span><span class="p">)</span>
+
+<span class="n">title</span> <span class="o">=</span> <span class="nb">map</span> <span class="n">_</span><span class="o">.</span><span class="n">textContent</span> <span class="p">(</span><span class="n">queryOne</span> <span class="s2">&quot;h1&quot;</span> <span class="p">{</span> <span class="n">textContent</span> <span class="p">})</span>
+</pre></div>
+</div>
+<p>In every observed state the sub-expression must evaluate to <code class="docutils literal notranslate"><span class="pre">true</span></code> for
+the proposition to be true. In this case, the text content of the <code class="docutils literal notranslate"><span class="pre">h1</span></code>
+must always be “Home”.</p>
+</div>
+<div class="section" id="next">
+<h4>Next<a class="headerlink" href="#next" title="Permalink to this headline">¶</a></h4>
+<p>Let’s modify the previous proposition to describe a state change:</p>
+<div class="code haskell highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">proposition</span> <span class="o">=</span> <span class="n">always</span> <span class="p">(</span><span class="n">goToAbout</span> <span class="o">||</span> <span class="n">goToContact</span><span class="p">)</span>
+
+<span class="n">goToAbout</span> <span class="o">=</span> <span class="n">title</span> <span class="o">==</span> <span class="n">Just</span> <span class="s2">&quot;Home&quot;</span> <span class="o">&amp;&amp;</span> <span class="nb">next</span> <span class="n">title</span> <span class="o">==</span> <span class="s2">&quot;About&quot;</span>
+
+<span class="n">goToContact</span> <span class="o">=</span> <span class="n">title</span> <span class="o">==</span> <span class="n">Just</span> <span class="s2">&quot;Home&quot;</span> <span class="o">&amp;&amp;</span> <span class="nb">next</span> <span class="n">title</span> <span class="o">==</span> <span class="s2">&quot;Contact&quot;</span>
+
+<span class="n">title</span> <span class="o">=</span> <span class="nb">map</span> <span class="n">_</span><span class="o">.</span><span class="n">textContent</span> <span class="p">(</span><span class="n">queryOne</span> <span class="s2">&quot;h1&quot;</span> <span class="p">{</span> <span class="n">textContent</span> <span class="p">})</span>
+</pre></div>
+</div>
+<p>We’re now saying that it’s always the case that one or another <em>action</em>
+is taken. An action is a boolean expression that uses <code class="docutils literal notranslate"><span class="pre">next</span></code> to
+describe the current and the next state, i.e.&nbsp;a state transition.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">goToAbout</span></code> and <code class="docutils literal notranslate"><span class="pre">goToContact</span></code> actions specifies how the title of
+the page changes, and the proposition thus describes the system as a
+state machine.</p>
+</div>
+</div>
+<div class="section" id="example-record-player">
+<h3>Example: Record Player<a class="headerlink" href="#example-record-player" title="Permalink to this headline">¶</a></h3>
+<p>The following specifies a record player, featuring a button that toggles
+between the paused and playing states.</p>
+<p>It waits for a DOM element matching the CSS selector .record-player
+before taking any action.</p>
+<div class="code haskell highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">readyWhen</span> <span class="o">=</span> <span class="s2">&quot;.record-player&quot;</span>
+</pre></div>
+</div>
+<p>This helper definition finds an optional text for the play/pause button.</p>
+<div class="code haskell highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">buttonText</span> <span class="o">=</span>
+  <span class="nb">map</span> <span class="n">_</span><span class="o">.</span><span class="n">textContent</span> <span class="p">(</span><span class="n">queryOne</span> <span class="s2">&quot;.play-pause&quot;</span> <span class="p">{</span> <span class="n">textContent</span> <span class="p">})</span>
+</pre></div>
+</div>
+<p>Quickstrom generates click actions for all clickable elements.</p>
+<div class="code haskell highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">actions</span> <span class="o">=</span> <span class="n">clicks</span>
+</pre></div>
+</div>
+<p>The proposition describes the correct behavior of the web application.
+Here we start in the paused state, and a valid transition is either play
+or pause.</p>
+<div class="code haskell highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">proposition</span> <span class="o">=</span>
+  <span class="n">let</span> <span class="n">playing</span> <span class="o">=</span> <span class="n">buttonText</span> <span class="o">==</span> <span class="n">Just</span> <span class="s2">&quot;Pause&quot;</span>
+      <span class="n">paused</span> <span class="o">=</span> <span class="n">buttonText</span> <span class="o">==</span> <span class="n">Just</span> <span class="s2">&quot;Play&quot;</span>
+      <span class="n">play</span> <span class="o">=</span> <span class="n">paused</span> <span class="o">&amp;&amp;</span> <span class="nb">next</span> <span class="n">playing</span>
+      <span class="n">pause</span> <span class="o">=</span> <span class="n">playing</span> <span class="o">&amp;&amp;</span> <span class="nb">next</span> <span class="n">paused</span>
+  <span class="ow">in</span> <span class="n">paused</span> <span class="o">&amp;&amp;</span> <span class="n">always</span> <span class="p">(</span><span class="n">play</span> <span class="o">||</span> <span class="n">pause</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Now, let’s run Quickstrom with a broken implementation of the record
+player. We get a minimal behavior that violates the specification:</p>
+<div class="code shell highlight-default notranslate"><div class="highlight"><pre><span></span>$ quickstrom check RecordPlayer.spec.purs record-player.html
+Running test with size: 10
+Test failed. Shrinking...
+1. State
+  • .play-pause
+      - textContent = &quot;Play&quot;
+2. click button[0]
+3. State
+  • .play-pause
+      - textContent = &quot;Pause&quot;
+4. click button[0]
+5. State
+  • .play-pause
+      - textContent = &quot;undefined&quot;
+</pre></div>
+</div>
+<p>Although not highlighted, the last item with the <code class="docutils literal notranslate"><span class="pre">undefined</span></code> text is
+where we have our problem. Looks like pausing broke the record player!</p>
+</div>
+</div>
+<div class="section" id="going-further">
+<h2>Going Further<a class="headerlink" href="#going-further" title="Permalink to this headline">¶</a></h2>
+<p>More documentation on how to use Quickstrom will be written. For now,
+head over to the <a class="reference external" href="https://github.com/quickstrom/quickstrom/tree/main/specs">example specifications and
+webapps</a> to
+study further.</p>
+<p>When you’re ready to run Quickstrom on your own, see
+<a class="reference internal" href="installation.html"><span class="doc">Installation</span></a> and <a class="reference internal" href="running.html"><span class="doc">Running</span></a>.</p>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="installation.html" class="btn btn-neutral float-right" title="Installation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="index.html" class="btn btn-neutral float-left" title="Quickstrom" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 1970, Oskar Wickström
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

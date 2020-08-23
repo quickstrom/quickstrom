@@ -102,11 +102,11 @@ Let’s modify the previous proposition to describe a state change:
 
    title = map _.textContent (queryOne "h1" { textContent })
 
-We’re now saying that it’s always the case that one or another *action* is
-taken. An action is a boolean expression that uses queries and ``next`` to
-describe the current and the next state, i.e. a state transition.
+We’re now saying that it’s always the case that one or another state
+transition occurs. An state transition is represented as a boolean expression,
+using queries and ``next`` to describe the current and the next state.
 
-The ``goToAbout``, ``goToContact``, and ``goHome`` actions specify how the
+The ``goToAbout``, ``goToContact``, and ``goHome`` transitions specify how the
 title of the page changes, and the ``proposition`` thus describes the system
 as a state machine. It can be visualized as follows:
 

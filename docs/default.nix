@@ -15,7 +15,7 @@ let
     '';
   };
   publish = pkgs.writeShellScriptBin "quickstrom-publish-docs" ''
-    ${pkgs.ghp-import}/bin/ghp-import -p -l ${site}
+    ${pkgs.ghp-import}/bin/ghp-import -p -f -l ${site}
   '';
 in { inherit site publish dependencies; }
 

@@ -44,7 +44,8 @@ in quickstrom.haskellPackages.shellFor {
 
     quickstrom-purs-ide
     quickstrom-format-sources
-    docs.site
+
+    docs.dependencies
     docs.publish
 
     # only for lorri

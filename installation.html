@@ -23,10 +23,10 @@
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-        <script type="text/javascript" src="_static/jquery.js"></script>
-        <script type="text/javascript" src="_static/underscore.js"></script>
-        <script type="text/javascript" src="_static/doctools.js"></script>
-        <script type="text/javascript" src="_static/language_data.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
     
     <script type="text/javascript" src="_static/js/theme.js"></script>
 
@@ -38,7 +38,7 @@
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Running" href="running.html" />
-    <link rel="prev" title="Introduction" href="introduction.html" /> 
+    <link rel="prev" title="Next Steps" href="introduction/next-steps.html" /> 
 </head>
 
 <body class="wy-body-for-nav">
@@ -165,30 +165,30 @@ might be described in the future.</p>
 <div class="section" id="prerequisites">
 <h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this headline">¶</a></h2>
 <ul class="simple">
-<li>Nix (see <a class="reference external" href="https://nix.dev/">nix.dev</a> for installation instructions
-and guides)</li>
+<li><p>Nix (see <a class="reference external" href="https://nix.dev/">nix.dev</a> for installation instructions
+and guides)</p></li>
 </ul>
 </div>
 <div class="section" id="from-source">
 <h2>From Source<a class="headerlink" href="#from-source" title="Permalink to this headline">¶</a></h2>
 <p>First, clone and enter the repository:</p>
-<div class="code shell highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">clone</span> <span class="n">git</span><span class="nd">@github</span><span class="o">.</span><span class="n">com</span><span class="p">:</span><span class="n">quickstrom</span><span class="o">/</span><span class="n">quickstrom</span><span class="o">.</span><span class="n">git</span>
-<span class="n">cd</span> <span class="n">quickstrom</span>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>git clone git@github.com:quickstrom/quickstrom.git
+<span class="nb">cd</span> quickstrom
 </pre></div>
 </div>
 <p>To install the <code class="docutils literal notranslate"><span class="pre">quickstrom</span></code> executable, use Cachix and Nix to get an
 executable:</p>
-<div class="code shell highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cachix</span> <span class="n">use</span> <span class="n">quickstrom</span> <span class="c1"># optional, but good if you don&#39;t like waiting</span>
-<span class="n">nix</span><span class="o">-</span><span class="n">build</span>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>cachix use quickstrom <span class="c1"># optional, but good if you don&#39;t like waiting</span>
+nix-build
 </pre></div>
 </div>
 <p>Now, Quickstrom is available in the <code class="docutils literal notranslate"><span class="pre">result</span></code>:</p>
-<div class="code shell highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">result</span><span class="o">/</span><span class="nb">bin</span><span class="o">/</span><span class="n">quickstrom</span> <span class="n">check</span> <span class="o">&lt;</span><span class="n">YOUR</span> <span class="n">SPEC</span> <span class="n">FILE</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">ORIGIN</span> <span class="n">URL</span><span class="o">&gt;</span>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>result/bin/quickstrom check &lt;YOUR SPEC FILE&gt; &lt;ORIGIN URL&gt;
 </pre></div>
 </div>
 <p>Alternatively, install it directly into your environment:</p>
-<div class="code shell highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">nix</span><span class="o">-</span><span class="n">env</span> <span class="o">-</span><span class="n">i</span> <span class="o">-</span><span class="n">A</span> <span class="n">quickstrom</span> <span class="o">-</span><span class="n">f</span> <span class="n">default</span><span class="o">.</span><span class="n">nix</span>
-<span class="n">quickstrom</span> <span class="n">check</span> <span class="o">&lt;</span><span class="n">YOUR</span> <span class="n">SPEC</span> <span class="n">FILE</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">ORIGIN</span> <span class="n">URL</span><span class="o">&gt;</span>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>nix-env -i -A quickstrom -f default.nix
+quickstrom check &lt;YOUR SPEC FILE&gt; &lt;ORIGIN URL&gt;
 </pre></div>
 </div>
 <p><strong>NOTE:</strong> You need to also run geckodriver for Quickstrom to work. See
@@ -207,7 +207,7 @@ executable:</p>
         <a href="running.html" class="btn btn-neutral float-right" title="Running" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
-        <a href="introduction.html" class="btn btn-neutral float-left" title="Introduction" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+        <a href="introduction/next-steps.html" class="btn btn-neutral float-left" title="Next Steps" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
       
     </div>
   

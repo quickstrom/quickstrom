@@ -23,10 +23,10 @@
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-        <script type="text/javascript" src="_static/jquery.js"></script>
-        <script type="text/javascript" src="_static/underscore.js"></script>
-        <script type="text/javascript" src="_static/doctools.js"></script>
-        <script type="text/javascript" src="_static/language_data.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
     
     <script type="text/javascript" src="_static/js/theme.js"></script>
 
@@ -161,12 +161,12 @@
 <h1>Running<a class="headerlink" href="#running" title="Permalink to this headline">¶</a></h1>
 <p>To check a specification, you must have a running <code class="docutils literal notranslate"><span class="pre">geckodriver</span></code>
 instance. Run this in a separate tab in your terminal:</p>
-<div class="code shell highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">geckodriver</span>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>geckodriver
 </pre></div>
 </div>
 <p>Next, run <code class="docutils literal notranslate"><span class="pre">quickstrom</span> <span class="pre">check</span></code> and supply the path to the specification
 file along with the origin URL (can also be a local file path).</p>
-<div class="code shell highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">quickstrom</span> <span class="n">check</span> <span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">my</span><span class="o">/</span><span class="n">specification</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">example</span><span class="o">.</span><span class="n">com</span>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>quickstrom check /path/to/my/specification http://example.com
 </pre></div>
 </div>
 <p>For instance, you can check the TodoMVC React implementation:</p>

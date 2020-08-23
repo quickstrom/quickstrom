@@ -1,0 +1,264 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Example: Record Player &mdash; Quickstrom 0.1.0 documentation</title>
+  
+
+  
+  
+  
+  
+    <link rel="canonical" href="https://quickstrom.io/introduction/example.html"/>
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Next Steps" href="next-steps.html" />
+    <link rel="prev" title="The Quickstrom Specification Language" href="specification-language.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: linear-gradient(144deg, rgba(44,25,83,1) 0%, rgba(83,41,170,1) 100%)" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> Quickstrom
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../introduction.html">Introduction</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="how-it-works.html">How It Works</a></li>
+<li class="toctree-l2"><a class="reference internal" href="specification-language.html">The Quickstrom Specification Language</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Example: Record Player</a></li>
+<li class="toctree-l2"><a class="reference internal" href="next-steps.html">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../running.html">Running</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">FAQ</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Quickstrom</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../introduction.html">Introduction</a> &raquo;</li>
+        
+      <li>Example: Record Player</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            
+              <a href="https://github.com/quickstrom/quickstrom/blob/HEAD/docs/source/introduction/example.rst" class="fa fa-github"> Edit on GitHub</a>
+            
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="example-record-player">
+<h1>Example: Record Player<a class="headerlink" href="#example-record-player" title="Permalink to this headline">¶</a></h1>
+<p>The following specifies a record player, featuring a button that toggles
+between the paused and playing states.</p>
+<p>It waits for a DOM element matching the CSS selector .record-player
+before taking any action.</p>
+<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">readyWhen</span> <span class="ow">=</span> <span class="s">&quot;.record-player&quot;</span>
+</pre></div>
+</div>
+<p>This helper definition finds an optional text for the play/pause button.</p>
+<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">buttonText</span> <span class="ow">=</span>
+  <span class="n">map</span> <span class="kr">_</span><span class="o">.</span><span class="n">textContent</span> <span class="p">(</span><span class="n">queryOne</span> <span class="s">&quot;.play-pause&quot;</span> <span class="p">{</span> <span class="n">textContent</span> <span class="p">})</span>
+</pre></div>
+</div>
+<p>Quickstrom generates click actions for all clickable elements.</p>
+<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">actions</span> <span class="ow">=</span> <span class="n">clicks</span>
+</pre></div>
+</div>
+<p>The proposition describes the correct behavior of the web application.
+Here we start in the paused state, and a valid transition is either play
+or pause.</p>
+<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">proposition</span> <span class="ow">=</span>
+  <span class="kr">let</span> <span class="n">playing</span> <span class="ow">=</span> <span class="n">buttonText</span> <span class="o">==</span> <span class="kt">Just</span> <span class="s">&quot;Pause&quot;</span>
+      <span class="n">paused</span> <span class="ow">=</span> <span class="n">buttonText</span> <span class="o">==</span> <span class="kt">Just</span> <span class="s">&quot;Play&quot;</span>
+      <span class="n">play</span> <span class="ow">=</span> <span class="n">paused</span> <span class="o">&amp;&amp;</span> <span class="n">next</span> <span class="n">playing</span>
+      <span class="n">pause</span> <span class="ow">=</span> <span class="n">playing</span> <span class="o">&amp;&amp;</span> <span class="n">next</span> <span class="n">paused</span>
+  <span class="kr">in</span> <span class="n">paused</span> <span class="o">&amp;&amp;</span> <span class="n">always</span> <span class="p">(</span><span class="n">play</span> <span class="o">||</span> <span class="n">pause</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Now, let’s run Quickstrom with a broken implementation of the record
+player. We get a minimal behavior that violates the specification:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ quickstrom check RecordPlayer.spec.purs record-player.html
+Running <span class="nb">test</span> with size: <span class="m">10</span>
+Test failed. Shrinking...
+<span class="m">1</span>. State
+  • .play-pause
+      - <span class="nv">textContent</span> <span class="o">=</span> <span class="s2">&quot;Play&quot;</span>
+<span class="m">2</span>. click button<span class="o">[</span><span class="m">0</span><span class="o">]</span>
+<span class="m">3</span>. State
+  • .play-pause
+      - <span class="nv">textContent</span> <span class="o">=</span> <span class="s2">&quot;Pause&quot;</span>
+<span class="m">4</span>. click button<span class="o">[</span><span class="m">0</span><span class="o">]</span>
+<span class="m">5</span>. State
+  • .play-pause
+      - <span class="nv">textContent</span> <span class="o">=</span> <span class="s2">&quot;undefined&quot;</span>
+</pre></div>
+</div>
+<p>Although not highlighted, the last item with the <code class="docutils literal notranslate"><span class="pre">undefined</span></code> text is
+where we have our problem. Looks like pausing broke the record player!</p>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="next-steps.html" class="btn btn-neutral float-right" title="Next Steps" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="specification-language.html" class="btn btn-neutral float-left" title="The Quickstrom Specification Language" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020 Oskar Wickström
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

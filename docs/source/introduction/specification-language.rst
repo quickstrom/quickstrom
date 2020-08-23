@@ -1,5 +1,5 @@
-The Quickstrom Specification Language
-=====================================
+The Specification Language
+==========================
 
 In Quickstrom, the behavior of a web application is specified using a
 language based on PureScript. It’s a propositional temporal logic and
@@ -91,18 +91,37 @@ Let’s modify the previous proposition to describe a state change:
 
 .. code:: haskell
 
-   proposition = always (goToAbout || goToContact)
+   proposition = always (goToAbout || goToContact || goHome)
 
    goToAbout = title == Just "Home" && next title == "About"
 
    goToContact = title == Just "Home" && next title == "Contact"
 
+   goHome = title == title /= "Home" && next title == "Home"
+
    title = map _.textContent (queryOne "h1" { textContent })
 
-We’re now saying that it’s always the case that one or another *action*
-is taken. An action is a boolean expression that uses ``next`` to
-describe the current and the next state, i.e. a state transition.
+We’re now saying that it’s always the case that one or another *action* is
+taken. An action is a boolean expression that uses queries and ``next`` to
+describe the current and the next state, i.e. a state transition.
 
-The ``goToAbout`` and ``goToContact`` actions specifies how the title of
-the page changes, and the proposition thus describes the system as a
-state machine.
+The ``goToAbout``, ``goToContact``, and ``goHome`` actions specify how the
+title of the page changes, and the ``proposition`` thus describes the system
+as a state machine. It can be visualized as follows:
+
+.. graphviz::
+
+   digraph foo {
+     graph [ dpi = 300 ];
+     splines=true;
+     esep=10;
+     size="5";
+     rankdir=LR;
+     edge [ fontname = "Open Sans" ];
+     node [ fontname = "Open Sans Bold", margin = "0.5,0.5" ];
+
+     Home -> About [ label = "goToAbout" ];
+     Home -> Contact [ label = "goToContact" ];
+     About -> Home [ label = "goHome" ];
+     Contact -> Home [ label = "goHome" ];
+   }

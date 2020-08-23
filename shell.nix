@@ -22,6 +22,8 @@ let
       find . -not -path './dsl/.spago/*' -name '*.purs' -exec purty --write {} \;
     '';
 
+  docs = import ./docs { inherit pkgs; };
+
   quickstrom = import ./. { inherit pkgs compiler; };
 
 in quickstrom.haskellPackages.shellFor {
@@ -42,6 +44,10 @@ in quickstrom.haskellPackages.shellFor {
 
     quickstrom-purs-ide
     quickstrom-format-sources
+
+    docs.dependencies
+    docs.publish
+
     # only for lorri
     dsl
     client-side

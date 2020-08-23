@@ -14,7 +14,7 @@ copyright and to have flexibility around licensing. The plan is to always
 have an open-source core and command-line version of Quickstrom available
 under AGPL-3.0, though.
 
-## Installation with Nix
+## Developing with Nix
 
 Follow the instructions in [Installation](docs/installation.md) to get
 Cachix set up and so that you can build locally.
@@ -36,7 +36,7 @@ Or use [Lorri](https://github.com/target/lorri) and
 lorri shell # --cached
 ```
 
-### Testing
+## Testing
 
 (Testing Quickstrom itself, that is. Not web applications using
 specifications.)
@@ -66,11 +66,27 @@ the package with Spago.
 QUICKSTROM_LIBRARY_DIR=dsl/output cabal test
 ```
 
-### Formatting
+## Formatting
 
 In a Nix shell, run the following command to format all Haskell and
 PureScript sources:
 
-```bash
+```shell
 quickstrom-format-sources
+```
+
+## Documentation
+
+Documentation is built with Sphinx. The project Nix shell should give you all
+you need. You can then run `make html` to build it locally:
+
+```shell
+cd docs
+make html
+```
+
+To deploy the built documentation, run:
+
+```shell
+nix-shell --run quickstrom-publish-docs
 ```

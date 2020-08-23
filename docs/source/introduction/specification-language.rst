@@ -1,0 +1,108 @@
+The Quickstrom Specification Language
+=====================================
+
+In Quickstrom, the behavior of a web application is specified using a
+language based on PureScript. It’s a propositional temporal logic and
+functional language, heavily inspired by TLA+ and LTL, most notably
+adding web-specific operators.
+
+Like in TLA+, specifications in Quickstrom are based on state machines.
+A *behavior* is a finite sequence of states. A *step* is a tuple of two
+successive states in a behavior. A specification describes valid
+*behaviors* of a web application in terms of valid states and
+transitions between states.
+
+As in regular PureScript, every expression evaluates to a *value*. A
+*proposition* is a boolean expression in a specification, evaluating to
+either ``true`` or ``false``. A specification that accepts *any*
+behavior could therefore be:
+
+.. code:: haskell
+
+   module Spec where
+
+   proposition = true
+
+   ... -- more definitions, explained further down
+
+To define a useful specification, though, we need to perform *queries*
+and desribe how things change over time (using *temporal operators*).
+
+Queries
+-------
+
+Quickstrom provides two ways of querying the DOM in your specification:
+
+-  ``queryAll``
+-  ``queryOne``
+
+Both take a CSS selector and a record of element state specifiers, e.g.
+attributes or properties that you’re interested in.
+
+For example, the following query finds all buttons, including their text
+contents and disabled flags:
+
+.. code:: haskell
+
+   myButtons = queryAll "button" { textContent, disabled }
+
+The type of the above expression is:
+
+::
+
+   Array { textContent :: String, disabled :: Boolean }
+
+You can use regular PureScript function to map, filter, or whatever
+you’d like, on the array of button records.
+
+In contrast to ``queryAll`` returning an ``Array``, ``queryOne`` returns
+a ``Maybe``.
+
+Temporal Operators
+------------------
+
+In Quickstrom specifications, there are two temporal operators:
+
+-  ``next :: forall a. a -> a``
+-  ``always :: forall a. a -> a``
+
+They change the *modality* of the sub-expression, i.e. in what state of
+the recorded behavior it is evaluated.
+
+Always
+~~~~~~
+
+Let’s say we have the following proposition:
+
+.. code:: haskell
+
+   proposition = always (title == Just "Home")
+
+   title = map _.textContent (queryOne "h1" { textContent })
+
+In every observed state the sub-expression must evaluate to ``true`` for
+the proposition to be true. In this case, the text content of the ``h1``
+must always be “Home”.
+
+Next
+~~~~
+
+Let’s modify the previous proposition to describe a state change:
+
+.. code:: haskell
+
+   proposition = always (goToAbout || goToContact)
+
+   goToAbout = title == Just "Home" && next title == "About"
+
+   goToContact = title == Just "Home" && next title == "Contact"
+
+   title = map _.textContent (queryOne "h1" { textContent })
+
+We’re now saying that it’s always the case that one or another *action*
+is taken. An action is a boolean expression that uses ``next`` to
+describe the current and the next state, i.e. a state transition.
+
+The ``goToAbout`` and ``goToContact`` actions specifies how the title of
+the page changes, and the proposition thus describes the system as a
+state machine.

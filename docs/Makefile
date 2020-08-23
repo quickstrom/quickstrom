@@ -1,23 +1,19 @@
-PANDOC_OPTS=-V"date=$(shell date --iso)" \
-						--highlight-style=kate \
-						--toc
+# Minimal makefile for Sphinx documentation
+#
 
-all: quickstrom.html quickstrom.pdf
+# You can set these variables from the command line.
+SPHINXOPTS    =
+SPHINXBUILD   = sphinx-build
+SOURCEDIR     = source
+BUILDDIR      = build
 
-clean:
-	rm -rf quickstrom.pdf quickstrom.html
+# Put it first so that "make" without argument is like "make help".
+help:
+	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
-%.pdf: %.md
-	pandoc \
-		$(PANDOC_OPTS) \
-		--pdf-engine=xelatex \
-		$< \
-		-o $@
+.PHONY: help Makefile
 
-%.html: %.md
-	pandoc -s \
-		$(PANDOC_OPTS) \
-		$< \
-		-o $@
-
-.PHONY: all build clean watch
+# Catch-all target: route all unknown targets to Sphinx using the new
+# "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
+%: Makefile
+	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)

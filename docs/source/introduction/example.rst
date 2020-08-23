@@ -37,6 +37,12 @@ or pause.
          pause = playing && next paused
      in paused && always (play || pause)
 
+The last line, ``paused && always (play || pause)``,
+can be read in English as:
+
+    Initially, the record player is paused, and from there on one can either
+    play or pause, indefinitely.
+
 Now, let’s run Quickstrom with a broken implementation of the record
 player. We get a minimal behavior that violates the specification:
 

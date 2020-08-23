@@ -13,4 +13,4 @@ further. Feel free to ask question by contacting `@owickstrom
 <https://twitter.com/owickstrom>`__ on Twitter.
 
 When you’re ready to run Quickstrom on your own, see
-:doc:`installation` and :doc:`running`.
+:doc:`../installation` and :doc:`../running`.

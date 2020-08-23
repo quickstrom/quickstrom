@@ -18,6 +18,9 @@
 
 import sphinx_rtd_theme
 
+import datetime
+now = datetime.datetime.now()
+
 # -- Project information -----------------------------------------------------
 
 project = u'Quickstrom'
@@ -108,6 +111,7 @@ html_theme_options = {
 html_static_path = ['_static']
 
 html_context = {
+    "copyright": u'{} {}'.format(now.year, author),
     "display_github": True,
     "github_host": 'github.com',
     "github_user": 'quickstrom',

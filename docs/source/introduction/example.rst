@@ -46,7 +46,7 @@ can be read in English as:
 Now, let’s run Quickstrom with a broken implementation of the record
 player. We get a minimal behavior that violates the specification:
 
-.. code:: shell
+.. code:: console
 
    $ quickstrom check RecordPlayer.spec.purs record-player.html
    Running test with size: 10

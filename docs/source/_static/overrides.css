@@ -62,3 +62,11 @@ a:hover {
 .rst-content .note .admonition-title {
   background: rgb(131, 108, 175);
 }
+
+.highlight-console .gp {
+  font-weight: bold;
+  -webkit-user-select: none; /* Chrome all / Safari all */
+  -moz-user-select: none; /* Firefox all */
+  -ms-user-select: none; /* IE 10+ */
+  user-select: none; /* Likely future */
+}

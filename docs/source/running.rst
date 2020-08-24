@@ -19,7 +19,7 @@ file along with the origin URL (can also be a local file path).
 
 For instance, you can check the TodoMVC React implementation:
 
-:: code:: shell
+.. code:: shell
 
    quickstrom check specs/other/TodoMVC.spec.purs http://todomvc.com/examples/react
 

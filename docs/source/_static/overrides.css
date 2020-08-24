@@ -63,6 +63,10 @@ a:hover {
   background: rgb(131, 108, 175);
 }
 
+.rst-content .section ul li {
+    margin-bottom: .5em;
+}
+
 .highlight-console .gp {
   font-weight: bold;
   -webkit-user-select: none; /* Chrome all / Safari all */

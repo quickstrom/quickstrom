@@ -1,0 +1,42 @@
+body {
+    font-family: 'Open Sans', sans-serif;
+    line-height: 1.6;
+    font-size: 16px;
+}
+
+pre {
+    font-family: 'Inconsolata', monospace !important;
+    font-size: 110% !important;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 500;
+}
+
+
+a:link {
+    color: rgba(83,41,170,1);
+}
+a:hover {
+    text-decoration: underline;
+}
+
+.wy-nav-top {
+    background: linear-gradient(144deg, rgba(44,25,83,1) 0%, rgba(83,41,170,1) 100%);
+}
+
+.wy-nav-top a,
+.wy-nav-side a {
+    color: inherit;
+}
+
+.wy-nav-side a.icon-home:before {
+    display: none;
+}
+.wy-nav-top a,
+.wy-nav-side a.icon-home {
+    font-size: 1.75rem;
+    font-family: 'Oswald', sans-serif;
+    font-weight: 500;
+}

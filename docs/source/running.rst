@@ -1,14 +1,16 @@
 Running
 =======
 
+This guide assumes you've installed Quickstrom and geckodriver, as described
+in :doc:`installation`. If you haven't done that already, start there.
+
 To check a specification, you must have a running `geckodriver
-<https://github.com/mozilla/geckodriver>`__ instance. If you've installed
-Quickstrom using Nix, you can get geckodriver through Nix, too. Run this in a
-separate tab in your terminal:
+<https://github.com/mozilla/geckodriver>`__ instance. Run the following
+command in a separate terminal or tab:
 
 .. code:: console
 
-   nix-shell -p geckodriver --run geckodriver
+   $ geckodriver
 
 Next, run ``quickstrom check`` and supply the path to the specification
 file along with the origin URL (can also be a local file path).
@@ -16,14 +18,6 @@ file along with the origin URL (can also be a local file path).
 .. code:: console
 
    quickstrom check /path/to/my/specification http://example.com
-
-For instance, you can check the TodoMVC React implementation:
-
-.. code:: console
-
-   quickstrom check \
-      specs/other/TodoMVC.spec.purs \
-      http://todomvc.com/examples/react
 
 .. note:: 
 

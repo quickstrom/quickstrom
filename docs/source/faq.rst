@@ -22,3 +22,21 @@ need to do in order to test properties of your system:
 It might be useful to think of Quickstrom as a mix of PBT, black-box
 browser testing, and a specification system like TLA+. One aim is “to be
 the `Jepsen <http://jepsen.io/>`__ for web applications.”
+
+Why should I use Quickstrom instead of a model-based property test?
+-------------------------------------------------------------------
+
+You might argue that this is just property-based testing, and that you could
+do this with state machine testing. And you’d be right! Similar tests could
+be written using a state machine model, WebDriver, and property-based
+testing.
+
+With Quickstrom, however, you don’t have to write a model that fully
+specifies the behavior of your system. Instead, you describe the most
+important state transitions and leave the rest unspecified. You can
+gradually adopt Quickstrom and improve your specifications over time.
+
+Furthermore, in problem domains where there’s lots of of *essential
+complexity*, models tend to become as complex. For example, it’s often hard to find a
+naive implementation for your model when your modelling a business system
+with a myriad of arbitrary rules.

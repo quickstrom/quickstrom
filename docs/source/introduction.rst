@@ -35,6 +35,7 @@ case study and learn how Quickstrom (previously called *WebCheck*) found
 problems in multiple implementations of TodoMVC.
 
 .. toctree::
+   :hidden:
 
    introduction/how-it-works
    introduction/specification-language

@@ -24,20 +24,5 @@ When *checking* a specification, the following happens:
    is presented with a minimal failing test case based on the original
    larger behavior.
 
-You might say “This is just property-based testing!” and “I can do this
-with state machine testing!” You’d be right, similar tests could be
-written using a state machine model, WebDriver, and property-based
-testing.
-
-With Quickstrom, however, you don’t have to write a model that fully
-specifies the behavior of your system! Instead, you describe the most
-important state transitions and leave the rest unspecified. You can
-gradually adopt Quickstrom and improve your specifications over time.
-
-Furthermore, in problem domains where there’s *essential complexity*,
-models tend to become as complex. It’s often hard to find a naive
-implementation for your model, when your modelling a business system
-with a myriad of arbitrary rules.
-
 Now, how do you write specifications and propositions? Let’s have a look
 at :doc:`specification-language`.

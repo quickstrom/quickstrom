@@ -75,7 +75,7 @@ language = None
 exclude_patterns = []
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = None
+pygments_style = 'xcode'
 
 
 # -- Options for HTML output -------------------------------------------------
@@ -108,9 +108,9 @@ html_theme_options = {
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = ['_static' ]
 
-html_context = {
+html_context= {
     "copyright": u'{} {}'.format(now.year, author),
     "display_github": True,
     "github_host": 'github.com',

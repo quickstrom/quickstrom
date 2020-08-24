@@ -19,9 +19,11 @@ file along with the origin URL (can also be a local file path).
 
 For instance, you can check the TodoMVC React implementation:
 
-:: code:: shell
+.. code:: shell
 
-   quickstrom check specs/other/TodoMVC.spec.purs http://todomvc.com/examples/react
+   quickstrom check \
+      specs/other/TodoMVC.spec.purs \
+      http://todomvc.com/examples/react
 
 .. note:: 
 
@@ -34,7 +36,7 @@ No WebDriver Session
 
 If you get the following error:
 
-::
+.. code:: shell
 
    quickstrom: user error (E NoSession)
 
@@ -42,7 +44,7 @@ It’s probably because the WebDriver package in Quickstrom failed to
 clean up its session. This is a known bug. To work around it, restart
 Geckodriver:
 
-::
+.. code:: shell
 
    geckodriver
 

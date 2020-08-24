@@ -158,7 +158,7 @@ The ``Action`` data type is defined in the Quickstrom library, along with
 some aliases for common actions. For instance, here's the definition of
 ``foci``:
 
-.. code::
+.. code:: haskell
 
    -- | Generate focus actions on common focusable elements.
    foci :: Actions

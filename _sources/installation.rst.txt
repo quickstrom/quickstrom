@@ -1,9 +1,9 @@
 Installation
 ============
 
-Follow these steps to install Quickstrom on your machine. For the
-moment, the only supported installation method is Nix. Other options
-might be described in the future.
+Follow these steps to install Quickstrom locally. For the moment, the only
+supported installation method is Nix. Other options might be described in the
+future.
 
 Prerequisites
 -------------
@@ -11,36 +11,28 @@ Prerequisites
 -  Nix (see `nix.dev <https://nix.dev/>`__ for installation instructions
    and guides)
 
-From Source
------------
+Installing with Nix
+-------------------
 
-First, clone and enter the repository:
-
-.. code:: shell
-
-   git clone git@github.com:quickstrom/quickstrom.git
-   cd quickstrom
-
-To install the ``quickstrom`` executable, use Cachix and Nix to get an
+To install the ``quickstrom`` executable, use Cachix and Nix to get the
 executable:
 
-.. code:: shell
+.. code:: console
 
-   cachix use quickstrom # optional, but good if you don't like waiting
-   nix-build
+   $ cachix use quickstrom
+   $ nix-env -iA quickstrom -f https://github.com/quickstrom/quickstrom/tarball/main
 
-Now, Quickstrom is available in the ``result``:
+Quickstrom should now be available in your environment:
 
-.. code:: shell
+.. code:: console
 
-   result/bin/quickstrom check <YOUR SPEC FILE> <ORIGIN URL>
+   $ quickstrom check <YOUR SPEC FILE> <ORIGIN URL>
 
-Alternatively, install it directly into your environment:
+You need to also run geckodriver for Quickstrom to work. Install it using
+Nix:
 
-.. code:: shell
+.. code:: console
 
-   nix-env -i -A quickstrom -f default.nix
-   quickstrom check <YOUR SPEC FILE> <ORIGIN URL>
+   $ nix-env -i geckodriver
 
-**NOTE:** You need to also run geckodriver for Quickstrom to work. See
-`Running <#running>`__ for more information how to run Quickstrom.
+You're now ready to `run Quickstrom <#running>`__.

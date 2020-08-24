@@ -39,7 +39,10 @@
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Running" href="running.html" />
-    <link rel="prev" title="Next Steps" href="introduction/next-steps.html" /> 
+    <link rel="prev" title="Next Steps" href="introduction/next-steps.html" />
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Oswald:wght@500&family=Inconsolata:wght@400;600&display=swap" rel="stylesheet"> 
+    <link href="_static/overrides.css" rel="stylesheet" type="text/css">
+
 </head>
 
 <body class="wy-body-for-nav">
@@ -156,9 +159,9 @@
             
   <div class="section" id="installation">
 <h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h1>
-<p>Follow these steps to install Quickstrom on your machine. For the
-moment, the only supported installation method is Nix. Other options
-might be described in the future.</p>
+<p>Follow these steps to install Quickstrom locally. For the moment, the only
+supported installation method is Nix. Other options might be described in the
+future.</p>
 <div class="section" id="prerequisites">
 <h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this headline">¶</a></h2>
 <ul class="simple">
@@ -166,30 +169,24 @@ might be described in the future.</p>
 and guides)</p></li>
 </ul>
 </div>
-<div class="section" id="from-source">
-<h2>From Source<a class="headerlink" href="#from-source" title="Permalink to this headline">¶</a></h2>
-<p>First, clone and enter the repository:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>git clone git@github.com:quickstrom/quickstrom.git
-<span class="nb">cd</span> quickstrom
-</pre></div>
-</div>
-<p>To install the <code class="docutils literal notranslate"><span class="pre">quickstrom</span></code> executable, use Cachix and Nix to get an
+<div class="section" id="installing-with-nix">
+<h2>Installing with Nix<a class="headerlink" href="#installing-with-nix" title="Permalink to this headline">¶</a></h2>
+<p>To install the <code class="docutils literal notranslate"><span class="pre">quickstrom</span></code> executable, use Cachix and Nix to get the
 executable:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>cachix use quickstrom <span class="c1"># optional, but good if you don&#39;t like waiting</span>
-nix-build
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> cachix use quickstrom
+<span class="gp">$</span> nix-env -iA quickstrom -f https://github.com/quickstrom/quickstrom/tarball/main
 </pre></div>
 </div>
-<p>Now, Quickstrom is available in the <code class="docutils literal notranslate"><span class="pre">result</span></code>:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>result/bin/quickstrom check &lt;YOUR SPEC FILE&gt; &lt;ORIGIN URL&gt;
+<p>Quickstrom should now be available in your environment:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> quickstrom check &lt;YOUR SPEC FILE&gt; &lt;ORIGIN URL&gt;
 </pre></div>
 </div>
-<p>Alternatively, install it directly into your environment:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>nix-env -i -A quickstrom -f default.nix
-quickstrom check &lt;YOUR SPEC FILE&gt; &lt;ORIGIN URL&gt;
+<p>You need to also run geckodriver for Quickstrom to work. Install it using
+Nix:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> nix-env -i geckodriver
 </pre></div>
 </div>
-<p><strong>NOTE:</strong> You need to also run geckodriver for Quickstrom to work. See
-<a class="reference external" href="#running">Running</a> for more information how to run Quickstrom.</p>
+<p>You’re now ready to <a class="reference external" href="#running">run Quickstrom</a>.</p>
 </div>
 </div>
 

@@ -39,7 +39,10 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Next Steps" href="next-steps.html" />
-    <link rel="prev" title="The Specification Language" href="specification-language.html" /> 
+    <link rel="prev" title="The Specification Language" href="specification-language.html" />
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Oswald:wght@500&family=Inconsolata:wght@400;600&display=swap" rel="stylesheet"> 
+    <link href="../_static/overrides.css" rel="stylesheet" type="text/css">
+
 </head>
 
 <body class="wy-body-for-nav">
@@ -165,25 +168,39 @@
   <div class="section" id="example-record-player">
 <h1>Example: Record Player<a class="headerlink" href="#example-record-player" title="Permalink to this headline">¶</a></h1>
 <p>The following specifies a record player, featuring a button that toggles
-between the paused and playing states.</p>
-<p>It waits for a DOM element matching the CSS selector .record-player
-before taking any action.</p>
-<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">readyWhen</span> <span class="ow">=</span> <span class="s">&quot;.record-player&quot;</span>
+between the paused and playing states. Let’s say the HTML for the record
+player looks something like the following:</p>
+<div class="highlight-html notranslate"><div class="highlight"><pre><span></span><span class="p">&lt;</span><span class="nt">div</span> <span class="na">class</span><span class="o">=</span><span class="s">&quot;record-player&quot;</span><span class="p">&gt;</span>
+  ...
+  <span class="p">&lt;</span><span class="nt">nav</span><span class="p">&gt;</span>
+     <span class="p">&lt;</span><span class="nt">button</span> <span class="na">class</span><span class="o">=</span><span class="s">&quot;play-pause&quot;</span><span class="p">&gt;</span>Play<span class="p">&lt;/</span><span class="nt">button</span><span class="p">&gt;</span>
+  <span class="p">&lt;/</span><span class="nt">nav</span><span class="p">&gt;</span>
+<span class="p">&lt;/</span><span class="nt">div</span><span class="p">&gt;</span>
+</pre></div>
+</div>
+<p>The specification waits for a DOM element matching the CSS selector
+<code class="docutils literal notranslate"><span class="pre">.record-player</span></code> before taking any action.</p>
+<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">readyWhen</span> <span class="ow">::</span> <span class="kt">Selector</span>
+<span class="nf">readyWhen</span> <span class="ow">=</span> <span class="s">&quot;.record-player&quot;</span>
 </pre></div>
 </div>
 <p>This helper definition finds an optional text for the play/pause button.</p>
-<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">buttonText</span> <span class="ow">=</span>
+<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">buttonText</span> <span class="ow">::</span> <span class="kt">Maybe</span> <span class="kt">String</span>
+<span class="nf">buttonText</span> <span class="ow">=</span>
   <span class="n">map</span> <span class="kr">_</span><span class="o">.</span><span class="n">textContent</span> <span class="p">(</span><span class="n">queryOne</span> <span class="s">&quot;.play-pause&quot;</span> <span class="p">{</span> <span class="n">textContent</span> <span class="p">})</span>
 </pre></div>
 </div>
-<p>Quickstrom generates click actions for all clickable elements.</p>
-<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">actions</span> <span class="ow">=</span> <span class="n">clicks</span>
+<p>Based on the specified actions, Quickstrom generates click actions for all
+clickable elements:</p>
+<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">actions</span> <span class="ow">::</span> <span class="kt">Actions</span>
+<span class="nf">actions</span> <span class="ow">=</span> <span class="n">clicks</span>
 </pre></div>
 </div>
 <p>The proposition describes the correct behavior of the web application.
 Here we start in the paused state, and a valid transition is either play
 or pause.</p>
-<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">proposition</span> <span class="ow">=</span>
+<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">proposition</span> <span class="ow">::</span> <span class="kt">Boolean</span>
+<span class="nf">proposition</span> <span class="ow">=</span>
   <span class="kr">let</span> <span class="n">playing</span> <span class="ow">=</span> <span class="n">buttonText</span> <span class="o">==</span> <span class="kt">Just</span> <span class="s">&quot;Pause&quot;</span>
       <span class="n">paused</span> <span class="ow">=</span> <span class="n">buttonText</span> <span class="o">==</span> <span class="kt">Just</span> <span class="s">&quot;Play&quot;</span>
       <span class="n">play</span> <span class="ow">=</span> <span class="n">paused</span> <span class="o">&amp;&amp;</span> <span class="n">next</span> <span class="n">playing</span>
@@ -199,20 +216,20 @@ play or pause, indefinitely.</p>
 </div></blockquote>
 <p>Now, let’s run Quickstrom with a broken implementation of the record
 player. We get a minimal behavior that violates the specification:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ quickstrom check RecordPlayer.spec.purs record-player.html
-Running <span class="nb">test</span> with size: <span class="m">10</span>
-Test failed. Shrinking...
-<span class="m">1</span>. State
-  • .play-pause
-      - <span class="nv">textContent</span> <span class="o">=</span> <span class="s2">&quot;Play&quot;</span>
-<span class="m">2</span>. click button<span class="o">[</span><span class="m">0</span><span class="o">]</span>
-<span class="m">3</span>. State
-  • .play-pause
-      - <span class="nv">textContent</span> <span class="o">=</span> <span class="s2">&quot;Pause&quot;</span>
-<span class="m">4</span>. click button<span class="o">[</span><span class="m">0</span><span class="o">]</span>
-<span class="m">5</span>. State
-  • .play-pause
-      - <span class="nv">textContent</span> <span class="o">=</span> <span class="s2">&quot;undefined&quot;</span>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> quickstrom check RecordPlayer.spec.purs record-player.html
+<span class="go">Running test with size: 10</span>
+<span class="go">Test failed. Shrinking...</span>
+<span class="go">1. State</span>
+<span class="go">  • .play-pause</span>
+<span class="go">      - textContent = &quot;Play&quot;</span>
+<span class="go">2. click button[0]</span>
+<span class="go">3. State</span>
+<span class="go">  • .play-pause</span>
+<span class="go">      - textContent = &quot;Pause&quot;</span>
+<span class="go">4. click button[0]</span>
+<span class="go">5. State</span>
+<span class="go">  • .play-pause</span>
+<span class="go">      - textContent = &quot;undefined&quot;</span>
 </pre></div>
 </div>
 <p>Although not highlighted, the last item with the <code class="docutils literal notranslate"><span class="pre">undefined</span></code> text is

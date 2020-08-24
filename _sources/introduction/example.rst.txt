@@ -2,26 +2,40 @@ Example: Record Player
 ======================
 
 The following specifies a record player, featuring a button that toggles
-between the paused and playing states.
+between the paused and playing states. Let's say the HTML for the record
+player looks something like the following:
 
-It waits for a DOM element matching the CSS selector .record-player
-before taking any action.
+.. code:: html
+
+   <div class="record-player">
+     ...
+     <nav>
+        <button class="play-pause">Play</button>
+     </nav>
+   </div>
+
+The specification waits for a DOM element matching the CSS selector
+``.record-player`` before taking any action.
 
 .. code:: haskell
 
+   readyWhen :: Selector
    readyWhen = ".record-player"
 
 This helper definition finds an optional text for the play/pause button.
 
 .. code:: haskell
 
+   buttonText :: Maybe String
    buttonText =
      map _.textContent (queryOne ".play-pause" { textContent })
 
-Quickstrom generates click actions for all clickable elements.
+Based on the specified actions, Quickstrom generates click actions for all
+clickable elements:
 
 .. code:: haskell
 
+   actions :: Actions
    actions = clicks
 
 The proposition describes the correct behavior of the web application.
@@ -30,6 +44,7 @@ or pause.
 
 .. code:: haskell
 
+   proposition :: Boolean
    proposition =
      let playing = buttonText == Just "Pause"
          paused = buttonText == Just "Play"
@@ -46,7 +61,7 @@ can be read in English as:
 Now, let’s run Quickstrom with a broken implementation of the record
 player. We get a minimal behavior that violates the specification:
 
-.. code:: shell
+.. code:: console
 
    $ quickstrom check RecordPlayer.spec.purs record-player.html
    Running test with size: 10

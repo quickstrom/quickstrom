@@ -38,7 +38,10 @@
   <link rel="stylesheet" href="_static/graphviz.css" type="text/css" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="prev" title="Running" href="running.html" /> 
+    <link rel="prev" title="Running" href="running.html" />
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Oswald:wght@500&family=Inconsolata:wght@400;600&display=swap" rel="stylesheet"> 
+    <link href="_static/overrides.css" rel="stylesheet" type="text/css">
+
 </head>
 
 <body class="wy-body-for-nav">
@@ -174,6 +177,21 @@ etc</p></li>
 <p>It might be useful to think of Quickstrom as a mix of PBT, black-box
 browser testing, and a specification system like TLA+. One aim is “to be
 the <a class="reference external" href="http://jepsen.io/">Jepsen</a> for web applications.”</p>
+</div>
+<div class="section" id="why-should-i-use-quickstrom-instead-of-a-model-based-property-test">
+<h2>Why should I use Quickstrom instead of a model-based property test?<a class="headerlink" href="#why-should-i-use-quickstrom-instead-of-a-model-based-property-test" title="Permalink to this headline">¶</a></h2>
+<p>You might argue that this is just property-based testing, and that you could
+do this with state machine testing. And you’d be right! Similar tests could
+be written using a state machine model, WebDriver, and property-based
+testing.</p>
+<p>With Quickstrom, however, you don’t have to write a model that fully
+specifies the behavior of your system. Instead, you describe the most
+important state transitions and leave the rest unspecified. You can
+gradually adopt Quickstrom and improve your specifications over time.</p>
+<p>Furthermore, in problem domains where there’s lots of of <em>essential
+complexity</em>, models tend to become as complex. For example, it’s often hard to find a
+naive implementation for your model when your modelling a business system
+with a myriad of arbitrary rules.</p>
 </div>
 </div>
 

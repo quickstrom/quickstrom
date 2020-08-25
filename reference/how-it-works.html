@@ -8,14 +8,14 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Next Steps &mdash; Quickstrom 0.1.0 documentation</title>
+  <title>How It Works &mdash; Quickstrom 0.1.0 documentation</title>
   
 
   
   
   
   
-    <link rel="canonical" href="https://quickstrom.io/introduction/next-steps.html"/>
+    <link rel="canonical" href="https://quickstrom.io/reference/how-it-works.html"/>
   
 
   
@@ -38,8 +38,8 @@
   <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Installation" href="../installation.html" />
-    <link rel="prev" title="Example: Record Player" href="example.html" />
+    <link rel="next" title="The Specification Language" href="specification-language.html" />
+    <link rel="prev" title="Reference" href="../reference.html" />
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Oswald:wght@500&family=Inconsolata:wght@400;600&display=swap" rel="stylesheet"> 
     <link href="../_static/overrides.css" rel="stylesheet" type="text/css">
 
@@ -87,11 +87,11 @@
             
             
               <ul class="current">
-<li class="toctree-l1 current"><a class="reference internal" href="../introduction.html">Introduction</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="how-it-works.html">How It Works</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../reference.html">Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">How It Works</a></li>
 <li class="toctree-l2"><a class="reference internal" href="specification-language.html">The Specification Language</a></li>
 <li class="toctree-l2"><a class="reference internal" href="example.html">Example: Record Player</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Next Steps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="next-steps.html">Next Steps</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
@@ -142,16 +142,16 @@
     
       <li><a href="../index.html">Docs</a> &raquo;</li>
         
-          <li><a href="../introduction.html">Introduction</a> &raquo;</li>
+          <li><a href="../reference.html">Reference</a> &raquo;</li>
         
-      <li>Next Steps</li>
+      <li>How It Works</li>
     
     
       <li class="wy-breadcrumbs-aside">
         
             
             
-              <a href="https://github.com/quickstrom/quickstrom/blob/HEAD/docs/source/introduction/next-steps.rst" class="fa fa-github"> Edit on GitHub</a>
+              <a href="https://github.com/quickstrom/quickstrom/blob/HEAD/docs/source/reference/how-it-works.rst" class="fa fa-github"> Edit on GitHub</a>
             
           
         
@@ -165,17 +165,33 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
             
-  <div class="section" id="next-steps">
-<h1>Next Steps<a class="headerlink" href="#next-steps" title="Permalink to this headline">¶</a></h1>
-<p>We’ve learned about how Quickstrom checks web applications using
-specifications, the basics of the specification language, and we’ve looked at
-a small example. Now, how do you take it further?</p>
-<p>More documentation on how to use Quickstrom will be written, including
-tutorials and reference manterial. For now, head over to the <a class="reference external" href="https://github.com/quickstrom/quickstrom/tree/main/specs">example
-specifications and webapps</a> to study
-further. Feel free to ask question by contacting <a class="reference external" href="https://twitter.com/owickstrom">&#64;owickstrom</a> on Twitter.</p>
-<p>When you’re ready to run Quickstrom on your own, see
-<a class="reference internal" href="../installation.html"><span class="doc">Installation</span></a> and <a class="reference internal" href="../running.html"><span class="doc">Running</span></a>.</p>
+  <div class="section" id="how-it-works">
+<h1>How It Works<a class="headerlink" href="#how-it-works" title="Permalink to this headline">¶</a></h1>
+<p>In Quickstrom, a tester writes <em>specifications</em> for web applications.
+When <em>checking</em> a specification, the following happens:</p>
+<ol class="arabic simple">
+<li><p>Quickstrom navigates to the <em>origin page</em>, and awaits the <em>readyWhen</em>
+condition, that a specified element is present in the DOM.</p></li>
+<li><p>It generates a random sequence of actions to simulate user
+interaction. Many types of actions can be generated, e.g. clicks, key
+presses, focus changes, reloads, navigations.</p></li>
+<li><p>Before each new action is picked, the DOM state is checked to find
+only the actions that are possible to take. For instance, you cannot
+click buttons that are not visible. From that subset, Quickstrom
+picks the next action to take.</p></li>
+<li><p>After each action has been taken, Quickstrom queries and records the
+state of relevant DOM elements. The sequence of actions takens and
+observed states is called a <em>behavior</em>.</p></li>
+<li><p>The specification defines a proposition, a logical formula that
+evaluates to <em>true</em> or <em>false</em>, which is used to determine if the
+behavior is <em>accepted</em> or <em>rejected</em>.</p></li>
+<li><p>When a rejected behavior is found, Quickstrom <em>shrinks</em> the sequence
+of actions to the <em>smallest</em>, <em>still failing</em>, behavior. The tester
+is presented with a minimal failing test case based on the original
+larger behavior.</p></li>
+</ol>
+<p>Now, how do you write specifications and propositions? Let’s have a look
+at <a class="reference internal" href="specification-language.html"><span class="doc">The Specification Language</span></a>.</p>
 </div>
 
 
@@ -186,10 +202,10 @@ further. Feel free to ask question by contacting <a class="reference external" h
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="../installation.html" class="btn btn-neutral float-right" title="Installation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+        <a href="specification-language.html" class="btn btn-neutral float-right" title="The Specification Language" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
-        <a href="example.html" class="btn btn-neutral float-left" title="Example: Record Player" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+        <a href="../reference.html" class="btn btn-neutral float-left" title="Reference" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
       
     </div>
   

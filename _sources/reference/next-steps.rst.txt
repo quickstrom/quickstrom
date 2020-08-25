@@ -6,7 +6,7 @@ specifications, the basics of the specification language, and we've looked at
 a small example. Now, how do you take it further?
 
 More documentation on how to use Quickstrom will be written, including
-tutorials and reference manterial. For now, head over to the `example
+tutorials and how-to guides. For now, head over to the `example
 specifications and webapps
 <https://github.com/quickstrom/quickstrom/tree/main/specs>`__ to study
 further. Feel free to ask question by contacting `@owickstrom

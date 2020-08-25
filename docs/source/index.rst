@@ -13,7 +13,7 @@ Interested? Let’s get started!
    :maxdepth: 2
    :titlesonly:
 
-   introduction
+   reference
    installation
    running
    faq

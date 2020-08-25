@@ -63,8 +63,14 @@ a:hover {
   background: rgb(131, 108, 175);
 }
 
-.rst-content .section ul li {
-    margin-bottom: .5em;
+.rst-content .toctree-wrapper ul {
+    line-height: inherit;
+}
+
+.rst-content code.literal {
+    background: rgba(0,0,0,.05);
+    border: none;
+    color: inherit;
 }
 
 .highlight-console .gp {

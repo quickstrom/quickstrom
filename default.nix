@@ -45,8 +45,30 @@ let
     '';
   };
 
-in {
-  inherit haskellPackages;
-  quickstrom = quickstrom;
-}
+  quickstrom-docker = let
+    bash = pkgs.dockerTools.buildImage {
+      name = "bash";
+      tag = "latest";
+      contents = pkgs.bashInteractive;
+    };
+    script = pkgs.writeShellScriptBin "quickstrom-with-geckodriver" ''
+      #!${pkgs.stdenv.shell}
+      set -e
+
+      geckodriver --log=debug &
+      geckodriver_pid="$!"
+
+      trap "kill $geckodriver_pid" EXIT
+  
+      args=''${@:1}
+      quickstrom $args
+    '';
+  in pkgs.dockerTools.buildImage {
+    name = "quickstrom-docker";
+    tag = "latest";
+    fromImage = bash;
+    contents = [ script quickstrom pkgs.geckodriver pkgs.firefox ];
+  };
+
+in { inherit haskellPackages quickstrom quickstrom-docker; }
 

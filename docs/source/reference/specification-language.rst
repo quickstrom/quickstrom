@@ -18,7 +18,7 @@ As in regular PureScript, every expression evaluates to a *value*. A
 either ``true`` or ``false``. A specification that accepts *any*
 behavior could therefore be:
 
-.. code:: haskell
+.. code-block:: haskell
 
    module Spec where
 
@@ -43,7 +43,7 @@ attributes or properties that you’re interested in.
 For example, the following query finds all buttons, including their text
 contents and disabled flags:
 
-.. code:: haskell
+.. code-block:: haskell
 
    myButtons = queryAll "button" { textContent, disabled }
 
@@ -75,7 +75,7 @@ Always
 
 Let’s say we have the following proposition:
 
-.. code:: haskell
+.. code-block:: haskell
 
    proposition = always (title == Just "Home")
 
@@ -90,7 +90,7 @@ Next
 
 Let’s modify the previous proposition to describe a state change:
 
-.. code:: haskell
+.. code-block:: haskell
 
    proposition = always (goToAbout || goToContact || goHome)
 
@@ -133,7 +133,7 @@ Actions
 We must instruct Quickstrom what actions it should try. The ``actions``
 definition in a specification module has the following type:
 
-.. code:: haskell
+.. code-block:: haskell
 
    Array (Tuple Int Action)
 
@@ -145,7 +145,7 @@ To illustrate, in the following array of actions, the probability of ``a1``
 being picked is 40%, while the others are at 20% each. This is assuming all
 actions are *possible* at each point an action is being picked.
 
-.. code::
+.. code-block::
 
    actions = [
        Tuple 2 a1,
@@ -158,7 +158,7 @@ The ``Action`` data type is defined in the Quickstrom library, along with
 some aliases for common actions. For instance, here's the definition of
 ``foci``:
 
-.. code:: haskell
+.. code-block:: haskell
 
    -- | Generate focus actions on common focusable elements.
    foci :: Actions

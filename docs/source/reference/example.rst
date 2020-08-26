@@ -5,7 +5,7 @@ The following specifies a record player, featuring a button that toggles
 between the paused and playing states. Let's say the HTML for the record
 player looks something like the following:
 
-.. code:: html
+.. code-block:: html
 
    <div class="record-player">
      ...
@@ -17,14 +17,14 @@ player looks something like the following:
 The specification waits for a DOM element matching the CSS selector
 ``.record-player`` before taking any action.
 
-.. code:: haskell
+.. code-block:: haskell
 
    readyWhen :: Selector
    readyWhen = ".record-player"
 
 This helper definition finds an optional text for the play/pause button.
 
-.. code:: haskell
+.. code-block:: haskell
 
    buttonText :: Maybe String
    buttonText =
@@ -33,7 +33,7 @@ This helper definition finds an optional text for the play/pause button.
 Based on the specified actions, Quickstrom generates click actions for all
 clickable elements:
 
-.. code:: haskell
+.. code-block:: haskell
 
    actions :: Actions
    actions = clicks
@@ -42,7 +42,7 @@ The proposition describes the correct behavior of the web application.
 Here we start in the paused state, and a valid transition is either play
 or pause.
 
-.. code:: haskell
+.. code-block:: haskell
 
    proposition :: Boolean
    proposition =
@@ -61,7 +61,7 @@ can be read in English as:
 Now, let’s run Quickstrom with a broken implementation of the record
 player. We get a minimal behavior that violates the specification:
 
-.. code:: console
+.. code-block:: console
 
    $ quickstrom check RecordPlayer.spec.purs record-player.html
    Running test with size: 10

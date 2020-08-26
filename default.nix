@@ -55,7 +55,7 @@ let
     name = "quickstrom-docker";
     tag = "latest";
     fromImage = bash;
-    contents = [ quickstrom pkgs.geckodriver pkgs.firefox ];
+    contents = [ quickstrom ];
   };
 
 in { inherit haskellPackages quickstrom quickstrom-docker; }

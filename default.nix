@@ -1,6 +1,9 @@
 { pkgs ? import ./nixpkgs.nix { config = { allowBroken = true; }; }
 , compiler ? "ghc865" }:
 let
+  inherit (pkgs.lib.systems.elaborate { system = builtins.currentSystem; })
+    isLinux;
+
   dsl = import ./dsl { inherit pkgs; };
   client-side = import ./client-side { inherit pkgs; };
 
@@ -45,18 +48,4 @@ let
     '';
   };
 
-  quickstrom-docker = let
-    bash = pkgs.dockerTools.buildImage {
-      name = "bash";
-      tag = "latest";
-      contents = pkgs.bashInteractive;
-    };
-  in pkgs.dockerTools.buildImage {
-    name = "quickstrom-docker";
-    tag = "latest";
-    fromImage = bash;
-    contents = [ quickstrom ];
-  };
-
-in { inherit haskellPackages quickstrom quickstrom-docker; }
-
+in { inherit haskellPackages quickstrom; }

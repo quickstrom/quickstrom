@@ -44,4 +44,8 @@ jobs:
       with:
         name: quickstrom
         signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
+    - run: docker login --username botstrom --password "$DOCKER_HUB_ACCESS_TOKEN"
+      env:
+        DOCKER_HUB_ACCESS_TOKEN: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
     - run: docker load -i $(nix-build docker.nix)
+    - run: docker push quickstrom/quickstrom:latest

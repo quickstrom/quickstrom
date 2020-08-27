@@ -38,7 +38,7 @@
   <link rel="stylesheet" href="_static/graphviz.css" type="text/css" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Running" href="running.html" />
+    <link rel="next" title="Installing with Nix" href="installation/nix.html" />
     <link rel="prev" title="Next Steps" href="reference/next-steps.html" />
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Oswald:wght@500&family=Inconsolata:wght@400;600&display=swap" rel="stylesheet"> 
     <link href="_static/overrides.css" rel="stylesheet" type="text/css">
@@ -88,7 +88,11 @@
             
               <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="reference.html">Reference</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Installation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="installation/nix.html">Installing with Nix</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation/docker.html">Installing with Docker</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="running.html">Running</a></li>
 <li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ</a></li>
 </ul>
@@ -159,34 +163,13 @@
             
   <div class="section" id="installation">
 <h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h1>
-<p>Follow these steps to install Quickstrom locally. For the moment, the only
-supported installation method is Nix. Other options might be described in the
-future.</p>
-<div class="section" id="prerequisites">
-<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this headline">¶</a></h2>
-<ul class="simple">
-<li><p>Nix (see <a class="reference external" href="https://nix.dev/">nix.dev</a> for installation instructions
-and guides)</p></li>
+<p>Follow these steps to install Quickstrom locally. These are the currently
+supported installation methods:</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation/nix.html">Installing with Nix</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation/docker.html">Installing with Docker</a></li>
 </ul>
-</div>
-<div class="section" id="installing-with-nix">
-<h2>Installing with Nix<a class="headerlink" href="#installing-with-nix" title="Permalink to this headline">¶</a></h2>
-<p>To install the <code class="docutils literal notranslate"><span class="pre">quickstrom</span></code> executable, use Cachix and Nix to get the
-executable:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> cachix use quickstrom
-<span class="gp">$</span> nix-env -iA quickstrom -f https://github.com/quickstrom/quickstrom/tarball/main
-</pre></div>
-</div>
-<p>Quickstrom should now be available in your environment:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> quickstrom check &lt;YOUR SPEC FILE&gt; &lt;ORIGIN URL&gt;
-</pre></div>
-</div>
-<p>You need to also run geckodriver for Quickstrom to work. Install it using
-Nix:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> nix-env -i geckodriver
-</pre></div>
-</div>
-<p>You’re now ready to <a class="reference external" href="#running">run Quickstrom</a>.</p>
 </div>
 </div>
 
@@ -198,7 +181,7 @@ Nix:</p>
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="running.html" class="btn btn-neutral float-right" title="Running" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+        <a href="installation/nix.html" class="btn btn-neutral float-right" title="Installing with Nix" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
         <a href="reference/next-steps.html" class="btn btn-neutral float-left" title="Next Steps" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>

@@ -37,6 +37,6 @@ important state transitions and leave the rest unspecified. You can
 gradually adopt Quickstrom and improve your specifications over time.
 
 Furthermore, in problem domains where there’s lots of of *essential
-complexity*, models tend to become as complex. For example, it’s often hard to find a
-naive implementation for your model when your modelling a business system
-with a myriad of arbitrary rules.
+complexity*, models tend to become as complex. For example, it’s often hard
+to find a naive implementation for your model when your modelling a business
+system with a myriad of arbitrary rules.

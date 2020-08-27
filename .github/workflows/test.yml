@@ -44,4 +44,4 @@ jobs:
       with:
         name: quickstrom
         signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
-    - run: docker load -f $(nix-build docker.nix)
+    - run: docker load -i $(nix-build docker.nix)

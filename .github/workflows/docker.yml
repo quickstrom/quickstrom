@@ -14,4 +14,4 @@ jobs:
         signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
         # Only needed for private caches
         #authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-    - run: docker load -f $(nix-build docker.nix)
+    - run: docker load -i $(nix-build docker.nix)

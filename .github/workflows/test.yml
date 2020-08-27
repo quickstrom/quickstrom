@@ -32,7 +32,7 @@ jobs:
       with:
         name: quickstrom
         signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
-    - run: nix-shell --run "QUICKSTROM=result/bin/quickstrom specs/run-all.sh"
+    - run: nix-shell --run "QUICKSTROM=$(nix-build --no-out-link)/bin/quickstrom specs/run-all.sh"
 
   build-docker:
     needs: build

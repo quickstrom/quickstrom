@@ -1,6 +1,9 @@
 { pkgs ? import ./nixpkgs.nix { config = { allowBroken = true; }; }
 , compiler ? "ghc865" }:
 let
+  inherit (pkgs.lib.systems.elaborate { system = builtins.currentSystem; })
+    isLinux;
+
   dsl = import ./dsl { inherit pkgs; };
   client-side = import ./client-side { inherit pkgs; };
 
@@ -45,8 +48,4 @@ let
     '';
   };
 
-in {
-  inherit haskellPackages;
-  quickstrom = quickstrom;
-}
-
+in { inherit haskellPackages quickstrom; }

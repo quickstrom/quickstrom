@@ -2,47 +2,41 @@ Running
 =======
 
 This guide assumes you've installed Quickstrom and geckodriver, as described
-in :doc:`installation`. If you haven't done that already, start there.
+in one of the :doc:`installation guides <installation>`. If you haven't done
+that already, start there.
 
 To check a specification, you must have a running `geckodriver
-<https://github.com/mozilla/geckodriver>`__ instance. Run the following
-command in a separate terminal or tab:
+<https://github.com/mozilla/geckodriver>`__ instance on ``127.0.0.0:4444``
+(the default). Run the following command in a separate terminal or tab:
 
-.. code:: console
+.. code-block:: console
 
    $ geckodriver
+
+.. note::
+
+   The invocation of geckodriver might look different depending on which
+   installation method you've used.
 
 Next, run ``quickstrom check`` and supply the path to the specification
 file along with the origin URL (can also be a local file path).
 
-.. code:: console
+.. code-block:: console
 
-   quickstrom check /path/to/my/specification http://example.com
-
-.. note:: 
-
-   Running tests can take a lot of time, especially if there’s a failure and
-   Quickstrom tries to shrink to the minimal failing behavior. Optimizations
-   are due, but for now it’s pretty slow.
+   $ quickstrom check /path/to/my/specification http://example.com
 
 No WebDriver Session
 --------------------
 
 If you get the following error:
 
-.. code:: console
+.. code-block:: console
 
-   quickstrom: user error (E NoSession)
+   $ quickstrom: user error (E NoSession)
 
 It’s probably because the WebDriver package in Quickstrom failed to
 clean up its session. This is a known bug. To work around it, restart
-Geckodriver:
-
-.. code:: console
-
-   geckodriver
-
-And rerun your Quickstrom command.
+Geckodriver and rerun your Quickstrom command.
 
 Help
 ----

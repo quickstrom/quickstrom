@@ -28,6 +28,7 @@ import qualified Quickstrom.Trace as Quickstrom
 import qualified Quickstrom.WebDriver.WebDriverW3C as WebDriver
 import System.Directory (canonicalizePath)
 import System.Environment (lookupEnv)
+import System.IO (BufferMode (LineBuffering), hSetBuffering, hSetEncoding, utf8)
 import Text.URI (URI)
 import qualified Text.URI as URI
 import Text.URI.Lens (uriScheme)
@@ -153,7 +154,10 @@ resolveAbsoluteURI t = do
 
 main :: IO ()
 main = do
-  CLI{..} <- execParser optsInfo
+  hSetBuffering stdout LineBuffering
+  hSetEncoding stdout utf8
+  hSetEncoding stderr utf8
+  CLI {..} <- execParser optsInfo
   libPath <- maybe libraryPathFromEnvironment pure libraryPath
   case chosenCommand of
     Check CheckOptions {..} -> do

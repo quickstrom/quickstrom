@@ -13,7 +13,7 @@
 
 <p align=center>
   <a href="https://github.com/quickstrom/quickstrom/actions?query=workflow%3ATest">
-    <img src="https://github.com/quickstrom/quickstrom/workflows/Test/badge.svg?branch=main" />
+    <img src="https://github.com/quickstrom/quickstrom/workflows/Build%20and%20test/badge.svg?branch=main" />
   </a>
 </p>
 

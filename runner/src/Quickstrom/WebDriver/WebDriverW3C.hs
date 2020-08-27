@@ -94,6 +94,7 @@ runWebDriver (WebDriverW3C ma) = do
         { _environment =
             (_environment c)
               { _logEntryPrinter = \_ _ -> Nothing
+              , _env = defaultWDEnv { _remoteHostname = "127.0.0.1" }
               },
           _initialState = defaultWebDriverState {_httpOptions = httpOptions},
           _evaluator = liftIO . _evaluator c

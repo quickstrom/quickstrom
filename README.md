@@ -3,7 +3,7 @@
 <p>High-confidence browser testing</p>
 <p>
   <a href="https://quickstrom.io/">Documentation</a>
-  | <a href="https://buttondown.email/webcheck">Newsletter</a>
+  | <a href="https://buttondown.email/quickstrom">Newsletter</a>
   | <a href="https://wickstrom.tech/programming/2020/07/02/the-todomvc-showdown-testing-with-webcheck.html">TodoMVC Showdown</a>
   
 </p>

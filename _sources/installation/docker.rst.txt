@@ -10,7 +10,7 @@ the image using Docker:
 
 As described in :doc:`../running`, Geckodriver must be running and available
 on ``127.0.0.0:4444`` for Quickstrom to work. Download a Geckodriver image
-using as well:
+using Docker:
 
 .. code-block:: console
 

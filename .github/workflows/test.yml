@@ -16,7 +16,9 @@ jobs:
       with:
         name: quickstrom
         signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
-    - run: nix-build default.nix specs/integration-tests.nix
+    - run: nix-build default.nix
+    - run: nix-build specs/integration-tests.nix
+      if: matrix.os == 'ubuntu-latest'
     - run: nix-shell --run "echo OK"
 
   build-docker:

@@ -17,7 +17,7 @@ jobs:
         name: quickstrom
         signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
     - run: nix-build default.nix
-    - run: nix-build specs/integration-tests.nix
+    - run: nix-build -j1 specs/integration-tests.nix
       if: matrix.os == 'ubuntu-latest'
     - run: nix-shell --run "echo OK"
 

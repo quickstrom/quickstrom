@@ -16,8 +16,16 @@ under AGPL-3.0, though.
 
 ## Developing with Nix
 
-Follow the instructions in [Installation](docs/installation.md) to get
-Cachix set up and so that you can build locally.
+Quickstrom is developed with Nix. You might get away with non-Nix tools, but
+its the only blessed setup for now.
+
+First, set up the Quickstrom cache in Cachix:
+
+```
+cachix use quickstrom
+```
+
+**Do not skip this step.** It takes forever to build otherwise.
 
 ### Starting a Shell
 

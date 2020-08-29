@@ -17,6 +17,10 @@
   </a>
 </p>
 
+## Other resources
+
+* [Contributing](CONTRIBUTING.md): developer guides and instructions on how to set up a developer environment for Quickstrom
+
 ## License and Copyright
 
 The Quickstrom source code is licensed under [GNU Affero General Public

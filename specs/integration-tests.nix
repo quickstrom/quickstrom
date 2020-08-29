@@ -18,7 +18,7 @@ let
         echo "# Options:       ${options}"
         echo -e "################################################################################\n"
 
-        geckodriver --log error --host 127.0.0.1 --port 4444 > $out/geckodriver.log 2>&1 &
+        geckodriver --log error --host 127.0.0.1 --port 4444 & # > $out/geckodriver.log 2>&1 &
         geckodriver_pid="$!"
         trap "kill $geckodriver_pid" EXIT
         echo "Running geckodriver ($geckodriver_pid)..."

@@ -65,12 +65,12 @@ in makeTests {
     options = "--max-actions=50";
     expectedExitCode = 0;
   };
-  multi-page = {
-    spec = ./passing/MultiPage.spec.purs;
-    origin = "$src/passing/MultiPage.html";
-    options = "--max-actions=50";
-    expectedExitCode = 0;
-  };
+  # multi-page = {
+  #   spec = ./passing/MultiPage.spec.purs;
+  #   origin = "$src/passing/MultiPage.html";
+  #   options = "--max-actions=50";
+  #   expectedExitCode = 0;
+  # };
   todomvc-vue = {
     spec = ./other/TodoMVC.spec.purs;
     origin = "${todomvc}/examples/vue/index.html";

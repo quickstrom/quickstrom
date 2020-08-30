@@ -16,8 +16,8 @@ jobs:
       with:
         name: quickstrom
         signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
-    - run: nix-build default.nix
-    - run: nix-build -j1 specs/integration-tests.nix
+    - run: nix build --print-build-logs -f default.nix
+    - run: nix build --print-build-logs -f specs/integration-tests.nix
       if: matrix.os == 'ubuntu-latest'
     - run: nix-shell --run "echo OK"
 
@@ -34,5 +34,5 @@ jobs:
     - run: docker login --username botstrom --password "$DOCKER_HUB_ACCESS_TOKEN"
       env:
         DOCKER_HUB_ACCESS_TOKEN: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-    - run: docker load -i $(nix-build docker.nix)
+    - run: docker load -i $(nix build --print-build-logs -f docker.nix)
     - run: docker push quickstrom/quickstrom:latest

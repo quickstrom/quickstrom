@@ -12,18 +12,12 @@ let
         set +e
         mkdir -p $out
 
-        echo "################################################################################"
-        echo "# Specification: ${spec}"
-        echo "# Origin:        ${origin}"
-        echo "# Options:       ${options}"
-        echo -e "################################################################################\n"
-
         geckodriver --log debug --host 127.0.0.1 --port 4444 & # > $out/geckodriver.log 2>&1 &
         geckodriver_pid="$!"
         trap "kill $geckodriver_pid" EXIT
         echo "Running geckodriver ($geckodriver_pid)..."
 
-        quickstrom check ${spec} ${origin} ${options} --log-level=DEBUG | tee $out/test-report.log
+        quickstrom check ${spec} ${origin} ${options} | tee $out/test-report.log
         exit_code=$?
 
         if [ $exit_code == "${toString expectedExitCode}" ]; then
@@ -65,12 +59,12 @@ in makeTests {
     options = "--max-actions=50";
     expectedExitCode = 0;
   };
-  # multi-page = {
-  #   spec = ./passing/MultiPage.spec.purs;
-  #   origin = "$src/passing/MultiPage.html";
-  #   options = "--max-actions=50";
-  #   expectedExitCode = 0;
-  # };
+  multi-page = {
+    spec = ./passing/MultiPage.spec.purs;
+    origin = "$src/passing/MultiPage.html";
+    options = "--max-actions=50";
+    expectedExitCode = 0;
+  };
   todomvc-vue = {
     spec = ./other/TodoMVC.spec.purs;
     origin = "${todomvc}/examples/vue/index.html";

@@ -9,14 +9,11 @@ let
       unpackPhase = "true";
       buildPhase = "true";
       checkPhase = ''
-        set -e
-        "/nix/store/1fmm4fax63zhvkp69cyaxiqb41aj3civ-firefox-79.0/bin/firefox" "-marionette" "-headless" "-private" "-foreground" "-no-remote"
-
         set +e
         mkdir -p $out
 
 
-        geckodriver --log debug --host 127.0.0.1 --port 4444 & # > $out/geckodriver.log 2>&1 &
+        geckodriver --log debug --host 127.0.0.1 --port 4444 --marionette-host 127.0.0.1 --marionette-port 4445 & # > $out/geckodriver.log 2>&1 &
         geckodriver_pid="$!"
         trap "kill $geckodriver_pid" EXIT
         echo "Running geckodriver ($geckodriver_pid)..."

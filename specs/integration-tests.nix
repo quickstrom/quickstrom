@@ -17,7 +17,7 @@ let
         trap "kill $geckodriver_pid" EXIT
         echo "Running geckodriver ($geckodriver_pid)..."
 
-        quickstrom check ${spec} ${origin} ${options} | tee $out/test-report.log
+        quickstrom check ${spec} ${origin} ${options} --log-level=DEBUG | tee $out/test-report.log
         exit_code=$?
 
         if [ $exit_code == "${toString expectedExitCode}" ]; then

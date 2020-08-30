@@ -12,7 +12,6 @@ let
         set +e
         mkdir -p $out
 
-
         geckodriver --log debug --host 127.0.0.1 --port 4444 --marionette-host 127.0.0.1 --marionette-port 4445 & # > $out/geckodriver.log 2>&1 &
         geckodriver_pid="$!"
         trap "kill $geckodriver_pid" EXIT

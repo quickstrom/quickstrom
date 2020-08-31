@@ -16,9 +16,10 @@ jobs:
       with:
         name: quickstrom
         signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
-    - run: nix build --print-build-logs -f default.nix
-    - run: nix-shell -p nix-info --run 'nix-info --sandbox'
-    - run: nix build --print-build-logs -f specs/integration-tests.nix
+    - run: nix show-config
+    - run: nix-env -i nix-build-uncached
+    - run: nix-build-uncached default.nix
+    - run: nix-build-uncached specs/integration-tests.nix
       if: matrix.os == 'ubuntu-latest'
     - run: nix-shell --run "echo OK"
 
@@ -32,12 +33,11 @@ jobs:
       with:
         name: quickstrom
         signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
-    - run: docker load -i $(nix-build docker.nix)
+    - run: docker load -i $(nix-build-uncached docker.nix)
     - run: docker login --username botstrom --password "$DOCKER_HUB_ACCESS_TOKEN"
       if: github.ref == 'refs/heads/main'
       env:
         DOCKER_HUB_ACCESS_TOKEN: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-    - run: nix build --print-build-logs -f docker.nix --out-link /tmp/quickstrom.docker.tar.gz
-    - run: docker load -i /tmp/quickstrom.docker.tar.gz
+    - run: docker load -i $(nix-build-uncached docker.nix)
     - run: docker push quickstrom/quickstrom:latest
       if: github.ref == 'refs/heads/main'

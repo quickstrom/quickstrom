@@ -74,6 +74,14 @@ the package with Spago.
 QUICKSTROM_LIBRARY_DIR=dsl/output cabal test
 ```
 
+### Integration Tests
+
+These are run in CI. They can be run locally using Nix:
+
+```
+$ nix build -f specs/integration-tests.nix
+```
+
 ## Formatting
 
 In a Nix shell, run the following command to format all Haskell and

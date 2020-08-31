@@ -16,23 +16,12 @@ jobs:
       with:
         name: quickstrom
         signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
-    - run: nix-build
+    - run: nix show-config
+    - run: nix-env -i nix-build-uncached
+    - run: nix-build-uncached default.nix
+    - run: nix-build-uncached specs/integration-tests.nix
+      if: matrix.os == 'ubuntu-latest'
     - run: nix-shell --run "echo OK"
-
-  tests:
-    needs: build
-    strategy: 
-      matrix: 
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-    - uses: actions/checkout@v2.3.1
-    - uses: cachix/install-nix-action@v10
-    - uses: cachix/cachix-action@v6
-      with:
-        name: quickstrom
-        signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
-    - run: nix-shell --run "QUICKSTROM=$(nix-build --no-out-link)/bin/quickstrom specs/run-all.sh"
 
   build-docker:
     needs: build
@@ -44,10 +33,10 @@ jobs:
       with:
         name: quickstrom
         signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
-    - run: docker load -i $(nix-build docker.nix)
     - run: docker login --username botstrom --password "$DOCKER_HUB_ACCESS_TOKEN"
       if: github.ref == 'refs/heads/main'
       env:
         DOCKER_HUB_ACCESS_TOKEN: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+    - run: docker load -i $(nix-build docker.nix)
     - run: docker push quickstrom/quickstrom:latest
       if: github.ref == 'refs/heads/main'

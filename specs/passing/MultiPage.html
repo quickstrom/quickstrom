@@ -15,10 +15,10 @@
         const form = document.querySelector("form");
         const msg = document.querySelector("#message");
         const params = new URLSearchParams(window.location.search);
-        const msg = params.get('message');
-        if (msg) {
+        const msgParam = params.get('message');
+        if (msgParam) {
             form.remove();
-            msg.textContent = msg;
+            msg.textContent = msgParam;
         }
     </script>
 </body>

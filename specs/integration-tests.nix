@@ -12,12 +12,12 @@ let
         set +e
         mkdir -p $out
 
-        HOME=/tmp geckodriver --log debug --host 127.0.0.1 --port 4444 --marionette-host 127.0.0.1 --marionette-port 4445 & # > $out/geckodriver.log 2>&1 &
+        HOME=/tmp geckodriver --host 127.0.0.1 --port 4444 --marionette-host 127.0.0.1 --marionette-port 4445 &
         geckodriver_pid="$!"
         trap "kill $geckodriver_pid" EXIT
         echo "Running geckodriver ($geckodriver_pid)..."
 
-        quickstrom check ${spec} ${origin} ${options} --log-level=DEBUG | tee $out/test-report.log
+        quickstrom check ${spec} ${origin} ${options} --log-level=INFO | tee $out/test-report.log
         exit_code=$?
 
         if [ $exit_code == "${toString expectedExitCode}" ]; then
@@ -53,13 +53,13 @@ in makeTests {
     options = "--max-actions=50";
     expectedExitCode = 0;
   };
-  react-button = {
+  ReactButton = {
     spec = ./passing/ReactButton.spec.purs;
     origin = "$src/passing/ReactButton.html";
     options = "--max-actions=50";
     expectedExitCode = 0;
   };
-  multi-page = {
+  MultiPage = {
     spec = ./passing/MultiPage.spec.purs;
     origin = "$src/passing/MultiPage.html";
     options = "--max-actions=50";
@@ -71,10 +71,37 @@ in makeTests {
     options = "--max-trailing-state-changes=0";
     expectedExitCode = 0;
   };
+
   todomvc-angularjs = {
     spec = ./other/TodoMVC.spec.purs;
     origin = "${todomvc}/examples/angularjs/index.html";
     options = "--shrink-levels=0";
+    expectedExitCode = 3;
+  };
+  AsyncUpdate = {
+    spec = ./failing/AsyncUpdate.spec.purs;
+    origin = "$src/failing/AsyncUpdate.html";
+    options = "--shrink-levels=0 --tests=50 --max-actions=100";
+    expectedExitCode = 3;
+  };
+  DoubleToggle = {
+    spec = ./failing/DoubleToggle.spec.purs;
+    origin = "$src/failing/DoubleToggle.html";
+    options = "--shrink-levels=0 --tests=50 --max-actions=100";
+    expectedExitCode = 3;
+  };
+  # This one is disabled due to flakiness:
+  #
+  # comment-form = {
+  #   spec = ./failing/CommentForm.spec.purs;
+  #   origin = "$src/failing/CommentForm.html";
+  #   options = "--shrink-levels=0 --tests=50 --max-actions=100";
+  #   expectedExitCode = 3;
+  # };
+  Spinners = {
+    spec = ./failing/Spinners.spec.purs;
+    origin = "$src/failing/Spinners.html";
+    options = "--shrink-levels=0 --tests=50 --max-actions=100";
     expectedExitCode = 3;
   };
 }

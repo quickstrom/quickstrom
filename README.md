@@ -3,7 +3,7 @@
 <p>High-confidence browser testing</p>
 <p>
   <a href="https://quickstrom.io/">Documentation</a>
-  | <a href="https://buttondown.email/webcheck">Newsletter</a>
+  | <a href="https://buttondown.email/quickstrom">Newsletter</a>
   | <a href="https://wickstrom.tech/programming/2020/07/02/the-todomvc-showdown-testing-with-webcheck.html">TodoMVC Showdown</a>
   
 </p>
@@ -16,6 +16,10 @@
     <img src="https://github.com/quickstrom/quickstrom/workflows/Build%20and%20test/badge.svg?branch=main" />
   </a>
 </p>
+
+## Other resources
+
+* [Contributing](CONTRIBUTING.md): developer guides and instructions on how to set up a developer environment for Quickstrom
 
 ## License and Copyright
 

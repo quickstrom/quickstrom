@@ -35,5 +35,6 @@ jobs:
     - run: docker login --username botstrom --password "$DOCKER_HUB_ACCESS_TOKEN"
       env:
         DOCKER_HUB_ACCESS_TOKEN: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-    - run: docker load -i $(nix build --print-build-logs -f docker.nix)
+    - run: nix build --print-build-logs -f docker.nix --out-link /tmp/quickstrom.docker.tar.gz
+    - run: docker load -i /tmp/quickstrom.docker.tar.gz
     - run: docker push quickstrom/quickstrom:latest

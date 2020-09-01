@@ -19,6 +19,7 @@ import Data.Text.Prettyprint.Doc.Render.Terminal
 import Data.Text.Prettyprint.Doc.Symbols.Unicode (bullet)
 import Options.Applicative
 import qualified Pipes as Pipes
+import qualified Quickstrom.Browser as Quickstrom
 import qualified Quickstrom.LogLevel as Quickstrom
 import Quickstrom.Prelude hiding (option, try)
 import qualified Quickstrom.Pretty as Quickstrom
@@ -45,7 +46,8 @@ data CheckOptions = CheckOptions
     maxActions :: Quickstrom.Size,
     shrinkLevels :: Int,
     maxTrailingStateChanges :: Int,
-    logLevel :: Quickstrom.LogLevel
+    logLevel :: Quickstrom.LogLevel,
+    browser :: Quickstrom.Browser
   }
 
 data LintOptions = LintOptions
@@ -104,6 +106,14 @@ checkOptionsParser =
           <> long "log-level"
           <> short 'l'
           <> help "Log level used by Quickstrom and the backing WebDriver server (e.g. geckodriver)"
+      )
+    <*> option
+      (eitherReader Quickstrom.parseBrowser)
+      ( metavar "BROWSER"
+          <> long "browser"
+          <> short 'b'
+          <> value Quickstrom.Firefox
+          <> help "Browser used (through WebDriver) to run tests"
       )
 
 lintOptionsParser :: Parser LintOptions
@@ -177,7 +187,8 @@ main = do
                     checkShrinkLevels = shrinkLevels,
                     checkOrigin = originUri,
                     checkMaxTrailingStateChanges = maxTrailingStateChanges,
-                    checkWebDriverLogLevel = logLevel
+                    checkWebDriverLogLevel = logLevel,
+                    checkBrowser = browser
                   }
           result <-
             Pipes.runEffect (Pipes.for (Quickstrom.check opts WebDriver.runWebDriver spec) (lift . logDoc . renderCheckEvent))

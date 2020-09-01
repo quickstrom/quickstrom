@@ -48,6 +48,7 @@ common shared-deps
 library
   import:             shared-deps
   exposed-modules:    Quickstrom.Action
+                    , Quickstrom.Browser
                     , Quickstrom.Element
                     , Quickstrom.LogLevel
                     , Quickstrom.Prelude

@@ -17,17 +17,17 @@ import Control.Monad.Trans.Class (MonadTrans)
 import Control.Monad.Trans.Identity (IdentityT (..))
 import qualified Data.Aeson as JSON
 import Data.Aeson.Lens
-import qualified Data.HashMap.Strict as HashMap
 import Data.String (String)
 import qualified Data.String as String
 import qualified Data.Text as Text
 import qualified Network.HTTP.Client as Http
 import qualified Network.Wreq as Wreq
+import Quickstrom.Browser
 import Quickstrom.Element
 import Quickstrom.LogLevel
 import Quickstrom.Prelude hiding (catch)
-import Quickstrom.Run
-import Web.Api.WebDriver hiding (Action, LogLevel (..), Selector, Timeout, hPutStrLn, runIsolated, throwError)
+import Quickstrom.WebDriver.Class
+import Web.Api.WebDriver hiding (Action, BrowserName (..), LogLevel (..), Selector, Timeout, hPutStrLn, runIsolated, throwError)
 import qualified Web.Api.WebDriver as WebDriver
 
 newtype WebDriverW3C m a = WebDriverW3C {unWebDriverW3C :: WebDriverTT IdentityT m a}
@@ -63,31 +63,7 @@ instance MonadIO m => WebDriver (WebDriverW3C m) where
         ResponseError _ msg _ _ _ -> liftWebDriverTT (liftIO (f (WebDriverResponseError (toS msg))))
         err -> liftWebDriverTT (throwIO (WebDriverOtherError (show err)))
 
-  inNewPrivateWindow logLevel =
-    runIsolated (defaultChromeCapabilities)
-    where
-      reconfigure c =
-        c
-          { -- _firefoxOptions =
-            -- (_firefoxOptions c)
-            -- <&> \o ->
-            -- o
-            -- { _firefoxArgs = Just ["-headless", "-private"],
-            -- _firefoxPrefs = Just (HashMap.singleton "Dom.storage.enabled" (JSON.Bool False)),
-            -- _firefoxLog = Just (FirefoxLog (Just (webdriverLogLevel logLevel)))
-            -- },
-            _chromeOptions =
-              Just
-                defaultChromeOptions
-                  { _chromeBinary = Just "google-chrome-stable"
-                  --,  _chromeArgs = Just ["--no-sandbox", "--no-dev-shm-usage"]
-                  }
-          }
-      webdriverLogLevel = \case
-        LogDebug -> WebDriver.LogDebug
-        LogInfo -> WebDriver.LogInfo
-        LogWarn -> WebDriver.LogWarn
-        LogError -> WebDriver.LogError
+  inNewPrivateWindow = runIsolated
 
 runWebDriver :: MonadIO m => WebDriverW3C m b -> m b
 runWebDriver (WebDriverW3C ma) = do
@@ -112,29 +88,54 @@ runWebDriver (WebDriverW3C ma) = do
 -- | Mostly the same as the non-exported definition in 'Web.Api.WebDriver.Endpoints'.
 runIsolated ::
   Monad m =>
-  Capabilities ->
+  WebDriverOptions ->
   WebDriverW3C m a ->
   WebDriverW3C m a
-runIsolated caps (WebDriverW3C theSession) = WebDriverW3C . cleanupOnError $ do
-  sid <- newSession' addCaps caps
+runIsolated opts (WebDriverW3C theSession) = WebDriverW3C . cleanupOnError $ do
+  sid <- newSession' (addCaps opts) emptyCapabilities
   modifyState (setSessionId (Just sid))
   a <- theSession
   deleteSession
   modifyState (setSessionId Nothing)
   pure a
-  where
-    addCaps :: JSON.Value -> JSON.Value
-    addCaps =
-      key "capabilities" . key "alwaysMatch" . _Object
-        %~ ( <>
-               [ ( "goog:chromeOptions",
-                   JSON.Object
-                     [ ("binary", "/nix/store/wv5f8h1m3wjjcgd20sf13x10bwyvf4ms-google-chrome-84.0.4147.105/bin/google-chrome-stable")
-                     , ("args", JSON.Array ["headless", "incognito"])
-                     ]
-                 )
-               ]
-           )
+
+addCaps :: WebDriverOptions -> JSON.Value -> JSON.Value
+addCaps WebDriverOptions {webDriverBrowser = Firefox, webDriverLogLevel} =
+  key "capabilities" . key "alwaysMatch" . _Object
+    %~ ( <>
+           [ ( "moz:firefoxOptions",
+               JSON.Object
+                 [ ("binary", "/nix/store/1fmm4fax63zhvkp69cyaxiqb41aj3civ-firefox-79.0/bin/firefox"),
+                   ("args", JSON.Array ["-headless", "-private"]),
+                   ("prefs", JSON.Object [("Dom.storage.enabled", JSON.Bool False)]),
+                   ( "log",
+                     JSON.Object
+                       [ ( "level",
+                           case webDriverLogLevel of
+                             LogDebug -> "debug"
+                             LogInfo -> "info"
+                             LogWarn -> "warn"
+                             LogError -> "error"
+                         )
+                       ]
+                   )
+                 ]
+             ),
+             ("browserName", "firefox")
+           ]
+       )
+addCaps WebDriverOptions {webDriverBrowser = Chrome} =
+  key "capabilities" . key "alwaysMatch" . _Object
+    %~ ( <>
+           [ ( "goog:chromeOptions",
+               JSON.Object
+                 [ ("binary", "/nix/store/wv5f8h1m3wjjcgd20sf13x10bwyvf4ms-google-chrome-84.0.4147.105/bin/google-chrome-stable"),
+                   ("args", JSON.Array ["headless", "incognito"])
+                 ]
+             ),
+             ("browserName", "chrome")
+           ]
+       )
 
 -- | Same as the non-exported definition in 'Web.Api.WebDriver.Endpoints'.
 cleanupOnError ::

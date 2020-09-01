@@ -51,8 +51,8 @@ in quickstrom.haskellPackages.shellFor {
   ] ++ lib.optional isLinux [
     firefox
     geckodriver
-    # chromium
-    # chromedriver
+    chromium
+    chromedriver
   ]);
   FONTCONFIG_FILE = pkgs.makeFontsConf { fontDirectories = fonts; };
   QUICKSTROM_LIBRARY_DIR = "${dsl}";

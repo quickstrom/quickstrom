@@ -21,6 +21,7 @@ common shared-deps
                     , hashable
                     , http-client
                     , lens
+                    , lens-aeson
                     , megaparsec
                     , modern-uri
                     , monad-loops

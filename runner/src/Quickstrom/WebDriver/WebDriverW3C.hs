@@ -4,8 +4,9 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Quickstrom.WebDriver.WebDriverW3C where
 
@@ -15,18 +16,19 @@ import Control.Monad.Catch (MonadThrow (..))
 import Control.Monad.Trans.Class (MonadTrans)
 import Control.Monad.Trans.Identity (IdentityT (..))
 import qualified Data.Aeson as JSON
+import Data.Aeson.Lens
 import qualified Data.HashMap.Strict as HashMap
 import Data.String (String)
 import qualified Data.String as String
 import qualified Data.Text as Text
 import qualified Network.HTTP.Client as Http
 import qualified Network.Wreq as Wreq
+import Quickstrom.Element
+import Quickstrom.LogLevel
+import Quickstrom.Prelude hiding (catch)
+import Quickstrom.Run
 import Web.Api.WebDriver hiding (Action, LogLevel (..), Selector, Timeout, hPutStrLn, runIsolated, throwError)
 import qualified Web.Api.WebDriver as WebDriver
-import Quickstrom.Element
-import Quickstrom.Prelude hiding (catch)
-import Quickstrom.LogLevel
-import Quickstrom.Run
 
 newtype WebDriverW3C m a = WebDriverW3C {unWebDriverW3C :: WebDriverTT IdentityT m a}
   deriving (Functor, Applicative, Monad)
@@ -55,24 +57,31 @@ instance MonadIO m => WebDriver (WebDriverW3C m) where
       JSON.Success (Left e) -> throwIO (WebDriverOtherError e)
       JSON.Error e -> throwIO (WebDriverOtherError (toS e))
 
-  catchResponseError (WebDriverW3C ma) f = WebDriverW3C $
-    ma `WebDriver.catchError` \case
-      ResponseError _ msg _ _ _ -> liftWebDriverTT (liftIO (f (WebDriverResponseError (toS msg))))
-      err -> liftWebDriverTT (throwIO (WebDriverOtherError (show err)))
+  catchResponseError (WebDriverW3C ma) f =
+    WebDriverW3C $
+      ma `WebDriver.catchError` \case
+        ResponseError _ msg _ _ _ -> liftWebDriverTT (liftIO (f (WebDriverResponseError (toS msg))))
+        err -> liftWebDriverTT (throwIO (WebDriverOtherError (show err)))
 
   inNewPrivateWindow logLevel =
-    runIsolated (reconfigure headlessFirefoxCapabilities)
+    runIsolated (defaultChromeCapabilities)
     where
       reconfigure c =
         c
-          { _firefoxOptions =
-              (_firefoxOptions c)
-                <&> \o ->
-                  o
-                    { _firefoxArgs = Just ["-headless", "-private"],
-                      _firefoxPrefs = Just (HashMap.singleton "Dom.storage.enabled" (JSON.Bool False)),
-                      _firefoxLog = Just (FirefoxLog (Just (webdriverLogLevel logLevel)))
-                    }
+          { -- _firefoxOptions =
+            -- (_firefoxOptions c)
+            -- <&> \o ->
+            -- o
+            -- { _firefoxArgs = Just ["-headless", "-private"],
+            -- _firefoxPrefs = Just (HashMap.singleton "Dom.storage.enabled" (JSON.Bool False)),
+            -- _firefoxLog = Just (FirefoxLog (Just (webdriverLogLevel logLevel)))
+            -- },
+            _chromeOptions =
+              Just
+                defaultChromeOptions
+                  { _chromeBinary = Just "google-chrome-stable"
+                  --,  _chromeArgs = Just ["--no-sandbox", "--no-dev-shm-usage"]
+                  }
           }
       webdriverLogLevel = \case
         LogDebug -> WebDriver.LogDebug
@@ -93,8 +102,8 @@ runWebDriver (WebDriverW3C ma) = do
       c
         { _environment =
             (_environment c)
-              { _logEntryPrinter = \_ _ -> Nothing
-              , _env = defaultWDEnv { _remoteHostname = "127.0.0.1" }
+              { _logEntryPrinter = \_ _ -> Nothing,
+                _env = defaultWDEnv {_remoteHostname = "127.0.0.1"}
               },
           _initialState = defaultWebDriverState {_httpOptions = httpOptions},
           _evaluator = liftIO . _evaluator c
@@ -107,12 +116,25 @@ runIsolated ::
   WebDriverW3C m a ->
   WebDriverW3C m a
 runIsolated caps (WebDriverW3C theSession) = WebDriverW3C . cleanupOnError $ do
-  sid <- newSession caps
+  sid <- newSession' addCaps caps
   modifyState (setSessionId (Just sid))
   a <- theSession
   deleteSession
   modifyState (setSessionId Nothing)
   pure a
+  where
+    addCaps :: JSON.Value -> JSON.Value
+    addCaps =
+      key "capabilities" . key "alwaysMatch" . _Object
+        %~ ( <>
+               [ ( "goog:chromeOptions",
+                   JSON.Object
+                     [ ("binary", "/nix/store/wv5f8h1m3wjjcgd20sf13x10bwyvf4ms-google-chrome-84.0.4147.105/bin/google-chrome-stable")
+                     , ("args", JSON.Array ["headless", "incognito"])
+                     ]
+                 )
+               ]
+           )
 
 -- | Same as the non-exported definition in 'Web.Api.WebDriver.Endpoints'.
 cleanupOnError ::

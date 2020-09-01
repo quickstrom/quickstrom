@@ -1,4 +1,4 @@
-{ pkgs ? import ./nixpkgs.nix { config = { allowBroken = true; }; }
+{ pkgs ? import ./nixpkgs.nix { config = { allowBroken = true; allowUnfree = true; }; }
 , compiler ? "ghc865" }:
 let
   fonts = with pkgs; [ libre-baskerville iosevka opensans-ttf ];
@@ -53,6 +53,8 @@ in quickstrom.haskellPackages.shellFor {
     geckodriver
     chromium
     chromedriver
+    google-chrome
+    selenium-server-standalone
   ]);
   FONTCONFIG_FILE = pkgs.makeFontsConf { fontDirectories = fonts; };
   QUICKSTROM_LIBRARY_DIR = "${dsl}";

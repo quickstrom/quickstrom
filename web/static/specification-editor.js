@@ -1,4 +1,4 @@
-ace.config.set("basePath", "/ace");
+ace.config.set("basePath", "https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12");
 
 var editor = ace.edit("editor");
 editor.setTheme("ace/theme/github");

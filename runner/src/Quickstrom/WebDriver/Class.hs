@@ -9,7 +9,11 @@ import Quickstrom.Element (Element, Selector)
 import Quickstrom.LogLevel
 import Quickstrom.Prelude
 
-data WebDriverOptions = WebDriverOptions {webDriverBrowser :: Browser, webDriverLogLevel :: LogLevel}
+data WebDriverOptions = WebDriverOptions
+  { webDriverBrowser :: Browser,
+    webDriverBrowserBinary :: Maybe FilePath,
+    webDriverLogLevel :: LogLevel
+  }
 
 class Monad m => WebDriver (m :: Type -> Type) where
   getActiveElement :: m Element

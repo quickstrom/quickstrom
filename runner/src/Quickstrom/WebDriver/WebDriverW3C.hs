@@ -100,12 +100,12 @@ runIsolated opts (WebDriverW3C theSession) = WebDriverW3C . cleanupOnError $ do
   pure a
 
 addCaps :: WebDriverOptions -> JSON.Value -> JSON.Value
-addCaps WebDriverOptions {webDriverBrowser = Firefox, webDriverLogLevel} =
+addCaps WebDriverOptions {webDriverBrowser = Firefox, webDriverLogLevel, webDriverBrowserBinary} =
   key "capabilities" . key "alwaysMatch" . _Object
     %~ ( <>
            [ ( "moz:firefoxOptions",
                JSON.Object
-                 [ ("binary", "/nix/store/1fmm4fax63zhvkp69cyaxiqb41aj3civ-firefox-79.0/bin/firefox"),
+                 [ ("binary", JSON.String (maybe "/usr/bin/firefox" toS webDriverBrowserBinary)),
                    ("args", JSON.Array ["-headless", "-private"]),
                    ("prefs", JSON.Object [("Dom.storage.enabled", JSON.Bool False)]),
                    ( "log",
@@ -124,12 +124,12 @@ addCaps WebDriverOptions {webDriverBrowser = Firefox, webDriverLogLevel} =
              ("browserName", "firefox")
            ]
        )
-addCaps WebDriverOptions {webDriverBrowser = Chrome} =
+addCaps WebDriverOptions {webDriverBrowser = Chrome, webDriverBrowserBinary} =
   key "capabilities" . key "alwaysMatch" . _Object
     %~ ( <>
            [ ( "goog:chromeOptions",
                JSON.Object
-                 [ ("binary", "/nix/store/wv5f8h1m3wjjcgd20sf13x10bwyvf4ms-google-chrome-84.0.4147.105/bin/google-chrome-stable"),
+                 [ ("binary", JSON.String (maybe "/usr/bin/google-chrome" toS webDriverBrowserBinary)),
                    ("args", JSON.Array ["headless", "incognito"])
                  ]
              ),

@@ -56,9 +56,7 @@ import GHC.Generics (Generic)
 import Pipes (Pipe, Producer, (>->))
 import qualified Pipes
 import qualified Pipes.Prelude as Pipes
-import Quickstrom.Browser
 import Quickstrom.Element
-import Quickstrom.LogLevel
 import Quickstrom.Prelude hiding (catch, check, trace)
 import Quickstrom.Result
 import Quickstrom.Specification
@@ -123,8 +121,7 @@ data CheckOptions = CheckOptions
     checkShrinkLevels :: Int,
     checkOrigin :: URI,
     checkMaxTrailingStateChanges :: Int,
-    checkWebDriverLogLevel :: LogLevel,
-    checkBrowser :: Browser
+    checkWebDriverOptions :: WebDriverOptions
   }
 
 newtype Size = Size {unSize :: Word32}
@@ -216,7 +213,7 @@ runSingle spec size = do
     runAndVerifyIsolated n producer = do
       trace <- lift do
         opts <- asks checkOptions
-        annotateStutteringSteps <$> inNewPrivateWindow (toWebDriverOptions opts) do
+        annotateStutteringSteps <$> inNewPrivateWindow (checkWebDriverOptions opts) do
           beforeRun spec
           elementsToTrace (producer >-> runActions' spec)
       case verify spec (trace ^.. nonStutterStates) of
@@ -446,7 +443,3 @@ readScripts = do
         registerNextStateObserver = \timeout queries' -> CheckScript (runScript registerNextStateObserverScript [JSON.toJSON timeout, JSON.toJSON queries']),
         awaitNextState = CheckScript (runScript awaitNextStateScript [])
       }
-
-toWebDriverOptions :: CheckOptions -> WebDriverOptions
-toWebDriverOptions CheckOptions {checkBrowser, checkWebDriverLogLevel} =
-  WebDriverOptions checkBrowser checkWebDriverLogLevel

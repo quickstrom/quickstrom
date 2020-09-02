@@ -56,18 +56,17 @@ import GHC.Generics (Generic)
 import Pipes (Pipe, Producer, (>->))
 import qualified Pipes
 import qualified Pipes.Prelude as Pipes
-import System.Environment (lookupEnv)
-import System.FilePath ((</>))
-import qualified Test.QuickCheck as QuickCheck
-import Text.URI (URI)
-import qualified Text.URI as URI
 import Quickstrom.Element
-import Quickstrom.LogLevel
 import Quickstrom.Prelude hiding (catch, check, trace)
 import Quickstrom.Result
 import Quickstrom.Specification
 import Quickstrom.Trace
 import Quickstrom.WebDriver.Class
+import System.Environment (lookupEnv)
+import System.FilePath ((</>))
+import qualified Test.QuickCheck as QuickCheck
+import Text.URI (URI)
+import qualified Text.URI as URI
 
 newtype Runner m a = Runner (ReaderT CheckEnv m a)
   deriving (Functor, Applicative, Monad, MonadIO, WebDriver, MonadReader CheckEnv, MonadThrow, MonadCatch)
@@ -88,7 +87,7 @@ instance JSON.ToJSON FailingTest where
 data CheckResult
   = CheckSuccess
   | CheckFailure {failedAfter :: Int, failingTest :: FailingTest}
-  | CheckError { checkError :: Text }
+  | CheckError {checkError :: Text}
   deriving (Show, Generic)
 
 instance JSON.ToJSON CheckResult where
@@ -122,7 +121,7 @@ data CheckOptions = CheckOptions
     checkShrinkLevels :: Int,
     checkOrigin :: URI,
     checkMaxTrailingStateChanges :: Int,
-    checkWebDriverLogLevel :: LogLevel
+    checkWebDriverOptions :: WebDriverOptions
   }
 
 newtype Size = Size {unSize :: Word32}
@@ -153,8 +152,9 @@ check opts@CheckOptions {checkTests} runWebDriver spec = do
   -- stdGen <- getStdGen
   Pipes.yield (CheckStarted checkTests)
   env <- CheckEnv opts <$> lift readScripts
-  res <- Pipes.hoist (runWebDriver . run env) (runAll opts spec)
-        & (`catch` \err@SomeException {} -> pure (CheckError (show err)))
+  res <-
+    Pipes.hoist (runWebDriver . run env) (runAll opts spec)
+      & (`catch` \err@SomeException {} -> pure (CheckError (show err)))
   Pipes.yield (CheckFinished res)
   pure res
 
@@ -213,7 +213,7 @@ runSingle spec size = do
     runAndVerifyIsolated n producer = do
       trace <- lift do
         opts <- asks checkOptions
-        annotateStutteringSteps <$> inNewPrivateWindow (checkWebDriverLogLevel opts) do
+        annotateStutteringSteps <$> inNewPrivateWindow (checkWebDriverOptions opts) do
           beforeRun spec
           elementsToTrace (producer >-> runActions' spec)
       case verify spec (trace ^.. nonStutterStates) of

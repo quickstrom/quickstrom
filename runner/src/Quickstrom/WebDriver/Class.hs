@@ -3,10 +3,17 @@
 
 module Quickstrom.WebDriver.Class where
 
+import qualified Data.Aeson as JSON
+import Quickstrom.Browser
 import Quickstrom.Element (Element, Selector)
 import Quickstrom.LogLevel
 import Quickstrom.Prelude
-import qualified Data.Aeson as JSON
+
+data WebDriverOptions = WebDriverOptions
+  { webDriverBrowser :: Browser,
+    webDriverBrowserBinary :: Maybe FilePath,
+    webDriverLogLevel :: LogLevel
+  }
 
 class Monad m => WebDriver (m :: Type -> Type) where
   getActiveElement :: m Element
@@ -18,7 +25,7 @@ class Monad m => WebDriver (m :: Type -> Type) where
   navigateTo :: Text -> m ()
   runScript :: JSON.FromJSON r => Text -> [JSON.Value] -> m r
   catchResponseError :: m a -> (WebDriverResponseError -> IO a) -> m a
-  inNewPrivateWindow :: LogLevel -> m a -> m a
+  inNewPrivateWindow :: WebDriverOptions -> m a -> m a
 
 instance WebDriver m => WebDriver (ReaderT e m) where
   getActiveElement = lift getActiveElement

@@ -19,18 +19,18 @@ let
       # haskell-src = self.callHackage "haskell-src" "1.0.3.0" { };
       # HTF = pkgs.haskell.lib.dontCheck (self.callHackage "HTF" "0.13.2.5" { });
 
-      quickstrom-runner = import ./runner {
+      quickstrom-runner = pkgs.haskell.lib.disableLibraryProfiling(import ./runner {
         inherit pkgs;
         haskellPackages = self;
-      };
-      quickstrom-cli = import ./cli {
+      });
+      quickstrom-cli = pkgs.haskell.lib.justStaticExecutables(import ./cli {
         inherit pkgs;
         haskellPackages = self;
-      };
-      quickstrom-web = import ./web {
+      });
+      quickstrom-web = pkgs.haskell.lib.justStaticExecutables(import ./web {
         inherit pkgs;
         haskellPackages = self;
-      };
+      });
     };
   };
 

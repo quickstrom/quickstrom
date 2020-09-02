@@ -19,16 +19,23 @@ import Data.Text.Prettyprint.Doc.Render.Terminal
 import Data.Text.Prettyprint.Doc.Symbols.Unicode (bullet)
 import Options.Applicative
 import qualified Pipes as Pipes
+import qualified Quickstrom.Browser as Quickstrom
 import qualified Quickstrom.LogLevel as Quickstrom
 import Quickstrom.Prelude hiding (option, try)
 import qualified Quickstrom.Pretty as Quickstrom
 import qualified Quickstrom.PureScript.Program as Quickstrom
 import qualified Quickstrom.Run as Quickstrom
 import qualified Quickstrom.Trace as Quickstrom
+import qualified Quickstrom.WebDriver.Class as Quickstrom
 import qualified Quickstrom.WebDriver.WebDriverW3C as WebDriver
 import System.Directory (canonicalizePath)
 import System.Environment (lookupEnv)
-import System.IO (BufferMode (LineBuffering), hSetBuffering, hSetEncoding, utf8)
+import System.IO
+  ( BufferMode (LineBuffering),
+    hSetBuffering,
+    hSetEncoding,
+    utf8,
+  )
 import Text.URI (URI)
 import qualified Text.URI as URI
 import Text.URI.Lens (uriScheme)
@@ -45,7 +52,9 @@ data CheckOptions = CheckOptions
     maxActions :: Quickstrom.Size,
     shrinkLevels :: Int,
     maxTrailingStateChanges :: Int,
-    logLevel :: Quickstrom.LogLevel
+    logLevel :: Quickstrom.LogLevel,
+    browser :: Quickstrom.Browser,
+    browserBinary :: Maybe FilePath
   }
 
 data LintOptions = LintOptions
@@ -104,6 +113,22 @@ checkOptionsParser =
           <> long "log-level"
           <> short 'l'
           <> help "Log level used by Quickstrom and the backing WebDriver server (e.g. geckodriver)"
+      )
+    <*> option
+      (eitherReader Quickstrom.parseBrowser)
+      ( metavar "BROWSER"
+          <> long "browser"
+          <> short 'b'
+          <> value Quickstrom.Firefox
+          <> help "Browser used (through WebDriver) to run tests"
+      )
+    <*> optional
+      ( option
+          str
+          ( metavar "PATH"
+              <> long "browser-binary"
+              <> help "The absolute path to the binary of the web browser used for testing"
+          )
       )
 
 lintOptionsParser :: Parser LintOptions
@@ -177,7 +202,12 @@ main = do
                     checkShrinkLevels = shrinkLevels,
                     checkOrigin = originUri,
                     checkMaxTrailingStateChanges = maxTrailingStateChanges,
-                    checkWebDriverLogLevel = logLevel
+                    checkWebDriverOptions =
+                      Quickstrom.WebDriverOptions
+                        { webDriverLogLevel = logLevel,
+                          webDriverBrowser = browser,
+                          webDriverBrowserBinary = browserBinary
+                        }
                   }
           result <-
             Pipes.runEffect (Pipes.for (Quickstrom.check opts WebDriver.runWebDriver spec) (lift . logDoc . renderCheckEvent))

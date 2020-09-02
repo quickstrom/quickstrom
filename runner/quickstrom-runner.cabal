@@ -21,6 +21,7 @@ common shared-deps
                     , hashable
                     , http-client
                     , lens
+                    , lens-aeson
                     , megaparsec
                     , modern-uri
                     , monad-loops
@@ -47,6 +48,7 @@ common shared-deps
 library
   import:             shared-deps
   exposed-modules:    Quickstrom.Action
+                    , Quickstrom.Browser
                     , Quickstrom.Element
                     , Quickstrom.LogLevel
                     , Quickstrom.Prelude

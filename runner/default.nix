@@ -1,5 +1,7 @@
 { pkgs ? import ../nixpkgs.nix { config = { allowBroken = true; }; }
-, haskellPackages }:
+, haskellPackages
+, enableProfiling ? false
+ }:
 let
   src = pkgs.nix-gitignore.gitignoreSource [ ] ./.;
   dsl = import ../dsl { inherit pkgs; };

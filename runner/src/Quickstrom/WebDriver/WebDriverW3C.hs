@@ -130,7 +130,7 @@ addCaps WebDriverOptions {webDriverBrowser = Chrome, webDriverBrowserBinary} =
            [ ( "goog:chromeOptions",
                JSON.Object
                  [ ("binary", JSON.String (maybe "/usr/bin/google-chrome" toS webDriverBrowserBinary)),
-                   ("args", JSON.Array ["headless", "incognito"])
+                   ("args", JSON.Array ["headless", "incognito", "no-sandbox", "disable-gpu", "privileged"])
                  ]
              ),
              ("browserName", "chrome")

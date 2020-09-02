@@ -1,13 +1,15 @@
 Running
 =======
 
-This guide assumes you've installed Quickstrom and geckodriver, as described
-in one of the :doc:`installation guides <installation>`. If you haven't done
-that already, start there.
+This guide assumes you've installed Quickstrom and a compatible WebDriver
+server, as described in one of the :doc:`installation guides <installation>`.
+If you haven't done that already, start there.
 
-To check a specification, you must have a running `geckodriver
-<https://github.com/mozilla/geckodriver>`__ instance on ``127.0.0.0:4444``
-(the default). Run the following command in a separate terminal or tab:
+To check a specification, you must have a running WebDriver instance on
+``127.0.0.0:4444``. In the rest of this guide we'll use GeckoDriver and
+Firefox. You may also use ChromeDriver together with Chrome or Chromium.
+
+Run the following command in a separate terminal or tab:
 
 .. code-block:: console
 
@@ -23,16 +25,19 @@ file along with the origin URL (can also be a local file path).
 
 .. code-block:: console
 
-   $ quickstrom check /path/to/my/specification http://example.com
+   $ quickstrom check \
+      --browser=firefox \
+      /path/to/my/specification \
+      http://example.com
 
 No WebDriver Session
 --------------------
 
-If you get the following error:
+If you get the following error when using GeckoDriver:
 
-.. code-block:: console
+.. code-block:: shell
 
-   $ quickstrom: user error (E NoSession)
+   quickstrom: user error (E NoSession)
 
 It’s probably because the WebDriver package in Quickstrom failed to
 clean up its session. This is a known bug. To work around it, restart

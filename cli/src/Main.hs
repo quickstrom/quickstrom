@@ -54,7 +54,10 @@ data CheckOptions = CheckOptions
     maxTrailingStateChanges :: Int,
     logLevel :: Quickstrom.LogLevel,
     browser :: Quickstrom.Browser,
-    browserBinary :: Maybe FilePath
+    browserBinary :: Maybe FilePath,
+    webDriverHost :: Text,
+    webDriverPort :: Int,
+    webDriverPath :: FilePath
   }
 
 data LintOptions = LintOptions
@@ -130,6 +133,27 @@ checkOptionsParser =
               <> help "The absolute path to the binary of the web browser used for testing"
           )
       )
+    <*> option
+      str
+      ( metavar "HOST"
+          <> value "127.0.0.1"
+          <> long "webdriver-host"
+          <> help "The host (DNS name or IP) of the WebDriver HTTP server"
+      )
+    <*> option
+      auto
+      ( metavar "PORT"
+          <> value 4444
+          <> long "webdriver-port"
+          <> help "The port of the WebDriver HTTP server"
+      )
+    <*> option
+      str
+      ( metavar "PATH"
+          <> value ""
+          <> long "webdriver-path"
+          <> help "The relative path of the WebDriver root HTTP resource"
+      )
 
 lintOptionsParser :: Parser LintOptions
 lintOptionsParser =
@@ -195,22 +219,26 @@ main = do
           hPutStrLn @Text stderr err
           exitWith (ExitFailure 2)
         Right spec -> flip runReaderT logLevel $ do
-          let opts =
+          let wdOpts =
+                Quickstrom.WebDriverOptions
+                  { webDriverLogLevel = logLevel,
+                    webDriverBrowser = browser,
+                    webDriverBrowserBinary = browserBinary,
+                    webDriverHost,
+                    webDriverPort,
+                    webDriverPath
+                  }
+              opts =
                 Quickstrom.CheckOptions
                   { checkTests = tests,
                     checkMaxActions = maxActions,
                     checkShrinkLevels = shrinkLevels,
                     checkOrigin = originUri,
                     checkMaxTrailingStateChanges = maxTrailingStateChanges,
-                    checkWebDriverOptions =
-                      Quickstrom.WebDriverOptions
-                        { webDriverLogLevel = logLevel,
-                          webDriverBrowser = browser,
-                          webDriverBrowserBinary = browserBinary
-                        }
+                    checkWebDriverOptions = wdOpts
                   }
           result <-
-            Pipes.runEffect (Pipes.for (Quickstrom.check opts WebDriver.runWebDriver spec) (lift . logDoc . renderCheckEvent))
+            Pipes.runEffect (Pipes.for (Quickstrom.check opts (WebDriver.runWebDriver wdOpts) spec) (lift . logDoc . renderCheckEvent))
               & try
           logDoc . logSingle Nothing $ line <> divider <> line
           case result of

@@ -5,6 +5,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -65,8 +66,8 @@ instance MonadIO m => WebDriver (WebDriverW3C m) where
 
   inNewPrivateWindow = runIsolated
 
-runWebDriver :: MonadIO m => WebDriverW3C m b -> m b
-runWebDriver (WebDriverW3C ma) = do
+runWebDriver :: MonadIO m => WebDriverOptions -> WebDriverW3C m b -> m b
+runWebDriver WebDriverOptions {..} (WebDriverW3C ma) = do
   mgr <- liftIO (Http.newManager Http.defaultManagerSettings)
   let httpOptions :: Wreq.Options
       httpOptions = Wreq.defaults & Wreq.manager .~ Right mgr
@@ -79,7 +80,12 @@ runWebDriver (WebDriverW3C ma) = do
         { _environment =
             (_environment c)
               { _logEntryPrinter = \_ _ -> Nothing,
-                _env = defaultWDEnv {_remoteHostname = "127.0.0.1"}
+                _env =
+                  defaultWDEnv
+                    { _remoteHostname = toS webDriverHost,
+                      _remotePort = webDriverPort,
+                      _remotePath = webDriverPath
+                    }
               },
           _initialState = defaultWebDriverState {_httpOptions = httpOptions},
           _evaluator = liftIO . _evaluator c

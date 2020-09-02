@@ -19,7 +19,7 @@ jobs:
     - run: nix show-config
     - run: nix-env -i nix-build-uncached
     - run: nix-build-uncached default.nix
-    - run: nix-build-uncached -j16 --option sandbox relaxed specs/integration-tests.nix
+    - run: nix-build-uncached -j16 -build-flags '--option sandbox relaxed' specs/integration-tests.nix
       if: matrix.os == 'ubuntu-latest'
     - run: nix-shell --run "echo OK"
 

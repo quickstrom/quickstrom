@@ -12,7 +12,10 @@ import Quickstrom.Prelude
 data WebDriverOptions = WebDriverOptions
   { webDriverBrowser :: Browser,
     webDriverBrowserBinary :: Maybe FilePath,
-    webDriverLogLevel :: LogLevel
+    webDriverLogLevel :: LogLevel,
+    webDriverHost :: Text,
+    webDriverPort :: Int,
+    webDriverPath :: FilePath
   }
 
 class Monad m => WebDriver (m :: Type -> Type) where

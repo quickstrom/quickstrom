@@ -24,10 +24,13 @@ Quickstrom should now be available in your environment:
 
 .. code-block:: console
 
-   $ quickstrom check <YOUR SPEC FILE> <ORIGIN URL>
+   $ quickstrom check --browser=firefox <YOUR SPEC FILE> <ORIGIN URL>
 
-You need to also run geckodriver for Quickstrom to work. Install it using
-Nix:
+You need to also run a WebDriver server for Quickstrom to work. The guides in
+the Quickstrom documentation use GeckoDriver and Firefox, but you can also
+run with ChromeDriver together with Chrome or Chromium.
+
+Install GeckoDriver using Nix:
 
 .. code-block:: console
 

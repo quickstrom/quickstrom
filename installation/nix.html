@@ -182,11 +182,13 @@ executable:</p>
 </pre></div>
 </div>
 <p>Quickstrom should now be available in your environment:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> quickstrom check &lt;YOUR SPEC FILE&gt; &lt;ORIGIN URL&gt;
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> quickstrom check --browser<span class="o">=</span>firefox &lt;YOUR SPEC FILE&gt; &lt;ORIGIN URL&gt;
 </pre></div>
 </div>
-<p>You need to also run geckodriver for Quickstrom to work. Install it using
-Nix:</p>
+<p>You need to also run a WebDriver server for Quickstrom to work. The guides in
+the Quickstrom documentation use GeckoDriver and Firefox, but you can also
+run with ChromeDriver together with Chrome or Chromium.</p>
+<p>Install GeckoDriver using Nix:</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> nix-env -i geckodriver
 </pre></div>
 </div>

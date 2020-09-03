@@ -5,9 +5,9 @@ This guide assumes you've installed Quickstrom and a compatible WebDriver
 server, as described in one of the :doc:`installation guides <installation>`.
 If you haven't done that already, start there.
 
-To check a specification, you must have a running WebDriver instance on
-``127.0.0.0:4444``. In the rest of this guide we'll use GeckoDriver and
-Firefox. You may also use ChromeDriver together with Chrome or Chromium.
+To check a specification, you must have a running WebDriver server. In the
+rest of this guide we'll use GeckoDriver and Firefox. You may also use
+ChromeDriver together with Chrome or Chromium.
 
 Run the following command in a separate terminal or tab:
 

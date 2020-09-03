@@ -28,7 +28,7 @@ Quickstrom should now be available in your environment:
 
 You need to also run a WebDriver server for Quickstrom to work. The guides in
 the Quickstrom documentation use GeckoDriver and Firefox, but you can also
-run with ChromeDriver together with Chrome or Chromium.
+:doc:`use other browsers and WebDriver servers<../running/cross-browser>`.
 
 Install GeckoDriver using Nix:
 

@@ -8,14 +8,14 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Installing with Nix &mdash; Quickstrom 0.1.0 documentation</title>
+  <title>Troubleshooting &mdash; Quickstrom 0.1.0 documentation</title>
   
 
   
   
   
   
-    <link rel="canonical" href="https://quickstrom.io/installation/nix.html"/>
+    <link rel="canonical" href="https://quickstrom.io/running/troubleshooting.html"/>
   
 
   
@@ -38,8 +38,8 @@
   <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Installing with Docker" href="docker.html" />
-    <link rel="prev" title="Installation" href="../installation.html" />
+    <link rel="next" title="FAQ" href="../faq.html" />
+    <link rel="prev" title="Cross-Browser Testing" href="cross-browser.html" />
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Oswald:wght@500&family=Inconsolata:wght@400;600&display=swap" rel="stylesheet"> 
     <link href="../_static/overrides.css" rel="stylesheet" type="text/css">
 
@@ -88,12 +88,13 @@
             
               <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference</a></li>
-<li class="toctree-l1 current"><a class="reference internal" href="../installation.html">Installation</a><ul class="current">
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Installing with Nix</a></li>
-<li class="toctree-l2"><a class="reference internal" href="docker.html">Installing with Docker</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../running.html">Running</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="checking.html">Checking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cross-browser.html">Cross-Browser Testing</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Troubleshooting</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../running.html">Running</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../faq.html">FAQ</a></li>
 </ul>
 
@@ -140,16 +141,16 @@
     
       <li><a href="../index.html">Docs</a> &raquo;</li>
         
-          <li><a href="../installation.html">Installation</a> &raquo;</li>
+          <li><a href="../running.html">Running</a> &raquo;</li>
         
-      <li>Installing with Nix</li>
+      <li>Troubleshooting</li>
     
     
       <li class="wy-breadcrumbs-aside">
         
             
             
-              <a href="https://github.com/quickstrom/quickstrom/blob/HEAD/docs/source/installation/nix.rst" class="fa fa-github"> Edit on GitHub</a>
+              <a href="https://github.com/quickstrom/quickstrom/blob/HEAD/docs/source/running/troubleshooting.rst" class="fa fa-github"> Edit on GitHub</a>
             
           
         
@@ -163,36 +164,18 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
             
-  <div class="section" id="installing-with-nix">
-<h1>Installing with Nix<a class="headerlink" href="#installing-with-nix" title="Permalink to this headline">¶</a></h1>
-<p>Follow these steps to install Quickstrom using Nix.</p>
-<div class="section" id="prerequisites">
-<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this headline">¶</a></h2>
-<ul class="simple">
-<li><p>Nix (see <a class="reference external" href="https://nix.dev/">nix.dev</a> for installation instructions
-and guides)</p></li>
-</ul>
-</div>
-<div class="section" id="id1">
-<h2>Installing with Nix<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h2>
-<p>To install the <code class="docutils literal notranslate"><span class="pre">quickstrom</span></code> executable, use Cachix and Nix to get the
-executable:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> cachix use quickstrom
-<span class="gp">$</span> nix-env -iA quickstrom -f https://github.com/quickstrom/quickstrom/tarball/main
+  <div class="section" id="troubleshooting">
+<h1>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="no-webdriver-session">
+<h2>No WebDriver Session<a class="headerlink" href="#no-webdriver-session" title="Permalink to this headline">¶</a></h2>
+<p>If you get the following error when using GeckoDriver (especially after
+having successfully run before):</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>quickstrom: user error <span class="o">(</span>E NoSession<span class="o">)</span>
 </pre></div>
 </div>
-<p>Quickstrom should now be available in your environment:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> quickstrom check --browser<span class="o">=</span>firefox &lt;YOUR SPEC FILE&gt; &lt;ORIGIN URL&gt;
-</pre></div>
-</div>
-<p>You need to also run a WebDriver server for Quickstrom to work. The guides in
-the Quickstrom documentation use GeckoDriver and Firefox, but you can also
-<a class="reference internal" href="../running/cross-browser.html"><span class="doc">use other browsers and WebDriver servers</span></a>.</p>
-<p>Install GeckoDriver using Nix:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> nix-env -i geckodriver
-</pre></div>
-</div>
-<p>You’re now ready to <a class="reference internal" href="../running.html"><span class="doc">run Quickstrom</span></a>.</p>
+<p>It’s probably because the WebDriver package in Quickstrom failed to
+clean up its session. This is a known bug. To work around it, restart
+Geckodriver and rerun your Quickstrom command.</p>
 </div>
 </div>
 
@@ -204,10 +187,10 @@ the Quickstrom documentation use GeckoDriver and Firefox, but you can also
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="docker.html" class="btn btn-neutral float-right" title="Installing with Docker" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+        <a href="../faq.html" class="btn btn-neutral float-right" title="FAQ" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
-        <a href="../installation.html" class="btn btn-neutral float-left" title="Installation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+        <a href="cross-browser.html" class="btn btn-neutral float-left" title="Cross-Browser Testing" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
       
     </div>
   

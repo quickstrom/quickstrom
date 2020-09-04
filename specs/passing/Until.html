@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8"/>
+    <title>Button Test</title>
+  </head>
+  <body>
+    <button>Turn me on</button>
+  </body>
+  <script>
+    var button = document.querySelector("button");
+    function toggle() {
+      const next = 
+        button.textContent === "Turn me on" ? 
+        "Turn me off" : 
+        "Turn me on";
+      button.textContent = next;
+    }
+    button.addEventListener("click", toggle);
+  </script>
+</html>

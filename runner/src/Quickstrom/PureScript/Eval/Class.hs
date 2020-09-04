@@ -17,3 +17,4 @@ class (MonadError EvalError m, MonadFix m) => MonadEvalQuery m where
   evalQuery :: Expr EvalAnn -> Expr EvalAnn -> m (Value EvalAnn)
   evalNext :: EvalAnn -> Expr EvalAnn -> m (Value EvalAnn)
   evalAlways :: EvalAnn -> Expr EvalAnn -> m (Value EvalAnn)
+  evalUntil :: EvalAnn -> Expr EvalAnn -> Expr EvalAnn -> m (Value EvalAnn)

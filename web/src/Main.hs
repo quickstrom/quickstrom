@@ -34,6 +34,13 @@ import Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import Network.Wai.Middleware.Static
 import qualified Options.Applicative as Options
 import qualified Pipes as Pipes
+import qualified Quickstrom.LogLevel as Quickstrom
+import Quickstrom.Prelude hiding (get, option)
+import qualified Quickstrom.PureScript.Program as Quickstrom
+import qualified Quickstrom.Run as Quickstrom
+import qualified Quickstrom.Browser as Quickstrom
+import qualified Quickstrom.WebDriver.Class as WebDriver
+import qualified Quickstrom.WebDriver.WebDriverW3C as WebDriver
 import System.Directory (canonicalizePath)
 import System.Environment (lookupEnv)
 import System.FilePath ((</>))
@@ -42,11 +49,6 @@ import qualified Text.URI as URI
 import Text.URI.Lens (uriScheme)
 import qualified Text.URI.QQ as URI
 import Web.Scotty.Trans
-import qualified Quickstrom.LogLevel as Quickstrom
-import Quickstrom.Prelude hiding (get, option)
-import qualified Quickstrom.PureScript.Program as Quickstrom
-import qualified Quickstrom.WebDriver.WebDriverW3C as WebDriver
-import qualified Quickstrom.Run as Quickstrom
 
 newtype CheckId = CheckId {unCheckId :: Text}
   deriving (Eq, Show, Generic, Hashable)
@@ -94,19 +96,28 @@ app WebOptions {..} Env {..} = do
         checkId <- CheckId . UUID.toText <$> liftIO UUID.nextRandom
         (eventsIn, eventsOut) <- liftIO (Chan.newChan 1000)
         modifyChecks (HashMap.insert checkId (ScheduledCheck eventsIn eventsOut Nothing))
-        let opts =
+        let wdOpts =
+              WebDriver.WebDriverOptions
+                { webDriverBrowser = Quickstrom.Firefox,
+                  webDriverBrowserBinary = Nothing,
+                  webDriverLogLevel = logLevel,
+                  webDriverHost = "localhost",
+                  webDriverPort = 4444,
+                  webDriverPath = mempty
+                }
+            opts =
               Quickstrom.CheckOptions
                 { checkTests = tests,
                   checkShrinkLevels = shrinkLevels,
                   checkOrigin = originUri,
                   checkMaxActions = maxActions,
                   checkMaxTrailingStateChanges = maxTrailingStateChanges,
-                  checkWebDriverLogLevel = logLevel
+                  checkWebDriverOptions = wdOpts
                 }
         let action = do
               result <-
                 Pipes.runEffect
-                  ( Pipes.for (Quickstrom.check opts WebDriver.runWebDriver spec) \event ->
+                  ( Pipes.for (Quickstrom.check opts (WebDriver.runWebDriver wdOpts) spec) \event ->
                       liftIO (Chan.writeChan eventsIn event)
                   )
               modifyCheck checkId (\c -> c {scheduledCheckResult = Just (Right result)})

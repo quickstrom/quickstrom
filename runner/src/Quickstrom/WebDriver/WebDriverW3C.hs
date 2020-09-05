@@ -14,10 +14,12 @@ module Quickstrom.WebDriver.WebDriverW3C where
 import Control.Lens
 import Control.Monad (Monad (fail))
 import Control.Monad.Catch (MonadThrow (..))
+import qualified Control.Monad.Script.Http as ScriptHttp
 import Control.Monad.Trans.Class (MonadTrans)
 import Control.Monad.Trans.Identity (IdentityT (..))
 import qualified Data.Aeson as JSON
 import Data.Aeson.Lens
+import qualified Data.HashMap.Strict as HashMap
 import Data.String (String)
 import qualified Data.String as String
 import qualified Data.Text as Text
@@ -70,7 +72,10 @@ runWebDriver :: MonadIO m => WebDriverOptions -> WebDriverW3C m b -> m b
 runWebDriver WebDriverOptions {..} (WebDriverW3C ma) = do
   mgr <- liftIO (Http.newManager Http.defaultManagerSettings)
   let httpOptions :: Wreq.Options
-      httpOptions = Wreq.defaults & Wreq.manager .~ Right mgr
+      httpOptions =
+        Wreq.defaults
+          & Wreq.manager .~ Right mgr
+          & Wreq.headers .~ [("Content-Type", "application/json; charset=utf-8")]
   execWebDriverT (reconfigure defaultWebDriverConfig httpOptions) ma >>= \case
     (Right x, _, _) -> pure x
     (Left err, _, _) -> liftIO (fail (show err))
@@ -79,7 +84,7 @@ runWebDriver WebDriverOptions {..} (WebDriverW3C ma) = do
       c
         { _environment =
             (_environment c)
-              { _logEntryPrinter = \_ _ -> Nothing,
+              { _logEntryPrinter = logPrinter,
                 _env =
                   defaultWDEnv
                     { _remoteHostname = toS webDriverHost,
@@ -90,6 +95,13 @@ runWebDriver WebDriverOptions {..} (WebDriverW3C ma) = do
           _initialState = defaultWebDriverState {_httpOptions = httpOptions},
           _evaluator = liftIO . _evaluator c
         }
+    logPrinter opts logEntry =
+      let minSeverity = case webDriverLogLevel of
+            LogDebug -> ScriptHttp.LogDebug
+            LogInfo -> ScriptHttp.LogInfo
+            LogWarn -> ScriptHttp.LogWarning
+            LogError -> ScriptHttp.LogError
+       in WebDriver.basicLogEntryPrinter opts {WebDriver._logMinSeverity = minSeverity} logEntry
 
 -- | Mostly the same as the non-exported definition in 'Web.Api.WebDriver.Endpoints'.
 runIsolated ::

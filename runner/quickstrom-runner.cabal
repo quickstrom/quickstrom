@@ -37,6 +37,7 @@ common shared-deps
                     , QuickCheck
                     , random
                     , scientific
+                    , script-monad
                     , text
                     , transformers
                     , unordered-containers

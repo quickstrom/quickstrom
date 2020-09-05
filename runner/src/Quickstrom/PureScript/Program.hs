@@ -45,6 +45,7 @@ import Quickstrom.PureScript.Value
 import qualified Quickstrom.Result as Quickstrom
 import qualified Quickstrom.Specification as Quickstrom
 import qualified Quickstrom.Trace as Quickstrom
+import qualified Data.Text.Internal.Search as Text
 
 initialEnv :: Eval r m => Env' m
 initialEnv =
@@ -320,6 +321,7 @@ foreignFunctions =
       (ffName "Data.Semigroup" "concatArray", foreignFunction (op2 ((<>) @(Vector (Value EvalAnn))))),
       (ffName "Data.String.CodePoints" "_unsafeCodePointAt0", foreignFunction unsafeCodePointAt0),
       (ffName "Data.String.CodePoints" "_toCodePointArray", foreignFunction toCodePointArray),
+      (ffName "Data.String.CodeUnits" "_indexOf", foreignFunction codeUnitsIndexOf),
       (ffName "Data.String.CodeUnits" "drop", foreignFunction (op2 Text.drop)),
       (ffName "Data.String.CodeUnits" "length", foreignFunction (op1 Text.length)),
       notSupported (ffName "Data.String.Common" "_localeCompare"),
@@ -468,3 +470,5 @@ foreignFunctions =
     unsafeCodePointAt0 _ t = pure (ord (Text.index t 0))
     unit :: Monad m => Ret m (Value EvalAnn)
     unit = pure (VObject mempty)
+    codeUnitsIndexOf :: Applicative m => (Int -> Ret m (Value EvalAnn)) -> Value EvalAnn -> Text -> Text -> Ret m (Value EvalAnn)
+    codeUnitsIndexOf just nothing x s = maybe (pure nothing) just (headMay (Text.indices x s))

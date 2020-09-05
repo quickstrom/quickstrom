@@ -1,11 +1,9 @@
+/**
+ * NOTE: This file is only stubs, and only used to please the
+ * PureScript compiler. The code in this file isn't run by Quickstrom,
+ * and shouldn't be run anywhere else.
+ */
 "use strict";
-
-var queriedElements = {};
-
-queriedElements[".todoapp .filters .selected"] = [];
-queriedElements[".todo-list li input[type=checkbox]"] = [];
-queriedElements[".new-todo"] = [];
-queriedElements[".todoapp .todo-count strong"] = [];
 
 exports.next = function(x) { return x; };
 exports.always = function(x) { return true; };

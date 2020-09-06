@@ -1,5 +1,5 @@
-Example: Record Player
-======================
+Writing Your First Specification
+================================
 
 The following specifies a record player, featuring a button that toggles
 between the paused and playing states. Let's say the HTML for the record

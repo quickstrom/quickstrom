@@ -103,5 +103,4 @@ the ``examples`` in the Quickstrom repository:
 * `RecordPlayer.spec.purs <https://github.com/quickstrom/quickstrom/blob/main/examples/RecordPlayer.spec.purs>`__
 
 Download the files and check them yourself, after you've
-:doc:`installed <../installation>` and learned :doc:`how to
-test<../running>` using Quickstrom.
+:doc:`installed <../installation>` Quickstrom.

@@ -9,7 +9,7 @@ More documentation on how to use Quickstrom will be written, including
 tutorials and how-to guides. For now, head over to the `example
 specifications and webapps
 <https://github.com/quickstrom/quickstrom/tree/main/examples>`__ to
-study further. Feel free to ask question by contacting `@owickstrom
+study further. Feel free to ask questions by contacting `@owickstrom
 <https://twitter.com/owickstrom>`__ on Twitter.
 
 When you’re ready to run Quickstrom on your own, see

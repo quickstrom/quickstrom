@@ -46,11 +46,16 @@ or pause.
 
    proposition :: Boolean
    proposition =
-     let playing = buttonText == Just "Pause"
-         paused = buttonText == Just "Play"
-         play = paused && next playing
-         pause = playing && next paused
-     in paused && always (play || pause)
+     let
+       playing = buttonText == Just "Pause"
+   
+       paused = buttonText == Just "Play"
+   
+       play = paused && next playing
+   
+       pause = playing && next paused
+     in
+       paused && always (play || pause)
 
 The last line, ``paused && always (play || pause)``,
 can be read in English as:
@@ -63,20 +68,39 @@ player. We get a minimal behavior that violates the specification:
 
 .. code-block:: console
 
-   $ quickstrom check RecordPlayer.spec.purs record-player.html
-   Running test with size: 10
+   $ quickstrom check examples/RecordPlayer.spec.purs examples/RecordPlayer.html
+   Running 10 tests...
    Test failed. Shrinking...
+
    1. State
      • .play-pause
-         - textContent = "Play"
+         -
+            - property "textContent" = "Play"
    2. click button[0]
    3. State
      • .play-pause
-         - textContent = "Pause"
+         -
+            - property "textContent" = "Pause"
    4. click button[0]
    5. State
      • .play-pause
-         - textContent = "undefined"
+         -
+            - property "textContent" = ""
 
-Although not highlighted, the last item with the ``undefined`` text is
-where we have our problem. Looks like pausing broke the record player!
+   Failed after 1 tests and 3 levels of shrinking.
+
+
+Although not highlighted, the last item with the blank text is where
+we have our problem. Looks like pausing broke the record player!
+
+Try It Yourself
+---------------
+
+You'll find this complete specification and broken implementation in
+the ``examples`` in the Quickstrom repository:
+
+* `RecordPlayer.html <https://github.com/quickstrom/quickstrom/blob/main/examples/RecordPlayer.html>`__
+* `RecordPlayer.spec.purs <https://github.com/quickstrom/quickstrom/blob/main/examples/RecordPlayer.spec.purs>`__
+
+Download the files and check them yourself, after you've
+:doc:`installed <../installation>` Quickstrom.

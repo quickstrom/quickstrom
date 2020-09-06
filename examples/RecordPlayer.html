@@ -1,0 +1,42 @@
+<!doctype html>
+<!-- The following is a stripped-down record player, featuring a
+button that toggles between the paused and playing states. It's used
+together with `RecordPlayer.spec.purs` for demo purposes. -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8"/>
+    <title>Record Player Example</title>
+  </head>
+  <body>
+    <div class="record-player">
+      <nav>
+        <button class="play-pause">Play</button>
+      </nav>
+    </div>
+    <script>
+      const playPause = document.querySelector(".record-player .play-pause");
+      let currentState = "paused";
+
+      function playPauseLabel(state) {
+          switch (state) {
+          case "playing":
+              return "Pause";
+          case "paused":
+              "Play";
+          }
+      }
+      
+      playPause.addEventListener("click", () => {
+          switch (currentState) {
+          case "playing":
+              currentState = "paused";
+              break;
+          case "paused":
+              currentState = "playing";
+              break;
+          }
+          playPause.textContent = playPauseLabel(currentState);
+      });
+    </script>
+  </body>
+</html>

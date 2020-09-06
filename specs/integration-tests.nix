@@ -70,6 +70,13 @@ in makeTests {
     browser = browsers.firefox;
     expectedExitCode = 0;
   };
+  until = {
+    spec = ./passing/Until.spec.purs;
+    origin = "$src/passing/Until.html";
+    options = "--max-actions=50";
+    browser = browsers.firefox;
+    expectedExitCode = 0;
+  };
   ReactButton = {
     spec = ./passing/ReactButton.spec.purs;
     origin = "$src/passing/ReactButton.html";

@@ -9,4 +9,5 @@ fit together at a high level.
    how-it-works
    specification-language
    checking
+   trailing-state-changes
    troubleshooting

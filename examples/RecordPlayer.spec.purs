@@ -1,7 +1,6 @@
 -- The following specifies a record player, featuring a button that
 -- toggles between the paused and playing states. The system under
 -- test in this case is `RecordPlayer.html`.
-
 module ToggleSpecification where
 
 import Quickstrom
@@ -30,21 +29,40 @@ proposition =
     paused = buttonText == Just "Play"
 
     -- The `play` transition means going from `paused` to `playing`
-    play = paused && next playing
+    play =
+     paused
+        && next playing
+        && timeDisplayText
+        == next timeDisplayText
 
     -- The `pause` transition means going from `playing` to `paused`
-    pause = playing && next paused
-  in
+    pause =
+      playing
+        && next paused
+        && timeDisplayText
+        == next timeDisplayText
 
+    -- The `tick` transitions happens when we're in `playing`,
+    -- changing the time display's text
+    tick =
+      playing
+        && next playing
+        && timeDisplayText
+        /= next timeDisplayText
+  in
     -- This last part is the central part of the specification,
     -- describing the initial state and the possible transitions. It
     -- can be read in English as:
-    -- 
+    --
     --   Initially, the record player is paused, and from there on one
     --   can either play or pause, indefinitely.
-    paused && always (play || pause)
+    paused && always (play || pause || tick)
 
 -- This helper definition finds an optional text for the play/pause
 -- button.
 buttonText :: Maybe String
 buttonText = map _.textContent (queryOne ".play-pause" { textContent })
+
+-- This helper definition finds an optional text for the time display.
+timeDisplayText :: Maybe String
+timeDisplayText = map _.textContent (queryOne ".time-display" { textContent })

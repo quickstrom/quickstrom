@@ -79,7 +79,7 @@ QUICKSTROM_LIBRARY_DIR=dsl/output cabal test
 These are run in CI. They can be run locally using Nix:
 
 ```
-$ nix build -f specs/integration-tests.nix
+$ nix build -f integration-tests/default.nix
 ```
 
 ## Formatting

@@ -21,4 +21,4 @@ Interested? Let’s get started!
 Staying Updated
 ---------------
 
-Sign up for the `the newsletter <https://buttondown.email/webcheck>`_.
+Sign up for the `the newsletter <https://buttondown.email/quickstrom>`_.

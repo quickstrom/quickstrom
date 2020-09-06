@@ -92,3 +92,16 @@ player. We get a minimal behavior that violates the specification:
 
 Although not highlighted, the last item with the blank text is where
 we have our problem. Looks like pausing broke the record player!
+
+Try It Yourself
+---------------
+
+You'll find this complete specification and broken implementation in
+the ``examples`` in the Quickstrom repository:
+
+* `RecordPlayer.html <https://github.com/quickstrom/quickstrom/blob/main/examples/RecordPlayer.html>`__
+* `RecordPlayer.spec.purs <https://github.com/quickstrom/quickstrom/blob/main/examples/RecordPlayer.spec.purs>`__
+
+Download the files and check them yourself, after you've
+:doc:`installed <../installation>` and learned :doc:`how to
+test<../running>` using Quickstrom.

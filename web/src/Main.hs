@@ -1,54 +1,56 @@
-{-# LANGUAGE BlockArguments #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE BlockArguments        #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DeriveAnyClass        #-}
+{-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NamedFieldPuns        #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE QuasiQuotes           #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TupleSections         #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE ViewPatterns          #-}
 
 module Main where
 
 import qualified Control.Concurrent.Chan.Unagi.Bounded as Chan
-import Control.Lens hiding (argument)
-import qualified Data.Aeson as JSON
-import qualified Data.Binary.Builder as Builder
-import Data.HashMap.Strict (HashMap)
-import qualified Data.HashMap.Strict as HashMap
-import qualified Data.Text.Lazy as TL
-import Data.Text.Prettyprint.Doc
-import Data.Text.Prettyprint.Doc.Render.Text (renderStrict)
-import qualified Data.UUID as UUID
-import qualified Data.UUID.V4 as UUID
-import qualified Network.HTTP.Types as HTTP
-import Network.Wai (Middleware, pathInfo, responseLBS)
-import Network.Wai.EventSource (ServerEvent (..), eventSourceAppIO)
-import Network.Wai.Middleware.RequestLogger (logStdoutDev)
-import Network.Wai.Middleware.Static
-import qualified Options.Applicative as Options
-import qualified Pipes as Pipes
-import qualified Quickstrom.Browser as Quickstrom
-import qualified Quickstrom.LogLevel as Quickstrom
-import Quickstrom.Prelude hiding (get, option)
-import qualified Quickstrom.PureScript.Program as Quickstrom
-import qualified Quickstrom.Run as Quickstrom
-import qualified Quickstrom.WebDriver.Class as WebDriver
-import qualified Quickstrom.WebDriver.WebDriverW3C as WebDriver
-import System.Directory (canonicalizePath)
-import System.Environment (lookupEnv)
-import System.FilePath ((</>))
-import Text.URI (URI)
-import qualified Text.URI as URI
-import Text.URI.Lens (uriScheme)
-import qualified Text.URI.QQ as URI
-import Web.Scotty.Trans
+import           Control.Lens                          hiding (argument)
+import qualified Data.Aeson                            as JSON
+import qualified Data.Binary.Builder                   as Builder
+import           Data.HashMap.Strict                   (HashMap)
+import qualified Data.HashMap.Strict                   as HashMap
+import qualified Data.Text.Lazy                        as TL
+import           Data.Text.Prettyprint.Doc
+import           Data.Text.Prettyprint.Doc.Render.Text (renderStrict)
+import qualified Data.UUID                             as UUID
+import qualified Data.UUID.V4                          as UUID
+import qualified Network.HTTP.Types                    as HTTP
+import           Network.Wai                           (Middleware, pathInfo,
+                                                        responseLBS)
+import           Network.Wai.EventSource               (ServerEvent (..),
+                                                        eventSourceAppIO)
+import           Network.Wai.Middleware.RequestLogger  (logStdoutDev)
+import           Network.Wai.Middleware.Static
+import qualified Options.Applicative                   as Options
+import qualified Pipes                                 as Pipes
+import qualified Quickstrom.Browser                    as Quickstrom
+import qualified Quickstrom.LogLevel                   as Quickstrom
+import           Quickstrom.Prelude                    hiding (get, option)
+import qualified Quickstrom.PureScript.Program         as Quickstrom
+import qualified Quickstrom.Run                        as Quickstrom
+import qualified Quickstrom.WebDriver.Class            as WebDriver
+import qualified Quickstrom.WebDriver.WebDriverW3C     as WebDriver
+import           System.Directory                      (canonicalizePath)
+import           System.Environment                    (lookupEnv)
+import           System.FilePath                       ((</>))
+import           Text.URI                              (URI)
+import qualified Text.URI                              as URI
+import           Text.URI.Lens                         (uriScheme)
+import qualified Text.URI.QQ                           as URI
+import           Web.Scotty.Trans
 
 newtype CheckId = CheckId {unCheckId :: Text}
   deriving (Eq, Show, Generic, Hashable)
@@ -58,9 +60,9 @@ data Env = Env {modules :: Quickstrom.Modules, webOptions :: WebOptions, schedul
 type App = ScottyT TL.Text (ReaderT Env IO) ()
 
 data ScheduledCheck = ScheduledCheck
-  { scheduledCheckEventsIn :: Chan.InChan Quickstrom.CheckEvent,
+  { scheduledCheckEventsIn  :: Chan.InChan Quickstrom.CheckEvent,
     scheduledCheckEventsOut :: Chan.OutChan Quickstrom.CheckEvent,
-    scheduledCheckResult :: Maybe (Either Text Quickstrom.CheckResult)
+    scheduledCheckResult    :: Maybe (Either Text Quickstrom.CheckResult)
   }
 
 data SpecForm = SpecForm {code :: Text, origin :: Text}
@@ -112,6 +114,7 @@ app WebOptions {..} Env {..} = do
                   checkOrigin = originUri,
                   checkMaxActions = maxActions,
                   checkMaxTrailingStateChanges = maxTrailingStateChanges,
+                  checkTrailingStateChangeTimeout = Quickstrom.Timeout trailingStateChangeTimeout,
                   checkWebDriverOptions = wdOpts
                 }
         let action = do
@@ -172,14 +175,15 @@ renderString = toS . renderStrict . layoutPretty defaultLayoutOptions
 -- * Options
 
 data WebOptions = WebOptions
-  { libraryPath :: Maybe FilePath,
-    staticFilesPath :: FilePath,
-    tests :: Int,
-    shrinkLevels :: Int,
-    maxActions :: Quickstrom.Size,
-    maxTrailingStateChanges :: Int,
-    logLevel :: Quickstrom.LogLevel,
-    baseUri :: Text
+  { libraryPath                :: Maybe FilePath,
+    staticFilesPath            :: FilePath,
+    tests                      :: Int,
+    shrinkLevels               :: Int,
+    maxActions                 :: Quickstrom.Size,
+    maxTrailingStateChanges    :: Int,
+    trailingStateChangeTimeout :: Word64,
+    logLevel                   :: Quickstrom.LogLevel,
+    baseUri                    :: Text
   }
 
 optParser :: Options.Parser WebOptions
@@ -226,6 +230,13 @@ optParser =
           <> Options.metavar "NUMBER"
           <> Options.long "max-trailing-state-changes"
           <> Options.help "Maximum number of trailing state changes to await"
+      )
+    <*> Options.option
+      Options.auto
+      ( Options.value 0
+          <> Options.metavar "NUMBER"
+          <> Options.long "trailing-state-change-timeout"
+          <> Options.help "The initial timeout for awaited state changes (doubles with each await)"
       )
     <*> Options.option
       (Options.eitherReader Quickstrom.parseLogLevel)

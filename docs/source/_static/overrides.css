@@ -21,11 +21,18 @@ h6 {
   font-weight: 500;
 }
 
-a:link {
-  color: rgba(83, 41, 170, 1);
+.rst-content blockquote {
+  font-style: italic;
 }
-a:hover {
+
+.rst-content .document a {
   text-decoration: underline;
+}
+a:link {
+  color: rgb(83, 41, 170);
+}
+a:visited {
+  color: rgba(44, 25, 83, 1) 0%,
 }
 
 .wy-menu-vertical a:active {
@@ -79,4 +86,7 @@ a:hover {
   -moz-user-select: none; /* Firefox all */
   -ms-user-select: none; /* IE 10+ */
   user-select: none; /* Likely future */
+}
+.highlighttable .linenos {
+    color: #888;
 }

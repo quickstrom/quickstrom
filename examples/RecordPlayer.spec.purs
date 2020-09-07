@@ -30,7 +30,7 @@ proposition =
 
     -- The `play` transition means going from `paused` to `playing`
     play =
-     paused
+      paused
         && next playing
         && timeDisplayText
         == next timeDisplayText

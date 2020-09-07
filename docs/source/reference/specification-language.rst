@@ -62,10 +62,11 @@ a ``Maybe``.
 Temporal Operators
 ------------------
 
-In Quickstrom specifications, there are two temporal operators:
+In Quickstrom specifications, there are three temporal operators:
 
 -  ``next :: forall a. a -> a``
--  ``always :: forall a. a -> a``
+-  ``always :: Boolean -> Boolean``
+-  ``until :: Boolean -> Boolean -> Boolean``
 
 They change the *modality* of the sub-expression, i.e. in what state of
 the recorded behavior it is evaluated.
@@ -84,6 +85,24 @@ Let’s say we have the following proposition:
 In every observed state the sub-expression must evaluate to ``true`` for
 the proposition to be true. In this case, the text content of the ``h1``
 must always be “Home”.
+
+Until
+~~~~~
+
+Until takes two parmeters: the prerequisite condition and the final condition.
+The prerequisite must hold ``true`` in all states until the final condition is
+``true``.
+
+.. code-block:: haskell
+
+   proposition = until (loading == Just "loading...") (title == Just "Home")
+
+   loading = map _.textContent (queryOne "loading" { textContent })
+   title = map _.textContent (queryOne "h1" { textContent })
+
+In this case, we presumably load the “Home” text from somewhere else,
+so we wait until the loading is done, and then assert that the title must be
+set accordingly.
 
 Next
 ~~~~

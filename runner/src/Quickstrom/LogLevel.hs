@@ -1,8 +1,9 @@
 {-# LANGUAGE LambdaCase #-}
+
 module Quickstrom.LogLevel where
 
-import Quickstrom.Prelude
 import Data.String (String)
+import Quickstrom.Prelude
 
 data LogLevel = LogDebug | LogInfo | LogWarn | LogError
   deriving (Eq, Ord)

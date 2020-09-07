@@ -5,7 +5,7 @@ let
   browsers = {
     firefox = {
       name = "firefox";
-      binary = "${pkgs.firefox}/bin/firefox";
+      binary = "/home/vlad/.nix-profile/bin/firefox";
       server =
         "geckodriver --host 127.0.0.1 --port 4444 --marionette-host 127.0.0.1 --marionette-port 4445";
       buildInputs = [pkgs.geckodriver pkgs.firefox];

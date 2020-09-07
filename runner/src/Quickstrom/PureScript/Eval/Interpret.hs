@@ -45,7 +45,6 @@ import Quickstrom.PureScript.Eval.Error
 import Quickstrom.PureScript.Eval.Name
 import Quickstrom.PureScript.Value
 
-
 pattern BuiltIn :: Text -> a -> Expr a -> Expr a
 pattern BuiltIn name ann p <- CF.App ann (CF.Var _ (P.Qualified (Just (P.ModuleName "Quickstrom")) (P.Ident name))) p
 

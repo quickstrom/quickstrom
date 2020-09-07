@@ -3,10 +3,10 @@
 
 module Quickstrom.Action where
 
+import Data.Aeson (ToJSON)
 import GHC.Generics (Generic)
 import Quickstrom.Element
 import Quickstrom.Prelude
-import Data.Aeson (ToJSON)
 
 data Selected = Selected Selector Int
   deriving (Eq, Show, Generic, ToJSON)

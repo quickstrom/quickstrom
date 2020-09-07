@@ -34,11 +34,11 @@ import Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import Network.Wai.Middleware.Static
 import qualified Options.Applicative as Options
 import qualified Pipes as Pipes
+import qualified Quickstrom.Browser as Quickstrom
 import qualified Quickstrom.LogLevel as Quickstrom
 import Quickstrom.Prelude hiding (get, option)
 import qualified Quickstrom.PureScript.Program as Quickstrom
 import qualified Quickstrom.Run as Quickstrom
-import qualified Quickstrom.Browser as Quickstrom
 import qualified Quickstrom.WebDriver.Class as WebDriver
 import qualified Quickstrom.WebDriver.WebDriverW3C as WebDriver
 import System.Directory (canonicalizePath)

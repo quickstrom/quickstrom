@@ -16,14 +16,14 @@ import Data.Vector (Vector)
 import qualified Data.Vector as Vector
 import Language.PureScript (nullSourceSpan)
 import Protolude
-import System.Environment (lookupEnv)
-import Test.Tasty.Hspec hiding (Selector)
 import qualified Quickstrom.Element as Quickstrom
 import Quickstrom.PureScript.Eval
 import Quickstrom.PureScript.ForeignFunction
 import Quickstrom.PureScript.Pretty
 import Quickstrom.PureScript.Program
 import Quickstrom.Trace (ObservedState (..))
+import System.Environment (lookupEnv)
+import Test.Tasty.Hspec hiding (Selector)
 
 loadModules :: IO Modules
 loadModules = do
@@ -65,9 +65,6 @@ spec_purescript = beforeAll loadModules $ do
       eval' [mempty] "convertNum" p `shouldBe` Right (1.0 :: Double)
     it "runs state monad" $ \p -> do
       eval' [mempty] "testState" p `shouldBe` Right (0 :: Int)
-    let paragraphWithTextState :: Text -> ObservedState
-        paragraphWithTextState t =
-          ObservedState (HashMap.singleton "p" [HashMap.singleton (Quickstrom.Property "textContent") (JSON.String t)])
     it "returns one queried element's state" $ \p -> do
       eval'
         [paragraphWithTextState "hello"]
@@ -97,6 +94,29 @@ spec_purescript = beforeAll loadModules $ do
       eval' [] "tla5" p `shouldBe` Right True
     it "tla6" $ \p -> do
       eval' [mempty] "tla6" p `shouldBe` Right True
+    it "tla7" $ \p -> do
+      eval' [mempty] "tla7" p `shouldBe` Right True
+    it "tla8" $ \p -> do
+      eval' [mempty] "tla8" p `shouldBe` Right False
+    it "tla9 with one state" $ \p -> do
+      eval' [mempty] "tla9" p `shouldBe` Right False
+    it "tla9 with two states" $ \p -> do
+      eval' [mempty, mempty] "tla9" p `shouldBe` Right False
+    it "tla10 with zero states" $ \p -> do
+      eval'
+        []
+        "tla10"
+        p
+        `shouldBe` Right False
+    it "tla10 with 3 states" $ \p -> do
+      eval'
+        [ paragraphWithTextState "foo",
+          paragraphWithTextState "bar",
+          paragraphWithTextState "baz"
+        ]
+        "tla10"
+        p
+        `shouldBe` Right True
   describe "TodoMVC" . beforeWith (loadProgram' "test/Quickstrom/PureScriptTest/TodoMVC.spec.purs") $ do
     let todoMvcState :: Text -> Text -> Text -> Vector (Text, Bool) -> [Text] -> ObservedState
         todoMvcState newTodo selected count todoItems filters =
@@ -146,3 +166,7 @@ spec_purescript = beforeAll loadModules $ do
         "proposition"
         p
         `shouldBe` Right False
+
+paragraphWithTextState :: Text -> ObservedState
+paragraphWithTextState t =
+  ObservedState (HashMap.singleton "p" [HashMap.singleton (Quickstrom.Property "textContent") (JSON.String t)])

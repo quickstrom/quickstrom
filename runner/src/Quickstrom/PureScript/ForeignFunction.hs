@@ -27,10 +27,6 @@ import Data.Vector (Vector)
 import qualified Data.Vector as Vector
 import GHC.TypeNats (type (+))
 import Language.PureScript.AST (SourceSpan)
-import Text.Megaparsec (Parsec)
-import qualified Text.Megaparsec as Parsec
-import qualified Text.URI as URI
-import Text.URI (URI)
 import Quickstrom.Action (Action (..))
 import Quickstrom.Element (Selector (..))
 import Quickstrom.Prelude
@@ -39,6 +35,10 @@ import Quickstrom.PureScript.Eval.Error
 import Quickstrom.PureScript.Eval.Interpret
 import Quickstrom.PureScript.Eval.Name
 import Quickstrom.PureScript.Value
+import Text.Megaparsec (Parsec)
+import qualified Text.Megaparsec as Parsec
+import Text.URI (URI)
+import qualified Text.URI as URI
 
 data ForeignFunction m arity where
   Base :: FromHaskellValue a => m a -> ForeignFunction m 0

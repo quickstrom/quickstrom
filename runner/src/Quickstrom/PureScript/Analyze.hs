@@ -12,8 +12,8 @@ import Control.Lens
 import Control.Monad.Fix (MonadFix)
 import Control.Monad.Writer (WriterT, execWriterT, tell)
 import qualified Data.HashMap.Strict as HashMap
-import qualified Data.HashSet as HashSet
 import Data.HashSet (HashSet)
+import qualified Data.HashSet as HashSet
 import qualified Language.PureScript.AST.SourcePos as P
 import qualified Language.PureScript.CoreFn as P
 import qualified Language.PureScript.Names as P
@@ -22,10 +22,9 @@ import Quickstrom.Prelude
 import Quickstrom.PureScript.Eval
 import Quickstrom.Specification (Queries)
 
-data SimpleEvalEnv
-  = SimpleEvalEnv
-      { env :: Env' SimpleEval
-      }
+data SimpleEvalEnv = SimpleEvalEnv
+  { env :: Env' SimpleEval
+  }
   deriving (Generic)
 
 newtype SimpleEval a = SimpleEval (ReaderT SimpleEvalEnv (Except EvalError) a)

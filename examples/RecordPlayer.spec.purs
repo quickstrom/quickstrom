@@ -1,7 +1,6 @@
 -- The following specifies a record player, featuring a button that
 -- toggles between the paused and playing states. The system under
 -- test in this case is `RecordPlayer.html`.
-
 module ToggleSpecification where
 
 import Quickstrom
@@ -35,7 +34,6 @@ proposition =
     -- The `pause` transition means going from `playing` to `paused`
     pause = playing && next paused
   in
-
     -- This last part is the central part of the specification,
     -- describing the initial state and the possible transitions. It
     -- can be read in English as:

@@ -29,11 +29,10 @@ import Quickstrom.PureScript.Eval.Interpret
 import Quickstrom.PureScript.Value
 import Quickstrom.Trace (ObservedState (..))
 
-data WithObservedStatesEnv
-  = WithObservedStatesEnv
-      { env :: Env' WithObservedStates,
-        observedStates :: [ObservedState]
-      }
+data WithObservedStatesEnv = WithObservedStatesEnv
+  { env :: Env' WithObservedStates,
+    observedStates :: [ObservedState]
+  }
   deriving (Generic)
 
 newtype WithObservedStates a = WithObservedStates (ReaderT WithObservedStatesEnv (Except EvalError) a)
@@ -96,9 +95,10 @@ instance MonadEvalQuery WithObservedStates where
     view (field @"observedStates") >>= \case
       [] -> pure (VBool True)
       _ -> do
-        first' <- require (exprSourceSpan p) (Proxy @"VBool") =<< eval p `catchError` \case
-          Undetermined -> pure (VBool True)
-          e -> throwError e
+        first' <-
+          require (exprSourceSpan p) (Proxy @"VBool") =<< eval p `catchError` \case
+            Undetermined -> pure (VBool True)
+            e -> throwError e
         rest' <-
           require (exprSourceSpan p) (Proxy @"VBool")
             =<< local (field @"observedStates" %~ drop 1) (evalAlways ann p)
@@ -108,12 +108,14 @@ instance MonadEvalQuery WithObservedStates where
     view (field @"observedStates") >>= \case
       [] -> pure (VBool False)
       _ -> do
-        doesQHold <- require (exprSourceSpan p) (Proxy @"VBool") =<< eval q `catchError` \case
-          Undetermined -> pure (VBool True)
-          e -> throwError e
-        doesPHold <- require (exprSourceSpan p) (Proxy @"VBool") =<< eval p `catchError` \case
-          Undetermined -> pure (VBool True)
-          e -> throwError e
+        doesQHold <-
+          require (exprSourceSpan p) (Proxy @"VBool") =<< eval q `catchError` \case
+            Undetermined -> pure (VBool False)
+            e -> throwError e
+        doesPHold <-
+          require (exprSourceSpan p) (Proxy @"VBool") =<< eval p `catchError` \case
+            Undetermined -> pure (VBool False)
+            e -> throwError e
         rest' <-
           require (exprSourceSpan p) (Proxy @"VBool")
             =<< local (field @"observedStates" %~ drop 1) (evalUntil ann p q)

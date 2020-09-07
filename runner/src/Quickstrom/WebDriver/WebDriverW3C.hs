@@ -1,12 +1,12 @@
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedLists #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Quickstrom.WebDriver.WebDriverW3C where
@@ -123,7 +123,7 @@ addCaps WebDriverOptions {webDriverBrowser = Firefox, webDriverLogLevel, webDriv
     %~ ( <>
            [ ( "moz:firefoxOptions",
                JSON.Object
-                 [ ("binary", JSON.String (maybe "/usr/bin/firefox" toS webDriverBrowserBinary)),
+                 [ ("binary", JSON.String (maybe "/home/vlad/.nix-profile/bin/firefox" toS webDriverBrowserBinary)),
                    ("args", JSON.Array ["-headless", "-private"]),
                    ("prefs", JSON.Object [("Dom.storage.enabled", JSON.Bool False)]),
                    ( "log",

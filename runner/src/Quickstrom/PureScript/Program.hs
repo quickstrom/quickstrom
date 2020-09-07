@@ -23,6 +23,7 @@ import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Text as Text
+import qualified Data.Text.Internal.Search as Text
 import qualified Data.Text.Read as Text
 import Data.Vector (Vector)
 import qualified Data.Vector as Vector
@@ -31,9 +32,6 @@ import qualified Language.PureScript.CST as CST
 import Language.PureScript.CoreFn hiding (Ann)
 import qualified Language.PureScript.CoreFn as CF
 import Language.PureScript.CoreFn.FromJSON (moduleFromJSON)
-import System.FilePath ((</>))
-import System.FilePath.Glob (glob)
-import Text.Read (read)
 import qualified Quickstrom.Action as Quickstrom
 import qualified Quickstrom.Element as Quickstrom
 import Quickstrom.Prelude hiding (moduleName, uncons)
@@ -45,7 +43,9 @@ import Quickstrom.PureScript.Value
 import qualified Quickstrom.Result as Quickstrom
 import qualified Quickstrom.Specification as Quickstrom
 import qualified Quickstrom.Trace as Quickstrom
-import qualified Data.Text.Internal.Search as Text
+import System.FilePath ((</>))
+import System.FilePath.Glob (glob)
+import Text.Read (read)
 
 initialEnv :: Eval r m => Env' m
 initialEnv =
@@ -78,9 +78,10 @@ loadModuleFromSource modules input =
     Right m -> do
       (result, _) <- withExceptT printErrors . runWriterT . flip runReaderT P.defaultOptions $ do
         (P.Module ss coms moduleName' elaborated exps, env') <- fmap fst . P.runSupplyT 0 $ do
-          desugared <- P.desugar (modulesNamesEnv modules) (modulesExterns modules) [P.importPrim m] >>= \case
-            [d] -> pure d
-            _ -> throwError (P.MultipleErrors mempty)
+          desugared <-
+            P.desugar (modulesNamesEnv modules) (modulesExterns modules) [P.importPrim m] >>= \case
+              [d] -> pure d
+              _ -> throwError (P.MultipleErrors mempty)
           P.runCheck' (P.emptyCheckState (modulesInitEnv modules)) $ P.typeCheckModule desugared
         regrouped <- P.createBindingGroups moduleName' . P.collapseBindingGroups $ elaborated
         let mod'' = P.Module ss coms moduleName' regrouped exps
@@ -104,13 +105,12 @@ loadModuleFromCoreFn path = do
     addNameToDecl :: Text -> Bind CF.Ann -> Bind CF.Ann
     addNameToDecl name = fmap (_1 . field @"spanName" .~ toS name)
 
-data Modules
-  = Modules
-      { modulesCoreFn :: [Module CF.Ann],
-        modulesExterns :: [P.ExternsFile],
-        modulesNamesEnv :: P.Env,
-        modulesInitEnv :: P.Environment
-      }
+data Modules = Modules
+  { modulesCoreFn :: [Module CF.Ann],
+    modulesExterns :: [P.ExternsFile],
+    modulesNamesEnv :: P.Env,
+    modulesInitEnv :: P.Environment
+  }
   deriving (Show)
 
 loadModulesFromCoreFn :: FilePath -> ExceptT Text IO [Module CF.Ann]
@@ -142,12 +142,11 @@ loadLibraryModules quickstromPursDir = runExceptT $ do
         (P.efModuleName e)
         (map ((,P.nullSourceSpan) . P.eiModule) (P.efImports e))
 
-data Program m
-  = Program
-      { programLibraryModules :: Modules,
-        programMain :: Module CF.Ann,
-        programEnv :: Env' m
-      }
+data Program m = Program
+  { programLibraryModules :: Modules,
+    programMain :: Module CF.Ann,
+    programEnv :: Env' m
+  }
 
 moduleQualifiedName :: P.ModuleName -> P.Ident -> Either EvalError QualifiedName
 moduleQualifiedName mn name =
@@ -193,13 +192,12 @@ loadProgram ms input = runExceptT $ do
     ffs :: Eval r m => HashMap QualifiedName (EvalForeignFunction m EvalAnn)
     ffs = map (\(SomeForeignFunction f) -> EvalForeignFunction (evalForeignFunction f)) foreignFunctions
 
-data SpecificationProgram
-  = SpecificationProgram
-      { specificationReadyWhen :: Quickstrom.Selector,
-        specificationActions :: Vector (Int, Quickstrom.Action Quickstrom.Selector),
-        specificationQueries :: Quickstrom.Queries,
-        specificationProgram :: Program WithObservedStates
-      }
+data SpecificationProgram = SpecificationProgram
+  { specificationReadyWhen :: Quickstrom.Selector,
+    specificationActions :: Vector (Int, Quickstrom.Action Quickstrom.Selector),
+    specificationQueries :: Quickstrom.Queries,
+    specificationProgram :: Program WithObservedStates
+  }
 
 instance Quickstrom.Specification SpecificationProgram where
   readyWhen = specificationReadyWhen

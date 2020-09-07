@@ -4,17 +4,16 @@
 
 module Quickstrom.PureScript.Eval.Env where
 
-import qualified Data.HashMap.Strict as HashMap
 import Data.HashMap.Strict (HashMap)
+import qualified Data.HashMap.Strict as HashMap
 import Quickstrom.Prelude
 import Quickstrom.PureScript.Eval.Name
 
-data Env expr value ff ann
-  = Env
-      { envTopLevels :: HashMap QualifiedName (expr ann),
-        envLocals :: HashMap Name (value ann),
-        envForeignFunctions :: HashMap QualifiedName (ff ann)
-      }
+data Env expr value ff ann = Env
+  { envTopLevels :: HashMap QualifiedName (expr ann),
+    envLocals :: HashMap Name (value ann),
+    envForeignFunctions :: HashMap QualifiedName (ff ann)
+  }
   deriving (Generic, Show)
 
 instance Semigroup (Env expr value ff ann) where

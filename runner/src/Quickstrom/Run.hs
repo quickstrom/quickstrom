@@ -28,6 +28,7 @@ module Quickstrom.Run
     CheckResult (..),
     FailingTest (..),
     Size (..),
+    Timeout (..),
     CheckEvent (..),
     TestEvent (..),
     check,
@@ -121,6 +122,7 @@ data CheckOptions = CheckOptions
     checkShrinkLevels :: Int,
     checkOrigin :: URI,
     checkMaxTrailingStateChanges :: Int,
+    checkTrailingStateChangeTimeout :: Timeout,
     checkWebDriverOptions :: WebDriverOptions
   }
 
@@ -254,8 +256,8 @@ takeWhileChanging = Pipes.await >>= loop
 
 observeManyStatesAfter :: WebDriver m => Queries -> Action Selected -> Pipe a (TraceElement ()) (Runner m) ()
 observeManyStatesAfter queries' action = do
-  CheckEnv {checkScripts = scripts, checkOptions = CheckOptions {checkMaxTrailingStateChanges}} <- lift ask
-  lift (runCheckScript (registerNextStateObserver scripts (Timeout 100) queries'))
+  CheckEnv {checkScripts = scripts, checkOptions = CheckOptions {checkMaxTrailingStateChanges, checkTrailingStateChangeTimeout}} <- lift ask
+  lift (runCheckScript (registerNextStateObserver scripts checkTrailingStateChangeTimeout queries'))
   result <- lift (runAction action)
   newState <-
     lift (runCheckScript (awaitNextState scripts)) >>= \case
@@ -264,7 +266,7 @@ observeManyStatesAfter queries' action = do
   Pipes.yield (TraceAction () action result)
   Pipes.yield (TraceState () newState)
   nonStutters <-
-    (loop (Timeout 100) >-> takeWhileChanging >-> Pipes.take checkMaxTrailingStateChanges)
+    (loop checkTrailingStateChangeTimeout >-> takeWhileChanging >-> Pipes.take checkMaxTrailingStateChanges)
       & Pipes.toListM
       & lift
   mapM_ (Pipes.yield . (TraceState ())) nonStutters

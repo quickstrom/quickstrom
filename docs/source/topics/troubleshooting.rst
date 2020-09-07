@@ -1,6 +1,16 @@
 Troubleshooting
 ===============
 
+This documents collects some common problems and tips on how to
+identify what's not working correctly.
+
+If you're troubleshooting a failing Quickstrom check, make sure to
+enable debug logs:
+
+.. code-block:: console
+
+   $ quickstrom check --log-level=DEBUG ...
+ 
 No WebDriver Session
 --------------------
 

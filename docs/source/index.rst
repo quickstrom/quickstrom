@@ -7,18 +7,33 @@ automatically explores your application and presents minimal failing
 examples. Focus your effort on understanding and specifying your system,
 and Quickstrom can test it for you.
 
-Interested? Let’s get started!
+Interested? Let's get started!
 
-.. toctree::
-   :maxdepth: 2
-   :titlesonly:
+Documentation
+-------------
 
-   reference
-   installation
-   running
-   faq
+If you're new to Quickstrom, start here:
+
+* :doc:`installation`: how to get Quickstrom running on your computer
+* :doc:`tutorials/first`: the entry-level tutorial
+
+The documentation is split up into sections depending on the type of
+document:
+
+* :doc:`topics/index`: high-level explanations of concepts and how they fit
+  together
+* :doc:`tutorials/index`: step-by-step guides focused on learning
 
 Staying Updated
 ---------------
 
 Sign up for the `the newsletter <https://buttondown.email/quickstrom>`_.
+
+
+.. toctree::
+   :hidden:
+
+   installation
+   topics/index
+   tutorials/index
+   faq

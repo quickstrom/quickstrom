@@ -9,5 +9,6 @@ fit together at a high level.
    how-it-works
    specification-language
    checking
+   cross-browser
    trailing-state-changes
    troubleshooting

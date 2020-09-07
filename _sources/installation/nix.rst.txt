@@ -26,9 +26,9 @@ Quickstrom should now be available in your environment:
 
    $ quickstrom check --browser=firefox <YOUR SPEC FILE> <ORIGIN URL>
 
-You need to also run a WebDriver server for Quickstrom to work. The guides in
-the Quickstrom documentation use GeckoDriver and Firefox, but you can also
-:doc:`use other browsers and WebDriver servers<../running/cross-browser>`.
+You need to also run a WebDriver server for Quickstrom to work. This
+user documentation mostly uses GeckoDriver and Firefox, but you can
+use other browsers and WebDriver servers.
 
 Install GeckoDriver using Nix:
 
@@ -36,4 +36,4 @@ Install GeckoDriver using Nix:
 
    $ nix-env -i geckodriver
 
-You're now ready to :doc:`run Quickstrom <../running>`.
+You're now ready to :doc:`check webapps using Quickstrom <../topics/checking>`.

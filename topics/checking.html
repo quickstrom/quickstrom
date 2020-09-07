@@ -1,0 +1,281 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Checking &mdash; Quickstrom 0.1.0 documentation</title>
+  
+
+  
+  
+  
+  
+    <link rel="canonical" href="https://quickstrom.io/topics/checking.html"/>
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="&lt;no title&gt;" href="cross-browser.html" />
+    <link rel="prev" title="The Specification Language" href="specification-language.html" />
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Oswald:wght@500&family=Inconsolata:wght@400;600&display=swap" rel="stylesheet"> 
+    <link href="../_static/overrides.css" rel="stylesheet" type="text/css">
+
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: linear-gradient(144deg, rgba(44,25,83,1) 0%, rgba(83,41,170,1) 100%)" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> Quickstrom
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Topics</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="how-it-works.html">How It Works</a></li>
+<li class="toctree-l2"><a class="reference internal" href="specification-language.html">The Specification Language</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Checking</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#cross-browser-testing">Cross-Browser Testing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#webdriver-options">WebDriver Options</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="trailing-state-changes.html">Trailing State Changes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">FAQ</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Quickstrom</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="index.html">Topics</a> &raquo;</li>
+        
+      <li>Checking</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            
+              <a href="https://github.com/quickstrom/quickstrom/blob/HEAD/docs/source/topics/checking.rst" class="fa fa-github"> Edit on GitHub</a>
+            
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="checking">
+<h1>Checking<a class="headerlink" href="#checking" title="Permalink to this headline">¶</a></h1>
+<p>To check a web application against a specification, use the
+<code class="docutils literal notranslate"><span class="pre">quickstrom</span> <span class="pre">check</span></code> command. Supply the path to the specification
+file along with the origin URL.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> quickstrom check <span class="se">\</span>
+   /path/to/my/specification <span class="se">\</span>
+   http://example.com
+</pre></div>
+</div>
+<p>The origin can also be a local file:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> quickstrom check <span class="se">\</span>
+   /path/to/my/specification <span class="se">\</span>
+   /path/to/my/webapp.html
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>To check a specification, you must have a running WebDriver
+server. Most guides in this user documentation use GeckoDriver and
+Firefox. Other options are discussed below.</p>
+</div>
+<div class="section" id="cross-browser-testing">
+<h2>Cross-Browser Testing<a class="headerlink" href="#cross-browser-testing" title="Permalink to this headline">¶</a></h2>
+<p>Quickstrom currently supports these browsers:</p>
+<ul class="simple">
+<li><p>Firefox (<code class="docutils literal notranslate"><span class="pre">firefox</span></code>)</p></li>
+<li><p>Chrome/Chromium (<code class="docutils literal notranslate"><span class="pre">chrome</span></code>)</p></li>
+</ul>
+<p>Unless specified, the default browser used is Firefox. To override,
+use the <code class="docutils literal notranslate"><span class="pre">--browser</span></code> option and set the appropriate browser when
+running the <code class="docutils literal notranslate"><span class="pre">check</span></code> command:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> quickstrom check <span class="se">\</span>
+   --browser<span class="o">=</span>chrome <span class="se">\</span>
+   ... <span class="c1"># more options</span>
+</pre></div>
+</div>
+<p>If you need to specify the executable, use <code class="docutils literal notranslate"><span class="pre">--browser-binary</span></code>:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> quickstrom check <span class="se">\</span>
+   --browser<span class="o">=</span>chrome <span class="se">\</span>
+   --browser-binary<span class="o">=</span>/path/to/google-chrome <span class="se">\</span>
+   ... <span class="c1"># more options</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="webdriver-options">
+<h2>WebDriver Options<a class="headerlink" href="#webdriver-options" title="Permalink to this headline">¶</a></h2>
+<p>If your WebDriver server is running on a different host, port, or path than
+the default (<code class="docutils literal notranslate"><span class="pre">http://127.0.0.1:4444</span></code>), you can override those options:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> quickstrom check <span class="se">\</span>
+   --webdriver-host<span class="o">=</span>hub.example.com <span class="se">\</span>
+   --webdriver-port<span class="o">=</span><span class="m">12345</span> <span class="se">\</span>
+   --webdriver-path<span class="o">=</span><span class="s2">&quot;/wd/hub&quot;</span> <span class="se">\</span>
+   ... <span class="c1"># more options</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="cross-browser.html" class="btn btn-neutral float-right" title="&lt;no title&gt;" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="specification-language.html" class="btn btn-neutral float-left" title="The Specification Language" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020 Oskar Wickström
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

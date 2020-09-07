@@ -8,14 +8,14 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Cross-Browser Testing &mdash; Quickstrom 0.1.0 documentation</title>
+  <title>Topics &mdash; Quickstrom 0.1.0 documentation</title>
   
 
   
   
   
   
-    <link rel="canonical" href="https://quickstrom.io/running/cross-browser.html"/>
+    <link rel="canonical" href="https://quickstrom.io/topics/index.html"/>
   
 
   
@@ -38,8 +38,8 @@
   <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Troubleshooting" href="troubleshooting.html" />
-    <link rel="prev" title="Checking" href="checking.html" />
+    <link rel="next" title="How It Works" href="how-it-works.html" />
+    <link rel="prev" title="Installing with Docker" href="../installation/docker.html" />
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Oswald:wght@500&family=Inconsolata:wght@400;600&display=swap" rel="stylesheet"> 
     <link href="../_static/overrides.css" rel="stylesheet" type="text/css">
 
@@ -87,14 +87,16 @@
             
             
               <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
-<li class="toctree-l1 current"><a class="reference internal" href="../running.html">Running</a><ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Topics</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="how-it-works.html">How It Works</a></li>
+<li class="toctree-l2"><a class="reference internal" href="specification-language.html">The Specification Language</a></li>
 <li class="toctree-l2"><a class="reference internal" href="checking.html">Checking</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Cross-Browser Testing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="trailing-state-changes.html">Trailing State Changes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/index.html">Tutorials</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../faq.html">FAQ</a></li>
 </ul>
 
@@ -141,16 +143,14 @@
     
       <li><a href="../index.html">Docs</a> &raquo;</li>
         
-          <li><a href="../running.html">Running</a> &raquo;</li>
-        
-      <li>Cross-Browser Testing</li>
+      <li>Topics</li>
     
     
       <li class="wy-breadcrumbs-aside">
         
             
             
-              <a href="https://github.com/quickstrom/quickstrom/blob/HEAD/docs/source/running/cross-browser.rst" class="fa fa-github"> Edit on GitHub</a>
+              <a href="https://github.com/quickstrom/quickstrom/blob/HEAD/docs/source/topics/index.rst" class="fa fa-github"> Edit on GitHub</a>
             
           
         
@@ -164,38 +164,37 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
             
-  <div class="section" id="cross-browser-testing">
-<h1>Cross-Browser Testing<a class="headerlink" href="#cross-browser-testing" title="Permalink to this headline">¶</a></h1>
-<p>Quickstrom currently supports these browsers:</p>
-<ul class="simple">
-<li><p>Firefox (<code class="docutils literal notranslate"><span class="pre">firefox</span></code>)</p></li>
-<li><p>Chrome/Chromium (<code class="docutils literal notranslate"><span class="pre">chrome</span></code>)</p></li>
+  <div class="section" id="topics">
+<h1>Topics<a class="headerlink" href="#topics" title="Permalink to this headline">¶</a></h1>
+<p>This section explains how the different parts of Quickstrom work and
+fit together at a high level.</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="how-it-works.html">How It Works</a></li>
+<li class="toctree-l1"><a class="reference internal" href="specification-language.html">The Specification Language</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="specification-language.html#queries">Queries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="specification-language.html#temporal-operators">Temporal Operators</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="specification-language.html#always">Always</a></li>
+<li class="toctree-l3"><a class="reference internal" href="specification-language.html#next">Next</a></li>
 </ul>
-<p>Set the <code class="docutils literal notranslate"><span class="pre">--browser</span></code> option to the appropriate browser when running the
-<code class="docutils literal notranslate"><span class="pre">check</span></code> command:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> quickstrom check <span class="se">\</span>
-   --browser<span class="o">=</span>chrome <span class="se">\</span>
-   ... <span class="c1"># more options</span>
-</pre></div>
-</div>
-<p>If you need to specify the executable, use <code class="docutils literal notranslate"><span class="pre">--browser-binary</span></code>:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> quickstrom check <span class="se">\</span>
-   --browser<span class="o">=</span>chrome <span class="se">\</span>
-   --browser-binary<span class="o">=</span>/path/to/google-chrome <span class="se">\</span>
-   ... <span class="c1"># more options</span>
-</pre></div>
-</div>
-<div class="section" id="webdriver-options">
-<h2>WebDriver Options<a class="headerlink" href="#webdriver-options" title="Permalink to this headline">¶</a></h2>
-<p>If your WebDriver server is running on a different host, port, or path than
-the default (<code class="docutils literal notranslate"><span class="pre">http://127.0.0.1:4444</span></code>), you can override those options:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> quickstrom check <span class="se">\</span>
-   --webdriver-host<span class="o">=</span>hub.example.com <span class="se">\</span>
-   --webdriver-port<span class="o">=</span><span class="m">12345</span> <span class="se">\</span>
-   --webdriver-path<span class="o">=</span><span class="s2">&quot;/wd/hub&quot;</span> <span class="se">\</span>
-   ... <span class="c1"># more options</span>
-</pre></div>
-</div>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="specification-language.html#actions">Actions</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="checking.html">Checking</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="checking.html#cross-browser-testing">Cross-Browser Testing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="checking.html#webdriver-options">WebDriver Options</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="trailing-state-changes.html">Trailing State Changes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="trailing-state-changes.html#command-line-options">Command-Line Options</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#no-webdriver-session">No WebDriver Session</a></li>
+</ul>
+</li>
+</ul>
 </div>
 </div>
 
@@ -207,10 +206,10 @@ the default (<code class="docutils literal notranslate"><span class="pre">http:/
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="troubleshooting.html" class="btn btn-neutral float-right" title="Troubleshooting" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+        <a href="how-it-works.html" class="btn btn-neutral float-right" title="How It Works" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
-        <a href="checking.html" class="btn btn-neutral float-left" title="Checking" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+        <a href="../installation/docker.html" class="btn btn-neutral float-left" title="Installing with Docker" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
       
     </div>
   

@@ -8,14 +8,14 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Checking &mdash; Quickstrom 0.1.0 documentation</title>
+  <title>Trailing State Changes &mdash; Quickstrom 0.1.0 documentation</title>
   
 
   
   
   
   
-    <link rel="canonical" href="https://quickstrom.io/running/checking.html"/>
+    <link rel="canonical" href="https://quickstrom.io/topics/trailing-state-changes.html"/>
   
 
   
@@ -38,8 +38,8 @@
   <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Cross-Browser Testing" href="cross-browser.html" />
-    <link rel="prev" title="Running" href="../running.html" />
+    <link rel="next" title="Troubleshooting" href="troubleshooting.html" />
+    <link rel="prev" title="&lt;no title&gt;" href="cross-browser.html" />
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Oswald:wght@500&family=Inconsolata:wght@400;600&display=swap" rel="stylesheet"> 
     <link href="../_static/overrides.css" rel="stylesheet" type="text/css">
 
@@ -87,14 +87,19 @@
             
             
               <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
-<li class="toctree-l1 current"><a class="reference internal" href="../running.html">Running</a><ul class="current">
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Checking</a></li>
-<li class="toctree-l2"><a class="reference internal" href="cross-browser.html">Cross-Browser Testing</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Topics</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="how-it-works.html">How It Works</a></li>
+<li class="toctree-l2"><a class="reference internal" href="specification-language.html">The Specification Language</a></li>
+<li class="toctree-l2"><a class="reference internal" href="checking.html">Checking</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Trailing State Changes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#command-line-options">Command-Line Options</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/index.html">Tutorials</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../faq.html">FAQ</a></li>
 </ul>
 
@@ -141,16 +146,16 @@
     
       <li><a href="../index.html">Docs</a> &raquo;</li>
         
-          <li><a href="../running.html">Running</a> &raquo;</li>
+          <li><a href="index.html">Topics</a> &raquo;</li>
         
-      <li>Checking</li>
+      <li>Trailing State Changes</li>
     
     
       <li class="wy-breadcrumbs-aside">
         
             
             
-              <a href="https://github.com/quickstrom/quickstrom/blob/HEAD/docs/source/running/checking.rst" class="fa fa-github"> Edit on GitHub</a>
+              <a href="https://github.com/quickstrom/quickstrom/blob/HEAD/docs/source/topics/trailing-state-changes.rst" class="fa fa-github"> Edit on GitHub</a>
             
           
         
@@ -164,29 +169,52 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
             
-  <div class="section" id="checking">
-<h1>Checking<a class="headerlink" href="#checking" title="Permalink to this headline">¶</a></h1>
-<p>This guide assumes you’ve installed Quickstrom and a compatible WebDriver
-server, as described in one of the <a class="reference internal" href="../installation.html"><span class="doc">installation guides</span></a>. If you haven’t done that already, start there.</p>
-<p>To check a specification, you must have a running WebDriver server. In the
-rest of this guide we’ll use GeckoDriver and Firefox. Learn more about using
-other browsers and WebDriver servers in <a class="reference internal" href="cross-browser.html"><span class="doc">Cross-Browser Testing</span></a>.</p>
-<p>Run the following command in a separate terminal or tab:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> geckodriver
+  <div class="section" id="trailing-state-changes">
+<h1>Trailing State Changes<a class="headerlink" href="#trailing-state-changes" title="Permalink to this headline">¶</a></h1>
+<p>By default, Quickstrom only listens for a single DOM state change
+after each action it performs. This behavior can be overriden, so that
+it waits for a configurable number of <em>trailing state changes</em>.</p>
+<p>The term <em>trailing</em> refers primarily to asynchronous changes that
+occur as result of an action. For example:</p>
+<ul class="simple">
+<li><p>the user agent clicks a button</p></li>
+<li><p>a loading indicator is shown immediately</p></li>
+<li><p>an HTTP request is performed</p></li>
+<li><p>later, the result of the request is printed</p></li>
+</ul>
+<p>In this example, the loading indicator being shown is the first state
+change. The result of the HTTP request being shown is the trailing
+state change.</p>
+<p>Some systems change the state of the DOM without any dependence on
+user action, and do so infinitely. For instance, a clock (hopefully)
+keeps ticking, no matter what the user is up to. It doesn’t make much
+sense to think of a clock’s behavior as “trailing”. However, it’s
+still possible to test a finite subsequence of such a behavior using
+Quickstrom and trailing state changes.</p>
+<div class="section" id="command-line-options">
+<h2>Command-Line Options<a class="headerlink" href="#command-line-options" title="Permalink to this headline">¶</a></h2>
+<p>The command-line options available are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">--max-trailing-state-changes=NUMBER</span></code>: how many trailing state
+changes Quickstrom will try to observe.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--trailing-state-change-timeout=MILLISECONDS</span></code>: maximum time
+that it will wait for a change of DOM state. The timeout doubles
+for every subsequent trailing state change that is awaited.</p></li>
+</ul>
+<p>Let’s say we set the following options:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>--max-trailing-state-changes<span class="o">=</span><span class="m">3</span>
+--trailing-state-change-timeout<span class="o">=</span><span class="m">200</span>
 </pre></div>
 </div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The invocation of geckodriver might look different depending on which
-installation method you’ve used.</p>
-</div>
-<p>Next, run <code class="docutils literal notranslate"><span class="pre">quickstrom</span> <span class="pre">check</span></code> and supply the path to the specification
-file along with the origin URL (can also be a local file path).</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> quickstrom check <span class="se">\</span>
-   --browser<span class="o">=</span>firefox <span class="se">\</span>
-   /path/to/my/specification <span class="se">\</span>
-   http://example.com
-</pre></div>
+<p>Then the DOM state changes would be observed at the following times:</p>
+<ol class="arabic simple">
+<li><p>initial state, immediately</p></li>
+<li><p>first trailing state, at most 200ms after #1</p></li>
+<li><p>second trailing state, at most 400ms after #2</p></li>
+<li><p>third trailing state, at most 800ms after #3</p></li>
+</ol>
+<p>It’s <em>at most</em>, because Quickstrom observes the DOM and can pick up
+state changes as they happen.</p>
 </div>
 </div>
 
@@ -198,10 +226,10 @@ file along with the origin URL (can also be a local file path).</p>
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="cross-browser.html" class="btn btn-neutral float-right" title="Cross-Browser Testing" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+        <a href="troubleshooting.html" class="btn btn-neutral float-right" title="Troubleshooting" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
-        <a href="../running.html" class="btn btn-neutral float-left" title="Running" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+        <a href="cross-browser.html" class="btn btn-neutral float-left" title="&lt;no title&gt;" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
       
     </div>
   

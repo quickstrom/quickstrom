@@ -65,7 +65,7 @@ Temporal Operators
 In Quickstrom specifications, there are two temporal operators:
 
 -  ``next :: forall a. a -> a``
--  ``always :: forall a. a -> a``
+-  ``always :: Boolean -> Boolean``
 
 They change the *modality* of the sub-expression, i.e. in what state of
 the recorded behavior it is evaluated.

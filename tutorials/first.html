@@ -92,7 +92,7 @@
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Tutorials</a><ul class="current">
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Writing Your First Specification</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#installing-with-docker">Installing with Docker</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#downloading-the-record-player">Downloading the Record Player</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#downloading-the-audio-player">Downloading the Audio Player</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#a-minimal-specification">A Minimal Specification</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#running-tests">Running Tests</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#refining-the-proposition">Refining the Proposition</a><ul>
@@ -177,7 +177,7 @@
             
   <div class="section" id="writing-your-first-specification">
 <h1>Writing Your First Specification<a class="headerlink" href="#writing-your-first-specification" title="Permalink to this headline">¶</a></h1>
-<p>In this tutorial we’ll specify and check a <em>record player</em> web
+<p>In this tutorial we’ll specify and check a <em>audio player</em> web
 application.</p>
 <p>The tutorial assumes you’re running on a Unix-like operating system
 and that you have Docker installed. You may run this using <a class="reference internal" href="../installation.html"><span class="doc">other
@@ -202,19 +202,19 @@ haven’t already.</p>
 </pre></div>
 </div>
 </div>
-<div class="section" id="downloading-the-record-player">
-<h2>Downloading the Record Player<a class="headerlink" href="#downloading-the-record-player" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="downloading-the-audio-player">
+<h2>Downloading the Audio Player<a class="headerlink" href="#downloading-the-audio-player" title="Permalink to this headline">¶</a></h2>
 <p>The web application we’re going to test is already written. Download
 it using <code class="docutils literal notranslate"><span class="pre">curl</span></code>:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> curl -L https://github.com/quickstrom/quickstrom/raw/main/examples/RecordPlayer.html -o RecordPlayer.html
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> curl -L https://github.com/quickstrom/quickstrom/raw/main/examples/AudioPlayer.html -o AudioPlayer.html
 </pre></div>
 </div>
-<p>If you don’t have <code class="docutils literal notranslate"><span class="pre">curl</span></code> installed, you can download it from <a class="reference external" href="https://github.com/quickstrom/quickstrom/raw/main/examples/RecordPlayer.html">this
+<p>If you don’t have <code class="docutils literal notranslate"><span class="pre">curl</span></code> installed, you can download it from <a class="reference external" href="https://github.com/quickstrom/quickstrom/raw/main/examples/AudioPlayer.html">this
 URL</a>
 using your web browser. Make sure you’ve saved it our working
-directory as <code class="docutils literal notranslate"><span class="pre">RecordPlayer.html</span></code>.</p>
+directory as <code class="docutils literal notranslate"><span class="pre">AudioPlayer.html</span></code>.</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> ls
-<span class="go">RecordPlayer.html</span>
+<span class="go">AudioPlayer.html</span>
 </pre></div>
 </div>
 <p>OK! We’re now ready to write our specification.</p>
@@ -222,10 +222,10 @@ directory as <code class="docutils literal notranslate"><span class="pre">Record
 <div class="section" id="a-minimal-specification">
 <h2>A Minimal Specification<a class="headerlink" href="#a-minimal-specification" title="Permalink to this headline">¶</a></h2>
 <p>We’ll begin by writing a specification that always makes the tests
-pass. Create a new file <code class="docutils literal notranslate"><span class="pre">RecordPlayer.spec.purs</span></code> and open it in your
+pass. Create a new file <code class="docutils literal notranslate"><span class="pre">AudioPlayer.spec.purs</span></code> and open it in your
 text editor of choice:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> touch RecordPlayer.spec.purs
-<span class="gp">$</span> <span class="nv">$EDITOR</span> RecordPlayer.spec.purs
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> touch AudioPlayer.spec.purs
+<span class="gp">$</span> <span class="nv">$EDITOR</span> AudioPlayer.spec.purs
 </pre></div>
 </div>
 <p>Type in the following in the file and save it:</p>
@@ -240,12 +240,12 @@ text editor of choice:</p>
  9
 10
 11
-12</pre></div></td><td class="code"><div class="highlight"><pre><span></span><span class="kr">module</span> <span class="nn">RecordPlayer</span> <span class="kr">where</span>
+12</pre></div></td><td class="code"><div class="highlight"><pre><span></span><span class="kr">module</span> <span class="nn">AudioPlayer</span> <span class="kr">where</span>
 
 <span class="kr">import</span> <span class="nn">Quickstrom</span>
 
 <span class="nf">readyWhen</span> <span class="ow">::</span> <span class="kt">Selector</span>
-<span class="nf">readyWhen</span> <span class="ow">=</span> <span class="s">&quot;.record-player&quot;</span>
+<span class="nf">readyWhen</span> <span class="ow">=</span> <span class="s">&quot;.audio-player&quot;</span>
 
 <span class="nf">actions</span> <span class="ow">::</span> <span class="kt">Actions</span>
 <span class="nf">actions</span> <span class="ow">=</span> <span class="n">clicks</span>
@@ -257,15 +257,15 @@ text editor of choice:</p>
 <p>A bunch of things are going on in this specification. Let’s break it
 down line by line:</p>
 <ul class="simple">
-<li><p><strong>Line 1:</strong> We declare the <code class="docutils literal notranslate"><span class="pre">RecordPlayer</span></code> module. We must have a
+<li><p><strong>Line 1:</strong> We declare the <code class="docutils literal notranslate"><span class="pre">AudioPlayer</span></code> module. We must have a
 module declaration, but it can be named whatever we like.</p></li>
 <li><p><strong>Line 3:</strong> We import the Quickstrom module. This is where we find definitions
 for DOM queries, actions, and logic.</p></li>
 <li><p><strong>Line 5-6:</strong> The <code class="docutils literal notranslate"><span class="pre">readyWhen</span></code> definitions tells Quickstrom to wait
 until there’s an element in the DOM that matches this CSS
 selector. After this condition holds, Quickstrom will start
-performing actions. We use <code class="docutils literal notranslate"><span class="pre">.record-player</span></code> as the selector, which
-is used as a class for the top-level <code class="docutils literal notranslate"><span class="pre">div</span></code> in the record player
+performing actions. We use <code class="docutils literal notranslate"><span class="pre">.audio-player</span></code> as the selector, which
+is used as a class for the top-level <code class="docutils literal notranslate"><span class="pre">div</span></code> in the audio player
 web application.</p></li>
 <li><p><strong>Line 8-9:</strong> Our <code class="docutils literal notranslate"><span class="pre">actions</span></code> specify what Quickstrom should try to do. In
 this case, we want it to click any available links, buttons, and so
@@ -294,7 +294,7 @@ background:</p>
 </div>
 <p>Notice how we mount the current working directory to
 <code class="docutils literal notranslate"><span class="pre">/my-first-spec</span></code> in the container. We do this to let Chrome access
-the <code class="docutils literal notranslate"><span class="pre">RecordPlayer.html</span></code> file.</p>
+the <code class="docutils literal notranslate"><span class="pre">AudioPlayer.html</span></code> file.</p>
 <p>Now, let’s launch Quickstrom:</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> docker run --rm <span class="se">\</span>
   --network quickstrom <span class="se">\</span>
@@ -305,8 +305,8 @@ the <code class="docutils literal notranslate"><span class="pre">RecordPlayer.ht
   --webdriver-path<span class="o">=</span>/wd/hub <span class="se">\</span>
   --browser<span class="o">=</span>chrome <span class="se">\</span>
   --tests<span class="o">=</span><span class="m">5</span> <span class="se">\</span>
-  /my-first-spec/RecordPlayer.spec.purs <span class="se">\</span>
-  /my-first-spec/RecordPlayer.html
+  /my-first-spec/AudioPlayer.spec.purs <span class="se">\</span>
+  /my-first-spec/AudioPlayer.html
 </pre></div>
 </div>
 <p>After some time, you should see an output like the following:</p>
@@ -346,13 +346,13 @@ Passed 5 tests.
 <p>Cool, we have it running! So far, though, we haven’t done much
 testing. Quickstrom is happily clicking its way around the web
 application, but whatever it finds we say “it’s all good!” Let’s make
-our specification actually say something about the record player’s
+our specification actually say something about the audio player’s
 intended behavior.</p>
 </div>
 <div class="section" id="refining-the-proposition">
 <h2>Refining the Proposition<a class="headerlink" href="#refining-the-proposition" title="Permalink to this headline">¶</a></h2>
-<p>Our system under test (<code class="docutils literal notranslate"><span class="pre">RecordPlayer.html</span></code>) is very simple. There’s
-a button for playing or pausing the record player, and there’s a time
+<p>Our system under test (<code class="docutils literal notranslate"><span class="pre">AudioPlayer.html</span></code>) is very simple. There’s
+a button for playing or pausing the audio player, and there’s a time
 display.</p>
 <p>Our specification will describe how the player should
 work. Informally, we state the requirements as follows:</p>
@@ -371,7 +371,7 @@ go to the <code class="docutils literal notranslate"><span class="pre">paused</s
 Quickstrom.</p>
 <p>Begin by defining two helpers, extracting the text content of the time
 display and the play/pause button. Place these definitions at the
-bottom of <code class="docutils literal notranslate"><span class="pre">RecordPlayer.spec.purs</span></code>:</p>
+bottom of <code class="docutils literal notranslate"><span class="pre">AudioPlayer.spec.purs</span></code>:</p>
 <div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">timeDisplayText</span> <span class="ow">::</span> <span class="kt">Maybe</span> <span class="kt">String</span>
 <span class="nf">timeDisplayText</span> <span class="ow">=</span>
   <span class="n">map</span> <span class="kr">_</span><span class="o">.</span><span class="n">textContent</span> <span class="p">(</span><span class="n">queryOne</span> <span class="s">&quot;.time-display&quot;</span> <span class="p">{</span> <span class="n">textContent</span> <span class="p">})</span>
@@ -404,8 +404,9 @@ hole is a part of a program that is yet to be written, like a
 placeholder. We’ll fill the holes one by one.</p>
 <p>The last line in our proposition can be read in English as:</p>
 <blockquote>
-<div><p>Initially, the record player is paused, and from there on one can either
-play or pause, or the time can tick while playing, indefinitely.</p>
+<div><p>Initially, the record player is paused. From that point, one can
+either play or pause, or the time can tick while playing, all
+indefinitely.</p>
 </div></blockquote>
 <p>OK, onto filling the holes!</p>
 <div class="section" id="filling-holes-in-the-specification">
@@ -426,7 +427,7 @@ element.</p>
 <div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">buttonText</span> <span class="o">==</span> <span class="kt">Just</span> <span class="s">&quot;Play&quot;</span>
 </pre></div>
 </div>
-<p>We’ve now specified the two states that the record player can be
+<p>We’ve now specified the two states that the audio player can be
 in. Next, we specify <em>transitions</em> between states.</p>
 <p>The definition <code class="docutils literal notranslate"><span class="pre">play</span></code> describes a transition between <code class="docutils literal notranslate"><span class="pre">paused</span></code> and
 <code class="docutils literal notranslate"><span class="pre">playing</span></code>. Replace the hole <code class="docutils literal notranslate"><span class="pre">?play</span></code> with the following expression:</p>
@@ -454,7 +455,34 @@ the time display changes its text on a <code class="docutils literal notranslate
   <span class="o">&amp;&amp;</span> <span class="n">timeDisplayText</span> <span class="o">/=</span> <span class="n">next</span> <span class="n">timeDisplayText</span>
 </pre></div>
 </div>
-<p>That’s it! We’ve filled all the holes. Let’s run some more tests.</p>
+<p>That’s it! We’ve filled all the holes. Your proposition should now
+look something like this:</p>
+<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">proposition</span> <span class="ow">::</span> <span class="kt">Boolean</span>
+<span class="nf">proposition</span> <span class="ow">=</span>
+  <span class="kr">let</span>
+    <span class="n">playing</span> <span class="ow">=</span> <span class="n">buttonText</span> <span class="o">==</span> <span class="kt">Just</span> <span class="s">&quot;Pause&quot;</span>
+
+    <span class="n">paused</span> <span class="ow">=</span> <span class="n">buttonText</span> <span class="o">==</span> <span class="kt">Just</span> <span class="s">&quot;Play&quot;</span>
+
+    <span class="n">play</span> <span class="ow">=</span>
+      <span class="n">paused</span>
+        <span class="o">&amp;&amp;</span> <span class="n">next</span> <span class="n">playing</span>
+        <span class="o">&amp;&amp;</span> <span class="n">timeDisplayText</span> <span class="o">==</span> <span class="n">next</span> <span class="n">timeDisplayText</span>
+
+    <span class="n">pause</span> <span class="ow">=</span>
+      <span class="n">playing</span>
+        <span class="o">&amp;&amp;</span> <span class="n">next</span> <span class="n">paused</span>
+        <span class="o">&amp;&amp;</span> <span class="n">timeDisplayText</span> <span class="o">==</span> <span class="n">next</span> <span class="n">timeDisplayText</span>
+
+    <span class="n">tick</span> <span class="ow">=</span>
+      <span class="n">playing</span>
+        <span class="o">&amp;&amp;</span> <span class="n">next</span> <span class="n">playing</span>
+        <span class="o">&amp;&amp;</span> <span class="n">timeDisplayText</span> <span class="o">/=</span> <span class="n">next</span> <span class="n">timeDisplayText</span>
+  <span class="kr">in</span>
+    <span class="n">paused</span> <span class="o">&amp;&amp;</span> <span class="n">always</span> <span class="p">(</span><span class="n">play</span> <span class="o">||</span> <span class="n">pause</span> <span class="o">||</span> <span class="n">tick</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Let’s run some more tests.</p>
 </div>
 </div>
 <div class="section" id="catching-a-bug">
@@ -469,8 +497,8 @@ the time display changes its text on a <code class="docutils literal notranslate
   --webdriver-path<span class="o">=</span>/wd/hub <span class="se">\</span>
   --browser<span class="o">=</span>chrome <span class="se">\</span>
   --tests<span class="o">=</span><span class="m">5</span> <span class="se">\</span>
-  /my-first-spec/RecordPlayer.spec.purs <span class="se">\</span>
-  /my-first-spec/RecordPlayer.html
+  /my-first-spec/AudioPlayer.spec.purs <span class="se">\</span>
+  /my-first-spec/AudioPlayer.html
 </pre></div>
 </div>
 <p>You’ll see a bunch of output, involving shrinking tests and more. It
@@ -497,7 +525,7 @@ Failed after 1 tests and 4 levels of shrinking.
 </div>
 <p>Whoops, look at that! It says that the time display shows
 “NaN:NaN”. We’ve found our first bug using Quickstrom!</p>
-<p>Open up <code class="docutils literal notranslate"><span class="pre">RecordPlayer.html</span></code>, and change the following lines near the
+<p>Open up <code class="docutils literal notranslate"><span class="pre">AudioPlayer.html</span></code>, and change the following lines near the
 end of the file:</p>
 <div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span><span class="k">case</span> <span class="s2">&quot;pause&quot;</span><span class="o">:</span>
     <span class="k">return</span> <span class="nx">await</span> <span class="nx">inPaused</span><span class="p">();</span>
@@ -510,11 +538,11 @@ end of the file:</p>
 </div>
 <p>Rerun the tests using the same <code class="docutils literal notranslate"><span class="pre">quickstrom</span></code> command as before. All
 tests pass!</p>
-<p>Are we done? Is the record player correct? Not quite.</p>
+<p>Are we done? Is the audio player correct? Not quite.</p>
 </div>
 <div class="section" id="transitions-based-on-time">
 <h2>Transitions Based on Time<a class="headerlink" href="#transitions-based-on-time" title="Permalink to this headline">¶</a></h2>
-<p>The record player transitions between states mainly as a result of
+<p>The audio player transitions between states mainly as a result of
 user action, but not only. A <code class="docutils literal notranslate"><span class="pre">tick</span></code> transition (going from
 <code class="docutils literal notranslate"><span class="pre">playing</span></code> to <code class="docutils literal notranslate"><span class="pre">playing</span></code> with an incremented progress) is triggered
 by <em>time</em>.</p>
@@ -533,8 +561,8 @@ time-related behavior of the application.</p>
   --tests<span class="o">=</span><span class="m">5</span> <span class="se">\</span>
 <span class="hll">  --max-trailing-state-changes<span class="o">=</span><span class="m">1</span> <span class="se">\</span>
 </span><span class="hll">  --trailing-state-change-timeout<span class="o">=</span><span class="m">500</span> <span class="se">\</span>
-</span>  /my-first-spec/RecordPlayer.spec.purs <span class="se">\</span>
-  /my-first-spec/RecordPlayer.html
+</span>  /my-first-spec/AudioPlayer.spec.purs <span class="se">\</span>
+  /my-first-spec/AudioPlayer.html
 </pre></div>
 </div>
 <p>You should see output such as the following:</p>

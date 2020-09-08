@@ -328,7 +328,37 @@ the time display changes its text on a ``tick``. Replace the hole
      && next playing
      && timeDisplayText /= next timeDisplayText
 
-That's it! We've filled all the holes. Let's run some more tests.
+That's it! We've filled all the holes. Your proposition should now
+look something like this:
+
+.. code-block:: haskell
+
+   proposition :: Boolean
+   proposition =
+     let
+       playing = buttonText == Just "Pause"
+   
+       paused = buttonText == Just "Play"
+   
+       play =
+         paused
+           && next playing
+           && timeDisplayText == next timeDisplayText
+   
+       pause =
+         playing
+           && next paused
+           && timeDisplayText == next timeDisplayText
+   
+       tick =
+         playing
+           && next playing
+           && timeDisplayText /= next timeDisplayText
+     in
+       paused && always (play || pause || tick)
+
+
+Let's run some more tests.
 
 Catching a Bug
 --------------

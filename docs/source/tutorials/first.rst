@@ -259,8 +259,9 @@ placeholder. We'll fill the holes one by one.
 
 The last line in our proposition can be read in English as:
 
-    Initially, the audio player is paused, and from there on one can either
-    play or pause, or the time can tick while playing, indefinitely.
+    Initially, the record player is paused. From that point, one can
+    either play or pause, or the time can tick while playing, all
+    indefinitely.
 
 OK, onto filling the holes!
 

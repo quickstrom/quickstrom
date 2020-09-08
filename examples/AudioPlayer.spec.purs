@@ -54,8 +54,9 @@ proposition =
     -- describing the initial state and the possible transitions. It
     -- can be read in English as:
     --
-    --   Initially, the audio player is paused, and from there on one
-    --   can either play or pause, indefinitely.
+    --   Initially, the record player is paused. From that point, one
+    --   can either play or pause, or the time can tick while playing,
+    --   all indefinitely.
     paused && always (play || pause || tick)
 
 -- This helper definition finds an optional text for the play/pause

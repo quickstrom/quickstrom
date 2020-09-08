@@ -79,6 +79,7 @@ Type in the following in the file and save it:
    module AudioPlayer where
 
    import Quickstrom
+   import Data.Maybe (Maybe(..))
 
    readyWhen :: Selector
    readyWhen = ".audio-player"
@@ -94,18 +95,19 @@ down line by line:
 
 * **Line 1:** We declare the ``AudioPlayer`` module. We must have a
   module declaration, but it can be named whatever we like.
-* **Line 3:** We import the Quickstrom module. This is where we find definitions
-  for DOM queries, actions, and logic.
-* **Line 5-6:** The ``readyWhen`` definitions tells Quickstrom to wait
+* **Line 3-4:** We import the Quickstrom module. This is where we find
+  definitions for DOM queries, actions, and logic. We also import
+  `Maybe` which we'll need later on.
+* **Line 6-7:** The ``readyWhen`` definitions tells Quickstrom to wait
   until there's an element in the DOM that matches this CSS
   selector. After this condition holds, Quickstrom will start
   performing actions. We use ``.audio-player`` as the selector, which
   is used as a class for the top-level ``div`` in the audio player
   web application.
-* **Line 8-9:** Our ``actions`` specify what Quickstrom should try to do. In
+* **Line 9-10:** Our ``actions`` specify what Quickstrom should try to do. In
   this case, we want it to click any available links, buttons, and so
   on.
-* **Line 11-12:** In the ``proposition``, we specify what it means for
+* **Line 12-13:** In the ``proposition``, we specify what it means for
   the system under test to be valid. For now, we'll set it to
   ``true``, meaning that *any* behavior is considered valid.
 

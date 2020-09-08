@@ -1,7 +1,7 @@
 -- The following specifies a audio player, featuring a button that
 -- toggles between the paused and playing states. The system under
 -- test in this case is `RecordPlayer.html`.
-module ToggleSpecification where
+module AudioPlayer where
 
 import Quickstrom
 import Data.Maybe (Maybe(..))

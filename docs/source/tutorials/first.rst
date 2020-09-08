@@ -1,7 +1,7 @@
 Writing Your First Specification
 ================================
 
-In this tutorial we'll specify and check a *audio player* web
+In this tutorial we'll specify and check an *audio player* web
 application.
 
 The tutorial assumes you're running on a Unix-like operating system

@@ -240,9 +240,11 @@ text editor of choice:</p>
  9
 10
 11
-12</pre></div></td><td class="code"><div class="highlight"><pre><span></span><span class="kr">module</span> <span class="nn">AudioPlayer</span> <span class="kr">where</span>
+12
+13</pre></div></td><td class="code"><div class="highlight"><pre><span></span><span class="kr">module</span> <span class="nn">AudioPlayer</span> <span class="kr">where</span>
 
 <span class="kr">import</span> <span class="nn">Quickstrom</span>
+<span class="kr">import</span> <span class="nn">Data.Maybe</span> <span class="p">(</span><span class="kt">Maybe</span><span class="p">(</span><span class="o">..</span><span class="p">))</span>
 
 <span class="nf">readyWhen</span> <span class="ow">::</span> <span class="kt">Selector</span>
 <span class="nf">readyWhen</span> <span class="ow">=</span> <span class="s">&quot;.audio-player&quot;</span>
@@ -259,18 +261,19 @@ down line by line:</p>
 <ul class="simple">
 <li><p><strong>Line 1:</strong> We declare the <code class="docutils literal notranslate"><span class="pre">AudioPlayer</span></code> module. We must have a
 module declaration, but it can be named whatever we like.</p></li>
-<li><p><strong>Line 3:</strong> We import the Quickstrom module. This is where we find definitions
-for DOM queries, actions, and logic.</p></li>
-<li><p><strong>Line 5-6:</strong> The <code class="docutils literal notranslate"><span class="pre">readyWhen</span></code> definitions tells Quickstrom to wait
+<li><p><strong>Line 3-4:</strong> We import the Quickstrom module. This is where we find
+definitions for DOM queries, actions, and logic. We also import
+<cite>Maybe</cite> which we’ll need later on.</p></li>
+<li><p><strong>Line 6-7:</strong> The <code class="docutils literal notranslate"><span class="pre">readyWhen</span></code> definitions tells Quickstrom to wait
 until there’s an element in the DOM that matches this CSS
 selector. After this condition holds, Quickstrom will start
 performing actions. We use <code class="docutils literal notranslate"><span class="pre">.audio-player</span></code> as the selector, which
 is used as a class for the top-level <code class="docutils literal notranslate"><span class="pre">div</span></code> in the audio player
 web application.</p></li>
-<li><p><strong>Line 8-9:</strong> Our <code class="docutils literal notranslate"><span class="pre">actions</span></code> specify what Quickstrom should try to do. In
+<li><p><strong>Line 9-10:</strong> Our <code class="docutils literal notranslate"><span class="pre">actions</span></code> specify what Quickstrom should try to do. In
 this case, we want it to click any available links, buttons, and so
 on.</p></li>
-<li><p><strong>Line 11-12:</strong> In the <code class="docutils literal notranslate"><span class="pre">proposition</span></code>, we specify what it means for
+<li><p><strong>Line 12-13:</strong> In the <code class="docutils literal notranslate"><span class="pre">proposition</span></code>, we specify what it means for
 the system under test to be valid. For now, we’ll set it to
 <code class="docutils literal notranslate"><span class="pre">true</span></code>, meaning that <em>any</em> behavior is considered valid.</p></li>
 </ul>

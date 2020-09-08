@@ -1,22 +1,22 @@
 <!doctype html>
-<!-- The following is a stripped-down record player, featuring a
+<!-- The following is a stripped-down audio player, featuring a
 button that toggles between the paused and playing states. It's used
-together with `RecordPlayer.spec.purs` for demo purposes. -->
+together with `AudioPlayer.spec.purs` for demo purposes. -->
 <html lang="en">
   <head>
     <meta charset="UTF-8"/>
-    <title>Record Player Example</title>
+    <title>Audio Player Example</title>
   </head>
   <body>
-    <div class="record-player">
+    <div class="audio-player">
       <time class="time-display">00:00</time>
       <nav>
         <button class="play-pause">Play</button>
       </nav>
     </div>
     <script>
-      const timeDisplay = document.querySelector(".record-player .time-display");
-      const playPause = document.querySelector(".record-player .play-pause");
+      const timeDisplay = document.querySelector(".audio-player .time-display");
+      const playPause = document.querySelector(".audio-player .play-pause");
 
       function listen(eventName, element) {
           return new Promise(resolve => {

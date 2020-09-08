@@ -1,4 +1,4 @@
--- The following specifies a record player, featuring a button that
+-- The following specifies a audio player, featuring a button that
 -- toggles between the paused and playing states. The system under
 -- test in this case is `RecordPlayer.html`.
 module ToggleSpecification where
@@ -9,7 +9,7 @@ import Data.Maybe (Maybe(..))
 -- The specification waits for a DOM element matching a CSS selector
 -- before taking any action.
 readyWhen :: Selector
-readyWhen = ".record-player"
+readyWhen = ".audio-player"
 
 -- Based on the specified actions, Quickstrom generates click actions
 -- for all clickable elements.
@@ -54,7 +54,7 @@ proposition =
     -- describing the initial state and the possible transitions. It
     -- can be read in English as:
     --
-    --   Initially, the record player is paused, and from there on one
+    --   Initially, the audio player is paused, and from there on one
     --   can either play or pause, indefinitely.
     paused && always (play || pause || tick)
 

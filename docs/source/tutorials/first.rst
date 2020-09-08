@@ -1,7 +1,7 @@
 Writing Your First Specification
 ================================
 
-In this tutorial we'll specify and check a *record player* web
+In this tutorial we'll specify and check a *audio player* web
 application.
 
 The tutorial assumes you're running on a Unix-like operating system
@@ -35,7 +35,7 @@ Finally, we need a WebDriver server. Pull that down with Docker, too:
 
    docker pull selenium/standalone-chrome:3.141.59-20200826
 
-Downloading the Record Player
+Downloading the Audio Player
 -----------------------------
 
 The web application we're going to test is already written. Download
@@ -43,19 +43,19 @@ it using ``curl``:
 
 .. code-block:: console
                 
-   $ curl -L https://github.com/quickstrom/quickstrom/raw/main/examples/RecordPlayer.html -o RecordPlayer.html
+   $ curl -L https://github.com/quickstrom/quickstrom/raw/main/examples/AudioPlayer.html -o AudioPlayer.html
 
 
 If you don't have ``curl`` installed, you can download it from `this
 URL
-<https://github.com/quickstrom/quickstrom/raw/main/examples/RecordPlayer.html>`__
+<https://github.com/quickstrom/quickstrom/raw/main/examples/AudioPlayer.html>`__
 using your web browser. Make sure you've saved it our working
-directory as ``RecordPlayer.html``.
+directory as ``AudioPlayer.html``.
 
 .. code-block:: console
                 
    $ ls
-   RecordPlayer.html
+   AudioPlayer.html
 
 OK! We're now ready to write our specification.
 
@@ -63,25 +63,25 @@ A Minimal Specification
 -----------------------
 
 We'll begin by writing a specification that always makes the tests
-pass. Create a new file ``RecordPlayer.spec.purs`` and open it in your
+pass. Create a new file ``AudioPlayer.spec.purs`` and open it in your
 text editor of choice:
 
 .. code-block:: console
                 
-   $ touch RecordPlayer.spec.purs
-   $ $EDITOR RecordPlayer.spec.purs
+   $ touch AudioPlayer.spec.purs
+   $ $EDITOR AudioPlayer.spec.purs
 
 Type in the following in the file and save it:
 
 .. code-block:: haskell
    :linenos:
 
-   module RecordPlayer where
+   module AudioPlayer where
 
    import Quickstrom
 
    readyWhen :: Selector
-   readyWhen = ".record-player"
+   readyWhen = ".audio-player"
 
    actions :: Actions
    actions = clicks
@@ -92,15 +92,15 @@ Type in the following in the file and save it:
 A bunch of things are going on in this specification. Let's break it
 down line by line:
 
-* **Line 1:** We declare the ``RecordPlayer`` module. We must have a
+* **Line 1:** We declare the ``AudioPlayer`` module. We must have a
   module declaration, but it can be named whatever we like.
 * **Line 3:** We import the Quickstrom module. This is where we find definitions
   for DOM queries, actions, and logic.
 * **Line 5-6:** The ``readyWhen`` definitions tells Quickstrom to wait
   until there's an element in the DOM that matches this CSS
   selector. After this condition holds, Quickstrom will start
-  performing actions. We use ``.record-player`` as the selector, which
-  is used as a class for the top-level ``div`` in the record player
+  performing actions. We use ``.audio-player`` as the selector, which
+  is used as a class for the top-level ``div`` in the audio player
   web application.
 * **Line 8-9:** Our ``actions`` specify what Quickstrom should try to do. In
   this case, we want it to click any available links, buttons, and so
@@ -134,7 +134,7 @@ background:
 
 Notice how we mount the current working directory to
 ``/my-first-spec`` in the container. We do this to let Chrome access
-the ``RecordPlayer.html`` file.
+the ``AudioPlayer.html`` file.
 
 Now, let's launch Quickstrom:
 
@@ -149,8 +149,8 @@ Now, let's launch Quickstrom:
      --webdriver-path=/wd/hub \
      --browser=chrome \
      --tests=5 \
-     /my-first-spec/RecordPlayer.spec.purs \
-     /my-first-spec/RecordPlayer.html
+     /my-first-spec/AudioPlayer.spec.purs \
+     /my-first-spec/AudioPlayer.html
 
 After some time, you should see an output like the following:
 
@@ -192,14 +192,14 @@ After some time, you should see an output like the following:
 Cool, we have it running! So far, though, we haven't done much
 testing. Quickstrom is happily clicking its way around the web
 application, but whatever it finds we say "it's all good!" Let's make
-our specification actually say something about the record player's
+our specification actually say something about the audio player's
 intended behavior.
 
 Refining the Proposition
 ------------------------
 
-Our system under test (``RecordPlayer.html``) is very simple. There's
-a button for playing or pausing the record player, and there's a time
+Our system under test (``AudioPlayer.html``) is very simple. There's
+a button for playing or pausing the audio player, and there's a time
 display.
 
 Our specification will describe how the player should
@@ -220,7 +220,7 @@ Quickstrom.
 
 Begin by defining two helpers, extracting the text content of the time
 display and the play/pause button. Place these definitions at the
-bottom of ``RecordPlayer.spec.purs``:
+bottom of ``AudioPlayer.spec.purs``:
 
 .. code-block:: haskell
 
@@ -259,8 +259,9 @@ placeholder. We'll fill the holes one by one.
 
 The last line in our proposition can be read in English as:
 
-    Initially, the record player is paused, and from there on one can either
-    play or pause, or the time can tick while playing, indefinitely.
+    Initially, the record player is paused. From that point, one can
+    either play or pause, or the time can tick while playing, all
+    indefinitely.
 
 OK, onto filling the holes!
 
@@ -289,7 +290,7 @@ Similary, the ``paused`` state is defined as the button text being
 
    buttonText == Just "Play"
 
-We've now specified the two states that the record player can be
+We've now specified the two states that the audio player can be
 in. Next, we specify *transitions* between states.
 
 
@@ -327,7 +328,37 @@ the time display changes its text on a ``tick``. Replace the hole
      && next playing
      && timeDisplayText /= next timeDisplayText
 
-That's it! We've filled all the holes. Let's run some more tests.
+That's it! We've filled all the holes. Your proposition should now
+look something like this:
+
+.. code-block:: haskell
+
+   proposition :: Boolean
+   proposition =
+     let
+       playing = buttonText == Just "Pause"
+   
+       paused = buttonText == Just "Play"
+   
+       play =
+         paused
+           && next playing
+           && timeDisplayText == next timeDisplayText
+   
+       pause =
+         playing
+           && next paused
+           && timeDisplayText == next timeDisplayText
+   
+       tick =
+         playing
+           && next playing
+           && timeDisplayText /= next timeDisplayText
+     in
+       paused && always (play || pause || tick)
+
+
+Let's run some more tests.
 
 Catching a Bug
 --------------
@@ -345,8 +376,8 @@ Run Quickstrom again, now that we've fleshed out the specification:
      --webdriver-path=/wd/hub \
      --browser=chrome \
      --tests=5 \
-     /my-first-spec/RecordPlayer.spec.purs \
-     /my-first-spec/RecordPlayer.html
+     /my-first-spec/AudioPlayer.spec.purs \
+     /my-first-spec/AudioPlayer.html
 
 You'll see a bunch of output, involving shrinking tests and more. It
 should end with something like the following:
@@ -377,7 +408,7 @@ should end with something like the following:
 Whoops, look at that! It says that the time display shows
 "NaN:NaN". We've found our first bug using Quickstrom!
 
-Open up ``RecordPlayer.html``, and change the following lines near the
+Open up ``AudioPlayer.html``, and change the following lines near the
 end of the file:
 
 .. code-block:: javascript
@@ -395,12 +426,12 @@ They should be:
 Rerun the tests using the same ``quickstrom`` command as before. All
 tests pass!
 
-Are we done? Is the record player correct? Not quite.
+Are we done? Is the audio player correct? Not quite.
 
 Transitions Based on Time
 -------------------------
 
-The record player transitions between states mainly as a result of
+The audio player transitions between states mainly as a result of
 user action, but not only. A ``tick`` transition (going from
 ``playing`` to ``playing`` with an incremented progress) is triggered
 by *time*.
@@ -425,8 +456,8 @@ Run new tests by executing the following command:
      --tests=5 \
      --max-trailing-state-changes=1 \
      --trailing-state-change-timeout=500 \
-     /my-first-spec/RecordPlayer.spec.purs \
-     /my-first-spec/RecordPlayer.html
+     /my-first-spec/AudioPlayer.spec.purs \
+     /my-first-spec/AudioPlayer.html
 
 You should see output such as the following:
 

@@ -33,7 +33,7 @@ Finally, we need a WebDriver server. Pull that down with Docker, too:
 
 .. code-block:: console
 
-   docker pull selenium/standalone-chrome:3.141.59-20200826
+   $ docker pull selenium/standalone-chrome:3.141.59-20200826
 
 Downloading the Audio Player
 -----------------------------
@@ -122,7 +122,7 @@ First, we need a Docker network. Let's name it ``quickstrom``:
 
    $ docker network create quickstrom
 
-Next, launch a ChromeDriver instance in the
+Next, from within your ``my-first-spec`` directory, launch a ChromeDriver instance in the
 background:
 
 .. code-block:: console
@@ -138,7 +138,7 @@ Notice how we mount the current working directory to
 ``/my-first-spec`` in the container. We do this to let Chrome access
 the ``AudioPlayer.html`` file.
 
-Now, let's launch Quickstrom:
+Now, let's launch Quickstrom, again from within your ``my-first-spec`` directory:
 
 .. code-block:: console
 

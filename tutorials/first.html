@@ -198,7 +198,7 @@ haven’t already.</p>
 </pre></div>
 </div>
 <p>Finally, we need a WebDriver server. Pull that down with Docker, too:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">docker pull selenium/standalone-chrome:3.141.59-20200826</span>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> docker pull selenium/standalone-chrome:3.141.59-20200826
 </pre></div>
 </div>
 </div>
@@ -285,7 +285,7 @@ the system under test to be valid. For now, we’ll set it to
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> docker network create quickstrom
 </pre></div>
 </div>
-<p>Next, launch a ChromeDriver instance in the
+<p>Next, from within your <code class="docutils literal notranslate"><span class="pre">my-first-spec</span></code> directory, launch a ChromeDriver instance in the
 background:</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> docker run --rm -d <span class="se">\</span>
     --network quickstrom <span class="se">\</span>
@@ -298,7 +298,7 @@ background:</p>
 <p>Notice how we mount the current working directory to
 <code class="docutils literal notranslate"><span class="pre">/my-first-spec</span></code> in the container. We do this to let Chrome access
 the <code class="docutils literal notranslate"><span class="pre">AudioPlayer.html</span></code> file.</p>
-<p>Now, let’s launch Quickstrom:</p>
+<p>Now, let’s launch Quickstrom, again from within your <code class="docutils literal notranslate"><span class="pre">my-first-spec</span></code> directory:</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> docker run --rm <span class="se">\</span>
   --network quickstrom <span class="se">\</span>
   -v <span class="nv">$PWD</span>:/my-first-spec <span class="se">\</span>

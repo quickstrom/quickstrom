@@ -8,11 +8,11 @@
 module Quickstrom.PureScript.AnalyzeTest where
 
 import Control.Monad (Monad (fail))
-import System.Environment (lookupEnv)
-import Test.Tasty.Hspec hiding (Selector)
 import Quickstrom.Element
 import Quickstrom.Prelude
 import Quickstrom.PureScript.Program
+import System.Environment (lookupEnv)
+import Test.Tasty.Hspec hiding (Selector)
 
 loadModules :: IO Modules
 loadModules = do

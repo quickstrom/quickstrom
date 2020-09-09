@@ -6,14 +6,15 @@ import Data.Tuple (Tuple(..))
 
 readyWhen = "button"
 
-actions = 
-  clicks <> [Tuple 10 (Click "input[type=file]")]
+actions = clicks <> [ Tuple 10 (Click "input[type=file]") ]
 
 proposition :: Boolean
 proposition =
   let
-    initial = messageIs "" 
+    initial = messageIs ""
+
     selectFile = selectedFile == Just "" && next (selectedFile /= Just "")
+
     upload = selectedFile /= Just "" && next (messageIs "You uploaded:")
   in
     initial && always (selectFile || upload)

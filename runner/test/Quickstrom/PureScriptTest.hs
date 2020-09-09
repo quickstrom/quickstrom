@@ -16,14 +16,14 @@ import Data.Vector (Vector)
 import qualified Data.Vector as Vector
 import Language.PureScript (nullSourceSpan)
 import Protolude
-import System.Environment (lookupEnv)
-import Test.Tasty.Hspec hiding (Selector)
 import qualified Quickstrom.Element as Quickstrom
 import Quickstrom.PureScript.Eval
 import Quickstrom.PureScript.ForeignFunction
 import Quickstrom.PureScript.Pretty
 import Quickstrom.PureScript.Program
 import Quickstrom.Trace (ObservedState (..))
+import System.Environment (lookupEnv)
+import Test.Tasty.Hspec hiding (Selector)
 
 loadModules :: IO Modules
 loadModules = do

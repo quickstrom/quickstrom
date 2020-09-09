@@ -1,20 +1,20 @@
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Quickstrom.WebDriver.HsWebDriver where
 
 import Control.Monad (Monad (fail))
 import Control.Monad.Catch (MonadCatch (catch), MonadThrow)
-import qualified Test.WebDriver as WebDriver
 import Quickstrom.Element
 import Quickstrom.Prelude hiding (catch)
 import Quickstrom.Run
+import qualified Test.WebDriver as WebDriver
 
 newtype WebDriverClient a = WebDriverClient {unWebDriverClient :: WebDriver.WD a}
   deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch)
@@ -43,7 +43,7 @@ instance WebDriver WebDriverClient where
 
 runWebDriver :: MonadIO m => WebDriverClient b -> m b
 runWebDriver (WebDriverClient ma) =
-    liftIO (WebDriver.runSession config ma)
+  liftIO (WebDriver.runSession config ma)
 
 config :: WebDriver.WDConfig
 config =

@@ -5,11 +5,11 @@ module Quickstrom.Gen where
 
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.Maybe (fromMaybe)
-import qualified Data.Text as Text
 import Data.Text (Text)
-import Test.QuickCheck hiding ((===), (==>))
+import qualified Data.Text as Text
 import Quickstrom.Element
 import Quickstrom.Trace hiding (observedStates)
+import Test.QuickCheck hiding ((===), (==>))
 import Prelude hiding (Bool (..))
 
 selector :: Gen Selector

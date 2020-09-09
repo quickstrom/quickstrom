@@ -1,61 +1,64 @@
-{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE LambdaCase            #-}
-{-# LANGUAGE NamedFieldPuns        #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE QuasiQuotes           #-}
-{-# LANGUAGE RecordWildCards       #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Main where
 
-import           Control.Lens                              hiding (argument)
-import           Control.Monad.Catch                       (try)
-import qualified Data.Text                                 as Text
-import           Data.Text.Prettyprint.Doc
-import           Data.Text.Prettyprint.Doc.Render.Terminal
-import           Data.Text.Prettyprint.Doc.Symbols.Unicode (bullet)
-import           Options.Applicative
-import qualified Pipes                                     as Pipes
-import qualified Quickstrom.Browser                        as Quickstrom
-import qualified Quickstrom.LogLevel                       as Quickstrom
-import           Quickstrom.Prelude                        hiding (option, try)
-import qualified Quickstrom.Pretty                         as Quickstrom
-import qualified Quickstrom.PureScript.Program             as Quickstrom
-import qualified Quickstrom.Run                            as Quickstrom
-import qualified Quickstrom.Trace                          as Quickstrom
-import qualified Quickstrom.WebDriver.Class                as Quickstrom
-import qualified Quickstrom.WebDriver.WebDriverW3C         as WebDriver
-import           System.Directory                          (canonicalizePath)
-import           System.Environment                        (lookupEnv)
-import           System.IO                                 (BufferMode (LineBuffering),
-                                                            hSetBuffering,
-                                                            hSetEncoding, utf8)
-import           Text.URI                                  (URI)
-import qualified Text.URI                                  as URI
-import           Text.URI.Lens                             (uriScheme)
-import qualified Text.URI.QQ                               as URI
+import Control.Lens hiding (argument)
+import Control.Monad.Catch (try)
+import qualified Data.Text as Text
+import Data.Text.Prettyprint.Doc
+import Data.Text.Prettyprint.Doc.Render.Terminal
+import Data.Text.Prettyprint.Doc.Symbols.Unicode (bullet)
+import Options.Applicative
+import qualified Pipes as Pipes
+import qualified Quickstrom.Browser as Quickstrom
+import qualified Quickstrom.LogLevel as Quickstrom
+import Quickstrom.Prelude hiding (option, try)
+import qualified Quickstrom.Pretty as Quickstrom
+import qualified Quickstrom.PureScript.Program as Quickstrom
+import qualified Quickstrom.Run as Quickstrom
+import qualified Quickstrom.Trace as Quickstrom
+import qualified Quickstrom.WebDriver.Class as Quickstrom
+import qualified Quickstrom.WebDriver.WebDriverW3C as WebDriver
+import System.Directory (canonicalizePath)
+import System.Environment (lookupEnv)
+import System.IO
+  ( BufferMode (LineBuffering),
+    hSetBuffering,
+    hSetEncoding,
+    utf8,
+  )
+import Text.URI (URI)
+import qualified Text.URI as URI
+import Text.URI.Lens (uriScheme)
+import qualified Text.URI.QQ as URI
 
 data CLI = CLI {chosenCommand :: Command, libraryPath :: Maybe FilePath}
 
 data Command = Check CheckOptions | Lint LintOptions
 
 data CheckOptions = CheckOptions
-  { specPath                   :: FilePath,
-    origin                     :: Text,
-    tests                      :: Int,
-    maxActions                 :: Quickstrom.Size,
-    shrinkLevels               :: Int,
-    maxTrailingStateChanges    :: Int,
+  { specPath :: FilePath,
+    origin :: Text,
+    tests :: Int,
+    maxActions :: Quickstrom.Size,
+    shrinkLevels :: Int,
+    maxTrailingStateChanges :: Int,
     trailingStateChangeTimeout :: Word64,
-    logLevel                   :: Quickstrom.LogLevel,
-    browser                    :: Quickstrom.Browser,
-    browserBinary              :: Maybe FilePath,
-    webDriverHost              :: Text,
-    webDriverPort              :: Int,
-    webDriverPath              :: FilePath
+    logLevel :: Quickstrom.LogLevel,
+    browser :: Quickstrom.Browser,
+    browserBinary :: Maybe FilePath,
+    webDriverHost :: Text,
+    webDriverPort :: Int,
+    webDriverPath :: FilePath
   }
 
 data LintOptions = LintOptions

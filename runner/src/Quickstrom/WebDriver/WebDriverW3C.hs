@@ -1,12 +1,12 @@
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedLists #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Quickstrom.WebDriver.WebDriverW3C where
@@ -30,7 +30,16 @@ import Quickstrom.Element
 import Quickstrom.LogLevel
 import Quickstrom.Prelude hiding (catch)
 import Quickstrom.WebDriver.Class
-import Web.Api.WebDriver hiding (Action, BrowserName (..), LogLevel (..), Selector, Timeout, hPutStrLn, runIsolated, throwError)
+import Web.Api.WebDriver hiding
+  ( Action,
+    BrowserName (..),
+    LogLevel (..),
+    Selector,
+    Timeout,
+    hPutStrLn,
+    runIsolated,
+    throwError,
+  )
 import qualified Web.Api.WebDriver as WebDriver
 
 newtype WebDriverW3C m a = WebDriverW3C {unWebDriverW3C :: WebDriverTT IdentityT m a}
@@ -123,21 +132,22 @@ addCaps WebDriverOptions {webDriverBrowser = Firefox, webDriverLogLevel, webDriv
     %~ ( <>
            [ ( "moz:firefoxOptions",
                JSON.Object
-                 [ ("binary", JSON.String (maybe "/usr/bin/firefox" toS webDriverBrowserBinary)),
-                   ("args", JSON.Array ["-headless", "-private"]),
-                   ("prefs", JSON.Object [("Dom.storage.enabled", JSON.Bool False)]),
-                   ( "log",
-                     JSON.Object
-                       [ ( "level",
-                           case webDriverLogLevel of
-                             LogDebug -> "debug"
-                             LogInfo -> "info"
-                             LogWarn -> "warn"
-                             LogError -> "error"
-                         )
-                       ]
-                   )
-                 ]
+                 ( [ ("args", JSON.Array ["-headless", "-private"]),
+                     ("prefs", JSON.Object [("Dom.storage.enabled", JSON.Bool False)]),
+                     ( "log",
+                       JSON.Object
+                         [ ( "level",
+                             case webDriverLogLevel of
+                               LogDebug -> "debug"
+                               LogInfo -> "info"
+                               LogWarn -> "warn"
+                               LogError -> "error"
+                           )
+                         ]
+                     )
+                   ]
+                     <> maybe mempty (HashMap.singleton "binary" . JSON.String . toS) webDriverBrowserBinary
+                 )
              ),
              ("browserName", "firefox")
            ]

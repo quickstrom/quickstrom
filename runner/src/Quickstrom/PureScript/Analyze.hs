@@ -42,6 +42,8 @@ instance MonadEvalQuery SimpleEval where
 
   evalAlways _ = eval
 
+  evalUntil _ _ = eval
+
 type Visited = HashSet QualifiedName
 
 type Extract = ReaderT (Env' SimpleEval) (WriterT Queries (StateT Visited (Except EvalError)))
@@ -50,6 +52,7 @@ extractExpr :: P.Expr EvalAnn -> Extract ()
 extractExpr = \case
   Next _ e -> extractExpr e
   Always _ e -> extractExpr e
+  Until _ p q -> extractExpr p >> extractExpr q
   -- We need to ignore all the type class dictionaries that are passed in.
   P.App _ (P.App _ (P.App _ (P.App _ (BuiltIn f _ _) _) _) e1) e2 | f `elem` ["queryAll", "queryOne"] ->
     case (e1, e2) of

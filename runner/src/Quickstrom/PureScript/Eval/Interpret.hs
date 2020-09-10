@@ -48,11 +48,17 @@ import Quickstrom.PureScript.Value
 pattern BuiltIn :: Text -> a -> Expr a -> Expr a
 pattern BuiltIn name ann p <- CF.App ann (CF.Var _ (P.Qualified (Just (P.ModuleName "Quickstrom")) (P.Ident name))) p
 
+pattern BinaryBuiltIn :: Text -> a -> Expr a -> Expr a -> Expr a
+pattern BinaryBuiltIn name ann p q <- CF.App _ (BuiltIn name ann p) q
+
 pattern Always :: a -> Expr a -> Expr a
 pattern Always ann p <- BuiltIn "always" ann p
 
 pattern Next :: a -> Expr a -> Expr a
 pattern Next ann p <- BuiltIn "next" ann p
+
+pattern Until :: a -> Expr a -> Expr a -> Expr a
+pattern Until ann p q <- BinaryBuiltIn "until" ann p q
 
 type Env' m = Env Expr Value (EvalForeignFunction m) EvalAnn
 
@@ -72,6 +78,7 @@ eval expr = do
   case expr of
     Next ann p -> evalNext ann p
     Always ann p -> evalAlways ann p
+    Until ann p q -> evalUntil ann p q
     App _ (BuiltIn "_queryAll" _ p) q -> evalQuery p q
     App _ (BuiltIn "trace" _ label) p -> do
       _t <- require (exprSourceSpan label) (Proxy @"VString") =<< eval label

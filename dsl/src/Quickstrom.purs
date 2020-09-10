@@ -1,6 +1,7 @@
 module Quickstrom
   ( next
   , always
+  , until
   , trace
   , traceShow
   , traceShowLabelled
@@ -38,6 +39,8 @@ import Type.Prelude (class ListToRow, class TypeEquals)
 foreign import next :: forall a. a -> a
 
 foreign import always :: Boolean -> Boolean
+
+foreign import until :: Boolean -> Boolean -> Boolean
 
 foreign import trace :: forall a. String -> a -> a
 

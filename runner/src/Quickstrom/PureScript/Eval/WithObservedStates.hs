@@ -103,3 +103,23 @@ instance MonadEvalQuery WithObservedStates where
           require (exprSourceSpan p) (Proxy @"VBool")
             =<< local (field @"observedStates" %~ drop 1) (evalAlways ann p)
         pure (VBool (first' && rest'))
+
+  evalUntil ann p q =
+    view (field @"observedStates") >>= \case
+      [] -> pure (VBool False)
+      _ -> do
+        doesQHold <-
+          require (exprSourceSpan p) (Proxy @"VBool") =<< eval q `catchError` \case
+            Undetermined -> pure (VBool False)
+            e -> throwError e
+        if doesQHold
+            then pure (VBool True)
+            else do
+                doesPHold <-
+                  require (exprSourceSpan p) (Proxy @"VBool") =<< eval p `catchError` \case
+                    Undetermined -> pure (VBool False)
+                    e -> throwError e
+                rest' <-
+                  require (exprSourceSpan p) (Proxy @"VBool")
+                    =<< local (field @"observedStates" %~ drop 1) (evalUntil ann p q)
+                pure (VBool (doesPHold && rest'))

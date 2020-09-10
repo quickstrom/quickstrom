@@ -101,3 +101,11 @@ tla4 = true && always true
 tla5 = always (next true)
 
 tla6 = always (next false || next true)
+
+tla7 = until false true
+
+tla8 = until false false
+
+tla9 = until true false
+
+tla10 = until true (testOneQuery == "baz")

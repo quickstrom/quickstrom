@@ -94,6 +94,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#queries">Queries</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#temporal-operators">Temporal Operators</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#always">Always</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#until">Until</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#next">Next</a></li>
 </ul>
 </li>
@@ -224,10 +225,11 @@ a <code class="docutils literal notranslate"><span class="pre">Maybe</span></cod
 </div>
 <div class="section" id="temporal-operators">
 <h2>Temporal Operators<a class="headerlink" href="#temporal-operators" title="Permalink to this headline">¶</a></h2>
-<p>In Quickstrom specifications, there are two temporal operators:</p>
+<p>In Quickstrom specifications, there are three temporal operators:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">next</span> <span class="pre">::</span> <span class="pre">forall</span> <span class="pre">a.</span> <span class="pre">a</span> <span class="pre">-&gt;</span> <span class="pre">a</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">always</span> <span class="pre">::</span> <span class="pre">Boolean</span> <span class="pre">-&gt;</span> <span class="pre">Boolean</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">until</span> <span class="pre">::</span> <span class="pre">Boolean</span> <span class="pre">-&gt;</span> <span class="pre">Boolean</span> <span class="pre">-&gt;</span> <span class="pre">Boolean</span></code></p></li>
 </ul>
 <p>They change the <em>modality</em> of the sub-expression, i.e. in what state of
 the recorded behavior it is evaluated.</p>
@@ -242,6 +244,21 @@ the recorded behavior it is evaluated.</p>
 <p>In every observed state the sub-expression must evaluate to <code class="docutils literal notranslate"><span class="pre">true</span></code> for
 the proposition to be true. In this case, the text content of the <code class="docutils literal notranslate"><span class="pre">h1</span></code>
 must always be “Home”.</p>
+</div>
+<div class="section" id="until">
+<h3>Until<a class="headerlink" href="#until" title="Permalink to this headline">¶</a></h3>
+<p>Until takes two parmeters: the prerequisite condition and the final condition.
+The prerequisite must hold <code class="docutils literal notranslate"><span class="pre">true</span></code> in all states until the final condition is
+<code class="docutils literal notranslate"><span class="pre">true</span></code>.</p>
+<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">proposition</span> <span class="ow">=</span> <span class="n">until</span> <span class="p">(</span><span class="n">loading</span> <span class="o">==</span> <span class="kt">Just</span> <span class="s">&quot;loading...&quot;</span><span class="p">)</span> <span class="p">(</span><span class="n">title</span> <span class="o">==</span> <span class="kt">Just</span> <span class="s">&quot;Home&quot;</span><span class="p">)</span>
+
+<span class="nf">loading</span> <span class="ow">=</span> <span class="n">map</span> <span class="kr">_</span><span class="o">.</span><span class="n">textContent</span> <span class="p">(</span><span class="n">queryOne</span> <span class="s">&quot;loading&quot;</span> <span class="p">{</span> <span class="n">textContent</span> <span class="p">})</span>
+<span class="nf">title</span> <span class="ow">=</span> <span class="n">map</span> <span class="kr">_</span><span class="o">.</span><span class="n">textContent</span> <span class="p">(</span><span class="n">queryOne</span> <span class="s">&quot;h1&quot;</span> <span class="p">{</span> <span class="n">textContent</span> <span class="p">})</span>
+</pre></div>
+</div>
+<p>In this case, we presumably load the “Home” text from somewhere else,
+so we wait until the loading is done, and then assert that the title must be
+set accordingly.</p>
 </div>
 <div class="section" id="next">
 <h3>Next<a class="headerlink" href="#next" title="Permalink to this headline">¶</a></h3>

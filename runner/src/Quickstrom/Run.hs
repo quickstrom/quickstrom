@@ -24,11 +24,8 @@ module Quickstrom.Run
     WebDriverResponseError (..),
     WebDriverOtherError (..),
     CheckEnv (..),
-    CheckOptions (..),
     CheckResult (..),
     FailingTest (..),
-    Size (..),
-    Timeout (..),
     CheckEvent (..),
     TestEvent (..),
     check,
@@ -66,8 +63,8 @@ import Quickstrom.WebDriver.Class
 import System.Environment (lookupEnv)
 import System.FilePath ((</>))
 import qualified Test.QuickCheck as QuickCheck
-import Text.URI (URI)
 import qualified Text.URI as URI
+import Quickstrom.Options
 
 newtype Runner m a = Runner (ReaderT CheckEnv m a)
   deriving (Functor, Applicative, Monad, MonadIO, WebDriver, MonadReader CheckEnv, MonadThrow, MonadCatch)
@@ -98,7 +95,7 @@ data TestEvent
   = TestStarted Size
   | TestPassed Size (Trace TraceElementEffect)
   | TestFailed Size (Trace TraceElementEffect)
-  | Shrinking Int
+  | Shrinking (Maybe Int)
   | RunningShrink Int
   deriving (Show, Generic)
 
@@ -106,31 +103,15 @@ instance JSON.ToJSON TestEvent where
   toJSON = JSON.genericToJSON JSON.defaultOptions
 
 data CheckEvent
-  = CheckStarted Int
-  | CheckTestEvent TestEvent
+  = CheckStarted (Maybe Int)
+  | CheckTestEvent (Maybe TestEvent)
   | CheckFinished CheckResult
   deriving (Show, Generic)
 
 instance JSON.ToJSON CheckEvent where
   toJSON = JSON.genericToJSON JSON.defaultOptions
 
-data CheckEnv = CheckEnv {checkOptions :: CheckOptions, checkScripts :: CheckScripts}
-
-data CheckOptions = CheckOptions
-  { checkTests :: Int,
-    checkMaxActions :: Size,
-    checkShrinkLevels :: Int,
-    checkOrigin :: URI,
-    checkMaxTrailingStateChanges :: Int,
-    checkTrailingStateChangeTimeout :: Timeout,
-    checkWebDriverOptions :: WebDriverOptions
-  }
-
-newtype Size = Size {unSize :: Word32}
-  deriving (Eq, Show, Generic, JSON.FromJSON, JSON.ToJSON)
-
-newtype Timeout = Timeout Word64
-  deriving (Eq, Show, Generic, JSON.FromJSON, JSON.ToJSON)
+data CheckEnv = CheckEnv {checkOptions :: CheckOptions Maybe, checkScripts :: CheckScripts}
 
 mapTimeout :: (Word64 -> Word64) -> Timeout -> Timeout
 mapTimeout f (Timeout ms) = Timeout (f ms)
@@ -146,13 +127,14 @@ data CheckScripts = CheckScripts
 
 check ::
   (Specification spec, MonadIO n, MonadCatch n, WebDriver m, MonadIO m) =>
-  CheckOptions ->
+  CheckOptions Maybe ->
   (m ~> n) ->
   spec ->
   Pipes.Producer CheckEvent n CheckResult
-check opts@CheckOptions {checkTests} runWebDriver spec = do
+check opts runWebDriver spec = do
   -- stdGen <- getStdGen
-  Pipes.yield (CheckStarted checkTests)
+  -- what is a nice way of using this
+  Pipes.yield (CheckStarted $ (checkTests defaultCheckOptions) <|> (checkTests opts))
   env <- CheckEnv opts <$> lift readScripts
   res <-
     Pipes.hoist (runWebDriver . run env) (runAll opts spec)
@@ -191,12 +173,12 @@ runSingle spec size = do
       Pipes.yield (TestPassed size trace)
       pure (Right ())
     f@(Left (FailingTest _ trace _)) -> do
-      CheckOptions {checkShrinkLevels} <- lift (asks checkOptions)
+      opts@CheckOptions {} <- lift (asks checkOptions)
       Pipes.yield (TestFailed size trace)
       if (checkShrinkLevels > 0)
         then do
-          Pipes.yield (Shrinking checkShrinkLevels)
-          let shrinks = shrinkForest (QuickCheck.shrinkList shrinkAction) checkShrinkLevels (trace ^.. traceActions)
+          Pipes.yield (Shrinking $ (checkShrinkLevels defaultCheckOptions) <|> (checkShrinkLevels opts))
+          let shrinks = shrinkForest (QuickCheck.shrinkList shrinkAction) (checkShrinkLevels opts) (trace ^.. traceActions)
           shrunk <-
             minBy
               (lengthOf (field @"trace" . traceElements))
@@ -226,7 +208,7 @@ runSingle spec size = do
       Pipes.yield (RunningShrink n)
       runAndVerifyIsolated n (Pipes.each actions')
 
-runAll :: (MonadIO m, WebDriver m, Specification spec) => CheckOptions -> spec -> Producer CheckEvent (Runner m) CheckResult
+runAll :: (MonadIO m, WebDriver m, Specification spec) => CheckOptions Maybe -> spec -> Producer CheckEvent (Runner m) CheckResult
 runAll opts spec' = go (sizes opts `zip` [1 ..])
   where
     go :: (MonadIO m, WebDriver m) => [(Size, Int)] -> Producer CheckEvent (Runner m) CheckResult
@@ -237,7 +219,7 @@ runAll opts spec' = go (sizes opts `zip` [1 ..])
           Right {} -> go rest
           Left failingTest -> pure (CheckFailure n failingTest)
 
-sizes :: CheckOptions -> [Size]
+sizes :: CheckOptions Maybe -> [Size]
 sizes CheckOptions {checkMaxActions = Size maxActions, checkTests} =
   map (\n -> Size (n * maxActions `div` fromIntegral checkTests)) [1 .. fromIntegral checkTests]
 
@@ -298,7 +280,7 @@ runActions' spec = do
 
 data Shrink a = Shrink Int a
 
-shrinkForest :: (a -> [a]) -> Int -> a -> Forest (Shrink a)
+shrinkForest :: (a -> [a]) -> Maybe Int -> a -> Forest (Shrink a)
 shrinkForest shrink limit = go 1
   where
     go n

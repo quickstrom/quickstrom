@@ -52,6 +52,7 @@ library
                     , Quickstrom.Browser
                     , Quickstrom.Element
                     , Quickstrom.LogLevel
+                    , Quickstrom.Options
                     , Quickstrom.Prelude
                     , Quickstrom.Pretty
                     , Quickstrom.PureScript.Eval

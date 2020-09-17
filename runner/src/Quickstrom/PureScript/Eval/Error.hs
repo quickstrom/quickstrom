@@ -31,6 +31,7 @@ data EvalError
   | ForeignFunctionNotSupported SourceSpan QualifiedName
   | InvalidString SourceSpan
   | InvalidBuiltInFunctionApplication SourceSpan (Expr ()) (Expr ())
+  | InvalidBuiltInReference SourceSpan Text
   | ForeignFunctionError (Maybe SourceSpan) Text
   | InvalidURI (Maybe SourceSpan) Text Text
   | UnsupportedQueryExpression SourceSpan
@@ -48,6 +49,7 @@ errorSourceSpan = \case
   ForeignFunctionNotSupported ss _ -> Just ss
   InvalidString ss -> Just ss
   InvalidBuiltInFunctionApplication ss _ _ -> Just ss
+  InvalidBuiltInReference ss _ -> Just ss
   ForeignFunctionError ss _ -> ss
   InvalidURI ss _ _ -> ss
   UnsupportedQueryExpression ss -> Just ss

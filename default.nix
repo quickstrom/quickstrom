@@ -16,8 +16,11 @@ let
       protolude =
         pkgs.haskell.lib.doJailbreak (self.callHackage "protolude" "0.2.3" { });
 
-      # haskell-src = self.callHackage "haskell-src" "1.0.3.0" { };
-      # HTF = pkgs.haskell.lib.dontCheck (self.callHackage "HTF" "0.13.2.5" { });
+      # For higgledy. Remove overrides once versions have been bumped.
+      higgledy = pkgs.haskell.lib.dontCheck (self.callHackage "higgledy" "0.3.1.0" { });
+      barbies = self.callHackage "barbies" "1.1.3.0" { };
+      generic-lens = pkgs.haskell.lib.dontCheck (self.callHackage "generic-lens" "1.1.0.0" { });
+
 
       quickstrom-runner = pkgs.haskell.lib.disableLibraryProfiling(import ./runner {
         inherit pkgs;

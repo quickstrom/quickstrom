@@ -19,6 +19,7 @@ common shared-deps
                     , generic-lens
                     , Glob
                     , hashable
+                    , higgledy
                     , http-client
                     , lens
                     , lens-aeson

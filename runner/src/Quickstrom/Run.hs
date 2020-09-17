@@ -95,7 +95,7 @@ data TestEvent
   = TestStarted Size
   | TestPassed Size (Trace TraceElementEffect)
   | TestFailed Size (Trace TraceElementEffect)
-  | Shrinking (Maybe Int)
+  | Shrinking Int
   | RunningShrink Int
   deriving (Show, Generic)
 
@@ -103,8 +103,8 @@ instance JSON.ToJSON TestEvent where
   toJSON = JSON.genericToJSON JSON.defaultOptions
 
 data CheckEvent
-  = CheckStarted (Maybe Int)
-  | CheckTestEvent (Maybe TestEvent)
+  = CheckStarted Int
+  | CheckTestEvent TestEvent
   | CheckFinished CheckResult
   deriving (Show, Generic)
 
@@ -134,7 +134,8 @@ check ::
 check opts runWebDriver spec = do
   -- stdGen <- getStdGen
   -- what is a nice way of using this
-  Pipes.yield (CheckStarted $ (checkTests defaultCheckOptions) <|> (checkTests opts))
+  let defaultCheckTests = runIdentity $ checkTests defaultCheckOptions
+  Pipes.yield (CheckStarted $ fromMaybe defaultCheckTests (checkTests opts))
   env <- CheckEnv opts <$> lift readScripts
   res <-
     Pipes.hoist (runWebDriver . run env) (runAll opts spec)
@@ -175,10 +176,12 @@ runSingle spec size = do
     f@(Left (FailingTest _ trace _)) -> do
       opts@CheckOptions {} <- lift (asks checkOptions)
       Pipes.yield (TestFailed size trace)
-      if (checkShrinkLevels > 0)
+      let ckskOpts = fromMaybe (runIdentity $ checkShrinkLevels defaultCheckOptions) (checkShrinkLevels opts)
+      if (ckskOpts > 0)
         then do
-          Pipes.yield (Shrinking $ (checkShrinkLevels defaultCheckOptions) <|> (checkShrinkLevels opts))
-          let shrinks = shrinkForest (QuickCheck.shrinkList shrinkAction) (checkShrinkLevels opts) (trace ^.. traceActions)
+          let defaultShrinkLevels = runIdentity $ checkShrinkLevels defaultCheckOptions
+          Pipes.yield (Shrinking $ fromMaybe defaultShrinkLevels (checkShrinkLevels opts))
+          let shrinks = shrinkForest (QuickCheck.shrinkList shrinkAction) ckskOpts (trace ^.. traceActions)
           shrunk <-
             minBy
               (lengthOf (field @"trace" . traceElements))
@@ -197,7 +200,8 @@ runSingle spec size = do
     runAndVerifyIsolated n producer = do
       trace <- lift do
         opts <- asks checkOptions
-        annotateStutteringSteps <$> inNewPrivateWindow (checkWebDriverOptions opts) do
+        let cwdOpts = fromMaybe (runIdentity $ checkWebDriverOptions defaultCheckOptions) (checkWebDriverOptions opts)
+        annotateStutteringSteps <$> inNewPrivateWindow cwdOpts do
           beforeRun spec
           elementsToTrace (producer >-> runActions' spec)
       case verify spec (trace ^.. nonStutterStates) of
@@ -220,8 +224,11 @@ runAll opts spec' = go (sizes opts `zip` [1 ..])
           Left failingTest -> pure (CheckFailure n failingTest)
 
 sizes :: CheckOptions Maybe -> [Size]
-sizes CheckOptions {checkMaxActions = Size maxActions, checkTests} =
-  map (\n -> Size (n * maxActions `div` fromIntegral checkTests)) [1 .. fromIntegral checkTests]
+sizes opts@CheckOptions {checkMaxActions = Just (Size maxActions)} =
+  let defaultCheckTests = runIdentity $ checkTests defaultCheckOptions
+      ct = fromMaybe defaultCheckTests (checkTests opts)
+  in
+    map (\n -> Size (n * maxActions `div` fromIntegral ct)) [1 .. fromIntegral ct]
 
 beforeRun :: (MonadIO m, WebDriver m, Specification spec) => spec -> Runner m ()
 beforeRun spec = do
@@ -238,8 +245,10 @@ takeWhileChanging = Pipes.await >>= loop
 
 observeManyStatesAfter :: WebDriver m => Queries -> Action Selected -> Pipe a (TraceElement ()) (Runner m) ()
 observeManyStatesAfter queries' action = do
-  CheckEnv {checkScripts = scripts, checkOptions = CheckOptions {checkMaxTrailingStateChanges, checkTrailingStateChangeTimeout}} <- lift ask
-  lift (runCheckScript (registerNextStateObserver scripts checkTrailingStateChangeTimeout queries'))
+  CheckEnv {checkScripts = scripts, checkOptions = opts@CheckOptions {}} <- lift ask
+  let cktrOpts = fromMaybe (runIdentity $ checkTrailingStateChangeTimeout defaultCheckOptions) (checkTrailingStateChangeTimeout opts)
+      ckMaxtrOpts = fromMaybe (runIdentity $ checkMaxTrailingStateChanges defaultCheckOptions) (checkMaxTrailingStateChanges opts)
+  lift (runCheckScript (registerNextStateObserver scripts cktrOpts queries'))
   result <- lift (runAction action)
   newState <-
     lift (runCheckScript (awaitNextState scripts)) >>= \case
@@ -248,7 +257,7 @@ observeManyStatesAfter queries' action = do
   Pipes.yield (TraceAction () action result)
   Pipes.yield (TraceState () newState)
   nonStutters <-
-    (loop checkTrailingStateChangeTimeout >-> takeWhileChanging >-> Pipes.take checkMaxTrailingStateChanges)
+    (loop cktrOpts >-> takeWhileChanging >-> Pipes.take ckMaxtrOpts)
       & Pipes.toListM
       & lift
   mapM_ (Pipes.yield . (TraceState ())) nonStutters
@@ -280,7 +289,7 @@ runActions' spec = do
 
 data Shrink a = Shrink Int a
 
-shrinkForest :: (a -> [a]) -> Maybe Int -> a -> Forest (Shrink a)
+shrinkForest :: (a -> [a]) -> Int -> a -> Forest (Shrink a)
 shrinkForest shrink limit = go 1
   where
     go n
@@ -362,8 +371,9 @@ selectValidAction possibleAction =
 
 navigateToOrigin :: WebDriver m => Runner m ()
 navigateToOrigin = do
-  CheckOptions {checkOrigin} <- asks checkOptions
-  navigateTo (URI.render checkOrigin)
+  opts <- asks checkOptions
+  let ckOrig = fromMaybe (runIdentity $ checkOrigin defaultCheckOptions) (checkOrigin opts)
+  navigateTo (URI.render ckOrig)
 
 tryAction :: WebDriver m => Runner m ActionResult -> Runner m ActionResult
 tryAction action =

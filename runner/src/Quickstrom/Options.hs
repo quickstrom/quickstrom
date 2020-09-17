@@ -7,6 +7,8 @@ import qualified Data.Aeson as JSON
 import GHC.Generics (Generic)
 import Quickstrom.Prelude hiding (catch, check, trace)
 import Quickstrom.WebDriver.Class
+import Quickstrom.Browser
+import Quickstrom.LogLevel
 import Text.URI
 
 data CheckOptions f = CheckOptions
@@ -19,15 +21,21 @@ data CheckOptions f = CheckOptions
     checkWebDriverOptions :: f WebDriverOptions
     }
 
-defaultCheckOptions :: CheckOptions Maybe
+defaultCheckOptions :: CheckOptions Identity
 defaultCheckOptions = CheckOptions
-  { checkTests = Just 10,
-    checkMaxActions = Just $ Size 50,
-    checkShrinkLevels = Just 5,
-    checkOrigin = Nothing,
-    checkMaxTrailingStateChanges = Just 5,
-    checkTrailingStateChangeTimeout = Just $ Timeout 50,
-    checkWebDriverOptions = Nothing
+  { checkTests = 10,
+    checkMaxActions = Identity $ Size 50,
+    checkShrinkLevels = 5,
+    checkMaxTrailingStateChanges = 5,
+    checkTrailingStateChangeTimeout = Identity $ Timeout 50,
+    checkWebDriverOptions = Identity defaultWebDriverOptions
+  }
+
+defaultWebDriverOptions :: WebDriverOptions
+defaultWebDriverOptions = WebDriverOptions
+  { webDriverBrowser = Firefox,
+    webDriverLogLevel = LogDebug,
+    webDriverPort = 3000
   }
 
 newtype Size = Size {unSize :: Word32}

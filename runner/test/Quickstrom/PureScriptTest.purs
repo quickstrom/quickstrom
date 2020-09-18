@@ -90,6 +90,12 @@ testOneQuery = maybe "" _.text paragraph
 testNextOneQuery :: String
 testNextOneQuery = next testOneQuery
 
+aliasNext :: Boolean
+aliasNext = let f = next in f true
+
+passNext :: Boolean
+passNext = let f = (_ $ true) in f next
+
 tla1 = next false || true
 
 tla2 = true || next false

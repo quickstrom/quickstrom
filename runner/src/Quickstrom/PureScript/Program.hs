@@ -29,8 +29,8 @@ import Data.Vector (Vector)
 import qualified Data.Vector as Vector
 import qualified Language.PureScript as P
 import qualified Language.PureScript.CST as CST
-import Language.PureScript.CoreFn hiding (Ann)
 import qualified Language.PureScript.CoreFn as CF
+import Language.PureScript.CoreFn hiding (Ann)
 import Language.PureScript.CoreFn.FromJSON (moduleFromJSON)
 import qualified Quickstrom.Action as Quickstrom
 import qualified Quickstrom.Element as Quickstrom
@@ -193,13 +193,21 @@ loadProgram ms input = runExceptT $ do
     ffs = map (\(SomeForeignFunction f) -> EvalForeignFunction (evalForeignFunction f)) foreignFunctions
 
 data SpecificationProgram = SpecificationProgram
-  { specificationReadyWhen :: Quickstrom.Selector,
-    specificationActions :: Vector (Int, Quickstrom.Action Quickstrom.Selector),
-    specificationQueries :: Quickstrom.Queries,
-    specificationProgram :: Program WithObservedStates
+  { specificationReadyWhen :: Quickstrom.Selector
+  , specificationActions :: Vector (Int, Quickstrom.Action Quickstrom.Selector)
+  , specificationQueries :: Quickstrom.Queries
+  , specificationProgram :: Program WithObservedStates
+  , specificationTests :: Maybe Quickstrom.Selector
+  , specificationMaxActions :: Maybe Quickstrom.Selector
+  , specificationShrinkLevels :: Maybe Quickstrom.Selector
+  , specificationOrigin :: Maybe Quickstrom.Selector
+  , specificationMaxTrailingStateChanges :: Maybe Quickstrom.Selector
+  , specificationTrailingStateChangeTimeout :: Maybe Quickstrom.Selector
+  , specificationWebDriverOptions :: Maybe Quickstrom.Selector
   }
 
 instance Quickstrom.Specification SpecificationProgram where
+
   readyWhen = specificationReadyWhen
 
   actions = specificationActions
@@ -212,6 +220,14 @@ instance Quickstrom.Specification SpecificationProgram where
 
   queries = specificationQueries
 
+  tests = specificationTests
+  maxActions = specificationMaxActions
+  shrinkLevels = specificationShrinkLevels
+  origin = specificationOrigin
+  maxTrailingStateChanges = specificationMaxTrailingStateChanges
+  trailingStateChangeTimeout = specificationTrailingStateChangeTimeout
+  webDriverOptions = specificationWebDriverOptions
+
 loadSpecification :: Modules -> Text -> IO (Either Text SpecificationProgram)
 loadSpecification ms input = runExceptT $ do
   p <- ExceptT (loadProgram ms input)
@@ -221,12 +237,26 @@ loadSpecification ms input = runExceptT $ do
     readyWhen <- toHaskellValue ss =<< evalWithObservedStates p "readyWhen" []
     actions <- toHaskellValue ss =<< evalWithObservedStates p "actions" []
     queries <- extractQueries p2 "proposition"
+    tests <- toHaskellValue ss =<< evalWithObservedStates p "tests" []
+    maxActions <- toHaskellValue ss =<< evalWithObservedStates p "maxActions" []
+    shrinkLevels <- toHaskellValue ss =<< evalWithObservedStates p "shrinkLevels" []
+    origin <- toHaskellValue ss =<< evalWithObservedStates p "origin" []
+    maxTrailingStateChanges <- toHaskellValue ss =<< evalWithObservedStates p "maxTrailingStateChanges" []
+    trailingStateChangeTimeout <- toHaskellValue ss =<< evalWithObservedStates p "trailingStateChangeTimeout" []
+    webDriverOptions <- toHaskellValue ss =<< evalWithObservedStates p "webDriverOptions" []
     pure
       ( SpecificationProgram
-          { specificationReadyWhen = Quickstrom.Selector readyWhen,
-            specificationActions = actions,
-            specificationQueries = queries,
-            specificationProgram = p
+          { specificationReadyWhen = Quickstrom.Selector readyWhen
+          , specificationActions = actions
+          , specificationQueries = queries
+          , specificationProgram = p
+          , specificationTests = Just $ Quickstrom.Selector tests
+          , specificationMaxActions = Just $ Quickstrom.Selector maxActions
+          , specificationShrinkLevels = Just $ Quickstrom.Selector shrinkLevels
+          , specificationOrigin = Just $ Quickstrom.Selector origin
+          , specificationMaxTrailingStateChanges = Just $ Quickstrom.Selector maxTrailingStateChanges
+          , specificationTrailingStateChangeTimeout = Just $ Quickstrom.Selector trailingStateChangeTimeout
+          , specificationWebDriverOptions = Just $ Quickstrom.Selector webDriverOptions
           }
       )
 

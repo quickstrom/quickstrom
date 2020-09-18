@@ -53,8 +53,8 @@ import Data.Tree
 import Data.Vector (Vector)
 import qualified Data.Vector as Vector
 import GHC.Generics (Generic)
-import Pipes (Pipe, Producer, (>->))
 import qualified Pipes
+import Pipes (Pipe, Producer, (>->))
 import qualified Pipes.Prelude as Pipes
 import Quickstrom.Element
 import Quickstrom.Options

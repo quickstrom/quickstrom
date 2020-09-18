@@ -9,6 +9,8 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -17,7 +19,6 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 
 module Quickstrom.Run
   ( WebDriver (..),
@@ -41,6 +42,7 @@ import Control.Monad.Trans.Class (MonadTrans (lift))
 import Control.Natural (type (~>))
 import qualified Data.Aeson as JSON
 import Data.Function ((&))
+import qualified Data.Generic.HKD as HKD
 import Data.Generics.Product (field)
 import Data.Maybe (fromMaybe)
 import Data.String (String, fromString)
@@ -111,7 +113,7 @@ data CheckEvent
 instance JSON.ToJSON CheckEvent where
   toJSON = JSON.genericToJSON JSON.defaultOptions
 
-data CheckEnv = CheckEnv {checkOptions :: CheckOptions Maybe, checkScripts :: CheckScripts}
+data CheckEnv = CheckEnv {checkOptions :: CheckOptionsFirst, checkScripts :: CheckScripts}
 
 mapTimeout :: (Word64 -> Word64) -> Timeout -> Timeout
 mapTimeout f (Timeout ms) = Timeout (f ms)
@@ -127,15 +129,15 @@ data CheckScripts = CheckScripts
 
 check ::
   (Specification spec, MonadIO n, MonadCatch n, WebDriver m, MonadIO m) =>
-  CheckOptions Maybe ->
+  CheckOptionsFirst ->
   (m ~> n) ->
   spec ->
   Pipes.Producer CheckEvent n CheckResult
 check opts runWebDriver spec = do
   -- stdGen <- getStdGen
-  -- what is a nice way of using this
-  let defaultCheckTests = runIdentity $ checkTests defaultCheckOptions
-  Pipes.yield (CheckStarted $ fromMaybe defaultCheckTests (checkTests opts))
+  let defaultCheckTests = defaultOptsF ^. HKD.field @"checkTests"
+      cliCheckTests = opts ^. HKD.field @"checkTests"
+  Pipes.yield (CheckStarted $ selectOption defaultCheckTests [cliCheckTests])
   env <- CheckEnv opts <$> lift readScripts
   res <-
     Pipes.hoist (runWebDriver . run env) (runAll opts spec)
@@ -174,14 +176,15 @@ runSingle spec size = do
       Pipes.yield (TestPassed size trace)
       pure (Right ())
     f@(Left (FailingTest _ trace _)) -> do
-      opts@CheckOptions {} <- lift (asks checkOptions)
+      opts <- lift (asks checkOptions)
       Pipes.yield (TestFailed size trace)
-      let ckskOpts = fromMaybe (runIdentity $ checkShrinkLevels defaultCheckOptions) (checkShrinkLevels opts)
-      if (ckskOpts > 0)
+      let defaultCheckShrinkLevels = defaultOptsF ^. HKD.field @"checkShrinkLevels"
+          cliCheckShrinkLevels = opts ^. HKD.field @"checkShrinkLevels"
+          shrinkLevel = selectOption defaultCheckShrinkLevels [cliCheckShrinkLevels]
+      if (shrinkLevel > 0)
         then do
-          let defaultShrinkLevels = runIdentity $ checkShrinkLevels defaultCheckOptions
-          Pipes.yield (Shrinking $ fromMaybe defaultShrinkLevels (checkShrinkLevels opts))
-          let shrinks = shrinkForest (QuickCheck.shrinkList shrinkAction) ckskOpts (trace ^.. traceActions)
+          Pipes.yield (Shrinking shrinkLevel)
+          let shrinks = shrinkForest (QuickCheck.shrinkList shrinkAction) shrinkLevel (trace ^.. traceActions)
           shrunk <-
             minBy
               (lengthOf (field @"trace" . traceElements))
@@ -200,8 +203,10 @@ runSingle spec size = do
     runAndVerifyIsolated n producer = do
       trace <- lift do
         opts <- asks checkOptions
-        let cwdOpts = fromMaybe (runIdentity $ checkWebDriverOptions defaultCheckOptions) (checkWebDriverOptions opts)
-        annotateStutteringSteps <$> inNewPrivateWindow cwdOpts do
+        let defaultDriverOptions = defaultOptsF ^. HKD.field @"checkWebDriverOptions"
+            cliDriverOptions = opts ^. HKD.field @"checkWebDriverOptions"
+            driverOption = selectOption defaultDriverOptions [cliDriverOptions]
+        annotateStutteringSteps <$> inNewPrivateWindow driverOption do
           beforeRun spec
           elementsToTrace (producer >-> runActions' spec)
       case verify spec (trace ^.. nonStutterStates) of
@@ -212,7 +217,7 @@ runSingle spec size = do
       Pipes.yield (RunningShrink n)
       runAndVerifyIsolated n (Pipes.each actions')
 
-runAll :: (MonadIO m, WebDriver m, Specification spec) => CheckOptions Maybe -> spec -> Producer CheckEvent (Runner m) CheckResult
+runAll :: (MonadIO m, WebDriver m, Specification spec) => CheckOptionsFirst -> spec -> Producer CheckEvent (Runner m) CheckResult
 runAll opts spec' = go (sizes opts `zip` [1 ..])
   where
     go :: (MonadIO m, WebDriver m) => [(Size, Int)] -> Producer CheckEvent (Runner m) CheckResult
@@ -223,12 +228,16 @@ runAll opts spec' = go (sizes opts `zip` [1 ..])
           Right {} -> go rest
           Left failingTest -> pure (CheckFailure n failingTest)
 
-sizes :: CheckOptions Maybe -> [Size]
-sizes opts@CheckOptions {checkMaxActions = Just (Size maxActions)} =
-  let defaultCheckTests = runIdentity $ checkTests defaultCheckOptions
-      ct = fromMaybe defaultCheckTests (checkTests opts)
+sizes :: CheckOptionsFirst -> [Size]
+sizes opts =
+  let defaultMaxActions = defaultOptsF ^. HKD.field @"checkMaxActions"
+      cliMaxAction = opts ^. HKD.field @"checkMaxActions"
+      defaultCheckTests = defaultOptsF ^. HKD.field @"checkTests"
+      cliCheckTests = opts ^. HKD.field @"checkTests"
+      checktest = selectOption defaultCheckTests [cliCheckTests]
+      (Size maxAction) = selectOption defaultMaxActions [cliMaxAction]
   in
-    map (\n -> Size (n * maxActions `div` fromIntegral ct)) [1 .. fromIntegral ct]
+    map (\n -> Size (n * maxAction `div` fromIntegral checktest)) [1 .. fromIntegral checktest]
 
 beforeRun :: (MonadIO m, WebDriver m, Specification spec) => spec -> Runner m ()
 beforeRun spec = do
@@ -245,10 +254,15 @@ takeWhileChanging = Pipes.await >>= loop
 
 observeManyStatesAfter :: WebDriver m => Queries -> Action Selected -> Pipe a (TraceElement ()) (Runner m) ()
 observeManyStatesAfter queries' action = do
-  CheckEnv {checkScripts = scripts, checkOptions = opts@CheckOptions {}} <- lift ask
-  let cktrOpts = fromMaybe (runIdentity $ checkTrailingStateChangeTimeout defaultCheckOptions) (checkTrailingStateChangeTimeout opts)
-      ckMaxtrOpts = fromMaybe (runIdentity $ checkMaxTrailingStateChanges defaultCheckOptions) (checkMaxTrailingStateChanges opts)
-  lift (runCheckScript (registerNextStateObserver scripts cktrOpts queries'))
+  CheckEnv {checkScripts = scripts, checkOptions = opts} <- lift ask
+  let defaultCTSCTimeout = defaultOptsF ^. HKD.field @"checkTrailingStateChangeTimeout"
+      cliCTSCTimeout = opts ^. HKD.field @"checkTrailingStateChangeTimeout"
+      cTSCTimeout = selectOption defaultCTSCTimeout [cliCTSCTimeout]
+      defaultMaxCTSCTimeout = defaultOptsF ^. HKD.field @"checkMaxTrailingStateChanges"
+      cliMaxCTSCTimeout = opts ^. HKD.field @"checkMaxTrailingStateChanges"
+      cMaxTSCTimeout = selectOption defaultMaxCTSCTimeout [cliMaxCTSCTimeout]
+
+  lift (runCheckScript (registerNextStateObserver scripts cTSCTimeout queries'))
   result <- lift (runAction action)
   newState <-
     lift (runCheckScript (awaitNextState scripts)) >>= \case
@@ -257,7 +271,7 @@ observeManyStatesAfter queries' action = do
   Pipes.yield (TraceAction () action result)
   Pipes.yield (TraceState () newState)
   nonStutters <-
-    (loop cktrOpts >-> takeWhileChanging >-> Pipes.take ckMaxtrOpts)
+    (loop cTSCTimeout >-> takeWhileChanging >-> Pipes.take cMaxTSCTimeout)
       & Pipes.toListM
       & lift
   mapM_ (Pipes.yield . (TraceState ())) nonStutters
@@ -372,8 +386,10 @@ selectValidAction possibleAction =
 navigateToOrigin :: WebDriver m => Runner m ()
 navigateToOrigin = do
   opts <- asks checkOptions
-  let ckOrig = fromMaybe (runIdentity $ checkOrigin defaultCheckOptions) (checkOrigin opts)
-  navigateTo (URI.render ckOrig)
+  let defaultCheckOrigin = defaultOptsF ^. HKD.field @"checkOrigin"
+      cliCheckOrigin = opts ^. HKD.field @"checkOrigin"
+      checkOrigin = selectOption defaultCheckOrigin [cliCheckOrigin]
+  navigateTo (URI.render checkOrigin)
 
 tryAction :: WebDriver m => Runner m ActionResult -> Runner m ActionResult
 tryAction action =

@@ -77,6 +77,19 @@ spec_purescript = beforeAll loadModules $ do
         "testNextOneQuery"
         p
         `shouldBe` Right ("bar" :: Text)
+    describe "invalid built-in references" $ do
+      it "reports and error when aliasing next" $ \p -> do
+        eval' @Bool
+          [mempty]
+          "aliasNext"
+          p
+          `shouldBe` Left "Invalid reference to built-in: next"
+      it "reports and error when passing next as parameter" $ \p -> do
+        eval' @Bool
+          [mempty]
+          "passNext"
+          p
+          `shouldBe` Left "Invalid reference to built-in: next"
   describe "temporal logic" . beforeWith (loadProgram' "test/Quickstrom/PureScriptTest.purs") $ do
     it "tla1" $ \p -> do
       eval' [mempty, mempty] "tla1" p `shouldBe` Right True

@@ -32,7 +32,7 @@ import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Text
 import qualified Data.Vector as Vector
 import Language.PureScript.AST (SourceSpan)
-import Language.PureScript.CoreFn hiding (Ann)
+import Language.PureScript.CoreFn hiding (Ann, App)
 import qualified Language.PureScript.CoreFn as CF
 import qualified Language.PureScript.Names as P
 import Language.PureScript.PSString (PSString, decodeString, mkString)
@@ -45,20 +45,11 @@ import Quickstrom.PureScript.Eval.Error
 import Quickstrom.PureScript.Eval.Name
 import Quickstrom.PureScript.Value
 
-pattern BuiltIn :: Text -> a -> Expr a -> Expr a
-pattern BuiltIn name ann p <- CF.App ann (CF.Var _ (P.Qualified (Just (P.ModuleName "Quickstrom")) (P.Ident name))) p
+pattern BuiltIn :: a -> Text -> Expr a
+pattern BuiltIn ann name <- CF.Var ann (P.Qualified (Just (P.ModuleName "Quickstrom")) (P.Ident name))
 
-pattern BinaryBuiltIn :: Text -> a -> Expr a -> Expr a -> Expr a
-pattern BinaryBuiltIn name ann p q <- CF.App _ (BuiltIn name ann p) q
-
-pattern Always :: a -> Expr a -> Expr a
-pattern Always ann p <- BuiltIn "always" ann p
-
-pattern Next :: a -> Expr a -> Expr a
-pattern Next ann p <- BuiltIn "next" ann p
-
-pattern Until :: a -> Expr a -> Expr a -> Expr a
-pattern Until ann p q <- BinaryBuiltIn "until" ann p q
+builtInNames :: [Text]
+builtInNames = ["next", "always", "until", "_queryAll", "trace", "_property", "_attribute", "cssValue"]
 
 type Env' m = Env Expr Value (EvalForeignFunction m) EvalAnn
 
@@ -76,11 +67,11 @@ eval :: Eval r m => Expr EvalAnn -> m (Value EvalAnn)
 eval expr = do
   env <- view (field @"env") <$> ask
   case expr of
-    Next ann p -> evalNext ann p
-    Always ann p -> evalAlways ann p
-    Until ann p q -> evalUntil ann p q
-    App _ (BuiltIn "_queryAll" _ p) q -> evalQuery p q
-    App _ (BuiltIn "trace" _ label) p -> do
+    CF.App ann (BuiltIn _ "next") p -> evalNext ann p
+    CF.App ann (BuiltIn _ "always") p -> evalAlways ann p
+    CF.App ann (CF.App _ (BuiltIn _ "until") p) q -> evalUntil ann p q
+    CF.App _ (CF.App _ (BuiltIn _ "_queryAll") p) q -> evalQuery p q
+    CF.App _ (CF.App _ (BuiltIn _ "trace") label) p -> do
       _t <- require (exprSourceSpan label) (Proxy @"VString") =<< eval label
       -- traceM
       --   ( prettyText
@@ -91,15 +82,18 @@ eval expr = do
       --       )
       --   )
       eval p
-    BuiltIn "_property" _ p -> do
+    CF.App _ (BuiltIn _ "_property") p -> do
       name <- require (exprSourceSpan p) (Proxy @"VString") =<< eval p
       pure (VElementState (Quickstrom.Property name))
-    BuiltIn "_attribute" _ p -> do
+    CF.App _ (BuiltIn _ "_attribute") p -> do
       name <- require (exprSourceSpan p) (Proxy @"VString") =<< eval p
       pure (VElementState (Quickstrom.Attribute name))
-    BuiltIn "cssValue" _ p -> do
+    CF.App _ (BuiltIn _ "cssValue") p -> do
       name <- require (exprSourceSpan p) (Proxy @"VString") =<< eval p
       pure (VElementState (Quickstrom.CssValue name))
+    BuiltIn ann bi
+      | bi `elem` builtInNames ->
+        throwError (InvalidBuiltInReference (annSourceSpan ann) bi)
     -- General cases
     Literal (EvalAnn ss _ _) lit -> case lit of
       NumericLiteral n' -> pure (either (VInt . fromInteger) (VNumber . realToFrac) n')
@@ -133,7 +127,7 @@ eval expr = do
         (,) <$> evalString ss field' <*> eval expr'
       pure (VObject (obj <> HashMap.fromList updates'))
     Abs _ann arg body -> pure (VFunction (Function (closureEnvFromEnv env) arg body))
-    App _ func param -> do
+    CF.App _ func param -> do
       func' <- require (exprSourceSpan func) (Proxy @"VFunction") =<< eval func
       param' <- eval param
       evalFunc func' param'

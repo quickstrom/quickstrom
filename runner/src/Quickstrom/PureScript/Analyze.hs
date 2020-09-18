@@ -50,11 +50,11 @@ type Extract = ReaderT (Env' SimpleEval) (WriterT Queries (StateT Visited (Excep
 
 extractExpr :: P.Expr EvalAnn -> Extract ()
 extractExpr = \case
-  Next _ e -> extractExpr e
-  Always _ e -> extractExpr e
-  Until _ p q -> extractExpr p >> extractExpr q
+  P.App _ (BuiltIn _ "next") e -> extractExpr e
+  P.App _ (BuiltIn _ "always") e -> extractExpr e
+  P.App _ (P.App _ (BuiltIn _ "until") p) q -> extractExpr p >> extractExpr q
   -- We need to ignore all the type class dictionaries that are passed in.
-  P.App _ (P.App _ (P.App _ (P.App _ (BuiltIn f _ _) _) _) e1) e2 | f `elem` ["queryAll", "queryOne"] ->
+  P.App _ (P.App _ (P.App _ (P.App _ (P.App _ (BuiltIn _ f) _) _) _) e1) e2 | f `elem` ["queryAll", "queryOne"] ->
     case (e1, e2) of
       (P.Var ann' _, _) -> throwError (UnsupportedQueryExpression (annSourceSpan ann'))
       (_, P.Var ann' _) -> throwError (UnsupportedQueryExpression (annSourceSpan ann'))
@@ -68,6 +68,9 @@ extractExpr = \case
                   =<< eval e2
               pure (HashMap.singleton (Selector selector) (HashSet.fromList wantedStates))
         either throwError tell result
+  BuiltIn ann name
+    | name `elem` builtInNames ->
+      throwError (InvalidBuiltInReference (annSourceSpan ann) name)
   P.Literal _ lit -> case lit of
     P.ArrayLiteral xs -> traverse_ extractExpr xs
     P.ObjectLiteral pairs -> do

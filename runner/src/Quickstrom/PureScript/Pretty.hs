@@ -41,6 +41,7 @@ prettyEvalError = \case
   ForeignFunctionNotSupported _ qn -> "Foreign function is not supported in Quickstrom:" <+> prettyQualifiedName qn
   InvalidString _ -> "Invalid string"
   InvalidBuiltInFunctionApplication _ _fn _param -> "Invalid function application"
+  InvalidBuiltInReference ss name -> "Invalid reference to built-in:" <+> pretty name
   ForeignFunctionError _ t -> pretty t
   InvalidURI _ input t -> "Invalid URI:" <> colon <+> pretty input <> comma <+> pretty t
   UnsupportedQueryExpression _ -> "Unsupported query expression: must not refer to local bindings"
@@ -50,6 +51,6 @@ prettyEvalError = \case
 prettyEvalErrorWithSourceSpan :: EvalError -> Doc ann
 prettyEvalErrorWithSourceSpan err =
   let prefix = case errorSourceSpan err of
-        Just ss -> prettySourceSpan ss <> ":" <> line <> "error:"
-        Nothing -> "<no source information>" <> "error:"
+        Just ss -> prettySourceSpan ss <> ":" <+> "error:"
+        Nothing -> "<no source information>" <+> "error:"
    in prefix <+> prettyEvalError err

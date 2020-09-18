@@ -13,6 +13,7 @@ executable quickstrom
                     , containers
                     , directory
                     , exceptions
+                    , higgledy
                     , lens
                     , modern-uri
                     , optparse-applicative

@@ -5,7 +5,16 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators    #-}
 
-module Quickstrom.Options where
+module Quickstrom.Options
+  ( CheckOptions(..)
+  , CheckOptionsFirst
+  , CheckOptionsIdentity
+  , Size(..)
+  , Timeout(..)
+  , defaultOptsF
+  , selectOption
+  )
+where
 
 import qualified Data.Aeson as JSON
 import GHC.Generics (Generic)

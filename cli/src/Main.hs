@@ -13,6 +13,7 @@ module Main where
 
 import Control.Lens hiding (argument)
 import Control.Monad.Catch (try)
+import Data.Generic.HKD
 import qualified Data.Text as Text
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
@@ -21,6 +22,7 @@ import Options.Applicative
 import qualified Pipes as Pipes
 import qualified Quickstrom.Browser as Quickstrom
 import qualified Quickstrom.LogLevel as Quickstrom
+import qualified Quickstrom.Options as Quickstrom
 import Quickstrom.Prelude hiding (option, try)
 import qualified Quickstrom.Pretty as Quickstrom
 import qualified Quickstrom.PureScript.Program as Quickstrom
@@ -246,8 +248,9 @@ main = do
                     checkTrailingStateChangeTimeout = Quickstrom.Timeout trailingStateChangeTimeout,
                     checkWebDriverOptions = wdOpts
                   }
+              optsF :: Quickstrom.CheckOptionsFirst = deconstruct opts
           result <-
-            Pipes.runEffect (Pipes.for (Quickstrom.check opts (WebDriver.runWebDriver wdOpts) spec) (lift . logDoc . renderCheckEvent))
+            Pipes.runEffect (Pipes.for (Quickstrom.check optsF (WebDriver.runWebDriver wdOpts) spec) (lift . logDoc . renderCheckEvent))
               & try
           logDoc . logSingle Nothing $ line <> divider <> line
           case result of

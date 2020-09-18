@@ -57,6 +57,7 @@ import Pipes (Pipe, Producer, (>->))
 import qualified Pipes
 import qualified Pipes.Prelude as Pipes
 import Quickstrom.Element
+import Quickstrom.Options
 import Quickstrom.Prelude hiding (catch, check, trace)
 import Quickstrom.Result
 import Quickstrom.Specification
@@ -66,7 +67,6 @@ import System.Environment (lookupEnv)
 import System.FilePath ((</>))
 import qualified Test.QuickCheck as QuickCheck
 import qualified Text.URI as URI
-import Quickstrom.Options
 
 newtype Runner m a = Runner (ReaderT CheckEnv m a)
   deriving (Functor, Applicative, Monad, MonadIO, WebDriver, MonadReader CheckEnv, MonadThrow, MonadCatch)

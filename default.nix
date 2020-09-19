@@ -27,10 +27,6 @@ let
         inherit pkgs;
         haskellPackages = self;
       });
-      quickstrom-web = pkgs.haskell.lib.justStaticExecutables(import ./web {
-        inherit pkgs;
-        haskellPackages = self;
-      });
     };
   };
 

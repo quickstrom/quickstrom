@@ -50,9 +50,9 @@ type Extract = ReaderT (Env' SimpleEval) (WriterT Queries (StateT Visited (Excep
 
 extractExpr :: P.Expr EvalAnn -> Extract ()
 extractExpr = \case
-  P.App _ (BuiltIn _ "next") e -> extractExpr e
-  P.App _ (BuiltIn _ "always") e -> extractExpr e
-  P.App _ (P.App _ (BuiltIn _ "until") p) q -> extractExpr p >> extractExpr q
+  P.App _ (BuiltIn _ "_next") e -> extractExpr e
+  P.App _ (BuiltIn _ "_always") e -> extractExpr e
+  P.App _ (P.App _ (BuiltIn _ "_until") p) q -> extractExpr p >> extractExpr q
   -- We need to ignore all the type class dictionaries that are passed in.
   P.App _ (P.App _ (P.App _ (P.App _ (P.App _ (BuiltIn _ f) _) _) _) e1) e2 | f `elem` ["queryAll", "queryOne"] ->
     case (e1, e2) of

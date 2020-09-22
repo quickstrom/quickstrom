@@ -43,6 +43,7 @@ import Quickstrom.PureScript.Value
 import qualified Quickstrom.Result as Quickstrom
 import qualified Quickstrom.Specification as Quickstrom
 import qualified Quickstrom.Trace as Quickstrom
+import qualified Quickstrom.Options as Quickstrom
 import System.FilePath ((</>))
 import System.FilePath.Glob (glob)
 import Text.Read (read)
@@ -197,13 +198,7 @@ data SpecificationProgram = SpecificationProgram
   , specificationActions :: Vector (Int, Quickstrom.Action Quickstrom.Selector)
   , specificationQueries :: Quickstrom.Queries
   , specificationProgram :: Program WithObservedStates
-  , specificationTests :: Maybe Quickstrom.Selector
-  , specificationMaxActions :: Maybe Quickstrom.Selector
-  , specificationShrinkLevels :: Maybe Quickstrom.Selector
-  , specificationOrigin :: Maybe Quickstrom.Selector
-  , specificationMaxTrailingStateChanges :: Maybe Quickstrom.Selector
-  , specificationTrailingStateChangeTimeout :: Maybe Quickstrom.Selector
-  , specificationWebDriverOptions :: Maybe Quickstrom.Selector
+  , specificationCheckOptions :: Quickstrom.CheckOptionsFirst
   }
 
 instance Quickstrom.Specification SpecificationProgram where
@@ -220,13 +215,7 @@ instance Quickstrom.Specification SpecificationProgram where
 
   queries = specificationQueries
 
-  tests = specificationTests
-  maxActions = specificationMaxActions
-  shrinkLevels = specificationShrinkLevels
-  origin = specificationOrigin
-  maxTrailingStateChanges = specificationMaxTrailingStateChanges
-  trailingStateChangeTimeout = specificationTrailingStateChangeTimeout
-  webDriverOptions = specificationWebDriverOptions
+  checkOptions = specificationCheckOptions
 
 loadSpecification :: Modules -> Text -> IO (Either Text SpecificationProgram)
 loadSpecification ms input = runExceptT $ do
@@ -237,26 +226,16 @@ loadSpecification ms input = runExceptT $ do
     readyWhen <- toHaskellValue ss =<< evalWithObservedStates p "readyWhen" []
     actions <- toHaskellValue ss =<< evalWithObservedStates p "actions" []
     queries <- extractQueries p2 "proposition"
-    tests <- toHaskellValue ss =<< evalWithObservedStates p "tests" []
-    maxActions <- toHaskellValue ss =<< evalWithObservedStates p "maxActions" []
-    shrinkLevels <- toHaskellValue ss =<< evalWithObservedStates p "shrinkLevels" []
-    origin <- toHaskellValue ss =<< evalWithObservedStates p "origin" []
-    maxTrailingStateChanges <- toHaskellValue ss =<< evalWithObservedStates p "maxTrailingStateChanges" []
-    trailingStateChangeTimeout <- toHaskellValue ss =<< evalWithObservedStates p "trailingStateChangeTimeout" []
-    webDriverOptions <- toHaskellValue ss =<< evalWithObservedStates p "webDriverOptions" []
+
+    -- here need to work out how to make a parser
+
     pure
       ( SpecificationProgram
           { specificationReadyWhen = Quickstrom.Selector readyWhen
           , specificationActions = actions
           , specificationQueries = queries
           , specificationProgram = p
-          , specificationTests = Just $ Quickstrom.Selector tests
-          , specificationMaxActions = Just $ Quickstrom.Selector maxActions
-          , specificationShrinkLevels = Just $ Quickstrom.Selector shrinkLevels
-          , specificationOrigin = Just $ Quickstrom.Selector origin
-          , specificationMaxTrailingStateChanges = Just $ Quickstrom.Selector maxTrailingStateChanges
-          , specificationTrailingStateChangeTimeout = Just $ Quickstrom.Selector trailingStateChangeTimeout
-          , specificationWebDriverOptions = Just $ Quickstrom.Selector webDriverOptions
+          , specificationCheckOptions = _checkoptions
           }
       )
 

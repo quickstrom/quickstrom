@@ -77,19 +77,37 @@ spec_purescript = beforeAll loadModules $ do
         "testNextOneQuery"
         p
         `shouldBe` Right ("bar" :: Text)
-    describe "invalid built-in references" $ do
-      it "reports and error when aliasing next" $ \p -> do
+    describe "partial application and higher-order temporal operators" $ do
+      it "supports partially applying until" $ \p -> do
         eval' @Bool
-          [mempty]
-          "aliasNext"
+          [mempty, mempty]
+          "partialUntil"
           p
-          `shouldBe` Left "Invalid reference to built-in: next"
-      it "reports and error when passing next as parameter" $ \p -> do
-        eval' @Bool
-          [mempty]
+          `shouldBe` Right True
+      it "supports passing next as parameter" $ \p -> do
+        eval'
+          [mempty, mempty]
           "passNext"
           p
-          `shouldBe` Left "Invalid reference to built-in: next"
+          `shouldBe` Right True
+    it "parameters are evaluated lazily" $ \p -> do
+      eval'
+        [paragraphWithTextState "foo", paragraphWithTextState "bar"]
+        "lazyNext"
+        p
+        `shouldBe` Right ("bar" :: Text)
+    it "parameters are evaluated lazily with nested next" $ \p -> do
+      eval'
+        [paragraphWithTextState "foo", paragraphWithTextState "bar", paragraphWithTextState "baz"]
+        "lazyNextNext"
+        p
+        `shouldBe` Right ("baz" :: Text)
+    it "parameters are evaluated lazily" $ \p -> do
+      eval'
+        [paragraphWithTextState "foo", paragraphWithTextState "bar"]
+        "lazyNext"
+        p
+        `shouldBe` Right ("bar" :: Text)
   describe "temporal logic" . beforeWith (loadProgram' "test/Quickstrom/PureScriptTest.purs") $ do
     it "tla1" $ \p -> do
       eval' [mempty, mempty] "tla1" p `shouldBe` Right True

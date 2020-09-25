@@ -84,14 +84,20 @@ partial = unsafePartial fromJust (pure 123)
 paragraph :: Maybe { text :: String }
 paragraph = queryOne "p" { text: textContent }
 
+lazyNext :: String
+lazyNext = let f a = next a in f (maybe "" _.text paragraph)
+
+lazyNextNext :: String
+lazyNextNext = let f a = next a in f (maybe "" _.text (next paragraph))
+
 testOneQuery :: String
 testOneQuery = maybe "" _.text paragraph
 
 testNextOneQuery :: String
 testNextOneQuery = next testOneQuery
 
-aliasNext :: Boolean
-aliasNext = let f = next in f true
+partialUntil :: Boolean
+partialUntil = let f = until false in f true
 
 passNext :: Boolean
 passNext = let f = (_ $ true) in f next

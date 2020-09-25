@@ -36,13 +36,29 @@ import Quickstrom.Selector (Selector)
 import Quickstrom.Spec (Actions, Action(..), Path, SpecialKey(..), asciiKeyPresses, clicks, foci, focus, keyPress, specialKeyPress) as Spec
 import Type.Prelude (class ListToRow, class TypeEquals)
 
-foreign import next :: forall a. a -> a
+-- ## Temporal operators
 
-foreign import always :: Boolean -> Boolean
+foreign import _next :: forall a. a -> a
 
-foreign import until :: Boolean -> Boolean -> Boolean
+foreign import _always :: Boolean -> Boolean
 
-foreign import trace :: forall a. String -> a -> a
+foreign import _until :: Boolean -> Boolean -> Boolean
+
+next :: forall a. a -> a
+next p = _next p
+
+always :: Boolean -> Boolean
+always p = _always p
+
+until :: Boolean -> Boolean -> Boolean
+until p q = _until p q
+
+-- ## Tracing (currently disabled)
+
+foreign import _trace :: forall a. String -> a -> a
+
+trace :: forall a. String -> a -> a
+trace s p = _trace s p
 
 traceShow :: forall a. Show a => a -> a
 traceShow x = trace (show x) x

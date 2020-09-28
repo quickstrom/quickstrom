@@ -62,7 +62,7 @@ a ``Maybe``.
 Temporal Operators
 ------------------
 
-In Quickstrom specifications, there are three temporal operators:
+In Quickstrom specifications, there are three core temporal operators:
 
 -  ``next :: forall a. a -> a``
 -  ``always :: Boolean -> Boolean``
@@ -70,6 +70,13 @@ In Quickstrom specifications, there are three temporal operators:
 
 They change the *modality* of the sub-expression, i.e. in what state of
 the recorded behavior it is evaluated.
+
+There are also utility functions built on top of the temporal operators:
+
+- ``unchanged :: Eq a => a -> Boolean``
+
+Let's go through the operators and utility functions provided by
+Quickstrom!
 
 Always
 ~~~~~~

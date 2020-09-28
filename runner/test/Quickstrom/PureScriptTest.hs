@@ -102,6 +102,18 @@ spec_purescript = beforeAll loadModules $ do
         "lazyNextNext"
         p
         `shouldBe` Right ("baz" :: Text)
+    it "array literal elements are evaluated lazily" $ \p -> do
+      eval'
+        [paragraphWithTextState "foo", paragraphWithTextState "bar"]
+        "lazyInArray"
+        p
+        `shouldBe` Right ("bar" :: Text)
+    it "unchanged parameters are evaluated lazily" $ \p -> do
+      eval'
+        [paragraphWithTextState "foo", paragraphWithTextState "foo", paragraphWithTextState "bar"]
+        "lazyUnchanged"
+        p
+        `shouldBe` Right ([True, False, False] :: Vector Bool)
     it "parameters are evaluated lazily" $ \p -> do
       eval'
         [paragraphWithTextState "foo", paragraphWithTextState "bar"]

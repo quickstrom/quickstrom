@@ -299,6 +299,8 @@ foreignFunctions =
       (ffName "Data.Int" "toNumber", foreignFunction (op1 (fromIntegral @Int @Double))),
       (ffName "Data.Int" "fromNumberImpl", foreignFunction fromNumberImpl),
       (ffName "Data.Int" "fromStringAsImpl", foreignFunction fromStringAsImpl),
+      (ffName "Data.Lazy" "defer", foreignFunction lazyDefer),
+      (ffName "Data.Lazy" "force", foreignFunction lazyForce),
       (ffName "Data.Ord" "ordBooleanImpl", foreignFunction (ordImpl @Bool @(Value EvalAnn))),
       (ffName "Data.Ord" "ordIntImpl", foreignFunction (ordImpl @Int @(Value EvalAnn))),
       (ffName "Data.Ord" "ordNumberImpl", foreignFunction (ordImpl @Double @(Value EvalAnn))),
@@ -359,6 +361,10 @@ foreignFunctions =
         10 -> Text.decimal t
         16 -> Text.hexadecimal t
         _ -> Left mempty
+    lazyDefer :: Applicative m => (Value EvalAnn) -> Ret m (Value EvalAnn)
+    lazyDefer = pure
+    lazyForce :: (Value EvalAnn -> Ret m (Value EvalAnn)) -> Ret m (Value EvalAnn)
+    lazyForce f = f (VObject mempty)
     len :: Monad m => Vector (Value EvalAnn) -> Ret m Int
     len xs = pure (fromIntegral (Vector.length xs))
     filterArray :: Monad m => (Value EvalAnn -> Ret m Bool) -> Vector (Value EvalAnn) -> Ret m (Vector (Value EvalAnn))

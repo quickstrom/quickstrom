@@ -1,11 +1,14 @@
 module Quickstrom.PureScriptTest where
 
 import Quickstrom
+
 import Control.Monad.Reader (Reader, ask, local, runReader)
 import Control.Monad.State (evalState, get, modify)
+import Data.Array as Array
 import Data.Identity (Identity(..))
 import Data.Int (toNumber)
-import Data.Maybe (Maybe(..), fromJust, maybe)
+import Data.Lazy (defer)
+import Data.Maybe (Maybe(..), fromJust, fromMaybe, maybe)
 import Data.Newtype (un)
 import Data.Tuple (Tuple(..))
 import Data.Unfoldable (unfoldr)
@@ -89,6 +92,17 @@ lazyNext = let f a = next a in f (maybe "" _.text paragraph)
 
 lazyNextNext :: String
 lazyNextNext = let f a = next a in f (maybe "" _.text (next paragraph))
+
+lazyInArray :: String
+lazyInArray =
+  let xs :: Array (Maybe String)
+      xs = [_.text <$> paragraph]
+      x :: Maybe String
+      x = next (join (xs Array.!! 0))
+  in fromMaybe "" x
+
+lazyUnchanged :: Array Boolean
+lazyUnchanged = [unchanged paragraph, unchanged (next paragraph), unchanged [next paragraph]]
 
 testOneQuery :: String
 testOneQuery = maybe "" _.text paragraph

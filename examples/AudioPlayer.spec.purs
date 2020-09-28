@@ -32,23 +32,20 @@ proposition =
     play =
       paused
         && next playing
-        && timeDisplayText
-        == next timeDisplayText
+        && unchanged timeDisplayText
 
     -- The `pause` transition means going from `playing` to `paused`
     pause =
       playing
         && next paused
-        && timeDisplayText
-        == next timeDisplayText
+        && unchanged timeDisplayText
 
     -- The `tick` transitions happens when we're in `playing`,
     -- changing the time display's text
     tick =
       playing
         && next playing
-        && timeDisplayText
-        /= next timeDisplayText
+        && not (unchanged timeDisplayText)
   in
     -- This last part is the central part of the specification,
     -- describing the initial state and the possible transitions. It

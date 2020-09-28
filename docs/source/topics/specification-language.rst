@@ -146,6 +146,40 @@ as a state machine. It can be visualized as follows:
      Contact -> Home [ label = "goHome" ];
    }
 
+Unchanged
+~~~~~~~~~
+
+In addition to the core temporal operators, the ``unchanged`` operator
+is a utility for stating that something does *not* change:
+
+.. code-block:: haskell
+
+   unchanged :: forall a. Eq a => a -> Boolean
+   unchanged x = x == next x
+
+It's useful when expressing state transitions, specifying that a
+certain queried value should be the same both before and after a
+particular transition.
+
+For instance, let's say we have a bunch of top-level definitions, all
+based on DOM queries, describing a user profile:
+
+.. code-block:: haskell
+
+   userName :: String
+   userName = ...
+
+   userProfileUrl :: String
+   userProfileUrl = ...
+
+We can say the user profile information should not change in a
+transition ``t`` by passing an array of those values:
+
+.. code-block:: haskell
+
+   t = unchanged [userName, userProfileUrl]
+       && ... -- actual changes in transition
+
 Actions
 -------
 

@@ -90,6 +90,7 @@
 <li class="toctree-l1 current"><a class="reference internal" href="../installation.html">Installation</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="nix.html">Installing with Nix</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Installing with Docker</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#accessing-a-server-on-the-host">Accessing a Server on the Host</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../topics/index.html">Topics</a></li>
@@ -210,6 +211,25 @@ line does:</p>
 <p>There are <a class="reference external" href="https://docs.docker.com/engine/reference/run/#network-settings">other ways</a> of
 setting up network access between Docker containers. Using host networking is
 convenient in this case, but you might require or prefer another method.</p>
+</div>
+<div class="section" id="accessing-a-server-on-the-host">
+<h1>Accessing a Server on the Host<a class="headerlink" href="#accessing-a-server-on-the-host" title="Permalink to this headline">¶</a></h1>
+<p>If you wish to run Quickstrom in Docker and test a website being hosted by the Docker host system you can set the url to <code class="docutils literal notranslate"><span class="pre">localhost</span></code> (or <code class="docutils literal notranslate"><span class="pre">host.docker.internal`</span></code> for MacOS).</p>
+<div class="highlight-console notranslate"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre>1
+2
+3
+4
+5
+6
+7</pre></div></td><td class="code"><div class="highlight"><pre><span></span><span class="gp">$</span> docker run <span class="se">\</span>
+  --network<span class="o">=</span>host <span class="se">\</span>
+  --mount<span class="o">=</span><span class="nv">type</span><span class="o">=</span>bind,source<span class="o">=</span><span class="nv">$PWD</span>/specs,target<span class="o">=</span>/specs <span class="se">\</span>
+  quickstrom/quickstrom:latest <span class="se">\</span>
+  quickstrom check <span class="se">\</span>
+  /specs/Example.spec.purs <span class="se">\</span>
+  http://localhost:3000 <span class="c1"># or http://host.docker.internal:3000 for MacOS (You may have to disable HOST checking if you get &quot;Invalid Host header&quot; messages)</span>
+</pre></div>
+</td></tr></table></div>
 </div>
 
 

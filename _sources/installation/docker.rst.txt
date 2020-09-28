@@ -47,3 +47,20 @@ There are `other ways
 <https://docs.docker.com/engine/reference/run/#network-settings>`__ of
 setting up network access between Docker containers. Using host networking is
 convenient in this case, but you might require or prefer another method.
+
+Accessing a Server on the Host
+======================
+
+If you wish to run Quickstrom in Docker and test a website being hosted by the Docker host system you can set the url to ``localhost`` (or ``host.docker.internal``` for MacOS).  
+
+
+.. code-block:: console
+   :linenos:
+
+   $ docker run \
+     --network=host \
+     --mount=type=bind,source=$PWD/specs,target=/specs \
+     quickstrom/quickstrom:latest \
+     quickstrom check \
+     /specs/Example.spec.purs \
+     http://localhost:3000 # or http://host.docker.internal:3000 for MacOS (You may have to disable HOST checking if you get "Invalid Host header" messages)

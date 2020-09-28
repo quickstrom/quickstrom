@@ -96,6 +96,7 @@
 <li class="toctree-l4"><a class="reference internal" href="#always">Always</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#until">Until</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#next">Next</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#unchanged">Unchanged</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#actions">Actions</a></li>
@@ -225,7 +226,7 @@ a <code class="docutils literal notranslate"><span class="pre">Maybe</span></cod
 </div>
 <div class="section" id="temporal-operators">
 <h2>Temporal Operators<a class="headerlink" href="#temporal-operators" title="Permalink to this headline">¶</a></h2>
-<p>In Quickstrom specifications, there are three temporal operators:</p>
+<p>In Quickstrom specifications, there are three core temporal operators:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">next</span> <span class="pre">::</span> <span class="pre">forall</span> <span class="pre">a.</span> <span class="pre">a</span> <span class="pre">-&gt;</span> <span class="pre">a</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">always</span> <span class="pre">::</span> <span class="pre">Boolean</span> <span class="pre">-&gt;</span> <span class="pre">Boolean</span></code></p></li>
@@ -233,6 +234,12 @@ a <code class="docutils literal notranslate"><span class="pre">Maybe</span></cod
 </ul>
 <p>They change the <em>modality</em> of the sub-expression, i.e. in what state of
 the recorded behavior it is evaluated.</p>
+<p>There are also utility functions built on top of the temporal operators:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">unchanged</span> <span class="pre">::</span> <span class="pre">Eq</span> <span class="pre">a</span> <span class="pre">=&gt;</span> <span class="pre">a</span> <span class="pre">-&gt;</span> <span class="pre">Boolean</span></code></p></li>
+</ul>
+<p>Let’s go through the operators and utility functions provided by
+Quickstrom!</p>
 <div class="section" id="always">
 <h3>Always<a class="headerlink" href="#always" title="Permalink to this headline">¶</a></h3>
 <p>Let’s say we have the following proposition:</p>
@@ -294,6 +301,33 @@ as a state machine. It can be visualized as follows:</p>
   About -&gt; Home [ label = &quot;goHome&quot; ];
   Contact -&gt; Home [ label = &quot;goHome&quot; ];
 }" class="graphviz" /></div>
+</div>
+<div class="section" id="unchanged">
+<h3>Unchanged<a class="headerlink" href="#unchanged" title="Permalink to this headline">¶</a></h3>
+<p>In addition to the core temporal operators, the <code class="docutils literal notranslate"><span class="pre">unchanged</span></code> operator
+is a utility for stating that something does <em>not</em> change:</p>
+<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">unchanged</span> <span class="ow">::</span> <span class="n">forall</span> <span class="n">a</span><span class="o">.</span> <span class="kt">Eq</span> <span class="n">a</span> <span class="ow">=&gt;</span> <span class="n">a</span> <span class="ow">-&gt;</span> <span class="kt">Boolean</span>
+<span class="nf">unchanged</span> <span class="n">x</span> <span class="ow">=</span> <span class="n">x</span> <span class="o">==</span> <span class="n">next</span> <span class="n">x</span>
+</pre></div>
+</div>
+<p>It’s useful when expressing state transitions, specifying that a
+certain queried value should be the same both before and after a
+particular transition.</p>
+<p>For instance, let’s say we have a bunch of top-level definitions, all
+based on DOM queries, describing a user profile:</p>
+<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">userName</span> <span class="ow">::</span> <span class="kt">String</span>
+<span class="nf">userName</span> <span class="ow">=</span> <span class="o">...</span>
+
+<span class="nf">userProfileUrl</span> <span class="ow">::</span> <span class="kt">String</span>
+<span class="nf">userProfileUrl</span> <span class="ow">=</span> <span class="o">...</span>
+</pre></div>
+</div>
+<p>We can say the user profile information should not change in a
+transition <code class="docutils literal notranslate"><span class="pre">t</span></code> by passing an array of those values:</p>
+<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">t</span> <span class="ow">=</span> <span class="n">unchanged</span> <span class="p">[</span><span class="n">userName</span><span class="p">,</span> <span class="n">userProfileUrl</span><span class="p">]</span>
+    <span class="o">&amp;&amp;</span> <span class="o">...</span> <span class="c1">-- actual changes in transition</span>
+</pre></div>
+</div>
 </div>
 </div>
 <div class="section" id="actions">

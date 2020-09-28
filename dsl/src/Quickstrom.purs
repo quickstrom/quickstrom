@@ -20,6 +20,7 @@ module Quickstrom
   , queryOne
   , class StateToField
   , class StatesToRecord
+  , unchanged
   , module Quickstrom.Selector
   , module Spec
   , module Data.HeytingAlgebra
@@ -137,4 +138,8 @@ queryAll selector states = _queryAll selector states
 
 queryOne :: Query Maybe
 queryOne selector = head <<< queryAll selector
- -- ## Spec
+
+ -- ## State
+
+unchanged :: forall a. Eq a => a -> Boolean
+unchanged x = x == next x

@@ -44,4 +44,4 @@ let
     '';
   };
 
-in { inherit haskellPackages quickstrom; }
+in { inherit haskellPackages quickstrom dsl; }

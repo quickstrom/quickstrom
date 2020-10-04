@@ -22,7 +22,7 @@ run``:
 .. code-block:: console
    :linenos:
 
-   $ docker run -d -p 4444:4444 instrumentisto/geckodriver
+   $ docker run -d -p 127.0.0.1:4444:4444 instrumentisto/geckodriver
    $ docker run \
      --network=host \
      --mount=type=bind,source=$PWD/specs,target=/specs \

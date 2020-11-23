@@ -2,9 +2,6 @@ module Quickstrom
   ( next
   , always
   , until
-  , trace
-  , traceShow
-  , traceShowLabelled
   , Property
   , value
   , textContent
@@ -53,19 +50,6 @@ always p = _always p
 
 until :: Boolean -> Boolean -> Boolean
 until p q = _until p q
-
--- ## Tracing (currently disabled)
-
-foreign import _trace :: forall a. String -> a -> a
-
-trace :: forall a. String -> a -> a
-trace s p = _trace s p
-
-traceShow :: forall a. Show a => a -> a
-traceShow x = trace (show x) x
-
-traceShowLabelled :: forall a. Show a => String -> a -> a
-traceShowLabelled lbl x = trace (lbl <> ": " <> show x) x
 
 -- ## Properties
 foreign import data Property :: Symbol -> Type -> Type

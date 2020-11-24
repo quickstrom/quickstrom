@@ -49,7 +49,7 @@ pattern BuiltIn :: a -> Text -> Expr a
 pattern BuiltIn ann name <- CF.Var ann (P.Qualified (Just (P.ModuleName "Quickstrom")) (P.Ident name))
 
 builtInNames :: [Text]
-builtInNames = ["_next", "_always", "_until", "_queryAll", "_trace", "_property", "_attribute", "cssValue"]
+builtInNames = ["_next", "_always", "_until", "_queryAll", "_log", "_property", "_attribute", "cssValue"]
 
 type Env' m = Env Expr Value (EvalForeignFunction m) EvalAnn
 
@@ -71,17 +71,6 @@ eval expr = do
     CF.App ann (BuiltIn _ "_always") p -> evalAlways ann p
     CF.App ann (CF.App _ (BuiltIn _ "_until") p) q -> evalUntil ann p q
     CF.App _ (CF.App _ (BuiltIn _ "_queryAll") p) q -> evalQuery p q
-    CF.App _ (CF.App _ (BuiltIn _ "_trace") label) p -> do
-      _t <- require (exprSourceSpan label) (Proxy @"VString") =<< eval label
-      -- traceM
-      --   ( prettyText
-      --       ( prettySourceSpan (exprSourceSpan expr) <> colon
-      --           <+> "trace: in state"
-      --           <+> pretty n <> colon
-      --           <+> pretty t
-      --       )
-      --   )
-      eval p
     CF.App _ (BuiltIn _ "_property") p -> do
       name <- require (exprSourceSpan p) (Proxy @"VString") =<< eval p
       pure (VElementState (Quickstrom.Property name))

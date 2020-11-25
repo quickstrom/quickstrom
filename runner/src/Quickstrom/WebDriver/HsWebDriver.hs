@@ -15,6 +15,7 @@ import Quickstrom.Element
 import Quickstrom.Prelude hiding (catch)
 import Quickstrom.Run
 import qualified Test.WebDriver as WebDriver
+import qualified Data.ByteString.Lazy as LBS
 
 newtype WebDriverClient a = WebDriverClient {unWebDriverClient :: WebDriver.WD a}
   deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch)
@@ -25,7 +26,7 @@ instance WebDriver WebDriverClient where
   getElementTagName = map toS . WebDriverClient . WebDriver.tagName . toRef
   elementClick = WebDriverClient . WebDriver.click . toRef
   elementSendKeys keys = WebDriverClient . WebDriver.sendKeys (toS keys) . toRef
-  takeScreenshot = WebDriverClient . WebDriver.screenshot
+  takeScreenshot = WebDriverClient (LBS.toStrict <$> WebDriver.screenshot)
   findAll (Selector s) = map fromRef <$> WebDriverClient (WebDriver.findElems (WebDriver.ByCSS s))
   navigateTo = WebDriverClient . WebDriver.openPage . toS
   runScript script args = do

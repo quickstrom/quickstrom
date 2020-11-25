@@ -82,17 +82,11 @@ data FailingTest = FailingTest
   }
   deriving (Show, Generic)
 
-instance JSON.ToJSON FailingTest where
-  toJSON = JSON.genericToJSON JSON.defaultOptions
-
 data CheckResult
   = CheckSuccess
   | CheckFailure {failedAfter :: Int, failingTest :: FailingTest}
   | CheckError {checkError :: Text}
   deriving (Show, Generic)
-
-instance JSON.ToJSON CheckResult where
-  toJSON = JSON.genericToJSON JSON.defaultOptions
 
 data TestEvent
   = TestStarted Size
@@ -102,17 +96,11 @@ data TestEvent
   | RunningShrink Int
   deriving (Show, Generic)
 
-instance JSON.ToJSON TestEvent where
-  toJSON = JSON.genericToJSON JSON.defaultOptions
-
 data CheckEvent
   = CheckStarted Int
   | CheckTestEvent TestEvent
   | CheckFinished CheckResult
   deriving (Show, Generic)
-
-instance JSON.ToJSON CheckEvent where
-  toJSON = JSON.genericToJSON JSON.defaultOptions
 
 data CheckEnv = CheckEnv {checkOptions :: CheckOptions, checkScripts :: CheckScripts}
 
@@ -140,9 +128,9 @@ data CheckScript a = CheckScript {runCheckScript :: forall m. WebDriver m => m a
 
 data CheckScripts = CheckScripts
   { isElementVisible :: Element -> CheckScript Bool,
-    observeState :: Queries -> CheckScript ObservedState,
+    observeState :: Queries -> CheckScript ObservedElementStates,
     registerNextStateObserver :: Timeout -> Queries -> CheckScript (),
-    awaitNextState :: CheckScript (Maybe ObservedState)
+    awaitNextState :: CheckScript (Maybe ObservedElementStates)
   }
 
 check ::
@@ -247,13 +235,13 @@ beforeRun spec = do
   navigateToOrigin
   awaitElement (readyWhen spec)
 
-takeWhileChanging :: (Eq a, Functor m) => Pipe a a m ()
-takeWhileChanging = Pipes.await >>= loop
+takeWhileChanging :: Functor m => (a -> a -> Bool) -> Pipe a a m ()
+takeWhileChanging compare' = Pipes.await >>= loop
   where
     loop last = do
       Pipes.yield last
       next <- Pipes.await
-      if next == last then pass else loop next
+      if next `compare'` last then pass else loop next
 
 observeManyStatesAfter :: WebDriver m => Queries -> Action Selected -> Pipe a (TraceElement ()) (Runner m) ()
 observeManyStatesAfter queries' action = do
@@ -264,10 +252,14 @@ observeManyStatesAfter queries' action = do
     lift (runCheckScript (awaitNextState scripts)) >>= \case
       Just state' -> pure state'
       Nothing -> lift (runCheckScript (observeState scripts queries'))
+  screenshot <- pure <$> lift takeScreenshot
   Pipes.yield (TraceAction () action result)
-  Pipes.yield (TraceState () newState)
+  Pipes.yield (TraceState () (ObservedState screenshot newState))
   nonStutters <-
-    (loop checkTrailingStateChangeTimeout >-> takeWhileChanging >-> Pipes.take checkMaxTrailingStateChanges)
+    ( loop checkTrailingStateChangeTimeout
+        >-> takeWhileChanging (\a b -> elementStates a == elementStates b)
+        >-> Pipes.take checkMaxTrailingStateChanges
+      )
       & Pipes.toListM
       & lift
   mapM_ (Pipes.yield . (TraceState ())) nonStutters
@@ -280,7 +272,8 @@ observeManyStatesAfter queries' action = do
         runCheckScript (awaitNextState scripts) >>= \case
           Just state' -> pure state'
           Nothing -> runCheckScript (observeState scripts queries')
-      Pipes.yield newState
+      screenshot <- pure <$> lift takeScreenshot
+      Pipes.yield (ObservedState screenshot newState)
       loop (mapTimeout (* 2) timeout)
 
 {-# SCC runActions' "runActions'" #-}
@@ -288,7 +281,8 @@ runActions' :: (WebDriver m, Specification spec) => spec -> Pipe (Action Selecte
 runActions' spec = do
   scripts <- lift (asks checkScripts)
   state1 <- lift (runCheckScript (observeState scripts queries'))
-  Pipes.yield (TraceState () state1)
+  screenshot <- pure <$> lift takeScreenshot
+  Pipes.yield (TraceState () (ObservedState screenshot state1))
   loop
   where
     queries' = queries spec

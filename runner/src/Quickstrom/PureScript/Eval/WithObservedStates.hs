@@ -27,7 +27,7 @@ import Quickstrom.PureScript.Eval.Class
 import Quickstrom.PureScript.Eval.Error
 import Quickstrom.PureScript.Eval.Interpret
 import Quickstrom.PureScript.Value
-import Quickstrom.Trace (ObservedState (..))
+import Quickstrom.Trace (ObservedState (..), ObservedElementStates (..))
 
 data WithObservedStatesEnv = WithObservedStatesEnv
   { env :: Env' WithObservedStates,
@@ -46,7 +46,7 @@ instance MonadEvalQuery WithObservedStates where
   evalQuery p1 p2 = do
     view (field @"observedStates") >>= \case
       [] -> throwError Undetermined
-      ObservedState current : _ -> do
+      ObservedState _ (ObservedElementStates current) : _ -> do
         selector <- require (exprSourceSpan p1) (Proxy @"VString") =<< eval p1
         wantedStates <- require (exprSourceSpan p2) (Proxy @"VObject") =<< eval p2
         matchedElements <-

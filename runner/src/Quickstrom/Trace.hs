@@ -16,6 +16,7 @@
 module Quickstrom.Trace
   ( Selected (..),
     Action (..),
+    ObservedElementStates (..),
     ObservedState (..),
     Trace (..),
     ActionResult (..),
@@ -41,19 +42,37 @@ import Data.Text.Prettyprint.Doc
 import GHC.Generics (Generic)
 import Quickstrom.Action
 import Quickstrom.Element
+import Quickstrom.Prelude
 import Prelude hiding (Bool (..), not)
 
-newtype ObservedState = ObservedState (HashMap Selector [HashMap ElementState Value])
+newtype ObservedElementStates = ObservedElementStates (HashMap Selector [HashMap ElementState Value])
   deriving (Show, Eq, Generic, FromJSON, ToJSON)
 
+instance Semigroup ObservedElementStates where
+  ObservedElementStates s1 <> ObservedElementStates s2 = ObservedElementStates (s1 <> s2)
+
+instance Monoid ObservedElementStates where
+  mempty = ObservedElementStates mempty
+
+data ObservedState = ObservedState {screenshot :: Maybe ByteString, elementStates :: ObservedElementStates}
+  deriving (Show, Generic)
+
 instance Semigroup ObservedState where
-  ObservedState s1 <> ObservedState s2 = ObservedState (s1 <> s2)
+  ObservedState s1 e1 <> ObservedState s2 e2 = ObservedState (s1 <> s2) (e1 <> e2)
 
 instance Monoid ObservedState where
-  mempty = ObservedState mempty
+  mempty = ObservedState mempty mempty
 
 newtype Trace ann = Trace [TraceElement ann]
-  deriving (Show, Generic, ToJSON)
+  deriving (Show, Generic)
+
+data ActionResult = ActionSuccess | ActionFailed Text | ActionImpossible
+  deriving (Show, Generic)
+
+data TraceElement ann
+  = TraceAction ann (Action Selected) ActionResult
+  | TraceState ann ObservedState
+  deriving (Show, Generic)
 
 traceElements :: Lens' (Trace ann) [TraceElement ann]
 traceElements = position @1
@@ -70,15 +89,6 @@ traceActionFailures = traceElements . traverse . _Ctor @"TraceAction" . position
 nonStutterStates :: Monoid r => Getting r (Trace TraceElementEffect) ObservedState
 nonStutterStates = traceElements . traverse . _Ctor @"TraceState" . filtered ((== NoStutter) . fst) . position @2
 
-data ActionResult = ActionSuccess | ActionFailed Text | ActionImpossible
-  deriving (Show, Generic, ToJSON)
-
-data TraceElement ann
-  = TraceAction ann (Action Selected) ActionResult
-  | TraceState ann ObservedState
-  -- TODO: `TraceEvent` when queried DOM nodes change
-  deriving (Show, Generic, ToJSON)
-
 ann :: Lens (TraceElement ann) (TraceElement ann2) ann ann2
 ann = position @1
 
@@ -88,11 +98,11 @@ data TraceElementEffect = Stutter | NoStutter
 annotateStutteringSteps :: Trace a -> Trace TraceElementEffect
 annotateStutteringSteps (Trace els) = Trace (go els mempty)
   where
-    -- TODO: Not tail-recursive, might neeu optimization
+    -- TODO: Not tail-recursive, might need optimization
     go (TraceAction _ action result : rest) lastState =
       (TraceAction NoStutter action result : go rest lastState)
     go (TraceState _ newState : rest) lastState =
-      let ann' = if newState == lastState then Stutter else NoStutter
+      let ann' = if elementStates newState == elementStates lastState then Stutter else NoStutter
        in TraceState ann' newState : go rest newState
     go [] _ = []
 

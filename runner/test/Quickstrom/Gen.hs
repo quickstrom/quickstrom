@@ -22,7 +22,7 @@ stringValues :: Gen Text
 stringValues = elements ["s1", "s2", "s3"]
 
 observedState :: Gen ObservedState
-observedState = ObservedState <$> pure mempty
+observedState = pure mempty
 
 selectedAction :: Gen (Action Selected)
 selectedAction =

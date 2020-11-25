@@ -24,6 +24,7 @@ class Monad m => WebDriver (m :: Type -> Type) where
   getElementTagName :: Element -> m Text
   elementClick :: Element -> m ()
   elementSendKeys :: Text -> Element -> m ()
+  takeScreenshot :: m ByteString
   findAll :: Selector -> m [Element]
   navigateTo :: Text -> m ()
   runScript :: JSON.FromJSON r => Text -> [JSON.Value] -> m r
@@ -36,6 +37,7 @@ instance WebDriver m => WebDriver (ReaderT e m) where
   getElementTagName = lift . getElementTagName
   elementClick = lift . elementClick
   elementSendKeys keys = lift . elementSendKeys keys
+  takeScreenshot = lift takeScreenshot
   findAll = lift . findAll
   navigateTo = lift . navigateTo
   runScript s = lift . runScript s

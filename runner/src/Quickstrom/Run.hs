@@ -123,7 +123,8 @@ data CheckOptions = CheckOptions
     checkOrigin :: URI,
     checkMaxTrailingStateChanges :: Int,
     checkTrailingStateChangeTimeout :: Timeout,
-    checkWebDriverOptions :: WebDriverOptions
+    checkWebDriverOptions :: WebDriverOptions,
+    checkCaptureScreenshots :: Bool
   }
 
 newtype Size = Size {unSize :: Word32}

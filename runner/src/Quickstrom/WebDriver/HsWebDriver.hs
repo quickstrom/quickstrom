@@ -25,6 +25,7 @@ instance WebDriver WebDriverClient where
   getElementTagName = map toS . WebDriverClient . WebDriver.tagName . toRef
   elementClick = WebDriverClient . WebDriver.click . toRef
   elementSendKeys keys = WebDriverClient . WebDriver.sendKeys (toS keys) . toRef
+  takeScreenshot = WebDriverClient . WebDriver.screenshot
   findAll (Selector s) = map fromRef <$> WebDriverClient (WebDriver.findElems (WebDriver.ByCSS s))
   navigateTo = WebDriverClient . WebDriver.openPage . toS
   runScript script args = do

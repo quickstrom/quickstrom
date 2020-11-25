@@ -53,6 +53,7 @@ data CheckOptions = CheckOptions
     shrinkLevels :: Int,
     maxTrailingStateChanges :: Int,
     trailingStateChangeTimeout :: Word64,
+    captureScreenshots :: Bool,
     logLevel :: Quickstrom.LogLevel,
     browser :: Quickstrom.Browser,
     browserBinary :: Maybe FilePath,
@@ -116,6 +117,11 @@ checkOptionsParser =
           <> metavar "NUMBER"
           <> long "trailing-state-change-timeout"
           <> help "The initial timeout for awaited state changes (doubles with each await)"
+      )
+    <*> switch
+      ( 
+          long "capture-screenshots"
+          <> help "Capture a screenshot at each state, and record the positions of queried elements"
       )
     <*> option
       (eitherReader Quickstrom.parseLogLevel)
@@ -244,7 +250,9 @@ main = do
                     checkOrigin = originUri,
                     checkMaxTrailingStateChanges = maxTrailingStateChanges,
                     checkTrailingStateChangeTimeout = Quickstrom.Timeout trailingStateChangeTimeout,
-                    checkWebDriverOptions = wdOpts
+                    checkWebDriverOptions = wdOpts,
+                    
+    checkCaptureScreenshots = captureScreenshots
                   }
           result <-
             Pipes.runEffect (Pipes.for (Quickstrom.check opts (WebDriver.runWebDriver wdOpts) spec) (lift . logDoc . renderCheckEvent))

@@ -127,7 +127,6 @@ main li {
     margin: 0;
     padding: 1rem;
     border-bottom: 1px solid #444;
-    background: #3a3a3a;
 }
 .details .queries {
     display: none;
@@ -143,7 +142,12 @@ main li {
 
 .details .elements li {
     padding: .5rem;
+    background: #3a3a3a;
 }
+.details .elements li:hover {
+    background: #444;
+}
+
 .details .elements li:last-child {
     border: none;
 }
@@ -174,7 +178,26 @@ main li {
 
 .screenshot {
     flex: 2 1 60%; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.screenshot-frame {
+    position: relative;
 }
 .screenshot img {
-    width: 100%;
+}
+.screenshot .marker {
+    display: none;
+    position: absolute;
+    border: 2px solid red;
+    box-shadow: 0 0 5px red;
+    top: 10px;
+    left: 10px;
+    width: 400px;
+    height: 400px;
+}
+
+.screenshot .marker.visible {
+    display: block;
 }

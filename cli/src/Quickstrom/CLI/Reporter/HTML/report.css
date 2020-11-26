@@ -1,0 +1,180 @@
+html, body {
+    height: 100%;
+    background: #222;
+    color: #ddd;
+    font-family: sans-serif;
+    font-size: 16px;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    margin: 0;
+}
+
+header, footer {
+    padding: 1rem;
+    background: #1d1d1d;
+}
+
+header {
+    border-bottom: 1px solid #333;
+}
+
+footer {
+    border-top: 1px solid #333;
+    font-size: 0.875rem;
+}
+
+header h1 {
+    margin: 0 0 .5rem;
+    font-size: 150%;
+    color: #ccc;
+}
+
+header .summary {
+    font-size: 0.875rem;
+}
+
+header .summary.failed {
+    color: #933;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 500;
+}
+
+main {
+    flex: 1 0 auto;
+    display: flex;
+}
+
+.trace, .details {
+    flex: 1 1 20%; 
+    border-right: 1px solid #333;
+}
+
+main ol, main ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+main li {
+    padding: 1rem;
+    border-bottom: 1px #333 solid;
+}
+
+.trace ol {
+}
+
+.trace li.active {
+    background: #333;
+    color: #fff;
+}
+
+.trace li {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    cursor: pointer;
+}
+.trace li h2 {
+    flex: 0 0 100%;
+}
+
+.trace .state {
+}
+.trace .state.stutter {
+    color: #666;
+}
+.trace h2 {
+    margin: 0;
+    font-size: 100%;
+}
+.trace li * + * {
+    margin: .5rem 0 0;
+}
+
+.trace .action {
+}
+.trace .action .selector,
+.trace .action .key {
+    flex: 1 1 auto;
+    font-family: monospace;
+    color: #aaa;
+}
+.trace .action .selected-index {
+    flex: 0 0 auto;
+    font-family: monospace;
+    color: #aaa;
+}
+
+.details {
+    display: none;
+    background: #333;
+}
+.details.active {
+    display: block;
+}
+.details li {
+    padding: 0;
+    border-color: #444;
+}
+.details h3 {
+    font-size: 100%;
+    margin: 0;
+    padding: 1rem;
+    border-bottom: 1px solid #444;
+    background: #3a3a3a;
+}
+.details .queries {
+    display: none;
+}
+.details .queries.active {
+    display: block;
+}
+.details .queries .selector {
+    font-family: monospace;
+    font-weight: bold;
+    whitespace: nowrap;
+}
+
+.details .elements li {
+    padding: .5rem;
+}
+.details .elements li:last-child {
+    border: none;
+}
+
+.details .elements .changed {
+    color: orange;
+}
+.details .elements .added {
+    color: #afa;
+}
+
+
+.details .elements table {
+    width: 100%;
+    font-family: monospace;
+}
+.details .elements table th,
+.details .elements table td {
+    padding: .5rem;
+}
+.details .elements table td {
+    text-align: right;
+}
+
+.details li.active {
+    color: #fff;
+}
+
+.screenshot {
+    flex: 2 1 60%; 
+}
+.screenshot img {
+    width: 100%;
+}

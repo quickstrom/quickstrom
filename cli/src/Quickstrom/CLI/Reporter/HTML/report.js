@@ -9,14 +9,15 @@ function activeTraceStep(element) {
     traceSteps.forEach(other => other.classList.remove("active"));
     element.classList.add("active");
 
-    if (element.classList.contains("state")) {
-        screenshotImg.src = `test-${traceIndex}.png`;
-    } else {
-        screenshotImg.src = "";
-    }
+    screenshotImg.src = `test-${traceIndex}.png`;
 
     const details = document.querySelector(".details");
-    details.classList.add("active");
+
+    if (element.classList.contains("state")) {
+        details.classList.add("active");
+    } else {
+        details.classList.remove("active");
+    }
 
     details.querySelectorAll(".queries").forEach(queries => {
         queries.classList.remove("active");
@@ -28,33 +29,46 @@ function activeTraceStep(element) {
     }
 }
 
+function markFromElement(element) {
+    try {
+        const x = Number.parseInt(element.dataset.x);
+        const y = Number.parseInt(element.dataset.y);
+        const w = Number.parseInt(element.dataset.w);
+        const h = Number.parseInt(element.dataset.h);
+
+        if (w > 0 && h > 0) {
+            marker.classList.add("visible");
+            marker.style.left = `${x}px`;
+            marker.style.top = `${y}px`;
+            marker.style.width = `${w}px`;
+            marker.style.height = `${h}px`;
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+function unmark() {
+    marker.classList.remove("visible");
+}
+
 traceSteps.forEach(step => {
     step.addEventListener("click", e => {
         const traceIndex = step.dataset.traceIndex;
         activeTraceStep(step);
+
+        unmark();
+        if (step.classList.contains("action")) {
+            markFromElement(step);
+        }
     });
 });
 
 detailElements.forEach(element => {
     element.addEventListener("mouseenter", e => {
-        try {
-            const x = Number.parseInt(element.dataset.x);
-            const y = Number.parseInt(element.dataset.y);
-            const w = Number.parseInt(element.dataset.w);
-            const h = Number.parseInt(element.dataset.h);
-
-            if (w > 0 && h > 0) {
-                marker.classList.add("visible");
-                marker.style.left = `${x}px`;
-                marker.style.top = `${y}px`;
-                marker.style.width = `${w}px`;
-                marker.style.height = `${h}px`;
-            }
-        } catch (err) {
-            console.error(err);
-        }
+        markFromElement(element);
     });
     element.addEventListener("mouseleave", e => {
-        marker.classList.remove("visible");
+        unmark();
     });
 });

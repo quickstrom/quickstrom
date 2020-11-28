@@ -51,7 +51,7 @@ main {
 }
 
 .trace, .details {
-    flex: 1 1 20%; 
+    flex: 0 1 20%; 
     border-right: 1px solid #333;
 }
 
@@ -112,11 +112,12 @@ main li {
 }
 
 .details {
-    display: none;
+    flex: 0 1 0;
     background: #333;
+    transition: flex 0.1s ease;
 }
 .details.active {
-    display: block;
+    flex-basis: 20%;
 }
 .details li {
     padding: 0;
@@ -177,7 +178,7 @@ main li {
 }
 
 .screenshot {
-    flex: 2 1 60%; 
+    flex: 1 0 60%; 
     display: flex;
     align-items: center;
     justify-content: center;

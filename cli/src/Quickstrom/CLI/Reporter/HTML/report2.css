@@ -1,0 +1,147 @@
+html, body {
+    height: 100%;
+    font-family: sans-serif;
+    font-size: 16px;
+    background: #fff;
+    color: #222;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    margin: 0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+}
+
+header, footer {
+    padding: 1.5rem;
+    background: #333;
+    color: #eee;
+}
+
+header {
+}
+
+footer {
+    font-size: 0.875rem;
+}
+
+header h1 {
+    margin: 0 0 1rem;
+    font-size: 150%;
+    font-weight: 400;
+}
+
+header .summary {
+}
+
+header .summary.failed {
+    color: #d33;
+}
+
+main {
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.transition, .screenshots, .details {
+    width: 100%;
+    display: flex;
+}
+
+.transition {
+    flex-direction: column;
+    align-items: center;
+}
+
+.label {
+    display: block;
+    text-transform: uppercase;
+    font-size: .75rem;
+    color: #999;
+}
+
+.action {
+    width: calc(100%/6 * 3);
+    text-align: center;
+    margin-top: 1.5rem;
+}
+.action .action-details {
+    border-top: 1px solid #ccc;
+    border-left: 1px solid #ccc;
+    border-right: 1px solid #ccc;
+}
+.action .label {
+    margin-bottom: 1.5rem;
+}
+.action h2 {
+    font-size: 200%;
+    line-height: 2rem;
+    margin: -1rem 0 1rem 0;
+}
+.action .name {
+    display: inline-block;
+    background: #fff;
+    padding: 0 1rem;
+}
+.action .selector {
+    white-space: nowrap;
+    font-family: monospace;
+}
+.action .selected-index {
+    white-space: nowrap;
+    font-family: monospace;
+}
+.action .key {
+    display: inline-block;
+    padding: .5em .8em;
+    background: #eee;
+    box-shadow: 2px 2px 0 #ccc;
+    border-radius: 4px;
+    font-size: 125%;
+}
+
+.states {
+    display: flex;
+    width: 100%;
+    margin: 0 0 1.5rem 0;
+}
+.state {
+    flex: 0 0 50%;
+    text-align: center;
+}
+
+.state .label {
+    margin: .5rem 0;
+}
+
+.state h2 {
+    font-size: 150%;
+}
+
+.state .queries {
+    display: none;
+}
+
+.screenshots {
+    display: flex;
+}
+.state-screenshot {
+    flex: 0 0 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: auto;
+}
+.state-screenshot-inner {
+    flex: 0 0 auto;
+    position: relative;
+}
+.state-screenshot img {
+    display: block;
+}

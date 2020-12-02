@@ -49,12 +49,12 @@ main {
     flex-direction: column;
 }
 
-.transition, .screenshots, .details {
+.action, .states, .screenshots, .details {
     width: 100%;
     display: flex;
 }
 
-.transition {
+.action {
     flex-direction: column;
     align-items: center;
 }
@@ -66,7 +66,7 @@ main {
     color: #999;
 }
 
-.action {
+.action-inner {
     width: calc(100%/6 * 3);
     text-align: center;
     margin-top: 1.5rem;

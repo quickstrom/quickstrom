@@ -243,6 +243,7 @@ main = do
                   { webDriverLogLevel = logLevel,
                     webDriverBrowser = browser,
                     webDriverBrowserBinary = browserBinary,
+                    webDriverAdditionalOptions = browserOptions,
                     webDriverHost,
                     webDriverPort,
                     webDriverPath

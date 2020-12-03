@@ -13,6 +13,9 @@ module Main where
 
 import Control.Lens hiding (argument)
 import Control.Monad.Catch (try)
+import Data.String (String)
+import Data.Set (Set)
+import qualified Data.Set as Set
 import qualified Data.Text as Text
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
@@ -55,6 +58,7 @@ data CheckOptions = CheckOptions
     trailingStateChangeTimeout :: Word64,
     logLevel :: Quickstrom.LogLevel,
     browser :: Quickstrom.Browser,
+    browserOptions :: Set String,
     browserBinary :: Maybe FilePath,
     webDriverHost :: Text,
     webDriverPort :: Int,
@@ -132,6 +136,13 @@ checkOptionsParser =
           <> short 'b'
           <> value Quickstrom.Firefox
           <> help "Browser used (through WebDriver) to run tests"
+      )
+    <*> option
+      (maybeReader Quickstrom.parseBrowserOptions)
+      ( metavar "BROWSER_OPTIONS"
+          <> long "browser-options"
+          <> value Set.empty
+          <> help "Additional options to pass directly to the browser"
       )
     <*> optional
       ( option

@@ -4,6 +4,7 @@
 module Quickstrom.WebDriver.Class where
 
 import qualified Data.Aeson as JSON
+import Data.String (String)
 import Quickstrom.Browser
 import Quickstrom.Element (Element, Selector)
 import Quickstrom.LogLevel
@@ -15,7 +16,8 @@ data WebDriverOptions = WebDriverOptions
     webDriverLogLevel :: LogLevel,
     webDriverHost :: Text,
     webDriverPort :: Int,
-    webDriverPath :: FilePath
+    webDriverPath :: FilePath,
+    webDriverAdditionalOptions :: (Set String)
   }
 
 class Monad m => WebDriver (m :: Type -> Type) where

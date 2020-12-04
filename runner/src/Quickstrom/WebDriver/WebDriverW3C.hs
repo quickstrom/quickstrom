@@ -20,6 +20,7 @@ import Control.Monad.Trans.Identity (IdentityT (..))
 import qualified Data.Aeson as JSON
 import Data.Aeson.Lens
 import qualified Data.HashMap.Strict as HashMap
+import qualified Data.List as List
 import qualified Data.Set as Set
 import Data.String (String)
 import qualified Data.String as String
@@ -163,9 +164,11 @@ addCaps WebDriverOptions {webDriverBrowser = Chrome, webDriverBrowserBinary, web
                    ("args",
                     (JSON.Array
                       (Vector.fromList
-                      (map JSON.toJSON
-                      (["headless", "incognito", "no-sandbox", "disable-gpu", "privileged"] ++
-                      (Set.toList webDriverAdditionalOptions)))))
+                       (map JSON.toJSON
+                        (["headless", "no-sandbox", "disable-gpu", "privileged"] ++
+                         (if (Set.null (Set.filter (List.isPrefixOf "user-data-dir=") webDriverAdditionalOptions)) then
+                            ["incognito"] else []) ++
+                         (Set.toList webDriverAdditionalOptions)))))
                    )
                  ]
              ),

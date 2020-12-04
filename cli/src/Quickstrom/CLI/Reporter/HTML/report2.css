@@ -46,7 +46,32 @@ header .summary.failed {
 main {
     flex: 1 0 auto;
     display: flex;
+    flex-direction: row;
+}
+
+main .content {
+    flex: 1 1 auto;
+    display: flex;
     flex-direction: column;
+}
+main .controls {
+    flex: 0 0 auto;
+    display: flex;
+}
+main .controls button {
+    background: #fff;
+    border: none;
+    padding: 2rem;
+    cursor: pointer;
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+main .controls button:disabled {
+    cursor: not-allowed;
+}
+main .controls button:hover,
+main .controls button:active {
+    background: #eee;
 }
 
 .action, .states, .screenshots, .details {

@@ -1,0 +1,206 @@
+{
+  "generatedAt": "20:32, November 25",
+  "summary": {
+    "type": "failure",
+    "tests": 1,
+    "shrinkLevels": 1
+  },
+  "transitions": [
+    {
+      "action": {
+        "type": "KeyPress",
+        "key": "a",
+        "position": {
+          "x": 125,
+          "y": 130,
+          "w": 550,
+          "h": 64
+        }
+      },
+      "states": {
+        "from": {
+          "name": "State 1",
+          "screenshot": "test-0.png",
+          "queries": [
+            {
+              "selector": ".newtodo",
+              "elements": [
+                {
+                  "type": "property",
+                  "name": "value",
+                  "value": "",
+                  "position": {
+                    "x": 125,
+                    "y": 130,
+                    "w": 550,
+                    "h": 64
+                  }
+                }
+              ]
+            },
+            {
+              "selector": ".todo-list li",
+              "elements": []
+            },
+            {
+              "selector": "todo-list li input[type=checkbox]",
+              "elements": []
+            },
+            {
+              "selector": "todo-list li label",
+              "elements": []
+            },
+            {
+              "selector": ".filters a",
+              "elements": []
+            },
+            {
+              "selector": ".filters a.selected",
+              "elements": []
+            }
+          ]
+        },
+        "to": {
+          "name": "State 2",
+          "screenshot": "test-1.png",
+          "queries": [
+            {
+              "selector": ".newtodo",
+              "elements": [
+                {
+                  "type": "property",
+                  "name": "value",
+                  "value": "a",
+                  "position": {
+                    "x": 125,
+                    "y": 130,
+                    "w": 550,
+                    "h": 64
+                  }
+                }
+              ]
+            },
+            {
+              "selector": ".todo-list li",
+              "elements": []
+            },
+            {
+              "selector": "todo-list li input[type=checkbox]",
+              "elements": []
+            },
+            {
+              "selector": "todo-list li label",
+              "elements": []
+            },
+            {
+              "selector": ".filters a",
+              "elements": []
+            },
+            {
+              "selector": ".filters a.selected",
+              "elements": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "action": {
+        "type": "KeyPress",
+        "key": "\\57350",
+        "position": {
+          "x": 125,
+          "y": 130,
+          "w": 550,
+          "h": 64
+        }
+      },
+      "states": {
+        "from": {
+          "name": "State 2",
+          "screenshot": "test-1.png",
+          "queries": [
+            {
+              "selector": ".newtodo",
+              "elements": [
+                {
+                  "type": "property",
+                  "name": "value",
+                  "value": "a",
+                  "position": {
+                    "x": 125,
+                    "y": 130,
+                    "w": 550,
+                    "h": 64
+                  }
+                }
+              ]
+            },
+            {
+              "selector": ".todo-list li",
+              "elements": []
+            },
+            {
+              "selector": "todo-list li input[type=checkbox]",
+              "elements": []
+            },
+            {
+              "selector": "todo-list li label",
+              "elements": []
+            },
+            {
+              "selector": ".filters a",
+              "elements": []
+            },
+            {
+              "selector": ".filters a.selected",
+              "elements": []
+            }
+          ]
+        },
+        "to": {
+          "name": "State 3",
+          "screenshot": "test-2.png",
+          "queries": [
+            {
+              "selector": ".newtodo",
+              "elements": [
+                {
+                  "type": "property",
+                  "name": "value",
+                  "value": "a",
+                  "position": {
+                    "x": 125,
+                    "y": 130,
+                    "w": 550,
+                    "h": 64
+                  }
+                }
+              ]
+            },
+            {
+              "selector": ".todo-list li",
+              "elements": []
+            },
+            {
+              "selector": "todo-list li input[type=checkbox]",
+              "elements": []
+            },
+            {
+              "selector": "todo-list li label",
+              "elements": []
+            },
+            {
+              "selector": ".filters a",
+              "elements": []
+            },
+            {
+              "selector": ".filters a.selected",
+              "elements": []
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

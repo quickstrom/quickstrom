@@ -1,5 +1,5 @@
 import { h, render } from "https://unpkg.com/preact@latest?module";
-import { useReducer } from "https://unpkg.com/preact@latest/hooks/dist/hooks.module.js?module";
+import { useReducer, useState } from "https://unpkg.com/preact@latest/hooks/dist/hooks.module.js?module";
 import htm from "https://unpkg.com/htm?module";
 
 // Initialize htm with Preact
@@ -30,8 +30,8 @@ function reportReducer(state, action) {
 
 
 function Report({ report }) {
-  const [state, dispatch] = useReducer(reportReducer, { current: report.transitions[0], index: 0, all: report.transitions });
-  return html`
+    const [state, dispatch] = useReducer(reportReducer, { current: report.transitions[0], index: 0, all: report.transitions });
+    return html`
       <${Header} report=${report} />
       <${Transition} state=${state} dispatch=${dispatch} />
       <${Footer} report=${report} />
@@ -39,21 +39,21 @@ function Report({ report }) {
 }
 
 function Header({ report }) {
-  function Summary() {
-    switch (report.summary.type) {
-      case "failure":
-        return html`
+    function Summary() {
+        switch (report.summary.type) {
+        case "failure":
+            return html`
                 <p class="summary failed">
                   Failed after ${report.summary.tests} test and
                   ${report.summary.shrinkLevels} level of shrinking.
                 </p>`;
-      case "success":
-        return html`<p class="summary success">Passed ${report.summary.tests} tests.</p>`;
+        case "success":
+            return html`<p class="summary success">Passed ${report.summary.tests} tests.</p>`;
+        }
+
     }
 
-  }
-
-  return html`
+    return html`
     <header>
       <h1>Quickstrom Test Report</h1>
       <${Summary} />
@@ -62,15 +62,16 @@ function Header({ report }) {
 }
 
 function Footer({ report }) {
-  return html`
+    return html`
         <footer>
           Generated at <time>${report.generatedAt}</time>.
         </footer>
     `;
 }
 function Transition({ state, dispatch }) {
-  const transition = state.current;
-  return html`
+    const [selectedElement, setSelectedElement] = useState(null);
+    const transition = state.current;
+    return html`
     <main>
       <section class="controls">
         <button disabled=${state.index === 0} onClick=${() => dispatch({ type: "previous"})}>←</button>
@@ -82,8 +83,8 @@ function Transition({ state, dispatch }) {
             <${State} state=${transition.states.to} extraClass="to" label="To" />
         </section>
         <section class="screenshots">
-            <${Screenshot} state=${transition.states.from} extraClass="from" />
-            <${Screenshot} state=${transition.states.to} extraClass="to" />
+            <${Screenshot} state=${transition.states.from} extraClass="from" selectedElement=${selectedElement} setSelectedElement=${setSelectedElement} />
+            <${Screenshot} state=${transition.states.to} extraClass="to" selectedElement=${selectedElement} setSelectedElement=${setSelectedElement} />
         </section>
         <section class="details">
             <div class="state-queries from">
@@ -107,25 +108,25 @@ function Action({ action }) {
         default: return key;
         }
     }
-  function renderDetails() {
-    switch (action.type) {
-      case "KeyPress":
-        return html`
+    function renderDetails() {
+        switch (action.type) {
+        case "KeyPress":
+            return html`
           <div class="action-details">
             <h2><span class="name">${action.type}</span></h2>
             <div class="key">${renderKey(action.key)}</div>
           </div>
         `;
-      case "Focus":
-        return html`
+        case "Focus":
+            return html`
           <div class="action-details">
             <h2><span class="name">${action.type}</span></h2>
           </div>
         `;
+        }
     }
-  }
 
-  return html`
+    return html`
     <section class="action">
       <div class="action-inner">
         <div class="label">Action</div>
@@ -136,7 +137,7 @@ function Action({ action }) {
 }
 
 function State({ state, extraClass, label }) {
-  return html`
+    return html`
     <div class=${"state " + extraClass}>
         <div class="label">${label}</div>
         <h2>${state.name}</h2>
@@ -144,11 +145,36 @@ function State({ state, extraClass, label }) {
   `;
 }
 
-function Screenshot({ state, extraClass }) {
-  return html`
+function Screenshot({ state, extraClass, selectedElement, setSelectedElement }) {
+    function renderQueryMarkers(query) {
+        return query.elements.map(element => html`
+            <div 
+              class="marker ${element.status} ${selectedElement && selectedElement.id === element.id ? "active" : "inactive"}" 
+              onmouseenter=${(e => setSelectedElement(element))}
+              onmouseleave=${(e => setSelectedElement(null))}
+              style="
+                top: ${element.position.y}px;
+                left: ${element.position.x}px;
+                width: ${element.position.w}px;
+                height: ${element.position.h}px;
+              ">
+                <div class="marker-details">
+                  <table>
+                      ${element.state.map(elementState => html`
+                        <tr>
+                          <td>${elementState.name}</td>
+                          <td>${elementState.value}</td>
+                        </tr>
+                      `)}
+                  </table>
+                </div>
+            </div>
+        `);
+    }
+    return html`
         <div class=${"state-screenshot " + extraClass}>
           <div class="state-screenshot-inner">
-            <div class="marker"></div>
+            ${state.queries.map(renderQueryMarkers)}
             <img src=${state.screenshot} />
           </div>
         </div>
@@ -156,7 +182,7 @@ function Screenshot({ state, extraClass }) {
 }
 
 (async () => {
-  const r = await fetch("report.json");
-  const report = await r.json();
-  render(html`<${Report} report=${report} />`, document.body);
+    const r = await fetch("report.json");
+    const report = await r.json();
+    render(html`<${Report} report=${report} />`, document.body);
 })();

@@ -26,9 +26,15 @@
               "selector": ".newtodo",
               "elements": [
                 {
-                  "type": "property",
-                  "name": "value",
-                  "value": "",
+                  "id": "e1",
+                  "status": "modified",
+                  "state": [
+                      {
+                        "type": "property",
+                        "name": "value",
+                        "value": ""
+                      }
+                  ],
                   "position": {
                     "x": 125,
                     "y": 130,
@@ -68,9 +74,15 @@
               "selector": ".newtodo",
               "elements": [
                 {
-                  "type": "property",
-                  "name": "value",
-                  "value": "a",
+                  "id": "e1",
+                  "status": "modified",
+                  "state": [
+                      {
+                        "type": "property",
+                        "name": "value",
+                        "value": "a"
+                      }
+                  ],
                   "position": {
                     "x": 125,
                     "y": 130,
@@ -124,9 +136,15 @@
               "selector": ".newtodo",
               "elements": [
                 {
-                  "type": "property",
-                  "name": "value",
-                  "value": "a",
+                  "id": "e1",
+                  "status": "modified",
+                  "state": [
+                      {
+                        "type": "property",
+                        "name": "value",
+                        "value": "a"
+                      }
+                  ],
                   "position": {
                     "x": 125,
                     "y": 130,
@@ -166,9 +184,15 @@
               "selector": ".newtodo",
               "elements": [
                 {
-                  "type": "property",
-                  "name": "value",
-                  "value": "a",
+                  "id": "e1",
+                  "status": "modified",
+                  "state": [
+                      {
+                        "type": "property",
+                        "name": "value",
+                        "value": "a"
+                      }
+                  ],
                   "position": {
                     "x": 125,
                     "y": 130,

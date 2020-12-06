@@ -170,3 +170,45 @@ main .controls button:active {
 .state-screenshot img {
     display: block;
 }
+.state-screenshot-inner .marker {
+    position: absolute;
+    border: 2px dashed gray;
+}
+.state-screenshot-inner .marker.active {
+    border-style: solid;
+}
+.state-screenshot-inner .marker.active.added {
+    border-color: green;
+}
+.state-screenshot-inner .marker.active.modified {
+    border-color: blue;
+}
+.state-screenshot-inner .marker.active.removed {
+    border-color: red;
+}
+
+.state-screenshot-inner .marker .marker-details {
+    display: none;
+    position: absolute;
+    top: calc(100% + 1rem);
+    background: #fff;
+    border: 2px solid gray;
+    min-width: 10rem;
+}
+.state-screenshot-inner .marker.active .marker-details {
+    display: block;
+}
+.state-screenshot-inner .marker .marker-details table {
+    width: 100%;
+}
+.state-screenshot-inner .marker .marker-details td {
+    padding: .5rem;
+}
+.state-screenshot-inner .marker .marker-details td:first-child {
+    width: 1%;
+    border-right: 2px solid gray;
+}
+.state-screenshot-inner .marker .marker-details td:last-child {
+    text-align: right;
+}
+

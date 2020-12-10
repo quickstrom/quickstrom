@@ -19,11 +19,12 @@ import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
 import Data.Text.Prettyprint.Doc.Symbols.Unicode (bullet)
 import qualified Data.Vector as Vector
+import Quickstrom.Action
 import Quickstrom.Element
 import Quickstrom.Prelude
 import Quickstrom.Trace
 
-prettyAction :: Action Selected -> Doc AnsiStyle
+prettyAction :: BaseAction Selected -> Doc AnsiStyle
 prettyAction = \case
   Click sel -> "click" <+> prettySelected sel
   Focus sel -> "focus" <+> prettySelected sel
@@ -31,15 +32,22 @@ prettyAction = \case
   EnterText t -> "enter text" <+> pretty (show t :: Text)
   Navigate uri -> "navigate to" <+> pretty uri
 
+prettyActionSeq :: Action -> Doc AnsiStyle
+prettyActionSeq action = vsep (zipWith item [1 ..] action)
+  where
+    item :: Int -> BaseAction Selected -> Doc AnsiStyle
+    item i = \case
+      ba -> (pretty i <> "." <+> prettyAction ba)
+
 prettySelected :: Selected -> Doc AnsiStyle
 prettySelected (Selected (Selector sel) i) = pretty sel <> brackets (pretty i)
 
-prettyActions :: [Action Selected] -> Doc AnsiStyle
+prettyActions :: [Action] -> Doc AnsiStyle
 prettyActions actions = vsep (zipWith item [1 ..] actions)
   where
-    item :: Int -> Action Selected -> Doc AnsiStyle
+    item :: Int -> Action -> Doc AnsiStyle
     item i = \case
-      action -> (pretty i <> "." <+> prettyAction action)
+      action -> (pretty i <> "." <+> prettyActionSeq action)
 
 prettyTrace :: Trace TraceElementEffect -> Doc AnsiStyle
 prettyTrace (Trace []) = "(empty trace)"
@@ -52,7 +60,7 @@ prettyTrace (Trace elements') = vsep (zipWith prettyElement [1 ..] elements')
               ActionSuccess -> effect `stutterColorOr` Blue <> bold
               ActionFailed {} -> effect `stutterColorOr` Red <> bold
               ActionImpossible -> color Yellow <> bold
-         in annotate annotation (pretty i <> "." <+> prettyAction action)
+         in annotate annotation (pretty i <> "." <+> prettyActionSeq action)
       TraceState effect state' ->
         annotate (effect `stutterColorOr` Blue <> bold) (pretty i <> "." <+> "State")
           <> line

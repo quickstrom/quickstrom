@@ -1,7 +1,9 @@
 module Quickstrom.Spec
   ( Path
+  , BaseAction(..)
   , Action(..)
   , Actions
+  , ProbabilisticAction
   , clicks
   , focus
   , foci
@@ -30,38 +32,44 @@ type Path
 
 -- | A possible action to generate. Quickstrom uses action values when searching the
 -- | DOM for possible actions to generate and perform.
-data Action
+data BaseAction
   = Focus Selector
   | KeyPress Char
   | EnterText String
   | Click Selector
   | Navigate Path
 
+data Action = Single BaseAction | Sequence (Array BaseAction)
+
+type ProbabilisticAction = (Tuple Int Action)
+
 type Actions
-  = Array (Tuple Int Action)
+  = Array ProbabilisticAction
 
 -- | Generate click actions on common clickable elements.
 clicks :: Actions
-clicks = [ Tuple 1 (Click "button"), Tuple 1 (Click "input[type=submit]"), Tuple 1 (Click "a") ]
+clicks = [ Tuple 1 (Single $ Click "button"),
+           Tuple 1 (Single $ Click "input[type=submit]"),
+           Tuple 1 (Single $ Click "a") ]
 
 -- | Generate focus actions on elements matching the given selector.
-focus :: Selector -> Action
+focus :: Selector -> BaseAction
 focus = Focus
 
 -- | Generate focus actions on common focusable elements.
 foci :: Actions
-foci = [ Tuple 1 (Focus "input"), Tuple 1 (Focus "textarea") ]
+foci = [ Tuple 1 (Single $ Focus "input"), Tuple 1 (Single $ Focus "textarea") ]
 
 -- | Generate a key press action with the given character.
-keyPress :: Char -> Action
+keyPress :: Char -> BaseAction
 keyPress = KeyPress
 
 -- | Generate key press actions with printable ASCII characters.
 asciiKeyPresses :: Actions
-asciiKeyPresses = Tuple 1 <<< KeyPress <<< unsafePartial fromJust <<< fromCharCode <$> range 32 126
+asciiKeyPresses = Tuple 1 <<< Single <<< KeyPress <<< unsafePartial fromJust <<< fromCharCode <$> range 32 126
 
 -- | Generate a key press action with the given special key.
-specialKeyPress :: SpecialKey -> Action
+specialKeyPress :: SpecialKey -> BaseAction
 specialKeyPress specialKey = KeyPress (specialKeyToChar specialKey)
 
 data SpecialKey

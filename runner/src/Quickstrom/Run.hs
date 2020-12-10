@@ -45,7 +45,8 @@ import Control.Natural (type (~>))
 import qualified Data.Aeson as JSON
 import Data.Function ((&))
 import Data.Generics.Product (field)
-import Data.Maybe (fromMaybe)
+import Data.List hiding (map)
+import Data.Maybe (fromMaybe, catMaybes)
 import Data.String (String, fromString)
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -57,6 +58,7 @@ import GHC.Generics (Generic)
 import Pipes (Pipe, Producer, (>->))
 import qualified Pipes
 import qualified Pipes.Prelude as Pipes
+import Quickstrom.Action
 import Quickstrom.Element
 import Quickstrom.Prelude hiding (catch, check, trace)
 import Quickstrom.Result
@@ -168,7 +170,8 @@ select f = forever do
   x <- Pipes.await
   maybe (pure ()) Pipes.yield (f x)
 
-runSingle :: (MonadIO m, WebDriver m, Specification spec) => spec -> Size -> Producer TestEvent (Runner m) (Either FailingTest ())
+runSingle :: (MonadIO m, WebDriver m, Specification spec) =>
+               spec -> Size -> Producer TestEvent (Runner m) (Either FailingTest ())
 runSingle spec size = do
   Pipes.yield (TestStarted size)
   result <-
@@ -199,7 +202,7 @@ runSingle spec size = do
     runAndVerifyIsolated ::
       (MonadIO m, WebDriver m) =>
       Int ->
-      Producer (Action Selected) (Runner m) () ->
+      Producer Action (Runner m) () ->
       Producer TestEvent (Runner m) (Either FailingTest (Trace TraceElementEffect))
     runAndVerifyIsolated n producer = do
       trace <- lift do
@@ -238,12 +241,12 @@ beforeRun spec = do
 takeWhileChanging :: Functor m => (a -> a -> Bool) -> Pipe a a m ()
 takeWhileChanging compare' = Pipes.await >>= loop
   where
-    loop last = do
-      Pipes.yield last
+    loop prev = do
+      Pipes.yield prev
       next <- Pipes.await
-      if next `compare'` last then pass else loop next
+      if next `compare'` prev then pass else loop next
 
-observeManyStatesAfter :: WebDriver m => Queries -> Action Selected -> Pipe a (TraceElement ()) (Runner m) ()
+observeManyStatesAfter :: WebDriver m => Queries -> Action -> Pipe a (TraceElement ()) (Runner m) ()
 observeManyStatesAfter queries' action = do
   CheckEnv {checkScripts = scripts, checkOptions = CheckOptions {checkMaxTrailingStateChanges, checkTrailingStateChangeTimeout}} <- lift ask
   lift (runCheckScript (registerNextStateObserver scripts checkTrailingStateChangeTimeout queries'))
@@ -274,7 +277,7 @@ observeManyStatesAfter queries' action = do
       loop (mapTimeout (* 2) timeout)
 
 {-# SCC runActions' "runActions'" #-}
-runActions' :: (WebDriver m, Specification spec) => spec -> Pipe (Action Selected) (TraceElement ()) (Runner m) ()
+runActions' :: (WebDriver m, Specification spec) => spec -> Pipe Action (TraceElement ()) (Runner m) ()
 runActions' spec = do
   scripts <- lift (asks checkScripts)
   state1 <- lift (runCheckScript (observeState scripts queries'))
@@ -309,13 +312,13 @@ traverseShrinks test = go
           go xs
         go rest
 
-shrinkAction :: Action sel -> [Action sel]
+shrinkAction :: Action -> [Action]
 shrinkAction _ = [] -- TODO?
 
 generate :: MonadIO m => QuickCheck.Gen a -> m a
 generate = liftIO . QuickCheck.generate
 
-generateValidActions :: (MonadIO m, WebDriver m) => Vector (Int, Action Selector) -> Producer (Action Selected) (Runner m) ()
+generateValidActions :: (MonadIO m, WebDriver m) => Vector (Int, PotentialAction) -> Producer Action (Runner m) ()
 generateValidActions possibleActions = loop
   where
     loop = do
@@ -331,8 +334,19 @@ generateValidActions possibleActions = loop
             & (>>= Pipes.yield)
           loop
 
-selectValidAction :: (MonadIO m, WebDriver m) => Action Selector -> Runner m (Maybe (Action Selected))
-selectValidAction possibleAction =
+selectValidAction :: (MonadIO m, WebDriver m) => PotentialAction -> Runner m (Maybe Action)
+selectValidAction pa = traverseRest pa []
+  where
+    traverseRest t selected = do
+      case t of
+        [] ->
+          if (Data.List.length selected >= 1) && (Data.List.all isJust selected) then
+            return $ Just (catMaybes selected)
+          else return Nothing
+        (h:rest) -> (fmap (\e -> selected ++ [e]) (selectValidBaseAction h)) >>= (traverseRest rest)
+
+selectValidBaseAction :: (MonadIO m, WebDriver m) => BaseAction Selector -> Runner m (Maybe (BaseAction Selected))
+selectValidBaseAction possibleAction =
   case possibleAction of
     KeyPress k -> do
       active <- isActiveInput
@@ -347,9 +361,9 @@ selectValidAction possibleAction =
     selectOne ::
       (MonadIO m, WebDriver m) =>
       Selector ->
-      (Selected -> Action Selected) ->
+      (Selected -> BaseAction Selected) ->
       (Element -> (Runner m) Bool) ->
-      Runner m (Maybe (Action Selected))
+      Runner m (Maybe (BaseAction Selected))
     selectOne sel ctor isValid = do
       found <- findAll sel
       validChoices <-
@@ -398,13 +412,26 @@ focus =
     Just e -> tryAction (ActionSuccess <$ (elementSendKeys "" e))
     Nothing -> pure ActionImpossible
 
-runAction :: WebDriver m => Action Selected -> Runner m ActionResult
-runAction = \case
+runBaseAction :: WebDriver m => BaseAction Selected -> Runner m ActionResult
+runBaseAction = \case
   Focus s -> focus s
   KeyPress c -> sendKey c
   EnterText t -> sendKeys t
   Click s -> click s
   Navigate uri -> tryAction (ActionSuccess <$ navigateTo uri)
+
+runAction :: WebDriver m => Action -> Runner m ActionResult
+runAction = \case
+    [] -> do pure ActionImpossible
+    (h:[]) -> runBaseAction h
+    (h:t) -> recurse t $ runBaseAction h
+  where
+    recurse t r =
+      do res <- r
+         case res of
+           ActionFailed _ -> r
+           ActionImpossible -> r
+           _ -> fmap identity $ runAction t
 
 findSelected :: WebDriver m => Selected -> Runner m (Maybe Element)
 findSelected (Selected s i) =

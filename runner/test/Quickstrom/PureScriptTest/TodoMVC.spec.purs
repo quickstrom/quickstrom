@@ -1,6 +1,7 @@
 module TodoMVC where
 
 import Quickstrom
+import Quickstrom.Spec (Action(..), BaseAction(..))
 import Data.Array (filter, foldMap, head, last, zip)
 import Data.Foldable (length)
 import Data.Int as Int
@@ -18,17 +19,17 @@ actions :: Actions
 actions = appFoci <> appClicks <> appKeyPresses
   where
   appClicks =
-    [ Tuple 5 (Click queries.filters.notSelected)
-    , Tuple 1 (Click queries.filters.selected)
-    , Tuple 1 (Click queries.toggleAll)
-    , Tuple 1 (Click queries.destroy)
+    [ Tuple 5 $ Single $ Click queries.filters.notSelected
+    , Tuple 1 $ Single $ Click queries.filters.selected
+    , Tuple 1 $ Single $ Click queries.toggleAll
+    , Tuple 1 $ Single $ Click queries.destroy
     ]
 
-  appFoci = [ Tuple 5 (Focus queries.newTodo) ]
+  appFoci = [ Tuple 5 $ Single (Focus queries.newTodo) ]
 
   appKeyPresses =
-    [ Tuple 5 (keyPress 'a')
-    , Tuple 5 (specialKeyPress KeyReturn)
+    [ Tuple 5 $ Single (keyPress 'a')
+    , Tuple 5 $ Single (specialKeyPress KeyReturn)
     ]
 
 proposition :: Boolean

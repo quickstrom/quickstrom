@@ -19,6 +19,7 @@ module Quickstrom.Trace
     ObservedElementStates (..),
     ObservedElementState (..),
     Position (..),
+    BaseAction (..),
     ObservedState (..),
     Trace (..),
     ActionResult (..),
@@ -88,14 +89,24 @@ traceElements = Product.position @1
 observedStates :: Traversal' (Trace ann) ObservedState
 observedStates = traceElements . traverse . _Ctor @"TraceState" . Product.position @2
 
-traceActions :: Traversal' (Trace ann) (Action Selected)
+traceActions :: Traversal' (Trace ann) Action
 traceActions = traceElements . traverse . _Ctor @"TraceAction" . Product.position @2
 
 traceActionFailures :: Traversal' (Trace ann) Text
 traceActionFailures = traceElements . traverse . _Ctor @"TraceAction" . Product.position @3 . _Ctor @"ActionFailed"
 
 nonStutterStates :: Monoid r => Getting r (Trace TraceElementEffect) ObservedState
+
 nonStutterStates = traceElements . traverse . _Ctor @"TraceState" . filtered ((== NoStutter) . fst) . Product.position @2
+
+data ActionResult = ActionSuccess | ActionFailed Text | ActionImpossible
+  deriving (Show, Generic, ToJSON)
+
+data TraceElement ann
+  = TraceAction ann Action ActionResult
+  | TraceState ann ObservedState
+  -- TODO: `TraceEvent` when queried DOM nodes change
+  deriving (Show, Generic, ToJSON)
 
 ann :: Lens (TraceElement ann) (TraceElement ann2) ann ann2
 ann = Product.position @1

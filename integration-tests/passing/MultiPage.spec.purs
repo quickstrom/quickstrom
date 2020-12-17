@@ -11,8 +11,8 @@ readyWhen = "body"
 actions :: Actions
 actions =
   clicks
-    <> [ Tuple 5 (Focus "input[type=text]") ]
-    <> [ Tuple 5 (KeyPress ' '), Tuple 5 (KeyPress 'a') ]
+    <> [ Tuple 5 (Single $ Focus "input[type=text]") ]
+    <> [ Tuple 5 (Single $ KeyPress ' '), Tuple 5 (Single $ KeyPress 'a') ]
 
 proposition :: Boolean
 proposition =

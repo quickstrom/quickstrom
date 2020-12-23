@@ -26,7 +26,6 @@ import qualified Quickstrom.LogLevel as Quickstrom
 import qualified Quickstrom.CLI.Logging as Quickstrom
 import qualified Quickstrom.CLI.Reporter.Console as Quickstrom
 import Quickstrom.Prelude hiding (option, try)
-import qualified Quickstrom.Pretty as Quickstrom
 import qualified Quickstrom.PureScript.Program as Quickstrom
 import qualified Quickstrom.Run as Quickstrom
 import qualified Quickstrom.Trace as Quickstrom
@@ -329,12 +328,9 @@ renderTestEvent = \case
               <> renderList warnings
           )
         ]
-  Quickstrom.TestFailed _size trace' ->
+  Quickstrom.TestFailed _size _trace ->
     Quickstrom.logSingle Nothing $
-      line
-        <> annotate (color Red) "Test failed:"
-        <> line
-        <> Quickstrom.prettyTrace trace'
+      line <> annotate (color Red) "Test failed"
   Quickstrom.Shrinking level ->
     Quickstrom.logSingle Nothing $
       line

@@ -22,8 +22,8 @@ import Data.Text.Prettyprint.Doc.Symbols.Unicode (bullet)
 import Options.Applicative
 import qualified Pipes as Pipes
 import qualified Quickstrom.Browser as Quickstrom
-import qualified Quickstrom.LogLevel as Quickstrom
 import qualified Quickstrom.CLI.Logging as Quickstrom
+import qualified Quickstrom.LogLevel as Quickstrom
 import qualified Quickstrom.CLI.Reporter.Console as Quickstrom
 import Quickstrom.Prelude hiding (option, try)
 import qualified Quickstrom.PureScript.Program as Quickstrom
@@ -260,14 +260,26 @@ main = do
               & try
           Quickstrom.logDoc . Quickstrom.logSingle Nothing $ line <> divider <> line
           case result of
-            Right checkResult -> Quickstrom.consoleReporter wdOpts opts checkResult
+            Right checkResult -> do
+              Quickstrom.consoleReporter wdOpts opts checkResult
             Left err@SomeException {} -> do
               Quickstrom.logDoc . Quickstrom.logSingle Nothing . annotate (color Red) $
                 line <> "Check encountered an error:" <+> pretty (show err :: Text) <> line
-              liftIO (exitWith (ExitFailure 1))
+          exitWithResult result
     Lint LintOptions {..} -> do
       hPutStrLn stderr ("Lint is not implemented yet" :: Text)
       liftIO (exitWith (ExitFailure 1))
+
+exitWithResult :: MonadIO m => Either SomeException Quickstrom.CheckResult -> m ()
+exitWithResult = \case
+  Right Quickstrom.CheckSuccess ->
+    pass
+  Right Quickstrom.CheckFailure {} -> do
+    liftIO (exitWith (ExitFailure 3))
+  Right Quickstrom.CheckError {} -> do
+    liftIO (exitWith (ExitFailure 1))
+  Left{} ->
+    liftIO (exitWith (ExitFailure 1))
 
 libraryPathFromEnvironment :: IO FilePath
 libraryPathFromEnvironment = do
@@ -367,4 +379,3 @@ ordinal n =
     2 -> "nd"
     3 -> "rd"
     _ -> "th"
-

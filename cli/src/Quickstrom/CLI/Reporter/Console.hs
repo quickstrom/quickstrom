@@ -34,11 +34,9 @@ consoleReporter _webDriverOpts checkOpts = \case
       Nothing -> pure ()
     Quickstrom.logDoc . Quickstrom.logSingle Nothing . annotate (color Red) $
       line <> "Failed after" <+> pretty failedAfter <+> "tests and" <+> pretty (Quickstrom.numShrinks failingTest) <+> "levels of shrinking." <> line
-    liftIO (exitWith (ExitFailure 3))
   Quickstrom.CheckError {Quickstrom.checkError} -> do
     Quickstrom.logDoc . Quickstrom.logSingle Nothing . annotate (color Red) $
       line <> "Check encountered an error:" <+> pretty checkError <> line
-    liftIO (exitWith (ExitFailure 1))
   Quickstrom.CheckSuccess ->
     Quickstrom.logDoc . Quickstrom.logSingle Nothing . annotate (color Green) $
       line <> "Passed" <+> pretty (Quickstrom.checkTests checkOpts) <+> "tests." <> line

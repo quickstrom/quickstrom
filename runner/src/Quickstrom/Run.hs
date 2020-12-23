@@ -335,7 +335,7 @@ generateValidActions possibleActions = loop
           loop
 
 selectValidAction :: (MonadIO m, WebDriver m) => PotentialAction -> Runner m (Maybe Action)
-selectValidAction pa = traverseRest pa []
+selectValidAction pa = traverseRest (zip ((Data.List.replicate 1 False) ++ (cycle [True])) pa) []
   where
     traverseRest t selected = do
       case t of
@@ -345,18 +345,19 @@ selectValidAction pa = traverseRest pa []
           else return Nothing
         (h:rest) -> (fmap (\e -> selected ++ [e]) (selectValidBaseAction h)) >>= (traverseRest rest)
 
-selectValidBaseAction :: (MonadIO m, WebDriver m) => BaseAction Selector -> Runner m (Maybe (BaseAction Selected))
-selectValidBaseAction possibleAction =
+selectValidBaseAction ::
+  (MonadIO m, WebDriver m) => (Bool, BaseAction Selector) -> Runner m (Maybe (BaseAction Selected))
+selectValidBaseAction (isSeqTail, possibleAction) =
   case possibleAction of
     KeyPress k -> do
       active <- isActiveInput
-      if active then (pure (Just (KeyPress k))) else pure Nothing
+      if isSeqTail || active then (pure (Just (KeyPress k))) else pure Nothing
     EnterText t -> do
       active <- isActiveInput
-      if active then (pure (Just (EnterText t))) else pure Nothing
+      if isSeqTail || active then (pure (Just (EnterText t))) else pure Nothing
     Navigate p -> pure (Just (Navigate p))
-    Focus sel -> selectOne sel Focus isNotActive
-    Click sel -> selectOne sel Click isClickable
+    Focus sel -> selectOne sel Focus (if isSeqTail then alwaysTrue else isNotActive)
+    Click sel -> selectOne sel Click (if isSeqTail then alwaysTrue else isClickable)
   where
     selectOne ::
       (MonadIO m, WebDriver m) =>
@@ -376,6 +377,7 @@ selectValidBaseAction possibleAction =
         choices -> Just <$> generate (ctor . Selected sel <$> QuickCheck.elements (map fst choices))
     isNotActive e = (/= Just e) <$> activeElement
     activeElement = (Just <$> getActiveElement) `catchResponseError` const (pure Nothing)
+    alwaysTrue _ = do return True
     isClickable e = do
       scripts <- asks checkScripts
       andM [isElementEnabled e, runCheckScript (isElementVisible scripts e)]

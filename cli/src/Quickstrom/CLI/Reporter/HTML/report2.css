@@ -53,6 +53,7 @@ main .content {
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 main .controls {
     flex: 0 0 auto;
@@ -159,13 +160,12 @@ main .controls button:active {
 .state-screenshot {
     flex: 0 0 50%;
     display: flex;
-    justify-content: center;
-    align-items: center;
     overflow: auto;
 }
 .state-screenshot-inner {
     flex: 0 0 auto;
     position: relative;
+    margin: 0 auto;
 }
 .state-screenshot img {
     display: block;
@@ -173,9 +173,11 @@ main .controls button:active {
 .state-screenshot-inner .marker {
     position: absolute;
     border: 2px dashed gray;
+    z-index: 0;
 }
 .state-screenshot-inner .marker.active {
     border-style: solid;
+    z-index: 2;
 }
 .state-screenshot-inner .marker.active.added {
     border-color: green;
@@ -194,6 +196,7 @@ main .controls button:active {
     background: #fff;
     border: 2px solid gray;
     min-width: 10rem;
+    z-index: 2;
 }
 .state-screenshot-inner .marker.active .marker-details {
     display: block;

@@ -208,7 +208,25 @@
             },
             {
               "selector": "todo-list li input[type=checkbox]",
-              "elements": []
+              "elements": [
+                {
+                  "id": "e2",
+                  "status": "added",
+                  "state": [
+                      {
+                        "type": "property",
+                        "name": "checked",
+                        "value": "False"
+                      }
+                  ],
+                  "position": {
+                    "x": 125,
+                    "y": 203,
+                    "w": 40,
+                    "h": 40
+                  }
+                }
+              ]
             },
             {
               "selector": "todo-list li label",

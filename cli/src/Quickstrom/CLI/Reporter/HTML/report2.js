@@ -44,8 +44,7 @@ function Header({ report }) {
         case "failure":
             return html`
                 <p class="summary failed">
-                  Failed after ${report.summary.tests} test and
-                  ${report.summary.shrinkLevels} level of shrinking.
+                  Failed after ${report.summary.tests} test and ${report.summary.shrinkLevels} level of shrinking.
                 </p>`;
         case "success":
             return html`<p class="summary success">Passed ${report.summary.tests} tests.</p>`;

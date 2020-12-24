@@ -221,9 +221,13 @@ instance MonadError EvalError m => ToHaskellValue m (BaseAction Selector) where
       "KeyPress" -> KeyPress <$> toHaskellValue ss value
       "EnterText" -> EnterText <$> toHaskellValue ss value
       "Click" ->  Click . Selector <$> toHaskellValue ss value
+      "Await" -> Await . Selector <$> toHaskellValue ss value
+      "AwaitSecs" -> AwaitSecs <$> (fmap consSelTup (toHaskellValue ss value))
       "Navigate" -> Navigate <$> (fmap URI.render . parseURI =<< toHaskellValue ss value)
       _ -> throwError (ForeignFunctionError (Just ss) ("Unknown BaseAction constructor: " <> ctor))
     where
+      consSelTup = \case
+        (i, sel) -> (i, (Selector sel))
       parseURI input =
         case Parsec.runParser (URI.parser <* Parsec.eof :: Parsec Void Text URI) "" input of
           Left b -> throwError (InvalidURI Nothing input (toS (Parsec.errorBundlePretty b)))

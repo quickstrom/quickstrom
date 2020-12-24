@@ -37,6 +37,8 @@ data BaseAction
   | KeyPress Char
   | EnterText String
   | Click Selector
+  | Await Selector
+  | AwaitSecs (Tuple Int Selector)
   | Navigate Path
 
 data Action = Single BaseAction | Sequence (Array BaseAction)

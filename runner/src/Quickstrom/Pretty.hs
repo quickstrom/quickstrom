@@ -28,6 +28,8 @@ prettyAction :: BaseAction Selected -> Doc AnsiStyle
 prettyAction = \case
   Click sel -> "click" <+> prettySelected sel
   Focus sel -> "focus" <+> prettySelected sel
+  Await sel -> "await" <+> pretty (show sel :: Text)
+  AwaitSecs (i, sel) -> "await secs" <+> pretty (show i :: Text) <+> pretty (show sel :: Text)
   KeyPress key -> "key press" <+> pretty (show key :: Text)
   EnterText t -> "enter text" <+> pretty (show t :: Text)
   Navigate uri -> "navigate to" <+> pretty uri

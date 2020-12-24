@@ -18,6 +18,8 @@ data BaseAction sel
   | KeyPress Char
   | EnterText Text
   | Click sel
+  | Await Selector
+  | AwaitSecs (Int, Selector)
   | Navigate Text
   deriving (Eq, Show, Generic, ToJSON)
 

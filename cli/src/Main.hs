@@ -13,7 +13,6 @@ module Main where
 
 import Control.Lens hiding (argument)
 import Control.Monad.Catch (try)
-import Data.String (String)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text as Text
@@ -58,7 +57,7 @@ data CheckOptions = CheckOptions
     trailingStateChangeTimeout :: Word64,
     logLevel :: Quickstrom.LogLevel,
     browser :: Quickstrom.Browser,
-    browserOptions :: Set String,
+    browserOptions :: Set Text,
     browserBinary :: Maybe FilePath,
     webDriverHost :: Text,
     webDriverPort :: Int,

@@ -17,7 +17,7 @@ data WebDriverOptions = WebDriverOptions
     webDriverHost :: Text,
     webDriverPort :: Int,
     webDriverPath :: FilePath,
-    webDriverAdditionalOptions :: (Set String)
+    webDriverAdditionalOptions :: (Set Text)
   }
 
 class Monad m => WebDriver (m :: Type -> Type) where

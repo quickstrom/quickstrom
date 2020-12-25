@@ -166,7 +166,8 @@ addCaps WebDriverOptions {webDriverBrowser = Chrome, webDriverBrowserBinary, web
                       (Vector.fromList
                        (map JSON.toJSON
                         (["headless", "no-sandbox", "disable-gpu", "privileged"] ++
-                         (if (Set.null (Set.filter (List.isPrefixOf "user-data-dir=") webDriverAdditionalOptions)) then
+                         (if (Set.null (Set.filter ((List.isPrefixOf "user-data-dir=") . Text.unpack)
+                                        webDriverAdditionalOptions)) then
                             ["incognito"] else []) ++
                          (Set.toList webDriverAdditionalOptions)))))
                    )

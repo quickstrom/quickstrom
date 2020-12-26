@@ -20,9 +20,12 @@ import Control.Monad.Trans.Identity (IdentityT (..))
 import qualified Data.Aeson as JSON
 import Data.Aeson.Lens
 import qualified Data.HashMap.Strict as HashMap
+import qualified Data.List as List
+import qualified Data.Set as Set
 import Data.String (String)
 import qualified Data.String as String
 import qualified Data.Text as Text
+import qualified Data.Vector as Vector
 import qualified Network.HTTP.Client as Http
 import qualified Network.Wreq as Wreq
 import Quickstrom.Browser
@@ -152,13 +155,22 @@ addCaps WebDriverOptions {webDriverBrowser = Firefox, webDriverLogLevel, webDriv
              ("browserName", "firefox")
            ]
        )
-addCaps WebDriverOptions {webDriverBrowser = Chrome, webDriverBrowserBinary} =
+addCaps WebDriverOptions {webDriverBrowser = Chrome, webDriverBrowserBinary, webDriverAdditionalOptions} =
   key "capabilities" . key "alwaysMatch" . _Object
     %~ ( <>
            [ ( "goog:chromeOptions",
                JSON.Object
                  [ ("binary", JSON.String (maybe "/usr/bin/google-chrome" toS webDriverBrowserBinary)),
-                   ("args", JSON.Array ["headless", "incognito", "no-sandbox", "disable-gpu", "privileged"])
+                   ("args",
+                    (JSON.Array
+                      (Vector.fromList
+                       (map JSON.toJSON
+                        (["headless", "no-sandbox", "disable-gpu", "privileged"] ++
+                         (if (Set.null (Set.filter ((List.isPrefixOf "user-data-dir=") . Text.unpack)
+                                        webDriverAdditionalOptions)) then
+                            ["incognito"] else []) ++
+                         (Set.toList webDriverAdditionalOptions)))))
+                   )
                  ]
              ),
              ("browserName", "chrome")

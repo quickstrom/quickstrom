@@ -1,14 +1,14 @@
 {
   "generatedAt": "20:32, November 25",
   "summary": {
-    "type": "failure",
+    "tag": "Failure",
     "tests": 1,
     "shrinkLevels": 1
   },
   "transitions": [
     {
       "action": {
-        "type": "KeyPress",
+        "tag": "KeyPress",
         "key": "a",
         "position": {
           "x": 125,
@@ -30,7 +30,7 @@
                   "status": "modified",
                   "state": [
                       {
-                        "type": "property",
+                        "tag": "property",
                         "name": "value",
                         "value": ""
                       }
@@ -49,7 +49,7 @@
               "elements": []
             },
             {
-              "selector": "todo-list li input[type=checkbox]",
+              "selector": "todo-list li input[tag=checkbox]",
               "elements": []
             },
             {
@@ -78,7 +78,7 @@
                   "status": "modified",
                   "state": [
                       {
-                        "type": "property",
+                        "tag": "property",
                         "name": "value",
                         "value": "a"
                       }
@@ -97,7 +97,7 @@
               "elements": []
             },
             {
-              "selector": "todo-list li input[type=checkbox]",
+              "selector": "todo-list li input[tag=checkbox]",
               "elements": []
             },
             {
@@ -118,7 +118,7 @@
     },
     {
       "action": {
-        "type": "KeyPress",
+        "tag": "KeyPress",
         "key": "\\57350",
         "position": {
           "x": 125,
@@ -140,7 +140,7 @@
                   "status": "modified",
                   "state": [
                       {
-                        "type": "property",
+                        "tag": "property",
                         "name": "value",
                         "value": "a"
                       }
@@ -159,7 +159,7 @@
               "elements": []
             },
             {
-              "selector": "todo-list li input[type=checkbox]",
+              "selector": "todo-list li input[tag=checkbox]",
               "elements": []
             },
             {
@@ -188,7 +188,7 @@
                   "status": "modified",
                   "state": [
                       {
-                        "type": "property",
+                        "tag": "property",
                         "name": "value",
                         "value": "a"
                       }
@@ -207,14 +207,14 @@
               "elements": []
             },
             {
-              "selector": "todo-list li input[type=checkbox]",
+              "selector": "todo-list li input[tag=checkbox]",
               "elements": [
                 {
                   "id": "e2",
                   "status": "added",
                   "state": [
                       {
-                        "type": "property",
+                        "tag": "property",
                         "name": "checked",
                         "value": "False"
                       }

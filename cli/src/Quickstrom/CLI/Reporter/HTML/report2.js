@@ -7,7 +7,7 @@ const html = htm.bind(h);
 
 
 function reportReducer(state, action) {
-    if (action.type === "previous") {
+    if (action.tag === "previous") {
         const newIndex = state.index - 1;
         const newCurrent = state.all[newIndex];
         if (newCurrent) {
@@ -15,7 +15,7 @@ function reportReducer(state, action) {
         } else {
             return state;
         }
-    } else if (action.type === "next") {
+    } else if (action.tag === "next") {
         const newIndex = state.index + 1;
         const newCurrent = state.all[newIndex];
         if (newCurrent) {
@@ -40,13 +40,13 @@ function Report({ report }) {
 
 function Header({ report }) {
     function Summary() {
-        switch (report.summary.type) {
-        case "failure":
+        switch (report.summary.tag) {
+        case "Failure":
             return html`
                 <p class="summary failed">
                   Failed after ${report.summary.tests} test and ${report.summary.shrinkLevels} level of shrinking.
                 </p>`;
-        case "success":
+        case "Success":
             return html`<p class="summary success">Passed ${report.summary.tests} tests.</p>`;
         }
 
@@ -73,7 +73,7 @@ function Transition({ state, dispatch }) {
     return html`
     <main>
       <section class="controls">
-        <button disabled=${state.index === 0} onClick=${() => dispatch({ type: "previous"})}>←</button>
+        <button disabled=${state.index === 0} onClick=${() => dispatch({ tag: "previous"})}>←</button>
       </section>
       <section class="content">
         <${Action} action=${transition.action} />
@@ -93,7 +93,7 @@ function Transition({ state, dispatch }) {
         </section>
       </section>
       <section class="controls">
-        <button disabled=${state.index === (state.all.length - 1)} onClick=${() => dispatch({ type: "next"})}>→</button>
+        <button disabled=${state.index === (state.all.length - 1)} onClick=${() => dispatch({ tag: "next"})}>→</button>
       </section>
     </main>
     `;
@@ -108,18 +108,18 @@ function Action({ action }) {
         }
     }
     function renderDetails() {
-        switch (action.type) {
+        switch (action.tag) {
         case "KeyPress":
             return html`
           <div class="action-details">
-            <h2><span class="name">${action.type}</span></h2>
+            <h2><span class="name">${action.tag}</span></h2>
             <div class="key">${renderKey(action.key)}</div>
           </div>
         `;
         case "Focus":
             return html`
           <div class="action-details">
-            <h2><span class="name">${action.type}</span></h2>
+            <h2><span class="name">${action.tag}</span></h2>
           </div>
         `;
         }

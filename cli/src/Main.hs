@@ -25,6 +25,7 @@ import qualified Quickstrom.Browser as Quickstrom
 import qualified Quickstrom.CLI.Logging as Quickstrom
 import qualified Quickstrom.LogLevel as Quickstrom
 import qualified Quickstrom.CLI.Reporter.Console as Quickstrom
+import qualified Quickstrom.CLI.Reporter.HTML as Quickstrom
 import Quickstrom.Prelude hiding (option, try)
 import qualified Quickstrom.PureScript.Program as Quickstrom
 import qualified Quickstrom.Run as Quickstrom
@@ -262,6 +263,7 @@ main = do
           case result of
             Right checkResult -> do
               Quickstrom.consoleReporter wdOpts opts checkResult
+              Quickstrom.htmlReporter "/tmp/quickstrom-report" wdOpts opts checkResult
             Left err@SomeException {} -> do
               Quickstrom.logDoc . Quickstrom.logSingle Nothing . annotate (color Red) $
                 line <> "Check encountered an error:" <+> pretty (show err :: Text) <> line

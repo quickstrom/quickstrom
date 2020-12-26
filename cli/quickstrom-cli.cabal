@@ -10,10 +10,12 @@ copyright:            Oskar Wickström
 
 executable quickstrom
   build-depends:      base ^>= 4.12
+                    , aeson
                     , bytestring
                     , containers
                     , directory
                     , exceptions
+                    , filepath
                     , generic-lens
                     , lens
                     , modern-uri
@@ -24,6 +26,8 @@ executable quickstrom
                     , protolude
                     , process
                     , text
+                    , time
+                    , vector
                     , quickstrom-runner
 
   main-is:            Main.hs

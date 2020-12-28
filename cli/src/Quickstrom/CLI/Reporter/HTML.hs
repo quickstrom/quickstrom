@@ -1,5 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -15,7 +17,6 @@
 module Quickstrom.CLI.Reporter.HTML where
 
 import Control.Lens
-import Control.Monad.Trans.Maybe (MaybeT, runMaybeT)
 import qualified Data.Aeson as JSON
 import qualified Data.ByteString as BS
 import Data.Generics.Labels ()
@@ -39,7 +40,7 @@ import System.FilePath ((</>))
 data Report = Report
   { generatedAt :: Time.UTCTime,
     summary :: Summary,
-    transitions :: Maybe (Vector Transition)
+    transitions :: Maybe (Vector (Transition FilePath))
   }
   deriving (Generic, JSON.ToJSON)
 
@@ -49,17 +50,17 @@ data Summary
   | Error {error :: Text, tests :: Int}
   deriving (Generic, JSON.ToJSON)
 
-data Transition = Transition
+data Transition screenshot = Transition
   { action :: Maybe (Quickstrom.Action Quickstrom.Selected),
-    states :: States
+    states :: States screenshot
   }
-  deriving (Generic, JSON.ToJSON)
+  deriving (Generic, JSON.ToJSON, Functor, Foldable, Traversable)
 
-data States = States {from :: State, to :: State}
-  deriving (Generic, JSON.ToJSON)
+data States screenshot = States {from :: State screenshot, to :: State screenshot}
+  deriving (Generic, JSON.ToJSON, Functor, Foldable, Traversable)
 
-data State = State {name :: Text, screenshot :: Maybe FilePath, queries :: Vector Query}
-  deriving (Generic, JSON.ToJSON)
+data State screenshot = State {name :: Text, screenshot :: Maybe screenshot, queries :: Vector Query}
+  deriving (Generic, JSON.ToJSON, Functor, Foldable, Traversable)
 
 data Query = Query {selector :: Text, elements :: Vector Element}
   deriving (Generic, JSON.ToJSON)
@@ -68,10 +69,10 @@ data Element = Element {id :: Text, status :: Status, state :: Vector ElementSta
   deriving (Generic, JSON.ToJSON)
 
 data ElementState
-  = Attribute {name :: Text, value :: JSON.Value }
-  | Property {name :: Text, value :: JSON.Value }
-  | CssValue {name :: Text, value :: JSON.Value }
-  | Text { value :: JSON.Value }
+  = Attribute {name :: Text, value :: JSON.Value}
+  | Property {name :: Text, value :: JSON.Value}
+  | CssValue {name :: Text, value :: JSON.Value}
+  | Text {value :: JSON.Value}
   deriving (Generic, JSON.ToJSON)
 
 data Status = Modified
@@ -86,7 +87,7 @@ htmlReporter reportDir _webDriverOpts checkOpts result = do
   (summary, transitions) <- case result of
     Quickstrom.CheckFailure {Quickstrom.failedAfter, Quickstrom.failingTest} -> do
       let withoutStutters = Quickstrom.withoutStutterStates (Quickstrom.trace failingTest)
-      transitions <- traceToTransition reportDir withoutStutters
+          transitions = traceToTransition withoutStutters
       -- case Quickstrom.reason failingTest of
       --   Just _err -> pass -- Quickstrom.logDoc (Quickstrom.logSingle Nothing (line <> annotate (color Red) ("Test failed with error:" <+> pretty err <> line)))
       --   Nothing -> pure ()
@@ -95,42 +96,35 @@ htmlReporter reportDir _webDriverOpts checkOpts result = do
       pure (Error {error = checkError, tests = Quickstrom.checkTests checkOpts}, Nothing)
     Quickstrom.CheckSuccess -> pure (Success {tests = Quickstrom.checkTests checkOpts}, Nothing)
   let reportFile = reportDir </> "report.json"
-      report = Report now summary transitions
+  report <- Report now summary <$> traverse (writeScreenshotFiles reportDir) transitions
   liftIO (JSON.encodeFile reportFile report)
 
-traceToTransition :: (MonadReader Quickstrom.LogLevel m, MonadIO m) => FilePath -> Quickstrom.Trace ann -> m (Vector Transition)
-traceToTransition reportDir (Quickstrom.Trace es) = go (Vector.fromList es) mempty
+traceToTransition :: Quickstrom.Trace ann -> Vector (Transition ByteString)
+traceToTransition (Quickstrom.Trace es) = go (Vector.fromList es) mempty
   where
-    go :: (MonadReader Quickstrom.LogLevel m, MonadIO m) => Vector (Quickstrom.TraceElement ann) -> Vector Transition -> m (Vector Transition)
+    go :: Vector (Quickstrom.TraceElement ann) -> Vector (Transition ByteString) -> Vector (Transition ByteString)
     go trace' acc =
-      runMaybeT (actionTransition trace' <|> trailingStateTransition trace') >>= \case
+      case actionTransition trace' <|> trailingStateTransition trace' of
         Just (transition, trace'') -> go trace'' (acc <> pure transition)
-        Nothing -> pure acc
+        Nothing -> acc
 
-    actionTransition :: MonadIO m => Vector (Quickstrom.TraceElement ann) -> MaybeT m (Transition, Vector (Quickstrom.TraceElement ann))
+    actionTransition :: Vector (Quickstrom.TraceElement ann) -> Maybe (Transition ByteString, Vector (Quickstrom.TraceElement ann))
     actionTransition t = flip evalStateT t $ do
-      s1 <- toState =<< pop (_Ctor @"TraceState" . _2)
+      s1 <- toState <$> pop (_Ctor @"TraceState" . _2)
       a <- pop (_Ctor @"TraceAction" . _2)
-      s2 <- toState =<< pop (_Ctor @"TraceState" . _2)
+      s2 <- toState <$> pop (_Ctor @"TraceState" . _2)
       rest <- get
       pure (Transition (Just a) (States s1 s2), rest)
 
-    trailingStateTransition :: MonadIO m => Vector (Quickstrom.TraceElement ann) -> MaybeT m (Transition, Vector (Quickstrom.TraceElement ann))
+    trailingStateTransition :: Vector (Quickstrom.TraceElement ann) -> Maybe (Transition ByteString, Vector (Quickstrom.TraceElement ann))
     trailingStateTransition t = flip evalStateT t $ do
-      s1 <- toState =<< pop (_Ctor @"TraceState" . _2)
-      s2 <- toState =<< pop (_Ctor @"TraceState" . _2)
+      s1 <- toState <$> pop (_Ctor @"TraceState" . _2)
+      s2 <- toState <$> pop (_Ctor @"TraceState" . _2)
       rest <- get
       pure (Transition Nothing (States s1 s2), rest)
 
-    toState :: MonadIO m => Quickstrom.ObservedState -> m State
-    toState s = do
-      screenshot <- case s ^. #screenshot of
-        Just s' -> do
-          let fileName = (reportDir </> "screenshot-" <> show (hash s') <> ".png")
-          liftIO (BS.writeFile fileName s')
-          pure (Just fileName)
-        Nothing -> pure Nothing
-      pure (State "State #?" screenshot (toQueries (s ^. #elementStates)))
+    toState :: Quickstrom.ObservedState -> State ByteString
+    toState s = State "State #?" (s ^. #screenshot) (toQueries (s ^. #elementStates))
 
     toQueries :: Quickstrom.ObservedElementStates -> Vector Query
     toQueries (Quickstrom.ObservedElementStates os) = Vector.fromList (map toQuery (HashMap.toList os))
@@ -144,10 +138,10 @@ traceToTransition reportDir (Quickstrom.Trace es) = go (Vector.fromList es) memp
 
     toElementState :: (Quickstrom.ElementState, JSON.Value) -> ElementState
     toElementState (state', value) = case state' of
-        Quickstrom.Attribute n -> Attribute n value
-        Quickstrom.Property n -> Property n value
-        Quickstrom.CssValue n -> CssValue n value
-        Quickstrom.Text -> Text value
+      Quickstrom.Attribute n -> Attribute n value
+      Quickstrom.Property n -> Property n value
+      Quickstrom.CssValue n -> CssValue n value
+      Quickstrom.Text -> Text value
 
     pop ctor = do
       t <- get
@@ -157,3 +151,12 @@ traceToTransition reportDir (Quickstrom.Trace es) = go (Vector.fromList es) memp
             Just x -> put t' >> pure x
             Nothing -> mzero
         Nothing -> mzero
+
+writeScreenshotFiles :: MonadIO m => FilePath -> Vector (Transition ByteString) -> m (Vector (Transition FilePath))
+writeScreenshotFiles reportDir =
+  traverse
+    ( traverse $ \s -> do
+        let fileName = (reportDir </> "screenshot-" <> show (hash s) <> ".png")
+        liftIO (BS.writeFile fileName s)
+        pure fileName
+    )

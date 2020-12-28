@@ -20,14 +20,13 @@
       "states": {
         "from": {
           "name": "State 1",
-          "screenshot": "test-0.png",
+          "screenshot": { "url": "test-0.png", "width": 800, "height": 600 },
           "queries": [
             {
               "selector": ".newtodo",
               "elements": [
                 {
                   "id": "e1",
-                  "status": "modified",
                   "state": [
                       {
                         "tag": "property",
@@ -68,7 +67,7 @@
         },
         "to": {
           "name": "State 2",
-          "screenshot": "test-1.png",
+          "screenshot": { "url": "test-1.png", "width": 800, "height": 600 },
           "queries": [
             {
               "selector": ".newtodo",
@@ -130,14 +129,13 @@
       "states": {
         "from": {
           "name": "State 2",
-          "screenshot": "test-1.png",
+          "screenshot": { "url": "test-1.png", "width": 800, "height": 600 },
           "queries": [
             {
               "selector": ".newtodo",
               "elements": [
                 {
                   "id": "e1",
-                  "status": "modified",
                   "state": [
                       {
                         "tag": "property",
@@ -178,7 +176,7 @@
         },
         "to": {
           "name": "State 3",
-          "screenshot": "test-2.png",
+          "screenshot": { "url": "test-2.png", "width": 800, "height": 600 },
           "queries": [
             {
               "selector": ".newtodo",

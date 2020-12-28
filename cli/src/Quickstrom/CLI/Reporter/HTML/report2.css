@@ -175,15 +175,26 @@ main .controls button:active {
     border: 2px dashed gray;
     z-index: 0;
 }
+.state-screenshot-inner .marker-dim {
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0;
+    transition: opacity .2s ease;
+    pointer-events: none;
+}
+.state-screenshot-inner .marker-dim.active {
+    opacity: 1;
+}
 .state-screenshot-inner .marker.active {
     border-style: solid;
     z-index: 2;
 }
 .state-screenshot-inner .marker.active.added {
-    border-color: green;
+    border-color: #2c2;
 }
 .state-screenshot-inner .marker.active.modified {
-    border-color: blue;
+    border-color: orange;
 }
 .state-screenshot-inner .marker.active.removed {
     border-color: red;

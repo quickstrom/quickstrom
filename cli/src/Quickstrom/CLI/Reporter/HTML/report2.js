@@ -144,37 +144,70 @@ function State({ state, extraClass, label }) {
   `;
 }
 
-function Screenshot({ state, extraClass, selectedElement, setSelectedElement }) {
-    function renderQueryMarkers(query) {
-        return query.elements.map(element => html`
-            <div 
-              class="marker ${element.status} ${selectedElement && selectedElement.id === element.id ? "active" : "inactive"}" 
-              onmouseenter=${(e => setSelectedElement(element))}
-              onmouseleave=${(e => setSelectedElement(null))}
-              style="
-                top: ${element.position.y}px;
-                left: ${element.position.x}px;
-                width: ${element.position.w}px;
-                height: ${element.position.h}px;
-              ">
-                <div class="marker-details">
-                  <table>
-                      ${element.state.map(elementState => html`
-                        <tr>
-                          <td>${elementState.name}</td>
-                          <td>${elementState.value}</td>
-                        </tr>
-                      `)}
-                  </table>
-                </div>
-            </div>
-        `);
+function MarkerDim({ screenshot, element }) {
+    if (element) {
+      return html`
+          <svg class="marker-dim active" viewBox="0 0 ${screenshot.width} ${screenshot.height}">
+            <mask id="myMask">
+              <rect x="0" y="0" width="${screenshot.width}" height="${screenshot.height}" fill="white" />
+              <rect x="${element.position.x}" y="${element.position.y}" width="${element.position.w}" height="${element.position.h}" fill="black" />
+            </mask>
+          
+            <rect x="0" y="0" width="${screenshot.width}" height="${screenshot.height}" fill="rgba(0,0,0,.4)" mask="url(#myMask)" />
+          </svg>
+      `;
+    } else {
+        
+      return html`
+          <svg class="marker-dim inactive" viewBox="0 0 ${screenshot.width} ${screenshot.height}"></svg>
+      `;
     }
+}
+
+function Screenshot({ state, extraClass, selectedElement, setSelectedElement }) {
+    function isActive(element) {
+        return selectedElement && selectedElement.id === element.id;
+    }
+    const activeElement = state.queries.flatMap(q => q.elements).find(isActive);
+
+    function renderDim(element) {
+        return html`
+            <${MarkerDim} screenshot=${state.screenshot} element=${element} />
+        `;
+    }
+    function renderQueryMarkers(query) {
+        return query.elements.map(element => {
+            return html`
+                <div class="marker ${element.status} ${isActive(element) ? "active" : "inactive"}" 
+                  onmouseenter=${(e => setSelectedElement(element))}
+                  onmouseleave=${(e => setSelectedElement(null))}
+                  style="
+                    top: ${element.position.y}px;
+                    left: ${element.position.x}px;
+                    width: ${element.position.w}px;
+                    height: ${element.position.h}px;
+                  ">
+                    <div class="marker-details">
+                      <table>
+                          ${element.state.map(elementState => html`
+                            <tr>
+                              <td>${elementState.name}</td>
+                              <td>${elementState.value}</td>
+                            </tr>
+                          `)}
+                      </table>
+                    </div>
+                </div>
+            `;
+        });
+    }
+    const dim = renderDim(activeElement);
     return html`
         <div class=${"state-screenshot " + extraClass}>
           <div class="state-screenshot-inner">
             ${state.queries.map(renderQueryMarkers)}
-            <img src=${state.screenshot} />
+            <img src=${state.screenshot.url} />
+            ${dim}
           </div>
         </div>
   `;

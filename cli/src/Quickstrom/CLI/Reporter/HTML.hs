@@ -42,41 +42,41 @@ data Report = Report
     summary :: Summary,
     transitions :: Maybe (Vector (Transition FilePath))
   }
-  deriving (Generic, JSON.ToJSON)
+  deriving (Eq, Show, Generic, JSON.ToJSON)
 
 data Summary
   = Success {tests :: Int}
   | Failure {tests :: Int, shrinkLevels :: Int}
   | Error {error :: Text, tests :: Int}
-  deriving (Generic, JSON.ToJSON)
+  deriving (Eq, Show, Generic, JSON.ToJSON)
 
 data Transition screenshot = Transition
   { action :: Maybe (Quickstrom.Action Quickstrom.Selected),
     states :: States screenshot
   }
-  deriving (Generic, JSON.ToJSON, Functor, Foldable, Traversable)
+  deriving (Eq, Show, Generic, JSON.ToJSON, Functor, Foldable, Traversable)
 
 data States screenshot = States {from :: State screenshot, to :: State screenshot}
-  deriving (Generic, JSON.ToJSON, Functor, Foldable, Traversable)
+  deriving (Eq, Show, Generic, JSON.ToJSON, Functor, Foldable, Traversable)
 
-data State screenshot = State {name :: Text, screenshot :: Maybe screenshot, queries :: Vector Query}
-  deriving (Generic, JSON.ToJSON, Functor, Foldable, Traversable)
+data State screenshot = State {screenshot :: Maybe screenshot, queries :: Vector Query}
+  deriving (Eq, Show, Generic, JSON.ToJSON, Functor, Foldable, Traversable)
 
 data Query = Query {selector :: Text, elements :: Vector Element}
-  deriving (Generic, JSON.ToJSON)
+  deriving (Eq, Show, Generic, JSON.ToJSON)
 
 data Element = Element {id :: Text, status :: Status, state :: Vector ElementState}
-  deriving (Generic, JSON.ToJSON)
+  deriving (Eq, Show, Generic, JSON.ToJSON)
 
 data ElementState
   = Attribute {name :: Text, value :: JSON.Value}
   | Property {name :: Text, value :: JSON.Value}
   | CssValue {name :: Text, value :: JSON.Value}
   | Text {value :: JSON.Value}
-  deriving (Generic, JSON.ToJSON)
+  deriving (Eq, Show, Generic, JSON.ToJSON)
 
 data Status = Modified
-  deriving (Generic, JSON.ToJSON)
+  deriving (Eq, Show, Generic, JSON.ToJSON)
 
 htmlReporter :: (MonadReader Quickstrom.LogLevel m, MonadIO m) => FilePath -> Quickstrom.Reporter m
 htmlReporter reportDir _webDriverOpts checkOpts result = do
@@ -124,7 +124,7 @@ traceToTransition (Quickstrom.Trace es) = go (Vector.fromList es) mempty
       pure (Transition Nothing (States s1 s2), rest)
 
     toState :: Quickstrom.ObservedState -> State ByteString
-    toState s = State "State #?" (s ^. #screenshot) (toQueries (s ^. #elementStates))
+    toState s = State (s ^. #screenshot) (toQueries (s ^. #elementStates))
 
     toQueries :: Quickstrom.ObservedElementStates -> Vector Query
     toQueries (Quickstrom.ObservedElementStates os) = Vector.fromList (map toQuery (HashMap.toList os))
@@ -134,7 +134,7 @@ traceToTransition (Quickstrom.Trace es) = go (Vector.fromList es) mempty
       Query {selector = sel, elements = Vector.fromList (map toElement elements')}
 
     toElement :: HashMap Quickstrom.ElementState JSON.Value -> Element
-    toElement states = Element "todo" Modified (Vector.fromList (map toElementState (HashMap.toList states)))
+    toElement states = Element "id" Modified (Vector.fromList (map toElementState (HashMap.toList states)))
 
     toElementState :: (Quickstrom.ElementState, JSON.Value) -> ElementState
     toElementState (state', value) = case state' of

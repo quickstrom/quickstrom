@@ -67,6 +67,7 @@ test-suite quickstrom-cli-test
   hs-source-dirs:     test
   other-modules:      Quickstrom.CLI.Reporter.HTMLTest
   build-depends:      base
+                    , hedgehog
                     , QuickCheck
                     , quickstrom-cli
                     , quickstrom-runner

@@ -11,6 +11,8 @@ import Control.Lens hiding (elements)
 import qualified Data.Aeson as JSON
 import Data.Generics.Labels ()
 import qualified Data.HashMap.Strict as HashMap
+import qualified Data.HashSet as HashSet
+import qualified Data.Text as Text
 import Data.HashMap.Strict (HashMap)
 import Data.TreeDiff.Class (ToExpr (..))
 import Data.TreeDiff.QuickCheck (ediffEq)
@@ -23,13 +25,10 @@ import qualified Quickstrom.Trace as Quickstrom
 import Test.QuickCheck hiding (vectorOf)
 import qualified Test.QuickCheck.Gen as Gen
 import Test.Tasty.Hspec hiding (Selector)
-import qualified Data.HashSet as HashSet
-import qualified Data.Text as Text
 
 spec_htmlReporter :: Spec
 spec_htmlReporter =
-  it "parses the trace as transitions" $
-    forAll genTransitions $ \expected ->
+  it "parses the trace as transitions" $ property $ \(Transactions expected) ->
       let trace' = toTrace expected
           actual = traceToTransition trace'
        in expected `ediffEq` actual
@@ -73,6 +72,16 @@ toStateMap element' =
       CssValue name' value' -> (Quickstrom.CssValue name', value')
       Text value' -> (Quickstrom.Text, value')
 
+newtype Transactions = Transactions (Vector (Transition ByteString))
+  deriving (Eq, Show)
+
+instance Arbitrary Transactions where
+  arbitrary = Transactions <$> vectorOf genTransition
+  shrink (Transactions txs) =
+    map
+      (Transactions . Vector.fromList)
+      (shrinkList shrinkNothing (Vector.toList txs))
+
 genTransitions :: Gen (Vector (Transition ByteString))
 genTransitions = vectorOf genTransition
 
@@ -89,13 +98,13 @@ genQuery :: Gen Query
 genQuery = Query <$> text <*> vectorOf genElement
 
 genElement :: Gen Element
-genElement = pure (Element "id" Modified []) -- TODO
+genElement = Element <$> text <*> pure Modified <*> pure []
 
 genAction :: Gen (Quickstrom.Action Quickstrom.Selected)
 genAction = pure (Quickstrom.KeyPress 'a')
 
 text :: Gen Text
-text = Text.singleton <$> elements ['a'..'e']
+text = Text.singleton <$> elements ['a' .. 'e']
 
 bytestring :: Gen ByteString
 bytestring = toS <$> arbitrary @[Char]
@@ -106,7 +115,6 @@ vectorOf g = Vector.fromList <$> Gen.listOf g
 hasDuplicates :: (Eq a, Hashable a) => Vector a -> Bool
 hasDuplicates xs =
   length (HashSet.fromList (Vector.toList xs)) /= length xs
-
 
 instance ToExpr screenshot => ToExpr (Transition screenshot)
 

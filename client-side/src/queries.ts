@@ -19,9 +19,9 @@ export type Queries = Query[];
 
 export type Value = string | number | boolean | Element | null;
 
-export type ObservedState = Map<Selector, Array<Map<StateQuery, Value>>>;
+export type ObservedState = Map<Selector, Array<{ element: Element; elementState: Map<StateQuery, Value> }>>;
 
-export type ObservedStateJSON = Array<[Selector, Array<Array<[StateQuery, Value]>>]>;
+export type ObservedStateJSON = Array<[Selector, Array<{ element: Element; elementState: Array<[StateQuery, Value]> }>]>;
 
 export function runQuery([selector, states]: Query): ObservedState {
   function runStateQuery(element: Element, stateQuery: StateQuery): Value {
@@ -47,7 +47,7 @@ export function runQuery([selector, states]: Query): ObservedState {
     states.forEach((state) => {
       m.set(state, runStateQuery(element as Element, state));
     });
-    return m;
+    return { element: element as Element, elementState: m };
   });
 
   return singletonMap(selector, values);
@@ -74,7 +74,7 @@ export function observeStateMap(queries: Queries): ObservedState {
 function observedStateToJSON(s: ObservedState): ObservedStateJSON {
   var r: ObservedStateJSON = [];
   s.forEach((v, k) => {
-    r.push([k, v.map(mapToArray)]);
+    r.push([k, v.map(e => ({ element: e.element, elementState: mapToArray(e.elementState) }))]);
   });
   return r;
 }

@@ -21,7 +21,6 @@ import qualified Data.Aeson as JSON
 import qualified Data.ByteString as BS
 import Data.Generics.Labels ()
 import Data.Generics.Sum (_Ctor)
-import Data.HashMap.Strict (HashMap)
 import Data.Text.Prettyprint.Doc (pretty, (<+>))
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Time.Clock as Time
@@ -86,8 +85,8 @@ htmlReporter reportDir _webDriverOpts checkOpts result = do
   liftIO (createDirectoryIfMissing True reportDir)
   (summary, transitions) <- case result of
     Quickstrom.CheckFailure {Quickstrom.failedAfter, Quickstrom.failingTest} -> do
-      let withoutStutters = Quickstrom.withoutStutterStates (Quickstrom.trace failingTest)
-          transitions = traceToTransition withoutStutters
+      let -- withoutStutters = Quickstrom.withoutStutterStates (Quickstrom.trace failingTest)
+          transitions = traceToTransition (Quickstrom.trace failingTest)
       -- case Quickstrom.reason failingTest of
       --   Just _err -> pass -- Quickstrom.logDoc (Quickstrom.logSingle Nothing (line <> annotate (color Red) ("Test failed with error:" <+> pretty err <> line)))
       --   Nothing -> pure ()
@@ -129,12 +128,12 @@ traceToTransition (Quickstrom.Trace es) = go (Vector.fromList es) mempty
     toQueries :: Quickstrom.ObservedElementStates -> Vector Query
     toQueries (Quickstrom.ObservedElementStates os) = Vector.fromList (map toQuery (HashMap.toList os))
 
-    toQuery :: (Quickstrom.Selector, [HashMap Quickstrom.ElementState JSON.Value]) -> Query
+    toQuery :: (Quickstrom.Selector, [Quickstrom.ObservedElementState]) -> Query
     toQuery (Quickstrom.Selector sel, elements') =
       Query {selector = sel, elements = Vector.fromList (map toElement elements')}
 
-    toElement :: HashMap Quickstrom.ElementState JSON.Value -> Element
-    toElement states = Element "id" Modified (Vector.fromList (map toElementState (HashMap.toList states)))
+    toElement :: Quickstrom.ObservedElementState -> Element
+    toElement o = Element (o ^. #element . #ref) Modified (Vector.fromList (map toElementState (HashMap.toList (o ^. #elementState))))
 
     toElementState :: (Quickstrom.ElementState, JSON.Value) -> ElementState
     toElementState (state', value) = case state' of

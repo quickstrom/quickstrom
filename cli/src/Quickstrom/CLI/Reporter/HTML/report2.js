@@ -214,7 +214,7 @@ function Screenshot({ state, extraClass, selectedElement, setSelectedElement }) 
 }
 
 (async () => {
-    const r = await fetch("report.json");
+    const r = await fetch("report2.json");
     const report = await r.json();
     render(html`<${Report} report=${report} />`, document.body);
 })();

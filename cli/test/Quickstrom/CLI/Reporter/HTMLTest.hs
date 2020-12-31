@@ -8,12 +8,10 @@
 module Quickstrom.CLI.Reporter.HTMLTest where
 
 import Control.Lens hiding (elements)
-import qualified Data.Aeson as JSON
 import Data.Generics.Labels ()
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.HashSet as HashSet
 import qualified Data.Text as Text
-import Data.HashMap.Strict (HashMap)
 import Data.TreeDiff.Class (ToExpr (..))
 import Data.TreeDiff.QuickCheck (ediffEq)
 import Data.Vector (Vector)
@@ -28,10 +26,25 @@ import Test.Tasty.Hspec hiding (Selector)
 
 spec_htmlReporter :: Spec
 spec_htmlReporter =
-  it "parses the trace as transitions" $ property $ \(Transactions expected) ->
+  it "parses the trace as transitions" $
+    property $ \(Transitions expected) ->
       let trace' = toTrace expected
           actual = traceToTransition trace'
-       in expected `ediffEq` actual
+       in sortTransitions expected `ediffEq` sortTransitions actual
+
+sortTransitions :: Vector (Transition ByteString) -> Vector (Transition ByteString)
+sortTransitions xs =
+  xs
+    & traversed . #states . #from . #queries %~ sortQueries
+    & traversed . #states . #to . #queries %~ sortQueries
+  where
+    sortQueries =
+      map (#elements %~ vsortOn (view #id))
+        . vsortOn (view #selector)
+
+vsortOn :: Ord o => (a -> o) -> Vector a -> Vector a
+vsortOn sel =
+  Vector.fromList . sortOn sel . Vector.toList
 
 toTrace :: Vector (Transition ByteString) -> Quickstrom.Trace ()
 toTrace ts = Quickstrom.Trace (foldMap toTransition ts)
@@ -54,7 +67,7 @@ toStateElement (State screenshot' queries') =
         ( Quickstrom.ObservedElementStates
             ( HashMap.fromList
                 [ ( Quickstrom.Selector (query ^. #selector),
-                    map toStateMap (Vector.toList (query ^. #elements))
+                    map toObservedElementState (Vector.toList (query ^. #elements))
                   )
                   | query <- Vector.toList queries'
                 ]
@@ -62,9 +75,11 @@ toStateElement (State screenshot' queries') =
         )
     )
 
-toStateMap :: Element -> HashMap Quickstrom.ElementState JSON.Value
-toStateMap element' =
-  HashMap.fromList [toPair s | s <- Vector.toList (element' ^. #state)]
+toObservedElementState :: Element -> Quickstrom.ObservedElementState
+toObservedElementState element' =
+  Quickstrom.ObservedElementState
+    (Quickstrom.Element (element' ^. #id))
+    (HashMap.fromList [toPair s | s <- Vector.toList (element' ^. #state)])
   where
     toPair = \case
       Attribute name' value' -> (Quickstrom.Attribute name', value')
@@ -72,14 +87,14 @@ toStateMap element' =
       CssValue name' value' -> (Quickstrom.CssValue name', value')
       Text value' -> (Quickstrom.Text, value')
 
-newtype Transactions = Transactions (Vector (Transition ByteString))
+newtype Transitions = Transitions (Vector (Transition ByteString))
   deriving (Eq, Show)
 
-instance Arbitrary Transactions where
-  arbitrary = Transactions <$> vectorOf genTransition
-  shrink (Transactions txs) =
+instance Arbitrary Transitions where
+  arbitrary = Transitions <$> vectorOf genTransition
+  shrink (Transitions txs) =
     map
-      (Transactions . Vector.fromList)
+      (Transitions . Vector.fromList)
       (shrinkList shrinkNothing (Vector.toList txs))
 
 genTransitions :: Gen (Vector (Transition ByteString))
@@ -95,16 +110,16 @@ genState :: Gen (State ByteString)
 genState = State Nothing <$> vectorOf genQuery `suchThat` (not . hasDuplicates . map (view #selector))
 
 genQuery :: Gen Query
-genQuery = Query <$> text <*> vectorOf genElement
+genQuery = Query <$> identifier "selector-" <*> vectorOf genElement `suchThat` (not . hasDuplicates . map (view #id))
 
 genElement :: Gen Element
-genElement = Element <$> text <*> pure Modified <*> pure []
+genElement = Element <$> identifier "element-" <*> pure Modified <*> pure []
 
 genAction :: Gen (Quickstrom.Action Quickstrom.Selected)
 genAction = pure (Quickstrom.KeyPress 'a')
 
-text :: Gen Text
-text = Text.singleton <$> elements ['a' .. 'e']
+identifier :: [Char] -> Gen Text
+identifier prefix = Text.pack . (prefix <>) . show <$> arbitrary @Word
 
 bytestring :: Gen ByteString
 bytestring = toS <$> arbitrary @[Char]

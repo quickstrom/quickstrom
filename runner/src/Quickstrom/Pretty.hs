@@ -79,8 +79,8 @@ prettyObservedState (ObservedState _ (ObservedElementStates states))
             )
       )
   where
-    prettyMatchedElement stateValues =
-      "-"
+    prettyMatchedElement (ObservedElementState element' stateValues) =
+      "-" <+> pretty element'
         <> align
           ( line
               <> indent 2 (vsep (map prettyStateValue (HashMap.toList stateValues)))

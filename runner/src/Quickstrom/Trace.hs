@@ -17,6 +17,7 @@ module Quickstrom.Trace
   ( Selected (..),
     Action (..),
     ObservedElementStates (..),
+    ObservedElementState (..),
     ObservedState (..),
     Trace (..),
     ActionResult (..),
@@ -45,7 +46,7 @@ import Quickstrom.Element
 import Quickstrom.Prelude
 import Prelude hiding (Bool (..), not)
 
-newtype ObservedElementStates = ObservedElementStates (HashMap Selector [HashMap ElementState Value])
+newtype ObservedElementStates = ObservedElementStates (HashMap Selector [ObservedElementState])
   deriving (Show, Eq, Generic, FromJSON, ToJSON)
 
 instance Semigroup ObservedElementStates where
@@ -54,7 +55,7 @@ instance Semigroup ObservedElementStates where
 instance Monoid ObservedElementStates where
   mempty = ObservedElementStates mempty
 
-data ObservedElementState = ObservedElementState { element :: Text, elementState :: HashMap ElementState Value}
+data ObservedElementState = ObservedElementState { element :: Element, elementState :: HashMap ElementState Value}
   deriving (Show, Eq, Generic, FromJSON, ToJSON)
 
 data ObservedState = ObservedState {screenshot :: Maybe ByteString, elementStates :: ObservedElementStates}

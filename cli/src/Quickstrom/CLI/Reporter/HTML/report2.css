@@ -179,7 +179,6 @@ main .controls button:active {
 }
 .state-screenshot-inner .marker {
     position: absolute;
-    border: 1px dashed rgba(0,0,255,.25);
     z-index: 0;
 }
 .state-screenshot-inner .marker-dim {
@@ -194,7 +193,7 @@ main .controls button:active {
     opacity: 1;
 }
 .state-screenshot-inner .marker.active {
-    border: 1px dashed rgb(0,0,255);
+    border: 1px solid rgb(0,0,255);
     z-index: 2;
 }
 .state-screenshot-inner .marker.active.added {

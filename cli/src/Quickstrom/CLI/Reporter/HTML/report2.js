@@ -73,13 +73,13 @@ function Transition({ state, dispatch }) {
   return html`
     <main>
       <section class="controls">
-        <button disabled=${state.index===0} onClick=${()=> dispatch({ tag: "previous" })}>←</button>
+        <button disabled=${state.index === 0} onClick=${() => dispatch({ tag: "previous" })}>←</button>
       </section>
       <section class="content">
         <${Action} action=${transition.action} />
         <section class="states">
-          <${State} state=${transition.states.from} extraClass="from" label="From" />
-          <${State} state=${transition.states.to} extraClass="to" label="To" />
+          <${State} state=${transition.states.from} number=${state.index + 1} extraClass="from" label="From" />
+          <${State} state=${transition.states.to} number=${state.index + 2} extraClass="to" label="To" />
         </section>
         <section class="screenshots">
           <${Screenshot} state=${transition.states.from} extraClass="from" selectedElement=${selectedElement}
@@ -95,7 +95,7 @@ function Transition({ state, dispatch }) {
         </section>
       </section>
       <section class="controls">
-        <button disabled=${state.index===(state.all.length - 1)} onClick=${()=> dispatch({ tag: "next" })}>→</button>
+        <button disabled=${state.index === (state.all.length - 1)} onClick=${() => dispatch({ tag: "next" })}>→</button>
       </section>
     </main>
     `;
@@ -144,11 +144,11 @@ function Action({ action }) {
   `;
 }
 
-function State({ state, extraClass, label }) {
+function State({ state, number, extraClass, label }) {
   return html`
     <div class=${"state " + extraClass}>
-                    <div class=" label">${label}</div>
-    <h2>${state.name}</h2>
+       <div class="label">${label}</div>
+      <h2>State ${number}</h2>
     </div>
   `;
 }
@@ -192,8 +192,8 @@ function Screenshot({ state, extraClass, selectedElement, setSelectedElement }) 
   function renderQueryMarkers(query) {
     return query.elements.map(element => {
       return html`
-        <div key=${element.id} class="marker ${element.status} ${isActive(element) ? " active" : "inactive" }"
-          onmouseenter=${(e=>
+        <div key=${element.id} class="marker ${element.status} ${isActive(element) ? " active" : "inactive"}"
+          onmouseenter=${(e =>
           setSelectedElement(element))}
           onmouseleave=${(e => setSelectedElement(null))}
           style="
@@ -219,7 +219,7 @@ function Screenshot({ state, extraClass, selectedElement, setSelectedElement }) 
   const dim = renderDim(activeElement);
   return html`
         <div class=${"state-screenshot " + extraClass}>
-                                  <div class=" state-screenshot-inner">
+                                          <div class=" state-screenshot-inner">
           ${state.queries.map(renderQueryMarkers)}
           <img src="data:image/png;base64,${state.screenshot.encoded}" />
           ${dim}

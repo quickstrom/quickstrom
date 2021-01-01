@@ -29,8 +29,10 @@ common shared-deps
 library
   import:             shared-deps
   build-depends:      base ^>= 4.12
+                    , base64
                     , directory
                     , filepath
+                    , JuicyPixels
                     , modern-uri
                     , process
   exposed-modules:

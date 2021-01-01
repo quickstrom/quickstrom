@@ -9,20 +9,23 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedLabels #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PackageImports #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Quickstrom.CLI.Reporter.HTML where
 
+import qualified Codec.Picture as Image
 import Control.Lens
 import qualified Data.Aeson as JSON
 import qualified Data.ByteString as BS
+import "base64" Data.ByteString.Base64 as Base64
 import Data.Generics.Labels ()
 import Data.Generics.Sum (_Ctor)
-import Data.Text.Prettyprint.Doc (pretty, (<+>))
 import qualified Data.HashMap.Strict as HashMap
+import Data.Text.Prettyprint.Doc (pretty, (<+>))
 import qualified Data.Time.Clock as Time
 import Data.Vector (Vector)
 import qualified Data.Vector as Vector
@@ -39,7 +42,7 @@ import System.FilePath ((</>))
 data Report = Report
   { generatedAt :: Time.UTCTime,
     summary :: Summary,
-    transitions :: Maybe (Vector (Transition FilePath))
+    transitions :: Maybe (Vector (Transition Base64Screenshot))
   }
   deriving (Eq, Show, Generic, JSON.ToJSON)
 
@@ -60,6 +63,9 @@ data States screenshot = States {from :: State screenshot, to :: State screensho
 
 data State screenshot = State {screenshot :: Maybe screenshot, queries :: Vector Query}
   deriving (Eq, Show, Generic, JSON.ToJSON, Functor, Foldable, Traversable)
+
+data Base64Screenshot = Base64Screenshot {encoded :: Text, width :: Int, height :: Int}
+  deriving (Eq, Show, Generic, JSON.ToJSON)
 
 data Query = Query {selector :: Text, elements :: Vector Element}
   deriving (Eq, Show, Generic, JSON.ToJSON)
@@ -95,8 +101,20 @@ htmlReporter reportDir _webDriverOpts checkOpts result = do
       pure (Error {error = checkError, tests = Quickstrom.checkTests checkOpts}, Nothing)
     Quickstrom.CheckSuccess -> pure (Success {tests = Quickstrom.checkTests checkOpts}, Nothing)
   let reportFile = reportDir </> "report.json"
-  report <- Report now summary <$> traverse (writeScreenshotFiles reportDir) transitions
-  liftIO (JSON.encodeFile reportFile report)
+  case transitions & traverse . traverse . traverse %%~ encodeScreenshot of
+    Left err ->
+      Quickstrom.logDoc . Quickstrom.logSingle (Just Quickstrom.LogError) $
+        "Failed when encoding state screenshots:" <+> pretty err
+    Right transitionsWithScreenshots ->
+      liftIO (JSON.encodeFile reportFile (Report now summary transitionsWithScreenshots))
+
+encodeScreenshot :: ByteString -> Either Text Base64Screenshot
+encodeScreenshot b =
+  let b64 = Base64.encodeBase64 b
+   in bimap
+        toS
+        (Image.dynamicMap (\i -> Base64Screenshot b64 (Image.imageWidth i) (Image.imageHeight i)))
+        (Image.decodePng b)
 
 traceToTransition :: Quickstrom.Trace ann -> Vector (Transition ByteString)
 traceToTransition (Quickstrom.Trace es) = go (Vector.fromList es) mempty
@@ -112,15 +130,13 @@ traceToTransition (Quickstrom.Trace es) = go (Vector.fromList es) mempty
       s1 <- toState <$> pop (_Ctor @"TraceState" . _2)
       a <- pop (_Ctor @"TraceAction" . _2)
       s2 <- toState <$> pop (_Ctor @"TraceState" . _2)
-      rest <- get
-      pure (Transition (Just a) (States s1 s2), rest)
+      pure (Transition (Just a) (States s1 s2), (Vector.drop 2 t))
 
     trailingStateTransition :: Vector (Quickstrom.TraceElement ann) -> Maybe (Transition ByteString, Vector (Quickstrom.TraceElement ann))
     trailingStateTransition t = flip evalStateT t $ do
       s1 <- toState <$> pop (_Ctor @"TraceState" . _2)
       s2 <- toState <$> pop (_Ctor @"TraceState" . _2)
-      rest <- get
-      pure (Transition Nothing (States s1 s2), rest)
+      pure (Transition Nothing (States s1 s2), (Vector.tail t))
 
     toState :: Quickstrom.ObservedState -> State ByteString
     toState s = State (s ^. #screenshot) (toQueries (s ^. #elementStates))

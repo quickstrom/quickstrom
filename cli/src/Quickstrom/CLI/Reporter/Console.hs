@@ -8,8 +8,6 @@
 
 module Quickstrom.CLI.Reporter.Console where
 
-import Control.Lens
-import qualified Data.ByteString as BS
 import Data.Generics.Labels ()
 import Data.Text.Prettyprint.Doc (annotate, line, pretty, (<+>))
 import Prettyprinter.Render.Terminal (Color (..), color)
@@ -19,16 +17,12 @@ import qualified Quickstrom.LogLevel as Quickstrom
 import Quickstrom.Prelude
 import qualified Quickstrom.Pretty as Quickstrom
 import qualified Quickstrom.Run as Quickstrom
-import qualified Quickstrom.Trace as Quickstrom
 
 consoleReporter :: (MonadReader Quickstrom.LogLevel m, MonadIO m) => Quickstrom.Reporter m
 consoleReporter _webDriverOpts checkOpts = \case
   Quickstrom.CheckFailure {Quickstrom.failedAfter, Quickstrom.failingTest} -> do
-    let withoutStutters = Quickstrom.withoutStutterStates (Quickstrom.trace failingTest)
-    let screenshots = withoutStutters ^.. Quickstrom.observedStates . #screenshot . _Just
-    Quickstrom.logDoc (Quickstrom.logSingle Nothing (Quickstrom.prettyTrace withoutStutters))
-    void . ifor screenshots $ \i screenshot -> do
-      liftIO (BS.writeFile ("/tmp/quickstrom-screenshot-" <> show i <> "-" <> show (hash screenshot) <> ".png") screenshot)
+    let trace' = Quickstrom.trace failingTest
+    Quickstrom.logDoc (Quickstrom.logSingle Nothing (Quickstrom.prettyTrace trace'))
     case Quickstrom.reason failingTest of
       Just err -> Quickstrom.logDoc (Quickstrom.logSingle Nothing (line <> annotate (color Red) ("Test failed with error:" <+> pretty err <> line)))
       Nothing -> pure ()

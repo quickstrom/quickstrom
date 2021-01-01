@@ -73,7 +73,7 @@ function Transition({ state, dispatch }) {
   return html`
     <main>
       <section class="controls">
-        <button disabled=${state.index === 0} onClick=${() => dispatch({ tag: "previous" })}>←</button>
+        <button disabled=${state.index===0} onClick=${()=> dispatch({ tag: "previous" })}>←</button>
       </section>
       <section class="content">
         <${Action} action=${transition.action} />
@@ -95,7 +95,7 @@ function Transition({ state, dispatch }) {
         </section>
       </section>
       <section class="controls">
-        <button disabled=${state.index === (state.all.length - 1)} onClick=${() => dispatch({ tag: "next" })}>→</button>
+        <button disabled=${state.index===(state.all.length - 1)} onClick=${()=> dispatch({ tag: "next" })}>→</button>
       </section>
     </main>
     `;
@@ -109,12 +109,18 @@ function Action({ action }) {
     }
   }
   function renderDetails() {
+    function selector(sel) {
+      return html`
+            <p class="selector">${sel[0]}</p>
+            <p class="selected-index">[${sel[1]}]</p>
+        `;
+    }
     switch (action.tag) {
       case "Click":
         return html`
           <div class="action-details">
             <h2><span class="name">${action.tag}</span></h2>
-            <div class="selector">${action.contents[0]}[${action.contents[1]}]</div>
+            ${selector(action.contents)}
           </div>
         `;
       case "KeyPress":
@@ -128,7 +134,7 @@ function Action({ action }) {
         return html`
           <div class="action-details">
             <h2><span class="name">${action.tag}</span></h2>
-            <div class="selector">${action.contents[0]}[${action.contents[1]}]</div>
+            ${selector(action.contents)}
           </div>
         `;
     }
@@ -147,8 +153,8 @@ function Action({ action }) {
 function State({ state, number, extraClass, label }) {
   return html`
     <div class=${"state " + extraClass}>
-       <div class="label">${label}</div>
-      <h2>State ${number}</h2>
+           <div class=" label">${label}</div>
+    <h2>State ${number}</h2>
     </div>
   `;
 }
@@ -192,8 +198,8 @@ function Screenshot({ state, extraClass, selectedElement, setSelectedElement }) 
   function renderQueryMarkers(query) {
     return query.elements.map(element => {
       return html`
-        <div key=${element.id} class="marker ${element.status} ${isActive(element) ? " active" : "inactive"}"
-          onmouseenter=${(e =>
+        <div key=${element.id} class="marker ${element.status} ${isActive(element) ? " active" : "inactive" }"
+          onmouseenter=${(e=>
           setSelectedElement(element))}
           onmouseleave=${(e => setSelectedElement(null))}
           style="
@@ -219,7 +225,7 @@ function Screenshot({ state, extraClass, selectedElement, setSelectedElement }) 
   const dim = renderDim(activeElement);
   return html`
         <div class=${"state-screenshot " + extraClass}>
-                                          <div class=" state-screenshot-inner">
+                                                  <div class=" state-screenshot-inner">
           ${state.queries.map(renderQueryMarkers)}
           <img src="data:image/png;base64,${state.screenshot.encoded}" />
           ${dim}

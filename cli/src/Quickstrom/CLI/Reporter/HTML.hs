@@ -70,7 +70,7 @@ data Base64Screenshot = Base64Screenshot {encoded :: Text, width :: Int, height 
 data Query = Query {selector :: Text, elements :: Vector Element}
   deriving (Eq, Show, Generic, JSON.ToJSON)
 
-data Element = Element {id :: Text, status :: Status, state :: Vector ElementState}
+data Element = Element {id :: Text, status :: Status, position :: Quickstrom.Position, state :: Vector ElementState}
   deriving (Eq, Show, Generic, JSON.ToJSON)
 
 data ElementState
@@ -149,7 +149,12 @@ traceToTransition (Quickstrom.Trace es) = go (Vector.fromList es) mempty
       Query {selector = sel, elements = Vector.fromList (map toElement elements')}
 
     toElement :: Quickstrom.ObservedElementState -> Element
-    toElement o = Element (o ^. #element . #ref) Modified (Vector.fromList (map toElementState (HashMap.toList (o ^. #elementState))))
+    toElement o =
+      Element
+        (o ^. #element . #ref)
+        Modified
+        (o ^. #position)
+        (Vector.fromList (map toElementState (HashMap.toList (o ^. #elementState))))
 
     toElementState :: (Quickstrom.ElementState, JSON.Value) -> ElementState
     toElementState (state', value) = case state' of

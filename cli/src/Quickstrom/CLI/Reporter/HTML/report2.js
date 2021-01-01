@@ -114,6 +114,7 @@ function Action({ action }) {
         return html`
           <div class="action-details">
             <h2><span class="name">${action.tag}</span></h2>
+            <div class="selector">${action.contents[0]}[${action.contents[1]}]</div>
           </div>
         `;
       case "KeyPress":
@@ -127,6 +128,7 @@ function Action({ action }) {
         return html`
           <div class="action-details">
             <h2><span class="name">${action.tag}</span></h2>
+            <div class="selector">${action.contents[0]}[${action.contents[1]}]</div>
           </div>
         `;
     }
@@ -157,8 +159,8 @@ function MarkerDim({ screenshot, element }) {
           <svg class="marker-dim active" viewBox="0 0 ${screenshot.width} ${screenshot.height}">
             <mask id="myMask">
               <rect x="0" y="0" width="${screenshot.width}" height="${screenshot.height}" fill="white" />
-              <rect x="${element.position.x}" y="${element.position.y}" width="${element.position.w}"
-                height="${element.position.h}" fill="black" />
+              <rect x="${element.position.x}" y="${element.position.y}" width="${element.position.width}"
+                height="${element.position.height}" fill="black" />
             </mask>
           
             <rect x="0" y="0" width="${screenshot.width}" height="${screenshot.height}" fill="rgba(0,0,0,.4)"
@@ -185,17 +187,16 @@ function Screenshot({ state, extraClass, selectedElement, setSelectedElement }) 
         `;
   }
   function renderQueryMarkers(query) {
-    return; // TODO
     return query.elements.map(element => {
       return html`
-                <div class="marker ${element.status} ${isActive(element) ? " active" : "inactive" }" onmouseenter=${(e=>
+                <div key=${element.id} class="marker ${element.status} ${isActive(element) ? " active" : "inactive" }" onmouseenter=${(e=>
                   setSelectedElement(element))}
                   onmouseleave=${(e => setSelectedElement(null))}
                   style="
                   top: ${element.position.y}px;
                   left: ${element.position.x}px;
-                  width: ${element.position.w}px;
-                  height: ${element.position.h}px;
+                  width: ${element.position.width}px;
+                  height: ${element.position.height}px;
                   ">
                   <div class="marker-details">
                     <table>

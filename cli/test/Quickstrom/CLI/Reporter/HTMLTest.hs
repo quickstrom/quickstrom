@@ -79,6 +79,7 @@ toObservedElementState :: Element -> Quickstrom.ObservedElementState
 toObservedElementState element' =
   Quickstrom.ObservedElementState
     (Quickstrom.Element (element' ^. #id))
+    (element' ^. #position)
     (HashMap.fromList [toPair s | s <- Vector.toList (element' ^. #state)])
   where
     toPair = \case
@@ -113,7 +114,13 @@ genQuery :: Gen Query
 genQuery = Query <$> identifier "selector-" <*> vectorOf genElement `suchThat` (not . hasDuplicates . map (view #id))
 
 genElement :: Gen Element
-genElement = Element <$> identifier "element-" <*> pure Modified <*> pure []
+genElement = Element <$> identifier "element-" <*> pure Modified <*> genPosition <*> pure []
+
+genPosition :: Gen Quickstrom.Position
+genPosition = Quickstrom.Position <$> genNat <*> genNat <*> genNat <*> genNat
+
+genNat :: Gen Int
+genNat = getPositive <$> arbitrary
 
 genAction :: Gen (Quickstrom.Action Quickstrom.Selected)
 genAction = pure (Quickstrom.KeyPress 'a')
@@ -138,6 +145,8 @@ instance ToExpr screenshot => ToExpr (States screenshot)
 instance ToExpr screenshot => ToExpr (State screenshot)
 
 instance ToExpr Query
+
+instance ToExpr Quickstrom.Position
 
 instance ToExpr Element
 

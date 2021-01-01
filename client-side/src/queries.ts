@@ -19,9 +19,11 @@ export type Queries = Query[];
 
 export type Value = string | number | boolean | Element | null;
 
-export type ObservedState = Map<Selector, Array<{ element: Element; elementState: Map<StateQuery, Value> }>>;
+export type Position = { x: number; y: number; width: number; height: number; }
 
-export type ObservedStateJSON = Array<[Selector, Array<{ element: Element; elementState: Array<[StateQuery, Value]> }>]>;
+export type ObservedState = Map<Selector, Array<{ element: Element; position: Position; elementState: Map<StateQuery, Value> }>>;
+
+export type ObservedStateJSON = Array<[Selector, Array<{ element: Element; position: Position; elementState: Array<[StateQuery, Value]> }>]>;
 
 export function runQuery([selector, states]: Query): ObservedState {
   function runStateQuery(element: Element, stateQuery: StateQuery): Value {
@@ -42,12 +44,20 @@ export function runQuery([selector, states]: Query): ObservedState {
     }
   }
 
-  const values = toArray(document.querySelectorAll(selector)).map((element) => {
+  const elements = toArray(document.querySelectorAll(selector)) as Element[];
+  const values = elements.map((element) => {
     var m = new Map();
     states.forEach((state) => {
-      m.set(state, runStateQuery(element as Element, state));
+      m.set(state, runStateQuery(element, state));
     });
-    return { element: element as Element, elementState: m };
+    const rect = element.getBoundingClientRect();
+    const position = {
+      x: Math.round(rect.left),
+      y: Math.round(rect.top),
+      width: Math.round(rect.right - rect.left),
+      height: Math.round(rect.bottom - rect.top),
+    };
+    return { position, element: element, elementState: m };
   });
 
   return singletonMap(selector, values);
@@ -74,7 +84,7 @@ export function observeStateMap(queries: Queries): ObservedState {
 function observedStateToJSON(s: ObservedState): ObservedStateJSON {
   var r: ObservedStateJSON = [];
   s.forEach((v, k) => {
-    r.push([k, v.map(e => ({ element: e.element, elementState: mapToArray(e.elementState) }))]);
+    r.push([k, v.map(e => ({ element: e.element, position: e.position, elementState: mapToArray(e.elementState) }))]);
   });
   return r;
 }

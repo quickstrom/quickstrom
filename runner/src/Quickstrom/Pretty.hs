@@ -79,7 +79,7 @@ prettyObservedState (ObservedState _ (ObservedElementStates states))
             )
       )
   where
-    prettyMatchedElement (ObservedElementState element' stateValues) =
+    prettyMatchedElement (ObservedElementState element' _position stateValues) =
       "-" <+> pretty element'
         <> align
           ( line

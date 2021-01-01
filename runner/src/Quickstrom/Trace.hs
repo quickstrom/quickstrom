@@ -18,6 +18,7 @@ module Quickstrom.Trace
     Action (..),
     ObservedElementStates (..),
     ObservedElementState (..),
+    Position (..),
     ObservedState (..),
     Trace (..),
     ActionResult (..),
@@ -35,7 +36,7 @@ where
 
 import Control.Lens
 import Data.Aeson (FromJSON (..), ToJSON (..), Value)
-import Data.Generics.Product (position)
+import Data.Generics.Product as Product
 import Data.Generics.Sum (_Ctor)
 import Data.HashMap.Strict (HashMap)
 import Data.Text (Text)
@@ -55,7 +56,10 @@ instance Semigroup ObservedElementStates where
 instance Monoid ObservedElementStates where
   mempty = ObservedElementStates mempty
 
-data ObservedElementState = ObservedElementState { element :: Element, elementState :: HashMap ElementState Value}
+data Position = Position { x :: Int, y :: Int, width :: Int, height :: Int }
+  deriving (Eq, Show, Generic, FromJSON, ToJSON)
+
+data ObservedElementState = ObservedElementState { element :: Element, position :: Position, elementState :: HashMap ElementState Value}
   deriving (Show, Eq, Generic, FromJSON, ToJSON)
 
 data ObservedState = ObservedState {screenshot :: Maybe ByteString, elementStates :: ObservedElementStates}
@@ -79,22 +83,22 @@ data TraceElement ann
   deriving (Show, Generic)
 
 traceElements :: Lens' (Trace ann) [TraceElement ann]
-traceElements = position @1
+traceElements = Product.position @1
 
 observedStates :: Traversal' (Trace ann) ObservedState
-observedStates = traceElements . traverse . _Ctor @"TraceState" . position @2
+observedStates = traceElements . traverse . _Ctor @"TraceState" . Product.position @2
 
 traceActions :: Traversal' (Trace ann) (Action Selected)
-traceActions = traceElements . traverse . _Ctor @"TraceAction" . position @2
+traceActions = traceElements . traverse . _Ctor @"TraceAction" . Product.position @2
 
 traceActionFailures :: Traversal' (Trace ann) Text
-traceActionFailures = traceElements . traverse . _Ctor @"TraceAction" . position @3 . _Ctor @"ActionFailed"
+traceActionFailures = traceElements . traverse . _Ctor @"TraceAction" . Product.position @3 . _Ctor @"ActionFailed"
 
 nonStutterStates :: Monoid r => Getting r (Trace TraceElementEffect) ObservedState
-nonStutterStates = traceElements . traverse . _Ctor @"TraceState" . filtered ((== NoStutter) . fst) . position @2
+nonStutterStates = traceElements . traverse . _Ctor @"TraceState" . filtered ((== NoStutter) . fst) . Product.position @2
 
 ann :: Lens (TraceElement ann) (TraceElement ann2) ann ann2
-ann = position @1
+ann = Product.position @1
 
 data TraceElementEffect = Stutter | NoStutter
   deriving (Show, Eq, Generic, ToJSON)

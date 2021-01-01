@@ -147,7 +147,7 @@ function Action({ action }) {
 function State({ state, extraClass, label }) {
   return html`
     <div class=${"state " + extraClass}>
-            <div class=" label">${label}</div>
+                    <div class=" label">${label}</div>
     <h2>${state.name}</h2>
     </div>
   `;
@@ -186,36 +186,40 @@ function Screenshot({ state, extraClass, selectedElement, setSelectedElement }) 
             <${MarkerDim} screenshot=${state.screenshot} element=${element} />
         `;
   }
+  function percentageOf(x, total) {
+    return `${(x / total) * 100}%`;
+  }
   function renderQueryMarkers(query) {
     return query.elements.map(element => {
       return html`
-                <div key=${element.id} class="marker ${element.status} ${isActive(element) ? " active" : "inactive" }" onmouseenter=${(e=>
-                  setSelectedElement(element))}
-                  onmouseleave=${(e => setSelectedElement(null))}
-                  style="
-                  top: ${element.position.y}px;
-                  left: ${element.position.x}px;
-                  width: ${element.position.width}px;
-                  height: ${element.position.height}px;
-                  ">
-                  <div class="marker-details">
-                    <table>
-                      ${element.state.map(elementState => html`
-                      <tr>
-                        <td>${elementState.name}</td>
-                        <td>${elementState.value}</td>
-                      </tr>
-                      `)}
-                    </table>
-                  </div>
-                </div>
+        <div key=${element.id} class="marker ${element.status} ${isActive(element) ? " active" : "inactive" }"
+          onmouseenter=${(e=>
+          setSelectedElement(element))}
+          onmouseleave=${(e => setSelectedElement(null))}
+          style="
+          top: ${percentageOf(element.position.y, state.screenshot.height)};
+          left: ${percentageOf(element.position.x, state.screenshot.width)};
+          width: ${percentageOf(element.position.width, state.screenshot.width)};
+          height: ${percentageOf(element.position.height, state.screenshot.height)};
+          ">
+          <div class="marker-details">
+            <table>
+              ${element.state.map(elementState => html`
+              <tr>
+                <td>${elementState.name}</td>
+                <td>${elementState.value}</td>
+              </tr>
+              `)}
+            </table>
+          </div>
+        </div>
             `;
     });
   }
   const dim = renderDim(activeElement);
   return html`
         <div class=${"state-screenshot " + extraClass}>
-                  <div class=" state-screenshot-inner">
+                                  <div class=" state-screenshot-inner">
           ${state.queries.map(renderQueryMarkers)}
           <img src="data:image/png;base64,${state.screenshot.encoded}" />
           ${dim}

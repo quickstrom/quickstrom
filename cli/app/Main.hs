@@ -23,9 +23,10 @@ import Options.Applicative
 import qualified Pipes as Pipes
 import qualified Quickstrom.Browser as Quickstrom
 import qualified Quickstrom.CLI.Logging as Quickstrom
+import Quickstrom.CLI.Reporter (Reporter)
+import qualified Quickstrom.CLI.Reporter.Console as Reporter
+import qualified Quickstrom.CLI.Reporter.HTML as Reporter
 import qualified Quickstrom.LogLevel as Quickstrom
-import qualified Quickstrom.CLI.Reporter.Console as Quickstrom
-import qualified Quickstrom.CLI.Reporter.HTML as Quickstrom
 import Quickstrom.Prelude hiding (option, try)
 import qualified Quickstrom.PureScript.Program as Quickstrom
 import qualified Quickstrom.Run as Quickstrom
@@ -63,7 +64,9 @@ data CheckOptions = CheckOptions
     browserBinary :: Maybe FilePath,
     webDriverHost :: Text,
     webDriverPort :: Int,
-    webDriverPath :: FilePath
+    webDriverPath :: FilePath,
+    reporters :: [Text],
+    htmlReportDirectory :: Maybe FilePath
   }
 
 data LintOptions = LintOptions
@@ -171,6 +174,23 @@ checkOptionsParser =
           <> long "webdriver-path"
           <> help "The relative path of the WebDriver root HTTP resource"
       )
+    <*> many
+      ( option
+          (eitherReader parseRunnerName)
+          ( metavar "NAME"
+              <> long "reporter"
+              <> help "Name of one or more reporters to use (defaults to only \"console\")"
+          )
+      )
+    <*> optional
+      ( option
+          str
+          ( metavar "DIR"
+              <> long "html-report-directory"
+              <> value "html-report"
+              <> help "Output directory of generated HTML report"
+          )
+      )
 
 lintOptionsParser :: Parser LintOptions
 lintOptionsParser =
@@ -226,7 +246,7 @@ main = do
   CLI {..} <- execParser optsInfo
   libPath <- maybe libraryPathFromEnvironment pure libraryPath
   case chosenCommand of
-    Check CheckOptions {..} -> do
+    Check cOpts@CheckOptions {..} -> do
       originUri <- resolveAbsoluteURI origin
       specResult <- runExceptT $ do
         modules <- ExceptT (Quickstrom.loadLibraryModules libPath)
@@ -261,9 +281,12 @@ main = do
               & try
           Quickstrom.logDoc . Quickstrom.logSingle Nothing $ line <> divider <> line
           case result of
-            Right checkResult -> do
-              Quickstrom.consoleReporter wdOpts opts checkResult
-              Quickstrom.htmlReporter "/tmp/quickstrom-report" wdOpts opts checkResult
+            Right checkResult ->
+              initializeReporters cOpts
+                & filter ((`elem` chosenReporterNames) . fst)
+                & traverse_ (\(_, r) -> r wdOpts opts checkResult)
+              where
+                chosenReporterNames = if null reporters then ["console"] else reporters
             Left err@SomeException {} -> do
               Quickstrom.logDoc . Quickstrom.logSingle Nothing . annotate (color Red) $
                 line <> "Check encountered an error:" <+> pretty (show err :: Text) <> line
@@ -271,6 +294,23 @@ main = do
     Lint LintOptions {..} -> do
       hPutStrLn stderr ("Lint is not implemented yet" :: Text)
       liftIO (exitWith (ExitFailure 1))
+
+availableReporters :: (MonadIO m, MonadReader Quickstrom.LogLevel m) => [(Text, CheckOptions -> Reporter m)]
+availableReporters =
+  [ ("console", const Reporter.consoleReporter),
+    ("html", const (Reporter.htmlReporter "/tmp/quickstrom-report"))
+  ]
+
+reporterNames :: [Text]
+reporterNames = map fst (availableReporters @(ReaderT Quickstrom.LogLevel IO))
+
+initializeReporters :: (MonadIO m, MonadReader Quickstrom.LogLevel m) => CheckOptions -> [(Text, Reporter m)]
+initializeReporters opts = [(name, mk opts) | (name, mk) <- availableReporters]
+
+parseRunnerName :: [Char] -> Either [Char] Text
+parseRunnerName s =
+  let t = toS s
+   in if t `elem` reporterNames then Right t else Left ("Invalid reporter: " <> s)
 
 exitWithResult :: MonadIO m => Either SomeException Quickstrom.CheckResult -> m ()
 exitWithResult = \case
@@ -280,7 +320,7 @@ exitWithResult = \case
     liftIO (exitWith (ExitFailure 3))
   Right Quickstrom.CheckError {} -> do
     liftIO (exitWith (ExitFailure 1))
-  Left{} ->
+  Left {} ->
     liftIO (exitWith (ExitFailure 1))
 
 libraryPathFromEnvironment :: IO FilePath

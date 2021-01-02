@@ -59,7 +59,7 @@ instance Monoid ObservedElementStates where
 data Position = Position { x :: Int, y :: Int, width :: Int, height :: Int }
   deriving (Eq, Show, Generic, FromJSON, ToJSON)
 
-data ObservedElementState = ObservedElementState { element :: Element, position :: Position, elementState :: HashMap ElementState Value}
+data ObservedElementState = ObservedElementState { element :: Element, position :: Maybe Position, elementState :: HashMap ElementState Value}
   deriving (Show, Eq, Generic, FromJSON, ToJSON)
 
 data ObservedState = ObservedState {screenshot :: Maybe ByteString, elementStates :: ObservedElementStates}

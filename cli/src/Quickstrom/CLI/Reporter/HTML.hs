@@ -78,7 +78,7 @@ data FileScreenshot = FileScreenshot {url :: FilePath, width :: Int, height :: I
 data Query = Query {selector :: Text, elements :: Vector Element}
   deriving (Eq, Show, Generic, JSON.ToJSON)
 
-data Element = Element {id :: Text, status :: Status, position :: Quickstrom.Position, state :: Vector ElementState}
+data Element = Element {id :: Text, status :: Status, position :: Maybe Quickstrom.Position, state :: Vector ElementState}
   deriving (Eq, Show, Generic, JSON.ToJSON)
 
 data ElementState

@@ -1,4 +1,5 @@
 import { mapToArray, toArray } from "./arrays";
+import { isElementVisible } from "./visibility";
 
 export type Selector = string;
 
@@ -21,9 +22,9 @@ export type Value = string | number | boolean | Element | null;
 
 export type Position = { x: number; y: number; width: number; height: number; }
 
-export type ObservedState = Map<Selector, Array<{ element: Element; position: Position; elementState: Map<StateQuery, Value> }>>;
+export type ObservedState = Map<Selector, Array<{ element: Element; position?: Position; elementState: Map<StateQuery, Value> }>>;
 
-export type ObservedStateJSON = Array<[Selector, Array<{ element: Element; position: Position; elementState: Array<[StateQuery, Value]> }>]>;
+export type ObservedStateJSON = Array<[Selector, Array<{ element: Element; position?: Position; elementState: Array<[StateQuery, Value]> }>]>;
 
 export function runQuery([selector, states]: Query): ObservedState {
   function runStateQuery(element: Element, stateQuery: StateQuery): Value {
@@ -51,12 +52,12 @@ export function runQuery([selector, states]: Query): ObservedState {
       m.set(state, runStateQuery(element, state));
     });
     const rect = element.getBoundingClientRect();
-    const position = {
+    const position = isElementVisible(element as HTMLElement) ? {
       x: Math.round(rect.left),
       y: Math.round(rect.top),
       width: Math.round(rect.right - rect.left),
       height: Math.round(rect.bottom - rect.top),
-    };
+    } : undefined;
     return { position, element: element, elementState: m };
   });
 

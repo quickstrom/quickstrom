@@ -78,7 +78,7 @@ function Transition({ state, dispatch }) {
   return html`
     <main>
       <section class="controls">
-        <button disabled=${state.index === 0} onClick=${() => dispatch({ tag: "previous" })}>←</button>
+        <button disabled=${state.index===0} onClick=${()=> dispatch({ tag: "previous" })}>←</button>
       </section>
       <section class="content">
         <${Action} action=${transition.action} />
@@ -100,7 +100,7 @@ function Transition({ state, dispatch }) {
         </section>
       </section>
       <section class="controls">
-        <button disabled=${state.index === (state.all.length - 1)} onClick=${() => dispatch({ tag: "next" })}>→</button>
+        <button disabled=${state.index===(state.all.length - 1)} onClick=${()=> dispatch({ tag: "next" })}>→</button>
       </section>
     </main>
     `;
@@ -165,24 +165,23 @@ function Action({ action }) {
 function State({ state, number, extraClass, label }) {
   return html`
     <div class=${"state " + extraClass}>
-                               <div class=" label">${label}</div>
+                                                   <div class=" label">${label}</div>
     <h2>State ${number}</h2>
     </div>
   `;
 }
 
 function MarkerDim({ screenshot, element }) {
-  if (element) {
+  if (element && element.position) {
     return html`
           <svg class="marker-dim active" viewBox="0 0 ${screenshot.width} ${screenshot.height}">
-            <mask id="myMask">
+            <mask id="${element.id}-mask">
               <rect x="0" y="0" width="${screenshot.width}" height="${screenshot.height}" fill="white" />
               <rect x="${element.position.x}" y="${element.position.y}" width="${element.position.width}"
                 height="${element.position.height}" fill="black" />
             </mask>
-          
-            <rect x="0" y="0" width="${screenshot.width}" height="${screenshot.height}" fill="rgba(0,0,0,.4)"
-              mask="url(#myMask)" />
+            <rect x="0" y="0" width="${screenshot.width}" height="${screenshot.height}" fill="rgba(0,0,0,.2)"
+              mask="url(#${element.id}-mask)" />
           </svg>
       `;
   } else {
@@ -201,37 +200,38 @@ function Screenshot({ state, extraClass, selectedElement, setSelectedElement }) 
 
   function renderDim(element) {
     return html`
-            <${MarkerDim} screenshot=${state.screenshot} element=${element} />
-        `;
+      <${MarkerDim} screenshot=${state.screenshot} element=${element} />
+    `;
   }
   function percentageOf(x, total) {
     return `${(x / total) * 100}%`;
   }
   function renderQueryMarkers(query) {
     return query.elements.map(element => {
-      return html`
-        <div key=${element.id} class="marker ${element.status} ${isActive(element) ? " active" : "inactive"}"
-          onmouseenter=${(e =>
-          setSelectedElement(element))}
-          onmouseleave=${(e => setSelectedElement(null))}
-          style="
-          top: ${percentageOf(element.position.y, state.screenshot.height)};
-          left: ${percentageOf(element.position.x, state.screenshot.width)};
-          width: ${percentageOf(element.position.width, state.screenshot.width)};
-          height: ${percentageOf(element.position.height, state.screenshot.height)};
-          ">
-          <div class="marker-details">
-            <table>
-              ${element.state.map(elementState => html`
-              <tr>
-                <td>${elementState.name}</td>
-                <td>${elementState.value}</td>
-              </tr>
-              `)}
-            </table>
+      if (element.position) {
+        return html`
+          <div key=${element.id} class="marker ${element.status} ${isActive(element) ? " active" : "inactive" }"
+            onmouseenter=${(e=> setSelectedElement(element))}
+            onmouseleave=${(e => setSelectedElement(null))}
+            style="
+            top: ${percentageOf(element.position.y, state.screenshot.height)};
+            left: ${percentageOf(element.position.x, state.screenshot.width)};
+            width: ${percentageOf(element.position.width, state.screenshot.width)};
+            height: ${percentageOf(element.position.height, state.screenshot.height)};
+            ">
+            <div class="marker-details">
+              <table>
+                ${element.state.map(elementState => html`
+                <tr>
+                  <td>${elementState.name}</td>
+                  <td>${elementState.value}</td>
+                </tr>
+                `)}
+              </table>
+            </div>
           </div>
-        </div>
             `;
+      }
     });
   }
   const dim = renderDim(activeElement);

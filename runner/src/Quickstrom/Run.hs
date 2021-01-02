@@ -130,7 +130,7 @@ data CheckScripts = CheckScripts
   { isElementVisible :: Element -> CheckScript Bool,
     observeState :: Queries -> CheckScript ObservedElementStates,
     registerNextStateObserver :: Timeout -> Queries -> CheckScript (),
-    awaitNextState :: CheckScript (Maybe ObservedElementStates)
+    awaitNextState :: CheckScript ()
   }
 
 check ::
@@ -248,10 +248,8 @@ observeManyStatesAfter queries' action = do
   CheckEnv {checkScripts = scripts, checkOptions = CheckOptions {checkMaxTrailingStateChanges, checkTrailingStateChangeTimeout}} <- lift ask
   lift (runCheckScript (registerNextStateObserver scripts checkTrailingStateChangeTimeout queries'))
   result <- lift (runAction action)
-  newState <-
-    lift (runCheckScript (awaitNextState scripts) `catchResponseError` (const (pure Nothing))) >>= \case
-      Just state' -> pure state'
-      Nothing -> lift (runCheckScript (observeState scripts queries'))
+  lift (runCheckScript (awaitNextState scripts) `catchResponseError` const pass)
+  newState <- lift (runCheckScript (observeState scripts queries'))
   screenshot <- pure <$> lift takeScreenshot
   Pipes.yield (TraceAction () action result)
   Pipes.yield (TraceState () (ObservedState screenshot newState))
@@ -269,9 +267,8 @@ observeManyStatesAfter queries' action = do
       scripts <- lift (asks checkScripts)
       newState <- lift do
         runCheckScript (registerNextStateObserver scripts timeout queries')
-        runCheckScript (awaitNextState scripts) >>= \case
-          Just state' -> pure state'
-          Nothing -> runCheckScript (observeState scripts queries')
+        runCheckScript (awaitNextState scripts) `catchResponseError` const pass
+        runCheckScript (observeState scripts queries')
       screenshot <- pure <$> lift takeScreenshot
       Pipes.yield (ObservedState screenshot newState)
       loop (mapTimeout (* 2) timeout)

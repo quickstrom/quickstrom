@@ -30,7 +30,7 @@ spec_htmlReporter =
     property $ \(Transitions expected) ->
       let trace' = toTrace expected
           actual = traceToTransition trace'
-       in sortTransitions expected `ediffEq` sortTransitions actual
+       in sortTransitions actual `ediffEq` sortTransitions expected
 
 sortTransitions :: Vector (Transition ByteString) -> Vector (Transition ByteString)
 sortTransitions xs =
@@ -47,12 +47,18 @@ vsortOn sel =
   Vector.fromList . sortOn sel . Vector.toList
 
 toTrace :: Vector (Transition ByteString) -> Quickstrom.Trace ()
-toTrace ts = Quickstrom.Trace (foldMap toTransition ts)
+toTrace ts =
+  case ts ^? _Cons of
+    Nothing -> Quickstrom.Trace []
+    Just (x, _) ->
+      Quickstrom.Trace
+        ( pure (toStateElement (x ^. #states . #from))
+            <> (foldMap toTransition ts)
+        )
 
 toTransition :: Transition ByteString -> [Quickstrom.TraceElement ()]
-toTransition (Transition action' (States from' to')) =
-  [toStateElement from']
-    <> maybe [] (pure . toActionElement) action'
+toTransition (Transition action' (States _ to')) =
+  maybe [] (pure . toActionElement) action'
     <> [toStateElement to']
 
 toActionElement :: Quickstrom.Action Quickstrom.Selected -> Quickstrom.TraceElement ()
@@ -92,20 +98,23 @@ newtype Transitions = Transitions (Vector (Transition ByteString))
   deriving (Eq, Show)
 
 instance Arbitrary Transitions where
-  arbitrary = Transitions <$> vectorOf genTransition
+  arbitrary = Transitions <$> genTransitions
   shrink (Transitions txs) =
     map
       (Transitions . Vector.fromList)
       (shrinkList shrinkNothing (Vector.toList txs))
 
 genTransitions :: Gen (Vector (Transition ByteString))
-genTransitions = vectorOf genTransition
+genTransitions = do
+  n <- getPositive <$> arbitrary
+  t1 <- genTransitionFrom =<< genState
+  Vector.iterateNM n (genTransitionFrom . view (#states . #to)) t1
 
-genTransition :: Gen (Transition ByteString)
-genTransition =
+genTransitionFrom :: State ByteString -> Gen (Transition ByteString)
+genTransitionFrom from' =
   Transition
     <$> Gen.oneof [Just <$> genAction, pure Nothing]
-    <*> (States <$> genState <*> genState)
+    <*> (States from' <$> genState)
 
 genState :: Gen (State ByteString)
 genState = State Nothing <$> vectorOf genQuery `suchThat` (not . hasDuplicates . map (view #selector))

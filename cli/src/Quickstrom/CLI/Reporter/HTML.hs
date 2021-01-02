@@ -12,6 +12,7 @@
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PackageImports #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -22,10 +23,13 @@ import Control.Lens
 import qualified Data.Aeson as JSON
 import qualified Data.ByteString as BS
 import "base64" Data.ByteString.Base64 as Base64
+import Data.FileEmbed (embedDir, embedFile, makeRelativeToProject)
+import qualified Data.ByteString.Lazy as LBS
 import Data.Generics.Labels ()
 import Data.Generics.Sum (_Ctor)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Text.Prettyprint.Doc (pretty, (<+>))
+import qualified Data.Text.Encoding as Text
 import qualified Data.Time.Clock as Time
 import Data.Vector (Vector)
 import qualified Data.Vector as Vector
@@ -42,7 +46,7 @@ import System.FilePath ((</>))
 data Report = Report
   { generatedAt :: Time.UTCTime,
     summary :: Summary,
-    transitions :: Maybe (Vector (Transition Base64Screenshot))
+    transitions :: Maybe (Vector (Transition FileScreenshot))
   }
   deriving (Eq, Show, Generic, JSON.ToJSON)
 
@@ -65,6 +69,9 @@ data State screenshot = State {screenshot :: Maybe screenshot, queries :: Vector
   deriving (Eq, Show, Generic, JSON.ToJSON, Functor, Foldable, Traversable)
 
 data Base64Screenshot = Base64Screenshot {encoded :: Text, width :: Int, height :: Int}
+  deriving (Eq, Show, Generic, JSON.ToJSON)
+
+data FileScreenshot = FileScreenshot {url :: FilePath, width :: Int, height :: Int}
   deriving (Eq, Show, Generic, JSON.ToJSON)
 
 data Query = Query {selector :: Text, elements :: Vector Element}
@@ -100,13 +107,14 @@ htmlReporter reportDir _webDriverOpts checkOpts result = do
     Quickstrom.CheckError {Quickstrom.checkError} -> do
       pure (Error {error = checkError, tests = Quickstrom.checkTests checkOpts}, Nothing)
     Quickstrom.CheckSuccess -> pure (Success {tests = Quickstrom.checkTests checkOpts}, Nothing)
-  let reportFile = reportDir </> "report.json"
-  case transitions & traverse . traverse . traverse %%~ encodeScreenshot of
-    Left err ->
-      Quickstrom.logDoc . Quickstrom.logSingle (Just Quickstrom.LogError) $
-        "Failed when encoding state screenshots:" <+> pretty err
-    Right transitionsWithScreenshots ->
-      liftIO (JSON.encodeFile reportFile (Report now summary transitionsWithScreenshots))
+  let reportFile = reportDir </> "report.jsonp"
+  transitions & traverse . traverse . traverse %%~ writeScreenshotFile reportDir >>= \case
+    transitionsWithScreenshots -> do
+      let json = JSON.encode (Report now summary transitionsWithScreenshots)
+      liftIO $ do
+        BS.writeFile reportFile (Text.encodeUtf8 "window.report = " <> LBS.toStrict json)
+        for_ assets $ \(name, contents) ->
+          BS.writeFile (reportDir </> name) contents
 
 encodeScreenshot :: ByteString -> Either Text Base64Screenshot
 encodeScreenshot b =
@@ -172,11 +180,21 @@ traceToTransition (Quickstrom.Trace es) = go (Vector.fromList es) mempty
             Nothing -> mzero
         Nothing -> mzero
 
-writeScreenshotFiles :: MonadIO m => FilePath -> Vector (Transition ByteString) -> m (Vector (Transition FilePath))
-writeScreenshotFiles reportDir =
-  traverse
-    ( traverse $ \s -> do
-        let fileName = (reportDir </> "screenshot-" <> show (hash s) <> ".png")
-        liftIO (BS.writeFile fileName s)
-        pure fileName
-    )
+data ScreenshotFileException = ScreenshotFileException Text
+  deriving (Show)
+
+instance Exception ScreenshotFileException
+
+writeScreenshotFile :: MonadIO m => FilePath -> ByteString -> m FileScreenshot
+writeScreenshotFile reportDir s = do
+  let fileName = ("screenshot-" <> show (hash s) <> ".png")
+  liftIO (BS.writeFile (reportDir </> fileName) s)
+  either
+    (throwIO . ScreenshotFileException . toS)
+    (pure . Image.dynamicMap (\i -> FileScreenshot fileName (Image.imageWidth i) (Image.imageHeight i)))
+    (Image.decodePng s)
+
+-- * Static assets
+
+assets :: [(FilePath, ByteString)]
+assets = $(makeRelativeToProject "src/Quickstrom/CLI/Reporter/HTML" >>= embedDir)

@@ -1,9 +1,13 @@
+*, *:before, *:after {
+  box-sizing: border-box;
+}
+
 html, body {
     height: 100%;
-    font-family: sans-serif;
+    font-family: 'Open Sans', sans-serif;
     font-size: 16px;
-    background: #fff;
-    color: #222;
+    background: #222;
+    color: #ccc;
 }
 
 body {
@@ -13,10 +17,13 @@ body {
     margin: 0;
 }
 
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+}
+
 header, footer {
     padding: 1.5rem;
-    background: #333;
-    color: #eee;
+    background: #2a2a2a;
 }
 
 header {
@@ -29,6 +36,7 @@ footer {
 header h1 {
     margin: 0 0 1rem;
     font-size: 150%;
+    font-weight: 400;
 }
 
 header .summary {
@@ -38,185 +46,198 @@ header .summary.failed {
     color: #d33;
 }
 
-h1, h2, h3, h4, h5, h6 {
-    font-weight: 500;
-}
-
 main {
     flex: 1 0 auto;
     display: flex;
-}
-
-.trace, .details {
-    flex: 0 1 25%; 
-    border-right: 1px solid #ccc;
-}
-
-main ol, main ul {
-    list-style-type: none;
-    padding: 0;
-    margin: 0;
-}
-
-main li {
-    padding: 1rem;
-    border-bottom: 1px #ccc solid;
-    transition: background .1s ease;
-}
-
-.trace ol {
-}
-
-.trace li.active {
-    background: #ddd;
-}
-
-.trace li {
-    display: flex;
     flex-direction: row;
-    flex-wrap: wrap;
-    cursor: pointer;
-    padding: 1.5rem;
-}
-.trace li h2 {
-    display: flex;
-    align-items: center;
-    flex: 0 0 100%;
-    margin-bottom: .5rem;
-    font-weight: 600;
 }
 
-.trace li h2:before {
-    display: block;
-    content: '';
-    margin-right: .5rem;
-    width: 1.5rem;
-    height: 1.5rem;
-    background-repeat: no-repeat;
-    background-size: 1.5rem 1.5rem;
-}
-.trace li.state h2:before {
-    background-image: url('state-machine.svg');
-}
-.trace li.action h2:before {
-    background-image: url('alert-box-outline.svg');
-}
-
-.trace .state {
-}
-.trace .state.stutter {
-    color: #666;
-}
-.trace h2 {
-    margin: 0;
-    font-size: 100%;
-}
-.trace li * + * {
-    margin: .5rem 0 0;
-}
-
-.trace .action {
-}
-.trace .action .selector,
-.trace .action .key {
+main .content {
     flex: 1 1 auto;
-    font-family: monospace;
-    color: #666;
+    display: flex;
+    flex-direction: column;
 }
-.trace .action .selected-index {
+main .controls {
     flex: 0 0 auto;
-    font-family: monospace;
-    color: #aaa;
+    display: flex;
 }
-
-.details {
-    flex: 0 1 0;
-    background: #ddd;
-    transition: flex 0.1s ease;
+main .controls button {
+    background: #222;
     border: none;
-}
-.details.active {
-    flex-basis: 25%;
-}
-.details li {
-    padding: 0;
-}
-.details h3 {
-    font-size: 100%;
-    margin: 0;
-    padding: 1rem;
-    border-bottom: 1px solid #ccc;
-}
-.details .queries {
-    display: none;
-}
-.details .queries.active {
-    display: block;
-}
-.details .queries .selector {
-    font-family: monospace;
+    padding: 2rem;
+    cursor: pointer;
+    font-size: 1.5rem;
     font-weight: bold;
-    whitespace: nowrap;
+    color: #ccc;
+}
+main .controls button:disabled {
+    cursor: not-allowed;
+}
+main .controls button:hover,
+main .controls button:active {
+    background: #2f2f2f;
 }
 
-.details .elements li {
-    padding: .5rem;
-    background: #eee;
-}
-.details .elements li:hover {
-    background: #f4f4f4;
-}
-
-.details .elements li:last-child {
-    border: none;
-}
-
-.details .elements .changed {
-    color: #c60;
-}
-.details .elements .added {
-    color: #71a400;
-}
-
-
-.details .elements table {
+.action, .states, .screenshots, .details {
     width: 100%;
-    font-family: monospace;
-}
-.details .elements table th,
-.details .elements table td {
-    padding: .5rem;
-}
-.details .elements table td {
-    text-align: right;
+    display: flex;
 }
 
-.details li.active {
+.action {
+    flex-direction: column;
+    align-items: center;
     color: #fff;
 }
 
-.screenshot {
-    flex: 1 0 auto; 
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-.screenshot-frame {
-    position: relative;
-}
-.screenshot img {
-}
-.screenshot .marker {
-    display: none;
-    position: absolute;
-    border: 2px solid red;
-    box-shadow: 0 0 5px red;
-    top: 10px;
-    left: 10px;
-    width: 400px;
-    height: 400px;
+.label {
+    display: block;
+    text-transform: uppercase;
+    font-size: .75rem;
+    color: #999;
 }
 
-.screenshot .marker.visible {
+.action-inner {
+    width: calc(100%/6 * 3);
+    text-align: center;
+    margin-top: 1.5rem;
+}
+.action .action-details {
+    border-top: 1px solid #666;
+    border-left: 1px solid #666;
+    border-right: 1px solid #666;
+}
+.action .label {
+    margin-bottom: 1.5rem;
+}
+.action h2 {
+    font-size: 200%;
+    line-height: 2rem;
+    margin: -1rem 0 1rem 0;
+}
+.action .name {
+    display: inline-block;
+    background: #222;
+    padding: 0 1rem;
+}
+.action .name.none {
+    color: #666;
+}
+.action .selector {
+    white-space: nowrap;
+    font-family: 'Inconsolata', monospace;
+    margin: .25rem 0;
+}
+.action .selected-index {
+    font-weight: bold;
+}
+.action .key {
+    display: inline-block;
+    padding: .5em .8em;
+    background: #666;
+    color: #fff;
+    box-shadow: 2px 2px 0 #111;
+    border-radius: 4px;
+    font-size: 125%;
+    font-weight: 600;
+}
+
+.states {
+    display: flex;
+    width: 100%;
+    margin: 0;
+}
+.state {
+    flex: 0 0 50%;
+    text-align: center;
+    color: #fff;
+}
+
+.state .label {
+    margin: .5rem 0;
+}
+
+.state h2 {
+    font-size: 150%;
+}
+
+.state .queries {
+    display: none;
+}
+
+.screenshots {
+    display: flex;
+    justify-content: space-evenly;
+    margin: 2rem 0;
+}
+.state-screenshot {
+    flex: 0 0 49%;
+    border: 2px solid #111;
+    display: flex;
+}
+.state-screenshot-inner {
+    width: 100%;
+    flex: 0 0 auto;
+    position: relative;
+    margin: 0 auto;
+}
+.state-screenshot img {
+    display: block;
+    width: 100%;
+}
+.state-screenshot-inner .marker {
+    position: absolute;
+    z-index: 0;
+}
+.state-screenshot-inner .marker-dim {
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0;
+    transition: opacity .2s ease;
+    pointer-events: none;
+}
+.state-screenshot-inner .marker-dim.active {
+    opacity: 1;
+}
+.state-screenshot-inner .marker.active {
+    border: 1px solid rgb(0,0,255);
+    z-index: 2;
+}
+.state-screenshot-inner .marker.active.added {
+    border-color: #2c2;
+}
+.state-screenshot-inner .marker.active.modified {
+    border-color: orange;
+}
+.state-screenshot-inner .marker.active.removed {
+    border-color: red;
+}
+
+.state-screenshot-inner .marker .marker-details {
+    display: none;
+    position: absolute;
+    top: calc(100% + 1rem);
+    background: #fff;
+    color: #333;
+    border: 1px solid #333;
+    min-width: 10rem;
+    z-index: 2;
+    font-family: 'Inconsolata', monospace;
+}
+.state-screenshot-inner .marker.active .marker-details {
     display: block;
 }
+.state-screenshot-inner .marker .marker-details table {
+    width: 100%;
+}
+.state-screenshot-inner .marker .marker-details td {
+    padding: .5rem;
+}
+.state-screenshot-inner .marker .marker-details td:first-child {
+    width: 1%;
+    border-right: 1px solid #aaa;
+}
+.state-screenshot-inner .marker .marker-details td:last-child {
+    text-align: right;
+}
+

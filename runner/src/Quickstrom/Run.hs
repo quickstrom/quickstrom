@@ -249,7 +249,7 @@ observeManyStatesAfter queries' action = do
   lift (runCheckScript (registerNextStateObserver scripts checkTrailingStateChangeTimeout queries'))
   result <- lift (runAction action)
   newState <-
-    lift (runCheckScript (awaitNextState scripts)) >>= \case
+    lift (runCheckScript (awaitNextState scripts) `catchResponseError` (const (pure Nothing))) >>= \case
       Just state' -> pure state'
       Nothing -> lift (runCheckScript (observeState scripts queries'))
   screenshot <- pure <$> lift takeScreenshot

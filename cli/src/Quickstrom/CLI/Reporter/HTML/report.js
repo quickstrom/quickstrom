@@ -38,13 +38,18 @@ function Report({ report }) {
     `;
 }
 
+function pluralize(n, term) {
+  return `${n} ${term}${n > 1 ? "s" : ""}`;
+}
+
 function Header({ report }) {
   function Summary() {
     switch (report.summary.tag) {
       case "Failure":
         return html`
                 <p class="summary failed">
-                  Failed after ${report.summary.tests} test and ${report.summary.shrinkLevels} level of shrinking.
+                  Failed after ${pluralize(report.summary.tests, "test")} and ${pluralize(report.summary.shrinkLevels, "level")} of
+                  shrinking.
                 </p>`;
       case "Success":
         return html`<p class="summary success">Passed ${report.summary.tests} tests.</p>`;
@@ -116,7 +121,7 @@ function Action({ action }) {
         `;
     }
     if (!action) {
-        return html`
+      return html`
           <div class="action-details">
             <h2><span class="name none">None</span></h2>
           </div>
@@ -160,7 +165,7 @@ function Action({ action }) {
 function State({ state, number, extraClass, label }) {
   return html`
     <div class=${"state " + extraClass}>
-                       <div class=" label">${label}</div>
+                               <div class=" label">${label}</div>
     <h2>State ${number}</h2>
     </div>
   `;
@@ -241,4 +246,8 @@ function Screenshot({ state, extraClass, selectedElement, setSelectedElement }) 
   `;
 }
 
-render(html`<${Report} report=${window.report} />`, document.body);
+function excludeStutters(report) {
+  return { ...report, transitions: report.transitions.filter(t => !t.stutter || !!t.action) };
+}
+
+render(html`<${Report} report=${excludeStutters(window.report)} />`, document.body);

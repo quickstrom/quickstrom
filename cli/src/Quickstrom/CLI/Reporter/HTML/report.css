@@ -102,6 +102,7 @@ main .controls button:active {
     margin-top: 1.5rem;
 }
 .action .action-details {
+    min-height: 6rem;
     border-top: 1px solid #666;
     border-left: 1px solid #666;
     border-right: 1px solid #666;

@@ -29,7 +29,7 @@ spec_htmlReporter =
   it "parses the trace as transitions" $
     property $ \(Transitions expected) ->
       let trace' = toTrace expected
-          actual = traceToTransition trace'
+          actual = traceToTransitions trace'
        in sortTransitions actual `ediffEq` sortTransitions expected
 
 sortTransitions :: Vector (Transition ByteString) -> Vector (Transition ByteString)

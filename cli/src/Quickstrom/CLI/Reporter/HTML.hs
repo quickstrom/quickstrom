@@ -23,7 +23,7 @@ import Control.Lens
 import qualified Data.Aeson as JSON
 import qualified Data.ByteString as BS
 import "base64" Data.ByteString.Base64 as Base64
-import Data.FileEmbed (embedDir, embedFile, makeRelativeToProject)
+import Data.FileEmbed (embedDir, makeRelativeToProject)
 import qualified Data.ByteString.Lazy as LBS
 import Data.Generics.Labels ()
 import Data.Generics.Sum (_Ctor)
@@ -58,7 +58,8 @@ data Summary
 
 data Transition screenshot = Transition
   { action :: Maybe (Quickstrom.Action Quickstrom.Selected),
-    states :: States screenshot
+    states :: States screenshot,
+    stutter :: Bool
   }
   deriving (Eq, Show, Generic, JSON.ToJSON, Functor, Foldable, Traversable)
 
@@ -98,8 +99,7 @@ htmlReporter reportDir _webDriverOpts checkOpts result = do
   liftIO (createDirectoryIfMissing True reportDir)
   (summary, transitions) <- case result of
     Quickstrom.CheckFailure {Quickstrom.failedAfter, Quickstrom.failingTest} -> do
-      let -- withoutStutters = Quickstrom.withoutStutterStates (Quickstrom.trace failingTest)
-          transitions = traceToTransition (Quickstrom.trace failingTest)
+      let transitions = traceToTransitions (Quickstrom.trace failingTest)
       -- case Quickstrom.reason failingTest of
       --   Just _err -> pass -- Quickstrom.logDoc (Quickstrom.logSingle Nothing (line <> annotate (color Red) ("Test failed with error:" <+> pretty err <> line)))
       --   Nothing -> pure ()
@@ -124,27 +124,27 @@ encodeScreenshot b =
         (Image.dynamicMap (\i -> Base64Screenshot b64 (Image.imageWidth i) (Image.imageHeight i)))
         (Image.decodePng b)
 
-traceToTransition :: Quickstrom.Trace ann -> Vector (Transition ByteString)
-traceToTransition (Quickstrom.Trace es) = go (Vector.fromList es) mempty
+traceToTransitions :: Quickstrom.Trace Quickstrom.TraceElementEffect -> Vector (Transition ByteString)
+traceToTransitions (Quickstrom.Trace es) = go (Vector.fromList es) mempty
   where
-    go :: Vector (Quickstrom.TraceElement ann) -> Vector (Transition ByteString) -> Vector (Transition ByteString)
+    go :: Vector (Quickstrom.TraceElement Quickstrom.TraceElementEffect) -> Vector (Transition ByteString) -> Vector (Transition ByteString)
     go trace' acc =
       case actionTransition trace' <|> trailingStateTransition trace' of
         Just (transition, trace'') -> go trace'' (acc <> pure transition)
         Nothing -> acc
 
-    actionTransition :: Vector (Quickstrom.TraceElement ann) -> Maybe (Transition ByteString, Vector (Quickstrom.TraceElement ann))
+    actionTransition :: Vector (Quickstrom.TraceElement Quickstrom.TraceElementEffect) -> Maybe (Transition ByteString, Vector (Quickstrom.TraceElement Quickstrom.TraceElementEffect))
     actionTransition t = flip evalStateT t $ do
-      s1 <- toState <$> pop (_Ctor @"TraceState" . _2)
+      (_, s1) <- pop (_Ctor @"TraceState")
       a <- pop (_Ctor @"TraceAction" . _2)
-      s2 <- toState <$> pop (_Ctor @"TraceState" . _2)
-      pure (Transition (Just a) (States s1 s2), (Vector.drop 2 t))
+      (ann2, s2) <- pop (_Ctor @"TraceState")
+      pure (Transition (Just a) (States (toState s1) (toState s2)) (ann2 == Quickstrom.Stutter), (Vector.drop 2 t))
 
-    trailingStateTransition :: Vector (Quickstrom.TraceElement ann) -> Maybe (Transition ByteString, Vector (Quickstrom.TraceElement ann))
+    trailingStateTransition :: Vector (Quickstrom.TraceElement Quickstrom.TraceElementEffect) -> Maybe (Transition ByteString, Vector (Quickstrom.TraceElement Quickstrom.TraceElementEffect))
     trailingStateTransition t = flip evalStateT t $ do
-      s1 <- toState <$> pop (_Ctor @"TraceState" . _2)
-      s2 <- toState <$> pop (_Ctor @"TraceState" . _2)
-      pure (Transition Nothing (States s1 s2), (Vector.tail t))
+      (_, s1) <- pop (_Ctor @"TraceState")
+      (ann2, s2) <- pop (_Ctor @"TraceState")
+      pure (Transition Nothing (States (toState s1) (toState s2)) (ann2 == Quickstrom.Stutter), Vector.tail t)
 
     toState :: Quickstrom.ObservedState -> State ByteString
     toState s = State (s ^. #screenshot) (toQueries (s ^. #elementStates))

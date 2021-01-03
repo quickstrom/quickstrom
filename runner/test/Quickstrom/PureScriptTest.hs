@@ -21,7 +21,7 @@ import Quickstrom.PureScript.Eval
 import Quickstrom.PureScript.ForeignFunction
 import Quickstrom.PureScript.Pretty
 import Quickstrom.PureScript.Program
-import Quickstrom.Trace (ObservedElementStates (..), ObservedState (..))
+import Quickstrom.Trace (ObservedElementState (..), ObservedElementStates (..), ObservedState (..))
 import System.Environment (lookupEnv)
 import Test.Tasty.Hspec hiding (Selector)
 
@@ -167,19 +167,19 @@ spec_purescript = beforeAll loadModules $ do
               Nothing
               ( ObservedElementStates
                   ( HashMap.fromList
-                      [ (Quickstrom.Selector ".todoapp .new-todo", [HashMap.singleton (Quickstrom.Property "value") (JSON.String newTodo)]),
-                        (Quickstrom.Selector ".todoapp .filters a", [HashMap.singleton (Quickstrom.Property "textContent") (JSON.String t) | t <- filters]),
-                        (Quickstrom.Selector ".todoapp .filters a.selected", [HashMap.singleton (Quickstrom.Property "textContent") (JSON.String selected)]),
+                      [ (Quickstrom.Selector ".todoapp .new-todo", [ObservedElementState (Quickstrom.Element "new-todo") Nothing (HashMap.singleton (Quickstrom.Property "value") (JSON.String newTodo))]),
+                        (Quickstrom.Selector ".todoapp .filters a", [ObservedElementState (Quickstrom.Element ("filter-" <> t)) Nothing (HashMap.singleton (Quickstrom.Property "textContent") (JSON.String t)) | t <- filters]),
+                        (Quickstrom.Selector ".todoapp .filters a.selected", [ObservedElementState (Quickstrom.Element ("filter-" <> selected)) Nothing (HashMap.singleton (Quickstrom.Property "textContent") (JSON.String selected))]),
                         ( Quickstrom.Selector ".todo-list li",
-                          map (const (HashMap.singleton (Quickstrom.CssValue "display") "block")) (Vector.toList todoItems)
+                          map (\(t, _) -> (ObservedElementState (Quickstrom.Element ("item-" <> t)) Nothing (HashMap.singleton (Quickstrom.CssValue "display") "block"))) (Vector.toList todoItems)
                         ),
                         ( Quickstrom.Selector ".todo-list li label",
-                          [HashMap.singleton (Quickstrom.Property "textContent") (JSON.String todo) | (todo, _) <- Vector.toList todoItems]
+                          [ObservedElementState (Quickstrom.Element ("label-" <> todo)) Nothing (HashMap.singleton (Quickstrom.Property "textContent") (JSON.String todo)) | (todo, _) <- Vector.toList todoItems]
                         ),
                         ( Quickstrom.Selector ".todo-list li input[type=checkbox]",
-                          [HashMap.singleton (Quickstrom.Property "checked") (JSON.Bool checked) | (_, checked) <- Vector.toList todoItems]
+                          [ObservedElementState (Quickstrom.Element ("checkbox-" <> todo)) Nothing (HashMap.singleton (Quickstrom.Property "checked") (JSON.Bool checked)) | (todo, checked) <- Vector.toList todoItems]
                         ),
-                        (Quickstrom.Selector ".todoapp .todo-count strong", [HashMap.singleton (Quickstrom.Property "textContent") (JSON.String count)])
+                        (Quickstrom.Selector ".todoapp .todo-count strong", [ObservedElementState (Quickstrom.Element "count") Nothing (HashMap.singleton (Quickstrom.Property "textContent") (JSON.String count))])
                       ]
                   )
               )
@@ -216,4 +216,4 @@ spec_purescript = beforeAll loadModules $ do
 
 paragraphWithTextState :: Text -> ObservedState
 paragraphWithTextState t =
-  ObservedState Nothing (ObservedElementStates (HashMap.singleton "p" [HashMap.singleton (Quickstrom.Property "textContent") (JSON.String t)]))
+  ObservedState Nothing (ObservedElementStates (HashMap.singleton "p" [ObservedElementState (Quickstrom.Element ("p-" <> t)) Nothing (HashMap.singleton (Quickstrom.Property "textContent") (JSON.String t))]))

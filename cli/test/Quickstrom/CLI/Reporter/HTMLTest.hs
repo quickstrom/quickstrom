@@ -46,7 +46,7 @@ vsortOn :: Ord o => (a -> o) -> Vector a -> Vector a
 vsortOn sel =
   Vector.fromList . sortOn sel . Vector.toList
 
-toTrace :: Vector (Transition ByteString) -> Quickstrom.Trace ()
+toTrace :: Vector (Transition ByteString) -> Quickstrom.Trace Quickstrom.TraceElementEffect
 toTrace ts =
   case ts ^? _Cons of
     Nothing -> Quickstrom.Trace []
@@ -56,18 +56,18 @@ toTrace ts =
             <> (foldMap toTransition ts)
         )
 
-toTransition :: Transition ByteString -> [Quickstrom.TraceElement ()]
-toTransition (Transition action' (States _ to')) =
+toTransition :: Transition ByteString -> [Quickstrom.TraceElement Quickstrom.TraceElementEffect]
+toTransition (Transition action' (States _ to') _) =
   maybe [] (pure . toActionElement) action'
     <> [toStateElement to']
 
-toActionElement :: Quickstrom.Action Quickstrom.Selected -> Quickstrom.TraceElement ()
-toActionElement a = Quickstrom.TraceAction () a Quickstrom.ActionSuccess
+toActionElement :: Quickstrom.Action Quickstrom.Selected -> Quickstrom.TraceElement Quickstrom.TraceElementEffect
+toActionElement a = Quickstrom.TraceAction Quickstrom.NoStutter a Quickstrom.ActionSuccess
 
-toStateElement :: State ByteString -> Quickstrom.TraceElement ()
+toStateElement :: State ByteString -> Quickstrom.TraceElement Quickstrom.TraceElementEffect
 toStateElement (State screenshot' queries') =
   Quickstrom.TraceState
-    ()
+    Quickstrom.NoStutter
     ( Quickstrom.ObservedState
         screenshot'
         ( Quickstrom.ObservedElementStates
@@ -115,6 +115,7 @@ genTransitionFrom from' =
   Transition
     <$> Gen.oneof [Just <$> genAction, pure Nothing]
     <*> (States from' <$> genState)
+    <*> pure False
 
 genState :: Gen (State ByteString)
 genState = State Nothing <$> vectorOf genQuery `suchThat` (not . hasDuplicates . map (view #selector))
@@ -123,7 +124,7 @@ genQuery :: Gen Query
 genQuery = Query <$> identifier "selector-" <*> vectorOf genElement `suchThat` (not . hasDuplicates . map (view #id))
 
 genElement :: Gen Element
-genElement = Element <$> identifier "element-" <*> pure Modified <*> genPosition <*> pure []
+genElement = Element <$> identifier "element-" <*> pure Modified <*> (Just <$> genPosition) <*> pure []
 
 genPosition :: Gen Quickstrom.Position
 genPosition = Quickstrom.Position <$> genNat <*> genNat <*> genNat <*> genNat

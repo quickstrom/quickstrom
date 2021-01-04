@@ -8,14 +8,14 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Tutorials &mdash; Quickstrom 0.1.0 documentation</title>
+  <title>Reporters &mdash; Quickstrom 0.1.0 documentation</title>
   
 
   
   
   
   
-    <link rel="canonical" href="https://quickstrom.io/tutorials/index.html"/>
+    <link rel="canonical" href="https://quickstrom.io/topics/reporters.html"/>
   
 
   
@@ -38,8 +38,8 @@
   <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Writing Your First Specification" href="first.html" />
-    <link rel="prev" title="Troubleshooting" href="../topics/troubleshooting.html" />
+    <link rel="next" title="Troubleshooting" href="troubleshooting.html" />
+    <link rel="prev" title="Trailing State Changes" href="trailing-state-changes.html" />
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Oswald:wght@500&family=Inconsolata:wght@400;600&display=swap" rel="stylesheet"> 
     <link href="../_static/overrides.css" rel="stylesheet" type="text/css">
 
@@ -88,11 +88,20 @@
             
               <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../topics/index.html">Topics</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Tutorials</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="first.html">Writing Your First Specification</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Topics</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="how-it-works.html">How It Works</a></li>
+<li class="toctree-l2"><a class="reference internal" href="specification-language.html">The Specification Language</a></li>
+<li class="toctree-l2"><a class="reference internal" href="checking.html">Checking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="trailing-state-changes.html">Trailing State Changes</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Reporters</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#console">Console</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#html">HTML</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/index.html">Tutorials</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../faq.html">FAQ</a></li>
 </ul>
 
@@ -139,14 +148,16 @@
     
       <li><a href="../index.html">Docs</a> &raquo;</li>
         
-      <li>Tutorials</li>
+          <li><a href="index.html">Topics</a> &raquo;</li>
+        
+      <li>Reporters</li>
     
     
       <li class="wy-breadcrumbs-aside">
         
             
             
-              <a href="https://github.com/quickstrom/quickstrom/blob/HEAD/docs/source/tutorials/index.rst" class="fa fa-github"> Edit on GitHub</a>
+              <a href="https://github.com/quickstrom/quickstrom/blob/HEAD/docs/source/topics/reporters.rst" class="fa fa-github"> Edit on GitHub</a>
             
           
         
@@ -160,12 +171,37 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
             
-  <div class="section" id="tutorials">
-<h1>Tutorials<a class="headerlink" href="#tutorials" title="Permalink to this headline">¶</a></h1>
-<div class="toctree-wrapper compound">
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="first.html">Writing Your First Specification</a></li>
+  <div class="section" id="reporters">
+<h1>Reporters<a class="headerlink" href="#reporters" title="Permalink to this headline">¶</a></h1>
+<p>After a Quickstrom check completes, one or more <em>reporters</em> run. They report
+the result of the check in different formats. The following reporters are
+available:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">console</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">html</span></code></p></li>
 </ul>
+<p>Invoke reporters by passing the <code class="docutils literal notranslate"><span class="pre">--reporter=&lt;NAME&gt;</span></code> option to the <code class="docutils literal notranslate"><span class="pre">check</span></code>
+command.</p>
+<div class="section" id="console">
+<h2>Console<a class="headerlink" href="#console" title="Permalink to this headline">¶</a></h2>
+<p>The console reporter is invoked by default. It prints a trace and summary to
+the console when a check fails. The trace contains information about the state
+of queried elements at each state in the behavior, along with the actions taken
+by Quickstrom.</p>
+</div>
+<div class="section" id="html">
+<h2>HTML<a class="headerlink" href="#html" title="Permalink to this headline">¶</a></h2>
+<p>The HTML reporter creates a report for web browsers in a given directory. The
+report is an interactive troubleshooting tool based on state transitions,
+showing screenshots and overlayed state information for the queried elements.</p>
+<p>To set the directory to generate the report in, use the option
+<code class="docutils literal notranslate"><span class="pre">--html-report-directory=&lt;DIR&gt;</span></code>.</p>
+<p>The HTML report directory must be served through an HTTP server in order
+to avoid problems with CORS. If you have Python 3 installed, serve it with
+the following command:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> python3 -m http.server -d &lt;DIR&gt;
+</pre></div>
+</div>
 </div>
 </div>
 
@@ -177,10 +213,10 @@
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="first.html" class="btn btn-neutral float-right" title="Writing Your First Specification" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+        <a href="troubleshooting.html" class="btn btn-neutral float-right" title="Troubleshooting" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
-        <a href="../topics/troubleshooting.html" class="btn btn-neutral float-left" title="Troubleshooting" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+        <a href="trailing-state-changes.html" class="btn btn-neutral float-left" title="Trailing State Changes" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
       
     </div>
   

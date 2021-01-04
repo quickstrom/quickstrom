@@ -1,8 +1,9 @@
 module Spec where
 
 import Quickstrom
-import Data.Maybe (Maybe, isJust, isNothing)
+import Data.Maybe (Maybe(..), isJust, isNothing)
 import Data.Tuple (Tuple(..))
+import Data.String (trim)
 
 readyWhen :: String
 readyWhen = "body"
@@ -20,15 +21,21 @@ proposition =
 
     enterMessage = formMessage /= next formMessage
 
-    submitMessage =
-      formMessage /= next submittedMessage
+    submitInvalidMessage =
+      (trim <$> formMessage) == Just "" && next (isNothing submittedMessage)
+
+    submitValidMessage =
+      (trim <$> formMessage) /= Just "" 
+        && formMessage == next submittedMessage
         && isNothing submittedMessage
         && next (isNothing formMessage)
   in
-    initial && always (enterMessage || submitMessage)
+    initial && always (enterMessage || submitInvalidMessage || submitValidMessage)
 
 formMessage :: Maybe String
-formMessage = map _.value (queryOne "input" { value })
+formMessage = map _.value (queryOne "input[type=text]" { value })
 
 submittedMessage :: Maybe String
-submittedMessage = map _.textContent (queryOne "#message" { textContent })
+submittedMessage =  do
+  { textContent, display } <- queryOne "#message" { textContent, display: cssValue "display" }
+  if display == "none" then Nothing else Just textContent

@@ -79,7 +79,7 @@ data ActionResult = ActionSuccess | ActionFailed Text | ActionImpossible
   deriving (Show, Generic)
 
 data TraceElement ann
-  = TraceAction ann (Action Selected) ActionResult
+  = TraceAction ann Action ActionResult
   | TraceState ann ObservedState
   deriving (Show, Generic)
 

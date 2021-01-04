@@ -52,7 +52,7 @@ data Report = Report
 
 data Summary
   = Success {tests :: Int}
-  | Failure {tests :: Int, shrinkLevels :: Int}
+  | Failure {tests :: Int, shrinkLevels :: Int, reason :: Maybe Text}
   | Error {error :: Text, tests :: Int}
   deriving (Eq, Show, Generic, JSON.ToJSON)
 
@@ -100,10 +100,14 @@ htmlReporter reportDir _webDriverOpts checkOpts result = do
   (summary, transitions) <- case result of
     Quickstrom.CheckFailure {Quickstrom.failedAfter, Quickstrom.failingTest} -> do
       let transitions = traceToTransitions (Quickstrom.trace failingTest)
-      -- case Quickstrom.reason failingTest of
-      --   Just _err -> pass -- Quickstrom.logDoc (Quickstrom.logSingle Nothing (line <> annotate (color Red) ("Test failed with error:" <+> pretty err <> line)))
-      --   Nothing -> pure ()
-      pure (Failure {tests = failedAfter, shrinkLevels = Quickstrom.numShrinks failingTest}, Just transitions)
+      pure
+        ( Failure
+            { tests = failedAfter,
+              shrinkLevels = Quickstrom.numShrinks failingTest,
+              reason = Quickstrom.reason failingTest
+            },
+          Just transitions
+        )
     Quickstrom.CheckError {Quickstrom.checkError} -> do
       pure (Error {error = checkError, tests = Quickstrom.checkTests checkOpts}, Nothing)
     Quickstrom.CheckSuccess -> pure (Success {tests = Quickstrom.checkTests checkOpts}, Nothing)

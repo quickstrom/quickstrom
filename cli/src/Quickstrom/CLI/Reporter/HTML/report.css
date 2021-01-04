@@ -39,7 +39,8 @@ header h1 {
     font-weight: 400;
 }
 
-header .summary {
+header .summary p {
+    margin: .5em 0;
 }
 
 header .summary.error,

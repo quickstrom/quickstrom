@@ -42,7 +42,7 @@ function ErrorReport({ report }) {
       <${Header} report=${report} />
       <main>
         <section class="error">
-        ${report.summary.error}
+          ${report.summary.error}
         </section>
       </main>
       <${Footer} report=${report} />
@@ -68,17 +68,21 @@ function Header({ report }) {
     switch (report.summary.tag) {
       case "Failure":
         return html`
-                <p class="summary failure">
-                  Failed after ${pluralize(report.summary.tests, "test")} and ${pluralize(report.summary.shrinkLevels, "level")} of
-                  shrinking.
-                </p>`;
+          <div class="summary failure">
+            <p>
+            Failed after ${pluralize(report.summary.tests, "test")} and ${pluralize(report.summary.shrinkLevels, "level")} of
+            shrinking
+            ${report.summary.reason ? html`: ${report.summary.reason}` : "."}
+            </p>
+          </div>
+        `;
       case "Error":
         return html`
-                <p class="summary error">
-                  Failed with an error.
-                </p>`;
+          <div class="summary error">
+            <p>Failed with error: ${report.summary.error}</p>
+          </div>`;
       case "Success":
-        return html`<p class="summary success">Passed ${report.summary.tests} tests.</p>`;
+        return html`<div class="summary success"><p>Passed ${report.summary.tests} tests.</p></div>`;
     }
 
   }
@@ -104,7 +108,7 @@ function Transition({ state, dispatch }) {
   return html`
     <main>
       <section class="controls">
-        <button disabled=${state.index===0} onClick=${()=> dispatch({ tag: "previous" })}>←</button>
+        <button disabled=${state.index === 0} onClick=${() => dispatch({ tag: "previous" })}>←</button>
       </section>
       <section class="content">
         <${Action} action=${transition.action} />
@@ -126,7 +130,7 @@ function Transition({ state, dispatch }) {
         </section>
       </section>
       <section class="controls">
-        <button disabled=${state.index===(state.all.length - 1)} onClick=${()=> dispatch({ tag: "next" })}>→</button>
+        <button disabled=${state.index === (state.all.length - 1)} onClick=${() => dispatch({ tag: "next" })}>→</button>
       </section>
     </main>
     `;
@@ -191,7 +195,7 @@ function Action({ action }) {
 function State({ state, number, extraClass, label }) {
   return html`
     <div class=${"state " + extraClass}>
-                                                   <div class=" label">${label}</div>
+                                                               <div class=" label">${label}</div>
     <h2>State ${number}</h2>
     </div>
   `;
@@ -236,8 +240,8 @@ function Screenshot({ state, extraClass, selectedElement, setSelectedElement }) 
     return query.elements.map(element => {
       if (element.position) {
         return html`
-          <div key=${element.id} class="marker ${element.status} ${isActive(element) ? " active" : "inactive" }"
-            onmouseenter=${(e=> setSelectedElement(element))}
+          <div key=${element.id} class="marker ${element.status} ${isActive(element) ? " active" : "inactive"}"
+            onmouseenter=${(e => setSelectedElement(element))}
             onmouseleave=${(e => setSelectedElement(null))}
             style="
             top: ${percentageOf(element.position.y, state.screenshot.height)};

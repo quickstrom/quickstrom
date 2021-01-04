@@ -98,15 +98,6 @@ traceActionFailures = traceElements . traverse . _Ctor @"TraceAction" . Product.
 nonStutterStates :: Monoid r => Getting r (Trace TraceElementEffect) ObservedState
 nonStutterStates = traceElements . traverse . _Ctor @"TraceState" . filtered ((== NoStutter) . fst) . Product.position @2
 
-data ActionResult = ActionSuccess | ActionFailed Text | ActionImpossible
-  deriving (Show, Generic, ToJSON)
-
-data TraceElement ann
-  = TraceAction ann Action ActionResult
-  | TraceState ann ObservedState
-  -- TODO: `TraceEvent` when queried DOM nodes change
-  deriving (Show, Generic, ToJSON)
-
 ann :: Lens (TraceElement ann) (TraceElement ann2) ann ann2
 ann = Product.position @1
 

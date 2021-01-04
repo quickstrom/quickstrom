@@ -5,8 +5,6 @@ import {
   ObservedState,
   Query,
   Queries,
-  ObservedStateJSON,
-  observeState,
 } from "../queries";
 import { toArray } from "../arrays";
 import { deepEqual } from "../equality";
@@ -115,9 +113,8 @@ namespace Quickstrom {
 
   export async function observeNextState(
     queries: Queries
-  ): Promise<ObservedStateJSON> {
-    await Promise.race(queries.map(observeNextStateForQuery));
-    return observeState(queries);
+  ): Promise<void> {
+    return await Promise.race(queries.map(observeNextStateForQuery));
   }
 
   function isStateEqual(map1: ObservedState, map2: ObservedState): boolean {
@@ -153,7 +150,7 @@ const [timeoutMs, queries, done] = args;
 (function () {
   (window as any).registeredObserver = Promise.race([
     Quickstrom.observeNextState(queries),
-    Quickstrom.delay(timeoutMs).then(() => observeState(queries)),
+    Quickstrom.delay(timeoutMs),
   ]);
   done({ Right: [] });
 })();

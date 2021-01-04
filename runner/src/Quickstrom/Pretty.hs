@@ -61,11 +61,11 @@ prettyTrace (Trace elements') = vsep (zipWith prettyElement [1 ..] elements')
     NoStutter `stutterColorOr` fallback = color fallback
 
 prettyObservedState :: ObservedState -> Doc AnsiStyle
-prettyObservedState (ObservedState state')
-  | HashMap.null state' = "(empty state)"
+prettyObservedState (ObservedState _ (ObservedElementStates states))
+  | HashMap.null states = "(empty state)"
   | otherwise =
     vsep
-      ( state'
+      ( states
           & HashMap.toList
           & List.sortBy (comparing fst)
           & map
@@ -79,8 +79,8 @@ prettyObservedState (ObservedState state')
             )
       )
   where
-    prettyMatchedElement stateValues =
-      "-"
+    prettyMatchedElement (ObservedElementState element' _position stateValues) =
+      "-" <+> pretty element'
         <> align
           ( line
               <> indent 2 (vsep (map prettyStateValue (HashMap.toList stateValues)))

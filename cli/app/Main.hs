@@ -4,6 +4,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -12,6 +13,7 @@
 module Main where
 
 import Control.Lens hiding (argument)
+import Data.Generics.Labels ()
 import Control.Monad.Catch (try)
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -22,9 +24,12 @@ import Data.Text.Prettyprint.Doc.Symbols.Unicode (bullet)
 import Options.Applicative
 import qualified Pipes as Pipes
 import qualified Quickstrom.Browser as Quickstrom
+import qualified Quickstrom.CLI.Logging as Quickstrom
+import Quickstrom.CLI.Reporter (Reporter)
+import qualified Quickstrom.CLI.Reporter.Console as Reporter
+import qualified Quickstrom.CLI.Reporter.HTML as Reporter
 import qualified Quickstrom.LogLevel as Quickstrom
 import Quickstrom.Prelude hiding (option, try)
-import qualified Quickstrom.Pretty as Quickstrom
 import qualified Quickstrom.PureScript.Program as Quickstrom
 import qualified Quickstrom.Run as Quickstrom
 import qualified Quickstrom.Trace as Quickstrom
@@ -55,13 +60,16 @@ data CheckOptions = CheckOptions
     shrinkLevels :: Int,
     maxTrailingStateChanges :: Int,
     trailingStateChangeTimeout :: Word64,
+    captureScreenshots :: Bool,
     logLevel :: Quickstrom.LogLevel,
     browser :: Quickstrom.Browser,
     browserOptions :: Set Text,
     browserBinary :: Maybe FilePath,
     webDriverHost :: Text,
     webDriverPort :: Int,
-    webDriverPath :: FilePath
+    webDriverPath :: FilePath,
+    reporters :: [Text],
+    htmlReportDirectory :: Maybe FilePath
   }
 
 data LintOptions = LintOptions
@@ -120,6 +128,10 @@ checkOptionsParser =
           <> long "trailing-state-change-timeout"
           <> help "The initial timeout for awaited state changes (doubles with each await)"
       )
+    <*> switch
+      ( long "capture-screenshots"
+          <> help "Capture a screenshot at each state, and record the positions of queried elements"
+      )
     <*> option
       (eitherReader Quickstrom.parseLogLevel)
       ( value Quickstrom.LogInfo
@@ -171,6 +183,23 @@ checkOptionsParser =
           <> value ""
           <> long "webdriver-path"
           <> help "The relative path of the WebDriver root HTTP resource"
+      )
+    <*> many
+      ( option
+          (eitherReader parseRunnerName)
+          ( metavar "NAME"
+              <> long "reporter"
+              <> help "Name of one or more reporters to use (defaults to only \"console\")"
+          )
+      )
+    <*> optional
+      ( option
+          str
+          ( metavar "DIR"
+              <> long "html-report-directory"
+              <> value "html-report"
+              <> help "Output directory of generated HTML report"
+          )
       )
 
 lintOptionsParser :: Parser LintOptions
@@ -227,7 +256,7 @@ main = do
   CLI {..} <- execParser optsInfo
   libPath <- maybe libraryPathFromEnvironment pure libraryPath
   case chosenCommand of
-    Check CheckOptions {..} -> do
+    Check cOpts@CheckOptions {..} -> do
       originUri <- resolveAbsoluteURI origin
       specResult <- runExceptT $ do
         modules <- ExceptT (Quickstrom.loadLibraryModules libPath)
@@ -255,36 +284,55 @@ main = do
                     checkOrigin = originUri,
                     checkMaxTrailingStateChanges = maxTrailingStateChanges,
                     checkTrailingStateChangeTimeout = Quickstrom.Timeout trailingStateChangeTimeout,
-                    checkWebDriverOptions = wdOpts
+                    checkWebDriverOptions = wdOpts,
+                    checkCaptureScreenshots = captureScreenshots
                   }
           result <-
-            Pipes.runEffect (Pipes.for (Quickstrom.check opts (WebDriver.runWebDriver wdOpts) spec) (lift . logDoc . renderCheckEvent))
+            Pipes.runEffect (Pipes.for (Quickstrom.check opts (WebDriver.runWebDriver wdOpts) spec) (lift . Quickstrom.logDoc . renderCheckEvent))
               & try
-          logDoc . logSingle Nothing $ line <> divider <> line
+          Quickstrom.logDoc . Quickstrom.logSingle Nothing $ line <> divider <> line
           case result of
-            Right Quickstrom.CheckFailure {failedAfter, failingTest} -> do
-              logDoc . logSingle Nothing $
-                Quickstrom.prettyTrace (Quickstrom.withoutStutterStates (Quickstrom.trace failingTest))
-              case Quickstrom.reason failingTest of
-                Just err -> logDoc (logSingle Nothing (line <> annotate (color Red) ("Test failed with error:" <+> pretty err <> line)))
-                Nothing -> pure ()
-              logDoc . logSingle Nothing . annotate (color Red) $
-                line <> "Failed after" <+> pretty failedAfter <+> "tests and" <+> pretty (Quickstrom.numShrinks failingTest) <+> "levels of shrinking." <> line
-              liftIO (exitWith (ExitFailure 3))
-            Right Quickstrom.CheckError {checkError} -> do
-              logDoc . logSingle Nothing . annotate (color Red) $
-                line <> "Check encountered an error:" <+> pretty checkError <> line
-              liftIO (exitWith (ExitFailure 1))
-            Right Quickstrom.CheckSuccess ->
-              logDoc . logSingle Nothing . annotate (color Green) $
-                line <> "Passed" <+> pretty tests <+> "tests." <> line
+            Right checkResult ->
+              initializeReporters cOpts
+                & filter ((`elem` chosenReporterNames) . fst)
+                & traverse_ (\(_, r) -> r wdOpts opts checkResult)
+              where
+                chosenReporterNames = if null reporters then ["console"] else reporters
             Left err@SomeException {} -> do
-              logDoc . logSingle Nothing . annotate (color Red) $
+              Quickstrom.logDoc . Quickstrom.logSingle Nothing . annotate (color Red) $
                 line <> "Check encountered an error:" <+> pretty (show err :: Text) <> line
-              liftIO (exitWith (ExitFailure 1))
+          exitWithResult result
     Lint LintOptions {..} -> do
       hPutStrLn stderr ("Lint is not implemented yet" :: Text)
       liftIO (exitWith (ExitFailure 1))
+
+availableReporters :: (MonadIO m, MonadReader Quickstrom.LogLevel m) => [(Text, CheckOptions -> Reporter m)]
+availableReporters =
+  [ ("console", const Reporter.consoleReporter),
+    ("html", const (Reporter.htmlReporter "/tmp/quickstrom-report"))
+  ]
+
+reporterNames :: [Text]
+reporterNames = map fst (availableReporters @(ReaderT Quickstrom.LogLevel IO))
+
+initializeReporters :: (MonadIO m, MonadReader Quickstrom.LogLevel m) => CheckOptions -> [(Text, Reporter m)]
+initializeReporters opts = [(name, mk opts) | (name, mk) <- availableReporters]
+
+parseRunnerName :: [Char] -> Either [Char] Text
+parseRunnerName s =
+  let t = toS s
+   in if t `elem` reporterNames then Right t else Left ("Invalid reporter: " <> s)
+
+exitWithResult :: MonadIO m => Either SomeException Quickstrom.CheckResult -> m ()
+exitWithResult = \case
+  Right Quickstrom.CheckSuccess ->
+    pass
+  Right Quickstrom.CheckFailure {} -> do
+    liftIO (exitWith (ExitFailure 3))
+  Right Quickstrom.CheckError {} -> do
+    liftIO (exitWith (ExitFailure 1))
+  Left {} ->
+    liftIO (exitWith (ExitFailure 1))
 
 libraryPathFromEnvironment :: IO FilePath
 libraryPathFromEnvironment = do
@@ -314,7 +362,7 @@ divider = pageWidth $ \(AvailablePerLine w _) -> pretty (Text.replicate w "―")
 renderCheckEvent :: Quickstrom.CheckEvent -> [(Maybe Quickstrom.LogLevel, Doc AnsiStyle)]
 renderCheckEvent = \case
   Quickstrom.CheckStarted n ->
-    logSingle Nothing $
+    Quickstrom.logSingle Nothing $
       annotate bold logo
         <> line
         <> line
@@ -325,7 +373,7 @@ renderCheckEvent = \case
 renderTestEvent :: Quickstrom.TestEvent -> [(Maybe Quickstrom.LogLevel, Doc AnsiStyle)]
 renderTestEvent = \case
   Quickstrom.TestStarted size ->
-    logSingle Nothing $
+    Quickstrom.logSingle Nothing $
       line
         <> divider
         <> line
@@ -334,7 +382,7 @@ renderTestEvent = \case
   Quickstrom.TestPassed size trace' ->
     case traceWarnings size trace' of
       [] ->
-        logSingle Nothing $ annotate (color Green) "Test passed!"
+        Quickstrom.logSingle Nothing $ annotate (color Green) "Test passed!"
       warnings ->
         [ (Nothing, annotate (color Green) "Test passed!"),
           ( Just Quickstrom.LogWarn,
@@ -345,18 +393,15 @@ renderTestEvent = \case
               <> renderList warnings
           )
         ]
-  Quickstrom.TestFailed _size trace' ->
-    logSingle Nothing $
-      line
-        <> annotate (color Red) "Test failed:"
-        <> line
-        <> Quickstrom.prettyTrace trace'
+  Quickstrom.TestFailed _size _trace ->
+    Quickstrom.logSingle Nothing $
+      line <> annotate (color Red) "Test failed"
   Quickstrom.Shrinking level ->
-    logSingle Nothing $
+    Quickstrom.logSingle Nothing $
       line
         <> annotate bold ("Shrinking failing test down to the" <+> ordinal level <+> "level..." <> line)
   Quickstrom.RunningShrink level ->
-    logSingle (Just Quickstrom.LogInfo) $
+    Quickstrom.logSingle (Just Quickstrom.LogInfo) $
       "Running shrunk test at level" <+> pretty level <> "."
   where
     traceWarnings :: Quickstrom.Size -> Quickstrom.Trace Quickstrom.TraceElementEffect -> [Doc AnsiStyle]
@@ -374,9 +419,6 @@ renderTestEvent = \case
               failures -> ["There were" <+> pretty (length failures) <+> "action failures"]
        in fewActions <> actionFailures
 
-logSingle :: Maybe Quickstrom.LogLevel -> Doc AnsiStyle -> [(Maybe Quickstrom.LogLevel, Doc AnsiStyle)]
-logSingle l d = [(l, d)]
-
 renderSize :: Quickstrom.Size -> Doc AnsiStyle
 renderSize (Quickstrom.Size s) = pretty s
 
@@ -390,13 +432,3 @@ ordinal n =
     2 -> "nd"
     3 -> "rd"
     _ -> "th"
-
-logDoc :: (MonadReader Quickstrom.LogLevel m, MonadIO m) => [(Maybe Quickstrom.LogLevel, Doc AnsiStyle)] -> m ()
-logDoc logs = for_ logs $ \(logLevel, doc) -> do
-  minLogLevel <- ask
-  let logAction = putStrLn (renderStrict (layoutPretty defaultLayoutOptions doc))
-  case logLevel of
-    Just level
-      | level >= minLogLevel -> logAction
-      | otherwise -> pass
-    Nothing -> logAction

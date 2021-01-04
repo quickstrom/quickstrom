@@ -1,15 +1,13 @@
-import { ObservedStateJSON } from "../queries";
-
 const registeredObserver:
-  | Promise<ObservedStateJSON | null>
+  | Promise<void | null>
   | undefined = (window as any).registeredObserver;
 
 // @ts-ignore
 const [done] = args;
 
 (registeredObserver || Promise.resolve(null))
-  .then((x) => ({
-    Right: x,
+  .then(_ => ({
+    Right: [],
   }))
   .catch((e) => ({
     Left: e,

@@ -63,6 +63,7 @@ instance MonadIO m => WebDriver (WebDriverW3C m) where
   getElementTagName = map toS . WebDriverW3C . WebDriver.getElementTagName . toRef
   elementClick = WebDriverW3C . WebDriver.elementClick . toRef
   elementSendKeys keys = WebDriverW3C . WebDriver.elementSendKeys (toS keys) . toRef
+  takeScreenshot = WebDriverW3C WebDriver.takeScreenshot
   findAll (Selector s) = map fromRef <$> WebDriverW3C (findElements CssSelector (Text.unpack s))
   navigateTo = WebDriverW3C . WebDriver.navigateTo . toS
   runScript script args = do

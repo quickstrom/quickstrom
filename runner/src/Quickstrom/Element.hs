@@ -22,7 +22,7 @@ import GHC.Generics (Generic)
 import Quickstrom.Prelude
 
 newtype Element = Element {ref :: Text}
-  deriving (Eq, Ord, Show, Hashable, Pretty)
+  deriving (Eq, Ord, Show, Generic, Hashable, Pretty)
 
 instance JSON.ToJSON Element where
   toJSON (Element e) = JSON.object ["element-6066-11e4-a52e-4f735466cecf" JSON..= e]

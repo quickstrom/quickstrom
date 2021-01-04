@@ -27,7 +27,7 @@ import Quickstrom.PureScript.Eval.Class
 import Quickstrom.PureScript.Eval.Error
 import Quickstrom.PureScript.Eval.Interpret
 import Quickstrom.PureScript.Value
-import Quickstrom.Trace (ObservedState (..))
+import Quickstrom.Trace (ObservedState (..), ObservedElementState (..), ObservedElementStates (..))
 
 data WithObservedStatesEnv = WithObservedStatesEnv
   { env :: Env' WithObservedStates,
@@ -46,7 +46,7 @@ instance MonadEvalQuery WithObservedStates where
   evalQuery p1 p2 = do
     view (field @"observedStates") >>= \case
       [] -> throwError Undetermined
-      ObservedState current : _ -> do
+      ObservedState _ (ObservedElementStates current) : _ -> do
         selector <- require (exprSourceSpan p1) (Proxy @"VString") =<< eval p1
         wantedStates <- require (exprSourceSpan p2) (Proxy @"VObject") =<< eval p2
         matchedElements <-
@@ -56,15 +56,15 @@ instance MonadEvalQuery WithObservedStates where
             (HashMap.lookup (Selector selector) current)
         mappedElements <- for (Vector.fromList matchedElements) $ \matchedElement -> do
           mappings <- flip HashMap.traverseWithKey wantedStates $ \k s -> do
-            elementState <- require (exprSourceSpan p2) (Proxy @"VElementState") s
-            case HashMap.lookup elementState matchedElement of
-              Just json -> case parseValueAs elementState json of
+            elementState' <- require (exprSourceSpan p2) (Proxy @"VElementState") s
+            case HashMap.lookup elementState' (elementState matchedElement) of
+              Just json -> case parseValueAs elementState' json of
                 Just value -> pure value
                 Nothing ->
-                  let msg = ("Value (bound to ." <> k <> ") could not be parsed as `" <> show elementState <> "`: " <> show json)
+                  let msg = ("Value (bound to ." <> k <> ") could not be parsed as `" <> show elementState' <> "`: " <> show json)
                    in throwError (ForeignFunctionError (Just (exprSourceSpan p2)) msg)
               Nothing ->
-                let msg = ("Element state (bound to ." <> k <> ") not in observed state for query `" <> selector <> "`: " <> show elementState)
+                let msg = ("Element state (bound to ." <> k <> ") not in observed state for query `" <> selector <> "`: " <> show elementState')
                  in throwError (ForeignFunctionError (Just (exprSourceSpan p2)) msg)
           pure (VObject mappings)
         pure (VArray mappedElements)

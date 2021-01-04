@@ -9,6 +9,7 @@ let
 
   haskellPackages = pkgs.haskell.packages.${compiler}.override {
     overrides = self: super: {
+      base64 = pkgs.haskell.lib.dontCheck (super.base64);
       tasty-quickcheck-laws =
         pkgs.haskell.lib.dontCheck (super.tasty-quickcheck-laws);
       webdriver-w3c = pkgs.haskell.lib.dontCheck (super.webdriver-w3c);

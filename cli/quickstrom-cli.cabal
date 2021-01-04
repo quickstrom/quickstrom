@@ -8,24 +8,76 @@ build-type:           Simple
 license:              AGPL-3.0-only
 copyright:            Oskar Wickström
 
-executable quickstrom
+common shared-deps
   build-depends:      base ^>= 4.12
+                    , aeson
+                    , bytestring
                     , containers
-                    , directory
                     , exceptions
+                    , generic-lens
                     , lens
-                    , modern-uri
-                    , optparse-applicative
-                    , pipes
                     , prettyprinter
                     , prettyprinter-ansi-terminal
                     , protolude
-                    , process
                     , text
+                    , time
+                    , transformers
+                    , vector
                     , quickstrom-runner
+                    , unordered-containers
 
-  main-is:            Main.hs
+library
+  import:             shared-deps
+  build-depends:      base ^>= 4.12
+                    , base64
+                    , directory
+                    , filepath
+                    , file-embed
+                    , JuicyPixels
+                    , modern-uri
+                    , process
+  exposed-modules:
+                      Quickstrom.CLI.Logging
+                    , Quickstrom.CLI.Reporter
+                    , Quickstrom.CLI.Reporter.Console
+                    , Quickstrom.CLI.Reporter.HTML
   hs-source-dirs:     src
   default-language:   Haskell2010
+  default-extensions: NoImplicitPrelude
+  ghc-options:        -Wall
+
+executable quickstrom
+  import:             shared-deps
+  build-depends:      base ^>= 4.12
+                    , directory
+                    , filepath
+                    , modern-uri
+                    , optparse-applicative
+                    , pipes
+                    , process
+                    , quickstrom-cli
+
+  main-is:            Main.hs
+  hs-source-dirs:     app
+  default-language:   Haskell2010
+  default-extensions: NoImplicitPrelude
+  ghc-options:        -Wall
+
+test-suite quickstrom-cli-test
+  import:             shared-deps
+  type:               exitcode-stdio-1.0
+  main-is:            Main.hs
+  hs-source-dirs:     test
+  other-modules:      Quickstrom.CLI.Reporter.HTMLTest
+  build-depends:      base
+                    , hedgehog
+                    , QuickCheck
+                    , quickstrom-cli
+                    , quickstrom-runner
+                    , tasty
+                    , tasty-discover
+                    , tasty-hspec
+                    , tasty-quickcheck
+                    , tree-diff
   default-extensions: NoImplicitPrelude
   ghc-options:        -Wall

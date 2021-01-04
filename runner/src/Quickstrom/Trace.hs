@@ -96,7 +96,6 @@ traceActionFailures :: Traversal' (Trace ann) Text
 traceActionFailures = traceElements . traverse . _Ctor @"TraceAction" . Product.position @3 . _Ctor @"ActionFailed"
 
 nonStutterStates :: Monoid r => Getting r (Trace TraceElementEffect) ObservedState
-
 nonStutterStates = traceElements . traverse . _Ctor @"TraceState" . filtered ((== NoStutter) . fst) . Product.position @2
 
 data ActionResult = ActionSuccess | ActionFailed Text | ActionImpossible

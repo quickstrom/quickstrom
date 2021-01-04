@@ -42,8 +42,17 @@ header h1 {
 header .summary {
 }
 
-header .summary.failed {
+header .summary.error,
+header .summary.failure {
     color: #d33;
+}
+
+header .summary.success {
+    color: #3d3;
+}
+
+section.error {
+    padding: 1.5rem;
 }
 
 main {

@@ -10,4 +10,5 @@ fit together at a high level.
    specification-language
    checking
    trailing-state-changes
+   reporters
    troubleshooting

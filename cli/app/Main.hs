@@ -69,7 +69,7 @@ data CheckOptions = CheckOptions
     webDriverPort :: Int,
     webDriverPath :: FilePath,
     reporters :: [Text],
-    htmlReportDirectory :: Maybe FilePath
+    htmlReportDirectory :: FilePath
   }
 
 data LintOptions = LintOptions
@@ -192,14 +192,12 @@ checkOptionsParser =
               <> help "Name of one or more reporters to use (defaults to only \"console\")"
           )
       )
-    <*> optional
-      ( option
-          str
-          ( metavar "DIR"
-              <> long "html-report-directory"
-              <> value "html-report"
-              <> help "Output directory of generated HTML report"
-          )
+    <*> option
+      str
+      ( metavar "DIR"
+          <> long "html-report-directory"
+          <> value "html-report"
+          <> help "Output directory of generated HTML report"
       )
 
 lintOptionsParser :: Parser LintOptions
@@ -309,7 +307,7 @@ main = do
 availableReporters :: (MonadIO m, MonadReader Quickstrom.LogLevel m) => [(Text, CheckOptions -> Reporter m)]
 availableReporters =
   [ ("console", const Reporter.consoleReporter),
-    ("html", const (Reporter.htmlReporter "/tmp/quickstrom-report"))
+    ("html", \opts -> Reporter.htmlReporter (htmlReportDirectory opts))
   ]
 
 reporterNames :: [Text]

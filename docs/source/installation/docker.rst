@@ -49,7 +49,7 @@ setting up network access between Docker containers. Using host networking is
 convenient in this case, but you might require or prefer another method.
 
 Accessing a Server on the Host
-======================
+==============================
 
 If you wish to run Quickstrom in Docker and test a website being hosted by the Docker host system you can set the url to ``localhost`` (or ``host.docker.internal`` for MacOS).  
 

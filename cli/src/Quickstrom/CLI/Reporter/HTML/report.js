@@ -29,7 +29,28 @@ function reportReducer(state, action) {
 }
 
 
-function Report({ report }) {
+function SuccessReport({ report }) {
+  return html`
+      <${Header} report=${report} />
+      <main />
+      <${Footer} report=${report} />
+    `;
+}
+
+function ErrorReport({ report }) {
+  return html`
+      <${Header} report=${report} />
+      <main>
+        <section class="error">
+        ${report.summary.error}
+        </section>
+      </main>
+      <${Footer} report=${report} />
+    `;
+}
+
+
+function FailureReport({ report }) {
   const [state, dispatch] = useReducer(reportReducer, { current: report.transitions[0], index: 0, all: report.transitions });
   return html`
       <${Header} report=${report} />
@@ -47,9 +68,14 @@ function Header({ report }) {
     switch (report.summary.tag) {
       case "Failure":
         return html`
-                <p class="summary failed">
+                <p class="summary failure">
                   Failed after ${pluralize(report.summary.tests, "test")} and ${pluralize(report.summary.shrinkLevels, "level")} of
                   shrinking.
+                </p>`;
+      case "Error":
+        return html`
+                <p class="summary error">
+                  Failed with an error.
                 </p>`;
       case "Success":
         return html`<p class="summary success">Passed ${report.summary.tests} tests.</p>`;
@@ -247,7 +273,19 @@ function Screenshot({ state, extraClass, selectedElement, setSelectedElement }) 
 }
 
 function excludeStutters(report) {
-  return { ...report, transitions: report.transitions.filter(t => !t.stutter || !!t.action) };
+  return { ...report, transitions: report.transitions ? report.transitions.filter(t => !t.stutter || !!t.action) : null };
 }
 
-render(html`<${Report} report=${excludeStutters(window.report)} />`, document.body);
+
+function renderReport() {
+  switch (report.summary.tag) {
+    case "Success":
+      return html`<${SuccessReport} report=${window.report} />`;
+    case "Error":
+      return html`<${ErrorReport} report=${window.report} />`;
+    case "Failure":
+      return html`<${FailureReport} report=${excludeStutters(window.report)} />`;
+  }
+}
+
+render(renderReport(), document.body);

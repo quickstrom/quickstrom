@@ -133,7 +133,7 @@ htmlReporter reportDir _webDriverOpts checkOpts result = do
     Quickstrom.CheckError {Quickstrom.checkError} -> do
       pure (Error {error = checkError, tests = Quickstrom.checkTests checkOpts}, Nothing)
     Quickstrom.CheckSuccess -> pure (Success {tests = Quickstrom.checkTests checkOpts}, Nothing)
-  let reportFile = reportDir </> "report.jsonp"
+  let reportFile = reportDir </> "report.jsonp.js"
   transitions & traverse . traverse . traverse %%~ writeScreenshotFile reportDir >>= \case
     transitionsWithScreenshots -> do
       let json = JSON.encode (Report now summary transitionsWithScreenshots)

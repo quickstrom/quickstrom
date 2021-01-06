@@ -61,7 +61,7 @@ toTransition (Transition action' (States _ to') _) =
   maybe [] (pure . toActionElement) action'
     <> [toStateElement to']
 
-toActionElement :: Quickstrom.Action Quickstrom.Selected -> Quickstrom.TraceElement Quickstrom.TraceElementEffect
+toActionElement :: Quickstrom.Action -> Quickstrom.TraceElement Quickstrom.TraceElementEffect
 toActionElement a = Quickstrom.TraceAction Quickstrom.NoStutter a Quickstrom.ActionSuccess
 
 toStateElement :: State ByteString -> Quickstrom.TraceElement Quickstrom.TraceElementEffect
@@ -132,8 +132,8 @@ genPosition = Quickstrom.Position <$> genNat <*> genNat <*> genNat <*> genNat
 genNat :: Gen Int
 genNat = getPositive <$> arbitrary
 
-genAction :: Gen (Quickstrom.Action Quickstrom.Selected)
-genAction = pure (Quickstrom.KeyPress 'a')
+genAction :: Gen Quickstrom.Action
+genAction = pure [(Quickstrom.KeyPress 'a')]
 
 identifier :: [Char] -> Gen Text
 identifier prefix = Text.pack . (prefix <>) . show <$> arbitrary @Word
@@ -164,7 +164,7 @@ instance ToExpr Status
 
 instance ToExpr ElementState
 
-instance ToExpr s => ToExpr (Quickstrom.Action s)
+instance ToExpr s => ToExpr (Quickstrom.BaseAction s)
 
 instance ToExpr Quickstrom.Selector
 

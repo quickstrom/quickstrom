@@ -57,7 +57,7 @@ data Summary
   deriving (Eq, Show, Generic, JSON.ToJSON)
 
 data Transition screenshot = Transition
-  { action :: Maybe (Quickstrom.Action Quickstrom.Selected),
+  { action :: Maybe Quickstrom.Action,
     states :: States screenshot,
     stutter :: Bool
   }

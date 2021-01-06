@@ -88,11 +88,7 @@ toObservedElementState element' =
     (element' ^. #position)
     (HashMap.fromList [toPair s | s <- Vector.toList (element' ^. #state)])
   where
-    toPair = \case
-      Attribute name' value' -> (Quickstrom.Attribute name', value')
-      Property name' value' -> (Quickstrom.Property name', value')
-      CssValue name' value' -> (Quickstrom.CssValue name', value')
-      Text value' -> (Quickstrom.Text, value')
+    toPair (ElementStateValue state' value' _) = (state', value')
 
 newtype Transitions = Transitions (Vector (Transition ByteString))
   deriving (Eq, Show)
@@ -124,7 +120,7 @@ genQuery :: Gen Query
 genQuery = Query <$> identifier "selector-" <*> vectorOf genElement `suchThat` (not . hasDuplicates . map (view #id))
 
 genElement :: Gen Element
-genElement = Element <$> identifier "element-" <*> pure Modified <*> (Just <$> genPosition) <*> pure []
+genElement = Element <$> identifier "element-" <*> (Just <$> genPosition) <*> pure []
 
 genPosition :: Gen Quickstrom.Position
 genPosition = Quickstrom.Position <$> genNat <*> genNat <*> genNat <*> genNat
@@ -160,9 +156,11 @@ instance ToExpr Quickstrom.Position
 
 instance ToExpr Element
 
-instance ToExpr Status
+instance ToExpr Diff
 
-instance ToExpr ElementState
+instance ToExpr Quickstrom.ElementState
+
+instance ToExpr ElementStateValue
 
 instance ToExpr s => ToExpr (Quickstrom.Action s)
 

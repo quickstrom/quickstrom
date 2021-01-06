@@ -19,7 +19,7 @@
 module Quickstrom.CLI.Reporter.HTML where
 
 import qualified Codec.Picture as Image
-import Control.Lens
+import Control.Lens hiding (Identical)
 import qualified Data.Aeson as JSON
 import qualified Data.ByteString as BS
 import "base64" Data.ByteString.Base64 as Base64
@@ -27,9 +27,10 @@ import Data.FileEmbed (embedDir, makeRelativeToProject)
 import qualified Data.ByteString.Lazy as LBS
 import Data.Generics.Labels ()
 import Data.Generics.Sum (_Ctor)
+import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
-import Data.Text.Prettyprint.Doc (pretty, (<+>))
 import qualified Data.Text.Encoding as Text
+import Data.Text.Prettyprint.Doc (pretty, (<+>))
 import qualified Data.Time.Clock as Time
 import Data.Vector (Vector)
 import qualified Data.Vector as Vector
@@ -42,6 +43,7 @@ import qualified Quickstrom.Run as Quickstrom
 import qualified Quickstrom.Trace as Quickstrom
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath ((</>))
+import Data.Maybe (fromJust)
 
 data Report = Report
   { generatedAt :: Time.UTCTime,
@@ -78,18 +80,38 @@ data FileScreenshot = FileScreenshot {url :: FilePath, width :: Int, height :: I
 data Query = Query {selector :: Text, elements :: Vector Element}
   deriving (Eq, Show, Generic, JSON.ToJSON)
 
-data Element = Element {id :: Text, status :: Status, position :: Maybe Quickstrom.Position, state :: Vector ElementState}
+data Element = Element {id :: Text, position :: Maybe Quickstrom.Position, state :: Vector ElementStateValue}
   deriving (Eq, Show, Generic, JSON.ToJSON)
 
-data ElementState
-  = Attribute {name :: Text, value :: JSON.Value}
-  | Property {name :: Text, value :: JSON.Value}
-  | CssValue {name :: Text, value :: JSON.Value}
-  | Text {value :: JSON.Value}
+data ElementStateValue = ElementStateValue {elementState :: Quickstrom.ElementState, value :: JSON.Value, diff :: Diff}
   deriving (Eq, Show, Generic, JSON.ToJSON)
 
-data Status = Modified
+data Diff = Identical | Modified | Removed | Added
   deriving (Eq, Show, Generic, JSON.ToJSON)
+
+type ElementStateDiffs = HashMap (Quickstrom.Element, Quickstrom.ElementState) Diff
+
+elementStateDiffs :: Quickstrom.ObservedState -> Quickstrom.ObservedState -> ElementStateDiffs
+elementStateDiffs s1 s2 =
+  let vs1 = fromObservedState s1
+      vs2 = fromObservedState s2
+      allKeys = HashMap.keys (HashMap.union vs1 vs2)
+   in HashMap.fromList (map (\k -> 
+      case (HashMap.lookup k vs1, HashMap.lookup k vs2) of
+        (Just v1, Just v2)
+          | v1 == v2 -> (k, Identical)
+          | otherwise -> (k, Modified)
+        (Nothing, Just _) -> (k, Added)
+        (Just _, Nothing) -> (k, Removed)
+        (Nothing, Nothing) -> (k, Identical) -- absurd case
+     ) allKeys)
+  where
+    fromObservedState :: Quickstrom.ObservedState -> HashMap (Quickstrom.Element, Quickstrom.ElementState) JSON.Value
+    fromObservedState s = foldMap fromElement (s ^.. #elementStates . _Wrapped' . folded . folded)
+    fromElement :: Quickstrom.ObservedElementState -> HashMap (Quickstrom.Element, Quickstrom.ElementState) JSON.Value
+    fromElement oes =
+      let element' = oes ^. #element
+       in HashMap.fromList [((element', es), value) | (es, value) <- HashMap.toList (oes ^. #elementState)]
 
 htmlReporter :: (MonadReader Quickstrom.LogLevel m, MonadIO m) => FilePath -> Quickstrom.Reporter m
 htmlReporter reportDir _webDriverOpts checkOpts result = do
@@ -142,38 +164,36 @@ traceToTransitions (Quickstrom.Trace es) = go (Vector.fromList es) mempty
       (_, s1) <- pop (_Ctor @"TraceState")
       a <- pop (_Ctor @"TraceAction" . _2)
       (ann2, s2) <- pop (_Ctor @"TraceState")
-      pure (Transition (Just a) (States (toState s1) (toState s2)) (ann2 == Quickstrom.Stutter), (Vector.drop 2 t))
+      let diffs = elementStateDiffs s1 s2
+      pure (Transition (Just a) (States (toState diffs s1) (toState diffs s2)) (ann2 == Quickstrom.Stutter), (Vector.drop 2 t))
 
     trailingStateTransition :: Vector (Quickstrom.TraceElement Quickstrom.TraceElementEffect) -> Maybe (Transition ByteString, Vector (Quickstrom.TraceElement Quickstrom.TraceElementEffect))
     trailingStateTransition t = flip evalStateT t $ do
       (_, s1) <- pop (_Ctor @"TraceState")
       (ann2, s2) <- pop (_Ctor @"TraceState")
-      pure (Transition Nothing (States (toState s1) (toState s2)) (ann2 == Quickstrom.Stutter), Vector.tail t)
+      let diffs = elementStateDiffs s1 s2
+      pure (Transition Nothing (States (toState diffs s1) (toState diffs s2)) (ann2 == Quickstrom.Stutter), Vector.tail t)
 
-    toState :: Quickstrom.ObservedState -> State ByteString
-    toState s = State (s ^. #screenshot) (toQueries (s ^. #elementStates))
+    toState :: ElementStateDiffs -> Quickstrom.ObservedState -> State ByteString
+    toState diffs s = State (s ^. #screenshot) (toQueries diffs (s ^. #elementStates))
 
-    toQueries :: Quickstrom.ObservedElementStates -> Vector Query
-    toQueries (Quickstrom.ObservedElementStates os) = Vector.fromList (map toQuery (HashMap.toList os))
+    toQueries :: ElementStateDiffs -> Quickstrom.ObservedElementStates -> Vector Query
+    toQueries diffs (Quickstrom.ObservedElementStates os) = Vector.fromList (map (toQuery diffs) (HashMap.toList os))
 
-    toQuery :: (Quickstrom.Selector, [Quickstrom.ObservedElementState]) -> Query
-    toQuery (Quickstrom.Selector sel, elements') =
-      Query {selector = sel, elements = Vector.fromList (map toElement elements')}
+    toQuery :: ElementStateDiffs -> (Quickstrom.Selector, [Quickstrom.ObservedElementState]) -> Query
+    toQuery diffs (Quickstrom.Selector sel, elements') =
+      Query {selector = sel, elements = Vector.fromList (map (toElement diffs) elements')}
 
-    toElement :: Quickstrom.ObservedElementState -> Element
-    toElement o =
+    toElement :: ElementStateDiffs -> Quickstrom.ObservedElementState -> Element
+    toElement diffs o =
       Element
         (o ^. #element . #ref)
-        Modified
         (o ^. #position)
-        (Vector.fromList (map toElementState (HashMap.toList (o ^. #elementState))))
+        (Vector.fromList (map (toElementStateValue diffs (o ^. #element)) (HashMap.toList (o ^. #elementState))))
 
-    toElementState :: (Quickstrom.ElementState, JSON.Value) -> ElementState
-    toElementState (state', value) = case state' of
-      Quickstrom.Attribute n -> Attribute n value
-      Quickstrom.Property n -> Property n value
-      Quickstrom.CssValue n -> CssValue n value
-      Quickstrom.Text -> Text value
+    toElementStateValue :: ElementStateDiffs -> Quickstrom.Element -> (Quickstrom.ElementState, JSON.Value) -> ElementStateValue
+    toElementStateValue diffs element' (state', value) = 
+      ElementStateValue state' value (fromJust (HashMap.lookup (element', state') diffs))
 
     pop ctor = do
       t <- get

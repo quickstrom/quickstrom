@@ -240,7 +240,7 @@ function Screenshot({ state, extraClass, selectedElement, setSelectedElement }) 
     return query.elements.map(element => {
       if (element.position) {
         return html`
-          <div key=${element.id} class="marker ${element.status} ${isActive(element) ? " active" : "inactive"}"
+          <div key=${element.id} class="marker ${isActive(element) ? " active" : "inactive"}"
             onmouseenter=${(e => setSelectedElement(element))}
             onmouseleave=${(e => setSelectedElement(null))}
             style="
@@ -251,10 +251,10 @@ function Screenshot({ state, extraClass, selectedElement, setSelectedElement }) 
             ">
             <div class="marker-details">
               <table>
-                ${element.state.map(elementState => html`
-                <tr>
-                  <td>${elementState.name}</td>
-                  <td>${elementState.value}</td>
+                ${element.state.map(e => html`
+                <tr class="${e.diff.toLowerCase()}">
+                  <td>${e.elementState.name}</td>
+                  <td>${e.value}</td>
                 </tr>
                 `)}
               </table>

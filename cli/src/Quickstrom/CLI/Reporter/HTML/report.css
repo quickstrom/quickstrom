@@ -211,7 +211,7 @@ main .controls button:active {
     opacity: 1;
 }
 .state-screenshot-inner .marker.active {
-    border: 1px solid rgb(0,0,255);
+    border: 1px dashed #000;
     z-index: 2;
 }
 .state-screenshot-inner .marker.active.added {
@@ -252,3 +252,17 @@ main .controls button:active {
     text-align: right;
 }
 
+.state-screenshot-inner .marker .marker-details .added td {
+    background: rgb(207, 255, 207);
+    color: green;
+}
+
+.state-screenshot-inner .marker .marker-details .modified td {
+    background: rgb(208, 208, 255);
+    color: blue;
+}
+
+.state-screenshot-inner .marker .marker-details .removed td {
+    background: rgb(255, 206, 206);
+    color: red;
+}

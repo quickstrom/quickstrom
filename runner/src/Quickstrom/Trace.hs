@@ -50,6 +50,8 @@ import Prelude hiding (Bool (..), not)
 newtype ObservedElementStates = ObservedElementStates (HashMap Selector [ObservedElementState])
   deriving (Show, Eq, Generic, FromJSON, ToJSON)
 
+instance Wrapped ObservedElementStates
+
 instance Semigroup ObservedElementStates where
   ObservedElementStates s1 <> ObservedElementStates s2 = ObservedElementStates (s1 <> s2)
 

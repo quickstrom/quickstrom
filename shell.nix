@@ -7,6 +7,7 @@ let
 
   easy-ps = import ./dsl/easy-ps.nix { inherit pkgs; };
   dsl = import ./dsl { inherit pkgs; };
+  html-report = import ./html-report { inherit pkgs; };
   client-side = import ./client-side { inherit pkgs; };
 
   quickstrom-purs-ide = pkgs.writeShellScriptBin "quickstrom-purs-ide" ''
@@ -57,6 +58,7 @@ in quickstrom.haskellPackages.shellFor {
   ]);
   FONTCONFIG_FILE = pkgs.makeFontsConf { fontDirectories = fonts; };
   QUICKSTROM_LIBRARY_DIR = "${dsl}";
+  QUICKSTROM_HTML_REPORT_DIR = "${html-report}";
   QUICKSTROM_CLIENT_SIDE_DIR = "${client-side}";
 }
 

@@ -13,6 +13,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -23,27 +24,26 @@ import Control.Lens hiding (Identical)
 import qualified Data.Aeson as JSON
 import qualified Data.ByteString as BS
 import "base64" Data.ByteString.Base64 as Base64
-import Data.FileEmbed (embedDir, makeRelativeToProject)
 import qualified Data.ByteString.Lazy as LBS
 import Data.Generics.Labels ()
 import Data.Generics.Sum (_Ctor)
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
+import Data.Maybe (fromJust)
 import qualified Data.Text.Encoding as Text
 import Data.Text.Prettyprint.Doc (pretty, (<+>))
 import qualified Data.Time.Clock as Time
 import Data.Vector (Vector)
 import qualified Data.Vector as Vector
-import qualified Quickstrom.CLI.Logging as Quickstrom
 import qualified Quickstrom.CLI.Reporter as Quickstrom
 import qualified Quickstrom.Element as Quickstrom
 import qualified Quickstrom.LogLevel as Quickstrom
 import Quickstrom.Prelude hiding (State, uncons)
 import qualified Quickstrom.Run as Quickstrom
 import qualified Quickstrom.Trace as Quickstrom
-import System.Directory (createDirectoryIfMissing)
+import System.Environment (getEnv)
 import System.FilePath ((</>))
-import Data.Maybe (fromJust)
+import qualified System.Directory as Directory
 
 data Report = Report
   { generatedAt :: Time.UTCTime,
@@ -96,15 +96,19 @@ elementStateDiffs s1 s2 =
   let vs1 = fromObservedState s1
       vs2 = fromObservedState s2
       allKeys = HashMap.keys (HashMap.union vs1 vs2)
-   in HashMap.fromList (map (\k -> 
-      case (HashMap.lookup k vs1, HashMap.lookup k vs2) of
-        (Just v1, Just v2)
-          | v1 == v2 -> (k, Identical)
-          | otherwise -> (k, Modified)
-        (Nothing, Just _) -> (k, Added)
-        (Just _, Nothing) -> (k, Removed)
-        (Nothing, Nothing) -> (k, Identical) -- absurd case
-     ) allKeys)
+   in HashMap.fromList
+        ( map
+            ( \k ->
+                case (HashMap.lookup k vs1, HashMap.lookup k vs2) of
+                  (Just v1, Just v2)
+                    | v1 == v2 -> (k, Identical)
+                    | otherwise -> (k, Modified)
+                  (Nothing, Just _) -> (k, Added)
+                  (Just _, Nothing) -> (k, Removed)
+                  (Nothing, Nothing) -> (k, Identical) -- absurd case
+            )
+            allKeys
+        )
   where
     fromObservedState :: Quickstrom.ObservedState -> HashMap (Quickstrom.Element, Quickstrom.ElementState) JSON.Value
     fromObservedState s = foldMap fromElement (s ^.. #elementStates . _Wrapped' . folded . folded)
@@ -113,34 +117,52 @@ elementStateDiffs s1 s2 =
       let element' = oes ^. #element
        in HashMap.fromList [((element', es), value) | (es, value) <- HashMap.toList (oes ^. #elementState)]
 
+data HTMLReporterException = HTMLReporterException Text
+  deriving (Show, Eq)
+
+instance Exception HTMLReporterException
+
 htmlReporter :: (MonadReader Quickstrom.LogLevel m, MonadIO m) => FilePath -> Quickstrom.Reporter m
-htmlReporter reportDir _webDriverOpts checkOpts result = do
-  now <- liftIO Time.getCurrentTime
-  Quickstrom.logDoc . Quickstrom.logSingle Nothing $
-    "Writing HTML report to directory:" <+> pretty reportDir
-  liftIO (createDirectoryIfMissing True reportDir)
-  (summary, transitions) <- case result of
-    Quickstrom.CheckFailure {Quickstrom.failedAfter, Quickstrom.failingTest} -> do
-      let transitions = traceToTransitions (Quickstrom.trace failingTest)
-      pure
-        ( Failure
-            { tests = failedAfter,
-              shrinkLevels = Quickstrom.numShrinks failingTest,
-              reason = Quickstrom.reason failingTest
-            },
-          Just transitions
-        )
-    Quickstrom.CheckError {Quickstrom.checkError} -> do
-      pure (Error {error = checkError, tests = Quickstrom.checkTests checkOpts}, Nothing)
-    Quickstrom.CheckSuccess -> pure (Success {tests = Quickstrom.checkTests checkOpts}, Nothing)
-  let reportFile = reportDir </> "report.jsonp.js"
-  transitions & traverse . traverse . traverse %%~ writeScreenshotFile reportDir >>= \case
-    transitionsWithScreenshots -> do
-      let json = JSON.encode (Report now summary transitionsWithScreenshots)
-      liftIO $ do
-        BS.writeFile reportFile (Text.encodeUtf8 "window.report = " <> LBS.toStrict json)
-        for_ assets $ \(name, contents) ->
-          BS.writeFile (reportDir </> name) contents
+htmlReporter reportDir = Quickstrom.Reporter {preCheck, report}
+  where
+    preCheck _webDriverOpts _checkOpts = do
+      alreadyExists <- liftIO (Directory.doesPathExist reportDir)
+      if alreadyExists
+        then pure (Quickstrom.CannotBeInvoked ("File or directory already exists, refusing to overwrite:" <+> pretty reportDir))
+        else pure Quickstrom.OK
+
+    report _webDriverOpts checkOpts result = do
+      now <- liftIO Time.getCurrentTime
+
+      whenM (liftIO (Directory.doesPathExist reportDir)) $
+        throwIO (HTMLReporterException "File or directory already exists, refusing to overwrite!")
+
+      liftIO (Directory.createDirectoryIfMissing True reportDir)
+      (summary, transitions) <- case result of
+        Quickstrom.CheckFailure {Quickstrom.failedAfter, Quickstrom.failingTest} -> do
+          let transitions = traceToTransitions (Quickstrom.trace failingTest)
+          pure
+            ( Failure
+                { tests = failedAfter,
+                  shrinkLevels = Quickstrom.numShrinks failingTest,
+                  reason = Quickstrom.reason failingTest
+                },
+              Just transitions
+            )
+        Quickstrom.CheckError {Quickstrom.checkError} -> do
+          pure (Error {error = checkError, tests = Quickstrom.checkTests checkOpts}, Nothing)
+        Quickstrom.CheckSuccess -> pure (Success {tests = Quickstrom.checkTests checkOpts}, Nothing)
+      let reportFile = reportDir </> "report.jsonp.js"
+      transitions & traverse . traverse . traverse %%~ writeScreenshotFile reportDir >>= \case
+        transitionsWithScreenshots -> do
+          let json = JSON.encode (Report now summary transitionsWithScreenshots)
+          liftIO $ do
+            BS.writeFile reportFile (Text.encodeUtf8 "window.report = " <> LBS.toStrict json)
+            getAssets >>= \case
+              Just assets | not (null assets) ->
+                for_ assets $ \(name, contents) ->
+                  BS.writeFile (reportDir </> name) contents
+              _ -> throwIO (HTMLReporterException "HTML report assets not found.")
 
 encodeScreenshot :: ByteString -> Either Text Base64Screenshot
 encodeScreenshot b =
@@ -192,7 +214,7 @@ traceToTransitions (Quickstrom.Trace es) = go (Vector.fromList es) mempty
         (Vector.fromList (map (toElementStateValue diffs (o ^. #element)) (HashMap.toList (o ^. #elementState))))
 
     toElementStateValue :: ElementStateDiffs -> Quickstrom.Element -> (Quickstrom.ElementState, JSON.Value) -> ElementStateValue
-    toElementStateValue diffs element' (state', value) = 
+    toElementStateValue diffs element' (state', value) =
       ElementStateValue state' value (fromJust (HashMap.lookup (element', state') diffs))
 
     pop ctor = do
@@ -218,7 +240,10 @@ writeScreenshotFile reportDir s = do
     (pure . Image.dynamicMap (\i -> FileScreenshot fileName (Image.imageWidth i) (Image.imageHeight i)))
     (Image.decodePng s)
 
--- * Static assets
-
-assets :: [(FilePath, ByteString)]
-assets = $(makeRelativeToProject "src/Quickstrom/CLI/Reporter/HTML" >>= embedDir)
+getAssets :: MonadIO m => m (Maybe [(FilePath, ByteString)])
+getAssets = liftIO $ do
+  path <- getEnv "QUICKSTROM_HTML_REPORT_DIR"
+  files <-
+    Directory.listDirectory path
+      >>= traverse (\fileName -> (fileName,) <$> BS.readFile (path </> fileName))
+  pure (Just files)

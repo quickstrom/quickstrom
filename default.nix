@@ -6,6 +6,7 @@ let
 
   dsl = import ./dsl { inherit pkgs; };
   client-side = import ./client-side { inherit pkgs; };
+  html-report = import ./html-report { inherit pkgs; };
 
   haskellPackages = pkgs.haskell.packages.${compiler}.override {
     overrides = self: super: {
@@ -41,6 +42,7 @@ let
       makeWrapper "${haskellPackages.quickstrom-cli}/bin/quickstrom" \
           $out/bin/quickstrom \
           --set QUICKSTROM_LIBRARY_DIR "${dsl}" \
+          --set QUICKSTROM_HTML_REPORT_DIR "${html-report}" \
           --set QUICKSTROM_CLIENT_SIDE_DIR "${client-side}"
     '';
   };

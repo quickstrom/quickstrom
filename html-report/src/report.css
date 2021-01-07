@@ -4,7 +4,7 @@
 
 html, body {
     height: 100%;
-    font-family: 'Open Sans', sans-serif;
+    font-family: 'Free Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
     font-size: 16px;
     background: #222;
     color: #ccc;
@@ -26,7 +26,10 @@ header, footer {
     background: #2a2a2a;
 }
 
-header {
+#root, .report {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
 }
 
 footer {
@@ -135,7 +138,7 @@ main .controls button:active {
 }
 .action .selector {
     white-space: nowrap;
-    font-family: 'Inconsolata', monospace;
+    font-family: 'Monaco', 'Consolas', 'Ubuntu Mono', monospace;
     margin: .25rem 0;
 }
 .action .selected-index {

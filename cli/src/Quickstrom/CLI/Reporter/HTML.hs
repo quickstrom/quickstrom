@@ -41,10 +41,10 @@ import qualified Quickstrom.LogLevel as Quickstrom
 import Quickstrom.Prelude hiding (State, uncons)
 import qualified Quickstrom.Run as Quickstrom
 import qualified Quickstrom.Trace as Quickstrom
-import System.Directory (createDirectoryIfMissing)
 import System.FilePath ((</>))
 import System.Environment (lookupEnv)
 import Data.Maybe (fromJust)
+import qualified System.Directory as Directory
 
 data Report = Report
   { generatedAt :: Time.UTCTime,
@@ -117,31 +117,36 @@ elementStateDiffs s1 s2 =
 htmlReporter :: (MonadReader Quickstrom.LogLevel m, MonadIO m) => FilePath -> Quickstrom.Reporter m
 htmlReporter reportDir _webDriverOpts checkOpts result = do
   now <- liftIO Time.getCurrentTime
-  Quickstrom.logDoc . Quickstrom.logSingle Nothing $
-    "Writing HTML report to directory:" <+> pretty reportDir
-  liftIO (createDirectoryIfMissing True reportDir)
-  (summary, transitions) <- case result of
-    Quickstrom.CheckFailure {Quickstrom.failedAfter, Quickstrom.failingTest} -> do
-      let transitions = traceToTransitions (Quickstrom.trace failingTest)
-      pure
-        ( Failure
-            { tests = failedAfter,
-              shrinkLevels = Quickstrom.numShrinks failingTest,
-              reason = Quickstrom.reason failingTest
-            },
-          Just transitions
-        )
-    Quickstrom.CheckError {Quickstrom.checkError} -> do
-      pure (Error {error = checkError, tests = Quickstrom.checkTests checkOpts}, Nothing)
-    Quickstrom.CheckSuccess -> pure (Success {tests = Quickstrom.checkTests checkOpts}, Nothing)
-  let reportFile = reportDir </> "report.jsonp.js"
-  transitions & traverse . traverse . traverse %%~ writeScreenshotFile reportDir >>= \case
-    transitionsWithScreenshots -> do
-      let json = JSON.encode (Report now summary transitionsWithScreenshots)
-      liftIO $ do
-        BS.writeFile reportFile (Text.encodeUtf8 "window.report = " <> LBS.toStrict json)
-        for_ assets $ \(name, contents) ->
-          BS.writeFile (reportDir </> name) contents
+  liftIO (Directory.doesPathExist reportDir) >>= \case
+    True ->
+      Quickstrom.logDoc . Quickstrom.logSingle (Just Quickstrom.LogError) $
+        "File or directory already exists, refusing to overwrite:" <+> pretty reportDir
+    False -> do
+      Quickstrom.logDoc . Quickstrom.logSingle Nothing $
+        "Writing HTML report to directory:" <+> pretty reportDir
+      liftIO (Directory.createDirectoryIfMissing True reportDir)
+      (summary, transitions) <- case result of
+        Quickstrom.CheckFailure {Quickstrom.failedAfter, Quickstrom.failingTest} -> do
+          let transitions = traceToTransitions (Quickstrom.trace failingTest)
+          pure
+            ( Failure
+                { tests = failedAfter,
+                  shrinkLevels = Quickstrom.numShrinks failingTest,
+                  reason = Quickstrom.reason failingTest
+                },
+              Just transitions
+            )
+        Quickstrom.CheckError {Quickstrom.checkError} -> do
+          pure (Error {error = checkError, tests = Quickstrom.checkTests checkOpts}, Nothing)
+        Quickstrom.CheckSuccess -> pure (Success {tests = Quickstrom.checkTests checkOpts}, Nothing)
+      let reportFile = reportDir </> "report.jsonp.js"
+      transitions & traverse . traverse . traverse %%~ writeScreenshotFile reportDir >>= \case
+        transitionsWithScreenshots -> do
+          let json = JSON.encode (Report now summary transitionsWithScreenshots)
+          liftIO $ do
+            BS.writeFile reportFile (Text.encodeUtf8 "window.report = " <> LBS.toStrict json)
+            for_ assets $ \(name, contents) ->
+              BS.writeFile (reportDir </> name) contents
 
 encodeScreenshot :: ByteString -> Either Text Base64Screenshot
 encodeScreenshot b =

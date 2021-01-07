@@ -26,6 +26,7 @@ import qualified Pipes as Pipes
 import qualified Quickstrom.Browser as Quickstrom
 import qualified Quickstrom.CLI.Logging as Quickstrom
 import Quickstrom.CLI.Reporter (Reporter)
+import qualified Quickstrom.CLI.Reporter as Reporter
 import qualified Quickstrom.CLI.Reporter.Console as Reporter
 import qualified Quickstrom.CLI.Reporter.HTML as Reporter
 import qualified Quickstrom.LogLevel as Quickstrom
@@ -285,21 +286,33 @@ main = do
                     checkWebDriverOptions = wdOpts,
                     checkCaptureScreenshots = captureScreenshots
                   }
-          result <-
-            Pipes.runEffect (Pipes.for (Quickstrom.check opts (WebDriver.runWebDriver wdOpts) spec) (lift . Quickstrom.logDoc . renderCheckEvent))
-              & try
-          Quickstrom.logDoc . Quickstrom.logSingle Nothing $ line <> divider <> line
-          case result of
-            Right checkResult ->
-              initializeReporters cOpts
-                & filter ((`elem` chosenReporterNames) . fst)
-                & traverse_ (\(_, r) -> r wdOpts opts checkResult)
-              where
-                chosenReporterNames = if null reporters then ["console"] else reporters
-            Left err@SomeException {} -> do
-              Quickstrom.logDoc . Quickstrom.logSingle Nothing . annotate (color Red) $
-                line <> "Check encountered an error:" <+> pretty (show err :: Text) <> line
-          exitWithResult result
+
+          let chosenReporterNames = if null reporters then ["console"] else reporters
+              chosenReporters = filter ((`elem` chosenReporterNames) . fst) (initializeReporters cOpts)
+          reporterPreCheckErrors <- concatMapM
+                ( \(name, r) ->
+                    Reporter.preCheck r wdOpts opts >>= \case
+                      Reporter.OK -> pure []
+                      Reporter.CannotBeInvoked reason -> pure [(name, reason)]
+                )
+                chosenReporters
+          if not (null reporterPreCheckErrors)
+            then do
+              Quickstrom.logDoc . Quickstrom.logSingle (Just Quickstrom.LogError) . annotate (color Red) $
+                "The following reporters cannot be invoked:" <> line <> renderList [pretty name <> ":" <+> reason | (name, reason) <- reporterPreCheckErrors]
+            else do
+              result <-
+                Pipes.runEffect (Pipes.for (Quickstrom.check opts (WebDriver.runWebDriver wdOpts) spec) (lift . Quickstrom.logDoc . renderCheckEvent))
+                  & try
+              Quickstrom.logDoc . Quickstrom.logSingle Nothing $ line <> divider <> line
+              case result of
+                Right checkResult ->
+                  for_ chosenReporters $ \(_, r) ->
+                    Reporter.report r wdOpts opts checkResult
+                Left err@SomeException {} -> do
+                  Quickstrom.logDoc . Quickstrom.logSingle Nothing . annotate (color Red) $
+                    line <> "Check encountered an error:" <+> pretty (show err :: Text) <> line
+              exitWithResult result
     Lint LintOptions {..} -> do
       hPutStrLn stderr ("Lint is not implemented yet" :: Text)
       liftIO (exitWith (ExitFailure 1))

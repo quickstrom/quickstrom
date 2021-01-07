@@ -34,7 +34,6 @@ import Data.Text.Prettyprint.Doc (pretty, (<+>))
 import qualified Data.Time.Clock as Time
 import Data.Vector (Vector)
 import qualified Data.Vector as Vector
-import qualified Quickstrom.CLI.Logging as Quickstrom
 import qualified Quickstrom.CLI.Reporter as Quickstrom
 import qualified Quickstrom.Element as Quickstrom
 import qualified Quickstrom.LogLevel as Quickstrom
@@ -114,16 +113,26 @@ elementStateDiffs s1 s2 =
       let element' = oes ^. #element
        in HashMap.fromList [((element', es), value) | (es, value) <- HashMap.toList (oes ^. #elementState)]
 
+data HTMLReporterException = HTMLReporterException Text
+  deriving (Show, Eq)
+
+instance Exception HTMLReporterException
+
 htmlReporter :: (MonadReader Quickstrom.LogLevel m, MonadIO m) => FilePath -> Quickstrom.Reporter m
-htmlReporter reportDir _webDriverOpts checkOpts result = do
-  now <- liftIO Time.getCurrentTime
-  liftIO (Directory.doesPathExist reportDir) >>= \case
-    True ->
-      Quickstrom.logDoc . Quickstrom.logSingle (Just Quickstrom.LogError) $
-        "File or directory already exists, refusing to overwrite:" <+> pretty reportDir
-    False -> do
-      Quickstrom.logDoc . Quickstrom.logSingle Nothing $
-        "Writing HTML report to directory:" <+> pretty reportDir
+htmlReporter reportDir = Quickstrom.Reporter { preCheck, report }
+  where
+    preCheck  _webDriverOpts _checkOpts = do
+      alreadyExists <- liftIO (Directory.doesPathExist reportDir)
+      if alreadyExists 
+        then pure (Quickstrom.CannotBeInvoked ("File or directory already exists, refusing to overwrite:" <+> pretty reportDir))
+        else pure Quickstrom.OK
+
+    report _webDriverOpts checkOpts result = do
+      now <- liftIO Time.getCurrentTime
+
+      whenM (liftIO (Directory.doesPathExist reportDir)) $ 
+        throwIO (HTMLReporterException "File or directory already exists, refusing to overwrite!")
+
       liftIO (Directory.createDirectoryIfMissing True reportDir)
       (summary, transitions) <- case result of
         Quickstrom.CheckFailure {Quickstrom.failedAfter, Quickstrom.failingTest} -> do

@@ -9,7 +9,7 @@ let
     yarnLock = ./yarn.lock;
     yarnNix = ./yarn.nix;
     buildPhase = "yarn --offline build";
-    installPhase = "mv /build/$pname/deps/$pname/dist $out"; # seems like a giant hack
+    installPhase = "ls -lh; mv deps/$pname/dist $out"; # seems like a giant hack
     distPhase = "true";
   };
 in html-report

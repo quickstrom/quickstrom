@@ -32,7 +32,6 @@ library
                     , base64
                     , directory
                     , filepath
-                    , file-embed
                     , JuicyPixels
                     , modern-uri
                     , process

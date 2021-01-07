@@ -215,19 +215,18 @@ instance MonadError EvalError m => ToHaskellValue m (BaseAction Selector) where
   toHaskellValue ss v = do
     obj <- require ss (Proxy @"VObject") v
     ctor <- require ss (Proxy @"VString") =<< accessField ss "constructor" obj
-    value <- Vector.head <$> (require ss (Proxy @"VArray") =<< accessField ss "fields" obj)
-    case ctor of
-      "Focus" -> Focus . Selector <$> toHaskellValue ss value
-      "KeyPress" -> KeyPress <$> toHaskellValue ss value
-      "EnterText" -> EnterText <$> toHaskellValue ss value
-      "Click" ->  Click . Selector <$> toHaskellValue ss value
-      "Await" -> Await . Selector <$> toHaskellValue ss value
-      "AwaitSecs" -> AwaitSecs <$> (fmap consSelTup (toHaskellValue ss value))
-      "Navigate" -> Navigate <$> (fmap URI.render . parseURI =<< toHaskellValue ss value)
+    values <- require ss (Proxy @"VArray") =<< accessField ss "fields" obj
+    case (ctor, Vector.toList values) of
+      ("Focus", (value:_)) -> Focus . Selector <$> toHaskellValue ss value
+      ("KeyPress", (value:_)) -> KeyPress <$> toHaskellValue ss value
+      ("EnterText", (value:_)) -> EnterText <$> toHaskellValue ss value
+      ("Click", (value:_)) ->  Click . Selector <$> toHaskellValue ss value
+      ("Await", (value:_)) -> Await . Selector <$> toHaskellValue ss value
+      ("AwaitWithTimeoutSecs", (i:sel:_)) ->
+        liftA2 AwaitWithTimeoutSecs (toHaskellValue ss i) $ Selector <$> (toHaskellValue ss sel)
+      ("Navigate", (value:_)) -> Navigate <$> (fmap URI.render . parseURI =<< toHaskellValue ss value)
       _ -> throwError (ForeignFunctionError (Just ss) ("Unknown BaseAction constructor: " <> ctor))
     where
-      consSelTup = \case
-        (i, sel) -> (i, (Selector sel))
       parseURI input =
         case Parsec.runParser (URI.parser <* Parsec.eof :: Parsec Void Text URI) "" input of
           Left b -> throwError (InvalidURI Nothing input (toS (Parsec.errorBundlePretty b)))

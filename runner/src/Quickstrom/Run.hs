@@ -202,7 +202,7 @@ runSingle spec size = do
     runAndVerifyIsolated ::
       (MonadIO m, WebDriver m) =>
       Int ->
-      Producer Action (Runner m) () ->
+      Producer SelectedActionSequence (Runner m) () ->
       Producer TestEvent (Runner m) (Either FailingTest (Trace TraceElementEffect))
     runAndVerifyIsolated n producer = do
       trace <- lift do
@@ -253,7 +253,7 @@ takeWhileChanging compare' = Pipes.await >>= loop
       next <- Pipes.await
       if next `compare'` prev then pass else loop next
 
-observeManyStatesAfter :: (MonadIO m, WebDriver m) => Queries -> Action -> Pipe a (TraceElement ()) (Runner m) ()
+observeManyStatesAfter :: (MonadIO m, WebDriver m) => Queries -> SelectedActionSequence -> Pipe a (TraceElement ()) (Runner m) ()
 observeManyStatesAfter queries' action = do
   CheckEnv {checkScripts = scripts, checkOptions = CheckOptions {checkMaxTrailingStateChanges, checkTrailingStateChangeTimeout}} <- lift ask
   lift (runCheckScript (registerNextStateObserver scripts checkTrailingStateChangeTimeout queries'))
@@ -284,7 +284,7 @@ observeManyStatesAfter queries' action = do
       loop (mapTimeout (* 2) timeout)
 
 {-# SCC runActions' "runActions'" #-}
-runActions' :: (MonadIO m, WebDriver m, Specification spec) => spec -> Pipe Action (TraceElement ()) (Runner m) ()
+runActions' :: (MonadIO m, WebDriver m, Specification spec) => spec -> Pipe SelectedActionSequence (TraceElement ()) (Runner m) ()
 runActions' spec = do
   scripts <- lift (asks checkScripts)
   state1 <- lift (runCheckScript (observeState scripts queries'))
@@ -319,13 +319,13 @@ traverseShrinks test = go
           go xs
         go rest
 
-shrinkAction :: Action -> [Action]
+shrinkAction :: SelectedActionSequence -> [SelectedActionSequence]
 shrinkAction _ = [] -- TODO?
 
 generate :: MonadIO m => QuickCheck.Gen a -> m a
 generate = liftIO . QuickCheck.generate
 
-generateValidActions :: (MonadIO m, WebDriver m) => Vector (Int, PotentialAction) -> Producer Action (Runner m) ()
+generateValidActions :: (MonadIO m, WebDriver m) => Vector (Int, PotentialActionSequence) -> Producer SelectedActionSequence (Runner m) ()
 generateValidActions possibleActions = loop
   where
     loop = do
@@ -341,7 +341,7 @@ generateValidActions possibleActions = loop
             & (>>= Pipes.yield)
           loop
 
-selectValidAction :: (MonadIO m, WebDriver m) => PotentialAction -> Runner m (Maybe Action)
+selectValidAction :: (MonadIO m, WebDriver m) => PotentialActionSequence -> Runner m (Maybe SelectedActionSequence)
 selectValidAction pa = traverseRest (zip ((Data.List.replicate 1 False) ++ (cycle [True])) pa) []
   where
     traverseRest t selected = do
@@ -364,7 +364,7 @@ selectValidBaseAction (isSeqTail, possibleAction) =
       if isSeqTail || active then (pure (Just (EnterText t))) else pure Nothing
     Navigate p -> pure (Just (Navigate p))
     Await sel -> pure (Just (Await sel))
-    AwaitSecs t -> pure (Just (AwaitSecs t))
+    AwaitWithTimeoutSecs i sel -> pure (Just (AwaitWithTimeoutSecs i sel))
     Focus sel -> selectOne sel Focus (if isSeqTail then alwaysTrue else isNotActive)
     Click sel -> selectOne sel Click (if isSeqTail then alwaysTrue else isClickable)
   where
@@ -430,10 +430,10 @@ runBaseAction = \case
   EnterText t -> sendKeys t
   Click s -> click s
   Await s -> awaitElement defaultAwaitSecs s
-  AwaitSecs (i, s) -> awaitElement i s
+  AwaitWithTimeoutSecs i s -> awaitElement i s
   Navigate uri -> tryAction (ActionSuccess <$ navigateTo uri)
 
-runAction :: (MonadIO m, WebDriver m) => Action -> Runner m ActionResult
+runAction :: (MonadIO m, WebDriver m) => SelectedActionSequence -> Runner m ActionResult
 runAction = \case
     [] -> do pure ActionImpossible
     (h:[]) -> runBaseAction h
@@ -454,7 +454,7 @@ awaitElement :: (MonadIO m, WebDriver m) => Int -> Selector -> Runner m ActionRe
 awaitElement secondsTimeout sel@(Selector s) =
   let loop n
         | n > secondsTimeout =
-          pure $ ActionFailed ("Giving up after having waited 10 seconds for selector to match an element: " <> toS s)
+          pure $ ActionFailed ("Giving up after having waited " <> show secondsTimeout <> " seconds for selector to match an element: " <> toS s)
         | otherwise =
           findAll sel >>= \case
             [] -> liftIO (threadDelay 1000000) >> loop (n + 1)

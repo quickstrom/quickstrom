@@ -17,6 +17,7 @@ import Data.TreeDiff.QuickCheck (ediffEq)
 import Data.Vector (Vector)
 import qualified Data.Vector as Vector
 import Quickstrom.CLI.Reporter.HTML hiding (elements)
+import qualified Quickstrom.Action as Quickstrom
 import qualified Quickstrom.Element as Quickstrom
 import Quickstrom.Prelude hiding (State)
 import qualified Quickstrom.Trace as Quickstrom
@@ -61,7 +62,7 @@ toTransition (Transition action' (States _ to') _) =
   maybe [] (pure . toActionElement) action'
     <> [toStateElement to']
 
-toActionElement :: Quickstrom.Action -> Quickstrom.TraceElement Quickstrom.TraceElementEffect
+toActionElement :: Quickstrom.SelectedActionSequence -> Quickstrom.TraceElement Quickstrom.TraceElementEffect
 toActionElement a = Quickstrom.TraceAction Quickstrom.NoStutter a Quickstrom.ActionSuccess
 
 toStateElement :: State ByteString -> Quickstrom.TraceElement Quickstrom.TraceElementEffect
@@ -132,7 +133,7 @@ genPosition = Quickstrom.Position <$> genNat <*> genNat <*> genNat <*> genNat
 genNat :: Gen Int
 genNat = getPositive <$> arbitrary
 
-genAction :: Gen Quickstrom.Action
+genAction :: Gen Quickstrom.SelectedActionSequence
 genAction = pure [(Quickstrom.KeyPress 'a')]
 
 identifier :: [Char] -> Gen Text

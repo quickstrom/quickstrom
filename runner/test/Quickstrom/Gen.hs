@@ -33,7 +33,7 @@ selectedBaseAction =
       Click <$> selected
     ]
 
-selectedAction :: Gen Action
+selectedAction :: Gen SelectedActionSequence
 selectedAction = listOf1 selectedBaseAction
 
 actionResult :: Gen ActionResult

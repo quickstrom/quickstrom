@@ -67,8 +67,8 @@ keyPress :: Char -> BaseAction
 keyPress = KeyPress
 
 -- | Generate key press actions with printable ASCII characters.
-asciiKeyPresses :: Actions
-asciiKeyPresses = Tuple 1 <<< Single <<< KeyPress <<< unsafePartial fromJust <<< fromCharCode <$> range 32 126
+asciiKeyPresses :: Array BaseAction
+asciiKeyPresses = KeyPress <<< unsafePartial fromJust <<< fromCharCode <$> range 32 126
 
 -- | Generate a key press action with the given special key.
 specialKeyPress :: SpecialKey -> BaseAction

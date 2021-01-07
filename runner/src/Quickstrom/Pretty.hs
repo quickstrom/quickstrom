@@ -29,12 +29,12 @@ prettyAction = \case
   Click sel -> "click" <+> prettySelected sel
   Focus sel -> "focus" <+> prettySelected sel
   Await sel -> "await" <+> pretty (show sel :: Text)
-  AwaitSecs (i, sel) -> "await secs" <+> pretty (show i :: Text) <+> pretty (show sel :: Text)
+  AwaitWithTimeoutSecs i sel -> "await secs" <+> pretty (show i :: Text) <+> pretty (show sel :: Text)
   KeyPress key -> "key press" <+> pretty (show key :: Text)
   EnterText t -> "enter text" <+> pretty (show t :: Text)
   Navigate uri -> "navigate to" <+> pretty uri
 
-prettyActionSeq :: Action -> Doc AnsiStyle
+prettyActionSeq :: SelectedActionSequence -> Doc AnsiStyle
 prettyActionSeq action = vsep (zipWith item [1 ..] action)
   where
     item :: Int -> BaseAction Selected -> Doc AnsiStyle
@@ -44,10 +44,10 @@ prettyActionSeq action = vsep (zipWith item [1 ..] action)
 prettySelected :: Selected -> Doc AnsiStyle
 prettySelected (Selected (Selector sel) i) = pretty sel <> brackets (pretty i)
 
-prettyActions :: [Action] -> Doc AnsiStyle
+prettyActions :: [SelectedActionSequence] -> Doc AnsiStyle
 prettyActions actions = vsep (zipWith item [1 ..] actions)
   where
-    item :: Int -> Action -> Doc AnsiStyle
+    item :: Int -> SelectedActionSequence -> Doc AnsiStyle
     item i = \case
       action -> (pretty i <> "." <+> prettyActionSeq action)
 

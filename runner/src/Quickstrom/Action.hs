@@ -19,20 +19,20 @@ data BaseAction sel
   | EnterText Text
   | Click sel
   | Await Selector
-  | AwaitSecs (Int, Selector)
+  | AwaitWithTimeoutSecs Int Selector
   | Navigate Text
   deriving (Eq, Show, Generic, ToJSON)
 
 data ActionSum = Single (BaseAction Selector) | Sequence [(BaseAction Selector)]
 
-type PotentialAction = [BaseAction Selector]
-type Action = [BaseAction Selected]
+type PotentialActionSequence = [BaseAction Selector]
+type SelectedActionSequence  = [BaseAction Selected]
 
-actionSumToPotentialAction :: ActionSum -> PotentialAction
-actionSumToPotentialAction = \case
+actionSumToPotentialActionSeq :: ActionSum -> PotentialActionSequence
+actionSumToPotentialActionSeq = \case
   Single ba -> [ba]
   Sequence s -> s
 
-actionSumsToPotentialActions :: Vector (Int, ActionSum) -> Vector (Int, PotentialAction)
-actionSumsToPotentialActions v =
-  map (\(f,s) -> (f, actionSumToPotentialAction s)) v
+actionSumsToPotentialActionSeqs :: Vector (Int, ActionSum) -> Vector (Int, PotentialActionSequence)
+actionSumsToPotentialActionSeqs v =
+  map (\(f,s) -> (f, actionSumToPotentialActionSeq s)) v

@@ -1,0 +1,25 @@
+{
+  "name": "html-report",
+  "version": "0.1.0",
+  "scripts": {
+    "start": "parcel src/index.html",
+    "build": "parcel build --public-url=. src/index.html -d dist && sed -i 's/<body>/<body><script src=\"report.jsonp.js\"><\\/script>/' dist/index.html"
+    
+  },
+  "dependencies": {
+    "preact": "^10.5.7"
+  },
+  "devDependencies": {
+    "@types/jest": "^25.1.4",
+    "jest": "^25.1.0",
+    "parcel-bundler": "^1.12.4",
+    "ts-jest": "^25.2.1",
+    "typescript": "^4.1.2"
+  },
+  "jest": {
+    "preset": "ts-jest"
+  },
+  "externals": {
+    "report.jsonp.js": false
+  }
+}

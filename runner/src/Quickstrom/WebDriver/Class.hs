@@ -4,7 +4,6 @@
 module Quickstrom.WebDriver.Class where
 
 import qualified Data.Aeson as JSON
-import Data.String (String)
 import Quickstrom.Browser
 import Quickstrom.Element (Element, Selector)
 import Quickstrom.LogLevel

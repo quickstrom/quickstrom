@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "scripts": {
     "start": "parcel src/index.html",
-    "build": "parcel build --public-url=. src/index.html -d dist && sed -i 's/<body>/<body><script src=\"report.jsonp.js\"><\\/script>/' dist/index.html"
+    "build": "parcel build --no-source-maps --no-content-hash --public-url=. src/index.html -d dist && sed -i 's/<body>/<body><script src=\"report.jsonp.js\"><\\/script>/' dist/index.html"
     
   },
   "dependencies": {

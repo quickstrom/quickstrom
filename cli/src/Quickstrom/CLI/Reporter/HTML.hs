@@ -43,6 +43,7 @@ import qualified Quickstrom.Run as Quickstrom
 import qualified Quickstrom.Trace as Quickstrom
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath ((</>))
+import System.Environment (lookupEnv)
 import Data.Maybe (fromJust)
 
 data Report = Report
@@ -221,4 +222,9 @@ writeScreenshotFile reportDir s = do
 -- * Static assets
 
 assets :: [(FilePath, ByteString)]
-assets = $(makeRelativeToProject "src/Quickstrom/CLI/Reporter/HTML" >>= embedDir)
+assets = $(do
+  dir <- liftIO (lookupEnv "QUICKSTROM_HTML_REPORT_DIR") >>= \case
+    Just dir -> pure dir
+    Nothing -> makeRelativeToProject "../html-report/dist"
+  embedDir dir
+  )

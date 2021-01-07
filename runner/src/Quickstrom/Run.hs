@@ -330,7 +330,7 @@ generateValidActions possibleActions = loop
   where
     loop = do
       validActions <- lift $ for (Vector.toList possibleActions) \(prob, action') -> do
-        fmap (prob,) <$> selectValidAction action'
+        fmap (prob,) <$> selectValidActionSeq action'
       case map (_2 %~ pure) (catMaybes validActions) of
         [] -> pass
         actions' -> do
@@ -341,8 +341,8 @@ generateValidActions possibleActions = loop
             & (>>= Pipes.yield)
           loop
 
-selectValidAction :: (MonadIO m, WebDriver m) => PotentialActionSequence -> Runner m (Maybe SelectedActionSequence)
-selectValidAction pa = traverseRest (zip ((Data.List.replicate 1 False) ++ (cycle [True])) pa) []
+selectValidActionSeq :: (MonadIO m, WebDriver m) => PotentialActionSequence -> Runner m (Maybe SelectedActionSequence)
+selectValidActionSeq pa = traverseRest (zip ((Data.List.replicate 1 False) ++ (cycle [True])) pa) []
   where
     traverseRest t selected = do
       case t of

@@ -442,8 +442,8 @@ runAction = \case
     recurse t r =
       do res <- r
          case res of
-           ActionFailed _ -> r
-           ActionImpossible -> r
+           ActionFailed _ -> pure res
+           ActionImpossible -> pure res
            _ -> fmap identity $ runAction t
 
 findSelected :: WebDriver m => Selected -> Runner m (Maybe Element)

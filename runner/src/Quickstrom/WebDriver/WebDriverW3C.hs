@@ -22,7 +22,6 @@ import Data.Aeson.Lens
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.List as List
 import qualified Data.Set as Set
-import Data.String (String)
 import qualified Data.String as String
 import qualified Data.Text as Text
 import qualified Data.Vector as Vector
@@ -194,7 +193,7 @@ cleanupOnError x =
 
 -- | Same as the non-exported definition in 'Web.Api.WebDriver.Endpoints'.
 setSessionId ::
-  Maybe String ->
+  Maybe String.String ->
   S WDState ->
   S WDState
 setSessionId x st = st {_userState = (_userState st) {_sessionId = x}}

@@ -15,10 +15,10 @@
 
 module Quickstrom.Trace
   ( Selected (..),
-    Action (..),
     ObservedElementStates (..),
     ObservedElementState (..),
     Position (..),
+    BaseAction (..),
     ObservedState (..),
     Trace (..),
     ActionResult (..),
@@ -80,7 +80,7 @@ data ActionResult = ActionSuccess | ActionFailed Text | ActionImpossible
   deriving (Show, Generic)
 
 data TraceElement ann
-  = TraceAction ann (Action Selected) ActionResult
+  = TraceAction ann SelectedActionSequence ActionResult
   | TraceState ann ObservedState
   deriving (Show, Generic)
 
@@ -90,7 +90,7 @@ traceElements = Product.position @1
 observedStates :: Traversal' (Trace ann) ObservedState
 observedStates = traceElements . traverse . _Ctor @"TraceState" . Product.position @2
 
-traceActions :: Traversal' (Trace ann) (Action Selected)
+traceActions :: Traversal' (Trace ann) SelectedActionSequence
 traceActions = traceElements . traverse . _Ctor @"TraceAction" . Product.position @2
 
 traceActionFailures :: Traversal' (Trace ann) Text

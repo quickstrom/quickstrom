@@ -36,6 +36,7 @@ import qualified Data.Time.Clock as Time
 import Data.Vector (Vector)
 import qualified Data.Vector as Vector
 import qualified Quickstrom.CLI.Reporter as Quickstrom
+import qualified Quickstrom.Action as Quickstrom
 import qualified Quickstrom.Element as Quickstrom
 import qualified Quickstrom.LogLevel as Quickstrom
 import Quickstrom.Prelude hiding (State, uncons)
@@ -59,7 +60,7 @@ data Summary
   deriving (Eq, Show, Generic, JSON.ToJSON)
 
 data Transition screenshot = Transition
-  { action :: Maybe (Quickstrom.Action Quickstrom.Selected),
+  { action :: Maybe Quickstrom.SelectedActionSequence,
     states :: States screenshot,
     stutter :: Bool
   }

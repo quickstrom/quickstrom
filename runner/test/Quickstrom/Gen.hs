@@ -7,6 +7,7 @@ import qualified Data.List.NonEmpty as NonEmpty
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
+import Quickstrom.Action
 import Quickstrom.Element
 import Quickstrom.Trace hiding (observedStates)
 import Test.QuickCheck hiding ((===), (==>))
@@ -24,13 +25,16 @@ stringValues = elements ["s1", "s2", "s3"]
 observedState :: Gen ObservedState
 observedState = pure mempty
 
-selectedAction :: Gen (Action Selected)
-selectedAction =
+selectedBaseAction :: Gen (BaseAction Selected)
+selectedBaseAction =
   oneof
     [ Focus <$> selected,
       KeyPress <$> elements ['A' .. 'C'],
       Click <$> selected
     ]
+
+selectedAction :: Gen SelectedActionSequence
+selectedAction = listOf1 selectedBaseAction
 
 actionResult :: Gen ActionResult
 actionResult = oneof [pure ActionSuccess, pure (ActionFailed "failed"), pure ActionImpossible]

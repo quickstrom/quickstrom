@@ -21,7 +21,9 @@ import Data.Fixed (mod')
 import Data.Generics.Product (field)
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
+import Data.List (take)
 import qualified Data.List.NonEmpty as NonEmpty
+import Data.Char as Char
 import qualified Data.Text as Text
 import qualified Data.Text.Internal.Search as Text
 import qualified Data.Text.Read as Text
@@ -320,7 +322,10 @@ foreignFunctions =
       (ffName "Data.Semigroup" "concatString", foreignFunction (op2 ((<>) @Text))),
       (ffName "Data.Semigroup" "concatArray", foreignFunction (op2 ((<>) @(Vector (Value EvalAnn))))),
       (ffName "Data.String.CodePoints" "_unsafeCodePointAt0", foreignFunction unsafeCodePointAt0),
+      (ffName "Data.String.CodePoints" "_singleton", foreignFunction singletonCodePoint),
+      (ffName "Data.String.CodePoints" "_take", foreignFunction takeCodePoints),
       (ffName "Data.String.CodePoints" "_toCodePointArray", foreignFunction toCodePointArray),
+      (ffName "Data.String.CodeUnits" "singleton", foreignFunction singletonCodeUnits),
       (ffName "Data.String.CodeUnits" "_indexOf", foreignFunction codeUnitsIndexOf),
       (ffName "Data.String.CodeUnits" "drop", foreignFunction (op2 Text.drop)),
       (ffName "Data.String.CodeUnits" "length", foreignFunction (op1 Text.length)),
@@ -468,6 +473,12 @@ foreignFunctions =
       local (field @"env" .~ fenv {envForeignFunctions = envForeignFunctions env'}) (eval body)
     unsafeGet :: MonadError EvalError m => Text -> HashMap Text (Value EvalAnn) -> Ret m (Value EvalAnn)
     unsafeGet k xs = Ret (accessField P.nullSourceSpan k xs)
+    singletonCodePoint :: Monad m => Value EvalAnn -> Int -> Ret m (Text)
+    singletonCodePoint _ i = singletonCodeUnits i
+    singletonCodeUnits :: Monad m => Int -> Ret m (Text)
+    singletonCodeUnits i = pure $ Text.pack $ [(Char.intToDigit i)]
+    takeCodePoints :: Monad m => Value EvalAnn -> Int -> Text -> Ret m (Text)
+    takeCodePoints _ i t = pure $ Text.pack $ take i $ Text.unpack t
     toCodePointArray :: Monad m => Value EvalAnn -> Value EvalAnn -> Text -> Ret m (Vector Int)
     toCodePointArray _ _ t = pure (Vector.map ord (Vector.fromList (toS t)))
     unsafeCodePointAt0 :: Monad m => Value EvalAnn -> Text -> Ret m Int

@@ -53,14 +53,14 @@ data Report = Report
   deriving (Eq, Show, Generic, JSON.ToJSON)
 
 data Result
-  = Success {passedTests :: Vector Test}
-  | Failure
+  = Passed {passedTests :: Vector Test}
+  | Failed
       { shrinkLevels :: Int,
         reason :: Maybe Text,
         passedTests :: Vector Test,
         failedTest :: Test
       }
-  | Error {error :: Text, tests :: Int}
+  | Errored {error :: Text, tests :: Int}
   deriving (Eq, Show, Generic, JSON.ToJSON)
 
 data Test = Test {transitions :: Transitions}
@@ -153,17 +153,17 @@ htmlReporter reportDir = Quickstrom.Reporter {preCheck, report}
           passedTests' <- traverse (traceToTest reportDir . view #trace) passedTests
           failedTest' <- traceToTest reportDir (failedTest ^. #trace)
           pure
-            Failure
+            Failed
               { shrinkLevels = Quickstrom.numShrinks failedTest,
                 reason = Quickstrom.reason failedTest,
                 passedTests = passedTests',
                 failedTest = failedTest'
               }
         Quickstrom.CheckError {Quickstrom.checkError} -> do
-          pure Error {error = checkError, tests = Quickstrom.checkTests checkOpts}
+          pure Errored {error = checkError, tests = Quickstrom.checkTests checkOpts}
         Quickstrom.CheckSuccess {passedTests} -> do
           passedTests' <- traverse (traceToTest reportDir . view #trace) passedTests
-          pure Success {passedTests = passedTests'}
+          pure Passed {passedTests = passedTests'}
       let reportFile = reportDir </> "report.jsonp.js"
           json = JSON.encode (Report now reportResult)
       liftIO $ do

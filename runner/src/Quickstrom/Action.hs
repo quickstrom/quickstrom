@@ -23,16 +23,16 @@ data BaseAction sel
   | Navigate Text
   deriving (Eq, Show, Generic, ToJSON)
 
-data ActionSum = Single (BaseAction Selector) | Sequence [(BaseAction Selector)]
+data Actions = Single (BaseAction Selector) | Sequence [(BaseAction Selector)]
 
 type PotentialActionSequence = [BaseAction Selector]
 type SelectedActionSequence  = [BaseAction Selected]
 
-actionSumToPotentialActionSeq :: ActionSum -> PotentialActionSequence
-actionSumToPotentialActionSeq = \case
+actionsToPotentialActionSeq :: Actions -> PotentialActionSequence
+actionsToPotentialActionSeq = \case
   Single ba -> [ba]
   Sequence s -> s
 
-actionSumsToPotentialActionSeqs :: Vector (Int, ActionSum) -> Vector (Int, PotentialActionSequence)
-actionSumsToPotentialActionSeqs v =
-  map (\(f,s) -> (f, actionSumToPotentialActionSeq s)) v
+actionsToPotentialActionSeqs :: Vector (Int, Actions) -> Vector (Int, PotentialActionSequence)
+actionsToPotentialActionSeqs v =
+  map (\(f,s) -> (f, actionsToPotentialActionSeq s)) v

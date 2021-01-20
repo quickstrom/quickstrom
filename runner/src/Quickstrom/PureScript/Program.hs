@@ -224,7 +224,7 @@ loadSpecification ms input = runExceptT $ do
     pure
       ( SpecificationProgram
           { specificationReadyWhen = Quickstrom.Selector readyWhen,
-            specificationActions = Quickstrom.actionSumsToPotentialActionSeqs actions,
+            specificationActions = Quickstrom.actionsToPotentialActionSeqs actions,
             specificationQueries = queries,
             specificationProgram = p
           }

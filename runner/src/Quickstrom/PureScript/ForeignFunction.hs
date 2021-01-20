@@ -27,7 +27,7 @@ import Data.Vector (Vector)
 import qualified Data.Vector as Vector
 import GHC.TypeNats (type (+))
 import Language.PureScript.AST (SourceSpan)
-import Quickstrom.Action (BaseAction(..), ActionSum(..))
+import Quickstrom.Action (BaseAction(..), Actions(..))
 import Quickstrom.Element (Selector (..))
 import Quickstrom.Prelude
 import Quickstrom.PureScript.Eval.Ann
@@ -201,7 +201,7 @@ instance (MonadError EvalError m, ToHaskellValue m a, ToHaskellValue m b) => ToH
         pure (a, b)
       _ -> throwError (ForeignFunctionError (Just ss) ("Cannot be converted to tuple: " <> ctor))
 
-instance MonadError EvalError m => ToHaskellValue m ActionSum where
+instance MonadError EvalError m => ToHaskellValue m Actions where
    toHaskellValue ss v = do
      obj <- require ss (Proxy @"VObject") v
      ctor <- require ss (Proxy @"VString") =<< accessField ss "constructor" obj
@@ -209,7 +209,7 @@ instance MonadError EvalError m => ToHaskellValue m ActionSum where
      case ctor of
        "Single" -> Single <$> toHaskellValue ss value
        "Sequence" -> Sequence <$> toHaskellValue ss value
-       _ -> throwError (ForeignFunctionError (Just ss) ("Unknown ActionSum constructor: " <> ctor))
+       _ -> throwError (ForeignFunctionError (Just ss) ("Unknown Actions constructor: " <> ctor))
 
 instance MonadError EvalError m => ToHaskellValue m (BaseAction Selector) where
   toHaskellValue ss v = do

@@ -1,7 +1,7 @@
 module Quickstrom.Spec
   ( Path
-  , BaseAction(..)
   , Action(..)
+  , ActionSequence(..)
   , Actions
   , ProbabilisticAction
   , clicks
@@ -32,7 +32,7 @@ type Path
 
 -- | A possible action to generate. Quickstrom uses action values when searching the
 -- | DOM for possible actions to generate and perform.
-data BaseAction
+data Action
   = Focus Selector
   | KeyPress Char
   | EnterText String
@@ -41,12 +41,14 @@ data BaseAction
   | AwaitWithTimeoutSecs Int Selector
   | Navigate Path
 
-data Action = Single BaseAction | Sequence (Array BaseAction)
+-- | Either a single action or a fixed sequence of actions.
+data ActionSequence = Single Action | Sequence (Array Action)
 
-type ProbabilisticAction = (Tuple Int Action)
+type ProbabilisticAction = Tuple Int ActionSequence
 
-type Actions
-  = Array ProbabilisticAction
+-- | An array of tuples, containing probabilistic weights and 
+-- | action sequences.
+type Actions = Array ProbabilisticAction
 
 -- | Generate click actions on common clickable elements.
 clicks :: Actions
@@ -55,7 +57,7 @@ clicks = [ Tuple 1 (Single $ Click "button"),
            Tuple 1 (Single $ Click "a") ]
 
 -- | Generate focus actions on elements matching the given selector.
-focus :: Selector -> BaseAction
+focus :: Selector -> Action
 focus = Focus
 
 -- | Generate focus actions on common focusable elements.
@@ -63,15 +65,15 @@ foci :: Actions
 foci = [ Tuple 1 (Single $ Focus "input"), Tuple 1 (Single $ Focus "textarea") ]
 
 -- | Generate a key press action with the given character.
-keyPress :: Char -> BaseAction
+keyPress :: Char -> Action
 keyPress = KeyPress
 
 -- | Generate key press actions with printable ASCII characters.
-asciiKeyPresses :: Array BaseAction
+asciiKeyPresses :: Array Action
 asciiKeyPresses = KeyPress <<< unsafePartial fromJust <<< fromCharCode <$> range 32 126
 
 -- | Generate a key press action with the given special key.
-specialKeyPress :: SpecialKey -> BaseAction
+specialKeyPress :: SpecialKey -> Action
 specialKeyPress specialKey = KeyPress (specialKeyToChar specialKey)
 
 data SpecialKey

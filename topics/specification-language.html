@@ -99,7 +99,12 @@
 <li class="toctree-l4"><a class="reference internal" href="#unchanged">Unchanged</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#actions">Actions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#actions">Actions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#action-sequences">Action Sequences</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id1">Actions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#example">Example</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="checking.html">Checking</a></li>
@@ -335,15 +340,16 @@ transition <code class="docutils literal notranslate"><span class="pre">t</span>
 <h2>Actions<a class="headerlink" href="#actions" title="Permalink to this headline">¶</a></h2>
 <p>We must instruct Quickstrom what actions it should try. The <code class="docutils literal notranslate"><span class="pre">actions</span></code>
 definition in a specification module has the following type:</p>
-<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="kt">Array</span> <span class="p">(</span><span class="kt">Tuple</span> <span class="kt">Int</span> <span class="kt">Action</span><span class="p">)</span>
+<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="kt">Array</span> <span class="p">(</span><span class="kt">Tuple</span> <span class="kt">Int</span> <span class="kt">ActionSequence</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>It’s an array of pairs, or tuples, where each pair holds a weight and an
-action specifier. The weight specifies the intended probability of the action
-being picked, relative to the other actions.</p>
-<p>To illustrate, in the following array of actions, the probability of <code class="docutils literal notranslate"><span class="pre">a1</span></code>
-being picked is 40%, while the others are at 20% each. This is assuming all
-actions are <em>possible</em> at each point an action is being picked.</p>
+<p>It’s an array of pairs, or tuples, where each pair holds a weight and a
+sequence of actions. The weight specifies the intended probability
+of the sequence being picked, relative to the other sequences.</p>
+<p>To illustrate, in the following array of action sequences, the probability of
+<code class="docutils literal notranslate"><span class="pre">a1</span></code> being picked is 40%, while the others are at 20% each. This is assuming
+the first action in each sequence is <em>possible</em> at each point a sequence is being
+picked.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">actions</span> <span class="o">=</span> <span class="p">[</span>
     <span class="n">Tuple</span> <span class="mi">2</span> <span class="n">a1</span><span class="p">,</span>
     <span class="n">Tuple</span> <span class="mi">1</span> <span class="n">a2</span><span class="p">,</span>
@@ -352,22 +358,54 @@ actions are <em>possible</em> at each point an action is being picked.</p>
   <span class="p">]</span>
 </pre></div>
 </div>
+<div class="section" id="action-sequences">
+<h3>Action Sequences<a class="headerlink" href="#action-sequences" title="Permalink to this headline">¶</a></h3>
+<p>An action sequence is either a single action or a fixed sequence of actions:</p>
+<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="kr">data</span> <span class="kt">ActionSequence</span>
+   <span class="ow">=</span> <span class="kt">Single</span> <span class="kt">Action</span>
+   <span class="o">|</span> <span class="kt">Sequence</span> <span class="p">(</span><span class="kt">Array</span> <span class="kt">Action</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>A sequence of actions is always performed in its entirety when picked, as
+long as the first action in the sequence is considered possible by the test
+runner.</p>
+</div>
+<div class="section" id="id1">
+<h3>Actions<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
 <p>The <code class="docutils literal notranslate"><span class="pre">Action</span></code> data type is defined in the Quickstrom library, along with
 some aliases for common actions. For instance, here’s the definition of
 <code class="docutils literal notranslate"><span class="pre">foci</span></code>:</p>
 <div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="c1">-- | Generate focus actions on common focusable elements.</span>
 <span class="nf">foci</span> <span class="ow">::</span> <span class="kt">Actions</span>
-<span class="nf">foci</span> <span class="ow">=</span> <span class="p">[</span> <span class="kt">Tuple</span> <span class="mi">1</span> <span class="p">(</span><span class="kt">Focus</span> <span class="s">&quot;input&quot;</span><span class="p">),</span> <span class="kt">Tuple</span> <span class="mi">1</span> <span class="p">(</span><span class="kt">Focus</span> <span class="s">&quot;textarea&quot;</span><span class="p">)</span> <span class="p">]</span>
+<span class="nf">foci</span> <span class="ow">=</span>
+   <span class="p">[</span> <span class="kt">Tuple</span> <span class="mi">1</span> <span class="p">(</span><span class="kt">Single</span> <span class="p">(</span><span class="kt">Focus</span> <span class="s">&quot;input&quot;</span><span class="p">))</span>
+   <span class="p">,</span> <span class="kt">Tuple</span> <span class="mi">1</span> <span class="p">(</span><span class="kt">Single</span> <span class="p">(</span><span class="kt">Focus</span> <span class="s">&quot;textarea&quot;</span><span class="p">))</span>
+   <span class="p">]</span>
 </pre></div>
 </div>
 <p>More action constructors and aliases should be introduced as Quickstrom
 evolves.</p>
+</div>
+<div class="section" id="example">
+<h3>Example<a class="headerlink" href="#example" title="Permalink to this headline">¶</a></h3>
+<p>As an example of composing actions and sequences of actions, here’s a
+collection of actions that try to log in and to click a buy button:</p>
+<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">foci</span> <span class="ow">=</span>
+   <span class="p">[</span> <span class="kt">Tuple</span> <span class="mi">1</span> <span class="p">(</span><span class="kt">Sequence</span> <span class="p">[</span> <span class="kt">Focus</span> <span class="s">&quot;input[type=password]&quot;</span>
+                       <span class="p">,</span> <span class="kt">EnterText</span> <span class="s">&quot;$ecr3tz&quot;</span>
+                       <span class="p">,</span> <span class="kt">Click</span> <span class="s">&quot;input[type=submit][name=log-in]&quot;</span>
+                       <span class="p">])</span>
+   <span class="p">,</span> <span class="kt">Tuple</span> <span class="mi">1</span> <span class="p">(</span><span class="kt">Single</span> <span class="p">(</span><span class="kt">Click</span> <span class="s">&quot;input[type=submit][name=buy]&quot;</span><span class="p">))</span>
+   <span class="p">]</span>
+</pre></div>
+</div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>When specifying complex web applications, one must often carefully pick
 selectors, actions, and weights, to effectively test enough within
 a reasonable time. Aliases like <code class="docutils literal notranslate"><span class="pre">clicks</span></code> and <code class="docutils literal notranslate"><span class="pre">foci</span></code> might not work
 well in such situations.</p>
+</div>
 </div>
 </div>
 </div>

@@ -27,7 +27,7 @@ import Data.Vector (Vector)
 import qualified Data.Vector as Vector
 import GHC.TypeNats (type (+))
 import Language.PureScript.AST (SourceSpan)
-import Quickstrom.Action (BaseAction(..), Actions(..))
+import Quickstrom.Action (Action(..), ActionSequence(..))
 import Quickstrom.Element (Selector (..))
 import Quickstrom.Prelude
 import Quickstrom.PureScript.Eval.Ann
@@ -201,7 +201,7 @@ instance (MonadError EvalError m, ToHaskellValue m a, ToHaskellValue m b) => ToH
         pure (a, b)
       _ -> throwError (ForeignFunctionError (Just ss) ("Cannot be converted to tuple: " <> ctor))
 
-instance MonadError EvalError m => ToHaskellValue m Actions where
+instance MonadError EvalError m => ToHaskellValue m ActionSequence where
    toHaskellValue ss v = do
      obj <- require ss (Proxy @"VObject") v
      ctor <- require ss (Proxy @"VString") =<< accessField ss "constructor" obj
@@ -209,9 +209,9 @@ instance MonadError EvalError m => ToHaskellValue m Actions where
      case ctor of
        "Single" -> Single <$> toHaskellValue ss value
        "Sequence" -> Sequence <$> toHaskellValue ss value
-       _ -> throwError (ForeignFunctionError (Just ss) ("Unknown Actions constructor: " <> ctor))
+       _ -> throwError (ForeignFunctionError (Just ss) ("Unknown ActionSequence constructor: " <> ctor))
 
-instance MonadError EvalError m => ToHaskellValue m (BaseAction Selector) where
+instance MonadError EvalError m => ToHaskellValue m (Action Selector) where
   toHaskellValue ss v = do
     obj <- require ss (Proxy @"VObject") v
     ctor <- require ss (Proxy @"VString") =<< accessField ss "constructor" obj
@@ -225,7 +225,7 @@ instance MonadError EvalError m => ToHaskellValue m (BaseAction Selector) where
       ("AwaitWithTimeoutSecs", (i:sel:_)) ->
         liftA2 AwaitWithTimeoutSecs (toHaskellValue ss i) $ Selector <$> (toHaskellValue ss sel)
       ("Navigate", (value:_)) -> Navigate <$> (fmap URI.render . parseURI =<< toHaskellValue ss value)
-      _ -> throwError (ForeignFunctionError (Just ss) ("Unknown BaseAction constructor: " <> ctor))
+      _ -> throwError (ForeignFunctionError (Just ss) ("Unknown Action constructor: " <> ctor))
     where
       parseURI input =
         case Parsec.runParser (URI.parser <* Parsec.eof :: Parsec Void Text URI) "" input of

@@ -18,7 +18,7 @@ module Quickstrom.Trace
     ObservedElementStates (..),
     ObservedElementState (..),
     Position (..),
-    BaseAction (..),
+    Action (..),
     ObservedState (..),
     Trace (..),
     ActionResult (..),

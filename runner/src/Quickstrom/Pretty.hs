@@ -24,7 +24,7 @@ import Quickstrom.Element
 import Quickstrom.Prelude
 import Quickstrom.Trace
 
-prettyAction :: BaseAction Selected -> Doc AnsiStyle
+prettyAction :: Action Selected -> Doc AnsiStyle
 prettyAction = \case
   Click sel -> "click" <+> prettySelected sel
   Focus sel -> "focus" <+> prettySelected sel
@@ -37,7 +37,7 @@ prettyAction = \case
 prettyActionSeq :: SelectedActionSequence -> Doc AnsiStyle
 prettyActionSeq action = vsep (zipWith item [1 ..] action)
   where
-    item :: Int -> BaseAction Selected -> Doc AnsiStyle
+    item :: Int -> Action Selected -> Doc AnsiStyle
     item i = \case
       ba -> (pretty i <> "." <+> prettyAction ba)
 

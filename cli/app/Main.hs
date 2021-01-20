@@ -336,7 +336,7 @@ parseRunnerName s =
 
 exitWithResult :: MonadIO m => Either SomeException Quickstrom.CheckResult -> m ()
 exitWithResult = \case
-  Right Quickstrom.CheckSuccess ->
+  Right Quickstrom.CheckSuccess{}->
     pass
   Right Quickstrom.CheckFailure {} -> do
     liftIO (exitWith (ExitFailure 3))

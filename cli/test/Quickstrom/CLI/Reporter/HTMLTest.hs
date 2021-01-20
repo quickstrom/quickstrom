@@ -28,7 +28,7 @@ import Test.Tasty.Hspec hiding (Selector)
 spec_htmlReporter :: Spec
 spec_htmlReporter =
   it "parses the trace as transitions" $
-    property $ \(Transitions expected) ->
+    property $ \(TestTransitions expected) ->
       let trace' = toTrace expected
           actual = traceToTransitions trace'
        in sortTransitions actual `ediffEq` sortTransitions expected
@@ -91,14 +91,14 @@ toObservedElementState element' =
   where
     toPair (ElementStateValue state' value' _) = (state', value')
 
-newtype Transitions = Transitions (Vector (Transition ByteString))
+newtype TestTransitions = TestTransitions (Vector (Transition ByteString))
   deriving (Eq, Show)
 
-instance Arbitrary Transitions where
-  arbitrary = Transitions <$> genTransitions
-  shrink (Transitions txs) =
+instance Arbitrary TestTransitions where
+  arbitrary = TestTransitions <$> genTransitions
+  shrink (TestTransitions txs) =
     map
-      (Transitions . Vector.fromList)
+      (TestTransitions . Vector.fromList)
       (shrinkList shrinkNothing (Vector.toList txs))
 
 genTransitions :: Gen (Vector (Transition ByteString))

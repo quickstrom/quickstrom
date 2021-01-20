@@ -1,4 +1,5 @@
 {-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveFunctor #-}
@@ -26,7 +27,8 @@ module Quickstrom.Run
     CheckEnv (..),
     CheckOptions (..),
     CheckResult (..),
-    FailingTest (..),
+    PassedTest (..),
+    FailedTest (..),
     Size (..),
     Timeout (..),
     CheckEvent (..),
@@ -36,7 +38,7 @@ module Quickstrom.Run
 where
 
 import Control.Lens hiding (each)
-import Control.Monad (fail, filterM, forever, void, when, (>=>))
+import Control.Monad (fail, filterM, forever, when, (>=>))
 import Control.Monad.Catch (MonadCatch, MonadThrow, catch)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Loops (andM)
@@ -46,7 +48,7 @@ import qualified Data.Aeson as JSON
 import Data.Function ((&))
 import Data.Generics.Product (field)
 import Data.List hiding (map)
-import Data.Maybe (fromMaybe, catMaybes)
+import Data.Maybe (catMaybes)
 import Data.String (String, fromString)
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -77,7 +79,12 @@ newtype Runner m a = Runner (ReaderT CheckEnv m a)
 run :: CheckEnv -> Runner m a -> m a
 run env (Runner ma) = runReaderT ma env
 
-data FailingTest = FailingTest
+data PassedTest = PassedTest
+  { trace :: Trace TraceElementEffect
+  }
+  deriving (Show, Generic)
+
+data FailedTest = FailedTest
   { numShrinks :: Int,
     trace :: Trace TraceElementEffect,
     reason :: Maybe Text
@@ -85,8 +92,8 @@ data FailingTest = FailingTest
   deriving (Show, Generic)
 
 data CheckResult
-  = CheckSuccess
-  | CheckFailure {failedAfter :: Int, failingTest :: FailingTest}
+  = CheckSuccess {passedTests :: Vector PassedTest}
+  | CheckFailure {failedAfter :: Int, passedTests :: Vector PassedTest, failedTest :: FailedTest}
   | CheckError {checkError :: Text}
   deriving (Show, Generic)
 
@@ -171,7 +178,7 @@ select f = forever do
   maybe (pure ()) Pipes.yield (f x)
 
 runSingle :: (MonadIO m, WebDriver m, Specification spec) =>
-               spec -> Size -> Producer TestEvent (Runner m) (Either FailingTest ())
+               spec -> Size -> Producer TestEvent (Runner m) (Either FailedTest PassedTest)
 runSingle spec size = do
   Pipes.yield (TestStarted size)
   result <-
@@ -181,8 +188,8 @@ runSingle spec size = do
   case result of
     Right trace -> do
       Pipes.yield (TestPassed size trace)
-      pure (Right ())
-    f@(Left (FailingTest _ trace _)) -> do
+      pure (Right (PassedTest trace))
+    Left ft@(FailedTest _ trace _) -> do
       CheckOptions {checkShrinkLevels} <- lift (asks checkOptions)
       Pipes.yield (TestFailed size trace)
       if (checkShrinkLevels > 0)
@@ -196,14 +203,14 @@ runSingle spec size = do
                   >-> select (preview _Left)
                   >-> Pipes.take 5
               )
-          pure (fromMaybe (void f) (Left <$> shrunk))
-        else pure (void f)
+          pure (maybe (Left ft) Left shrunk)
+        else pure (Left ft)
   where
     runAndVerifyIsolated ::
       (MonadIO m, WebDriver m) =>
       Int ->
       Producer SelectedActionSequence (Runner m) () ->
-      Producer TestEvent (Runner m) (Either FailingTest (Trace TraceElementEffect))
+      Producer TestEvent (Runner m) (Either FailedTest (Trace TraceElementEffect))
     runAndVerifyIsolated n producer = do
       trace <- lift do
         opts <- asks checkOptions
@@ -212,22 +219,22 @@ runSingle spec size = do
           elementsToTrace (producer >-> runActions' spec)
       case verify spec (trace ^.. nonStutterStates) of
         Right Accepted -> pure (Right trace)
-        Right Rejected -> pure (Left (FailingTest n trace Nothing))
-        Left err -> pure (Left (FailingTest n trace (Just err)))
+        Right Rejected -> pure (Left (FailedTest n trace Nothing))
+        Left err -> pure (Left (FailedTest n trace (Just err)))
     runShrink (Shrink n actions') = do
       Pipes.yield (RunningShrink n)
       runAndVerifyIsolated n (Pipes.each actions')
 
 runAll :: (MonadIO m, WebDriver m, Specification spec) => CheckOptions -> spec -> Producer CheckEvent (Runner m) CheckResult
-runAll opts spec' = go (sizes opts `zip` [1 ..])
+runAll opts spec' = go mempty (sizes opts `zip` [1 ..])
   where
-    go :: (MonadIO m, WebDriver m) => [(Size, Int)] -> Producer CheckEvent (Runner m) CheckResult
-    go [] = pure CheckSuccess
-    go ((size, n) : rest) =
+    go :: (MonadIO m, WebDriver m) => Vector PassedTest -> [(Size, Int)] -> Producer CheckEvent (Runner m) CheckResult
+    go passed [] = pure (CheckSuccess passed)
+    go passed ((size, n) : rest) =
       (runSingle spec' size >-> Pipes.map CheckTestEvent)
         >>= \case
-          Right {} -> go rest
-          Left failingTest -> pure (CheckFailure n failingTest)
+          Right passedTest -> go (passed <> pure passedTest) rest
+          Left failingTest -> pure (CheckFailure n passed failingTest)
 
 sizes :: CheckOptions -> [Size]
 sizes CheckOptions {checkMaxActions = Size maxActions, checkTests} =

@@ -1,7 +1,7 @@
 module TodoMVC where
 
 import Quickstrom
-import Quickstrom.Spec (Action(..), BaseAction(..))
+import Quickstrom.Spec (Action(..), ActionSequence(..))
 import Data.Array (filter, foldMap, head, last, zip)
 import Data.Foldable (length)
 import Data.Int as Int

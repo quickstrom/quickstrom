@@ -195,15 +195,16 @@ definition in a specification module has the following type:
 
 .. code-block:: haskell
 
-   Array (Tuple Int Action)
+   Array (Tuple Int ActionSequence)
 
-It's an array of pairs, or tuples, where each pair holds a weight and an
-action specifier. The weight specifies the intended probability of the action
-being picked, relative to the other actions.
+It's an array of pairs, or tuples, where each pair holds a weight and a
+sequence of actions. The weight specifies the intended probability
+of the sequence being picked, relative to the other sequences.
 
-To illustrate, in the following array of actions, the probability of ``a1``
-being picked is 40%, while the others are at 20% each. This is assuming all
-actions are *possible* at each point an action is being picked.
+To illustrate, in the following array of action sequences, the probability of 
+``a1`` being picked is 40%, while the others are at 20% each. This is assuming 
+the first action in each sequence is *possible* at each point a sequence is being
+picked.
 
 .. code-block::
 
@@ -214,6 +215,24 @@ actions are *possible* at each point an action is being picked.
        Tuple 1 a4
      ]
 
+Action Sequences
+~~~~~~~~~~~~~~~~
+
+An action sequence is either a single action or a fixed sequence of actions:
+
+.. code-block:: haskell
+
+   data ActionSequence 
+      = Single Action 
+      | Sequence (Array Action)
+
+A sequence of actions is always performed in its entirety when picked, as
+long as the first action in the sequence is considered possible by the test
+runner.
+
+Actions
+~~~~~~~
+
 The ``Action`` data type is defined in the Quickstrom library, along with
 some aliases for common actions. For instance, here's the definition of
 ``foci``:
@@ -222,10 +241,29 @@ some aliases for common actions. For instance, here's the definition of
 
    -- | Generate focus actions on common focusable elements.
    foci :: Actions
-   foci = [ Tuple 1 (Focus "input"), Tuple 1 (Focus "textarea") ]
+   foci = 
+      [ Tuple 1 (Single (Focus "input"))
+      , Tuple 1 (Single (Focus "textarea"))
+      ]
 
 More action constructors and aliases should be introduced as Quickstrom
 evolves.
+
+Example
+~~~~~~~
+
+As an example of composing actions and sequences of actions, here's a
+collection of actions that try to log in and to click a buy button:
+
+.. code-block:: haskell
+
+   foci = 
+      [ Tuple 1 (Sequence [ Focus "input[type=password]"
+                          , EnterText "$ecr3tz"
+                          , Click "input[type=submit][name=log-in]"
+                          ])
+      , Tuple 1 (Single (Click "input[type=submit][name=buy]"))
+      ]
 
 .. note::
 

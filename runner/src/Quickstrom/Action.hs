@@ -13,7 +13,7 @@ import Quickstrom.Prelude
 data Selected = Selected Selector Int
   deriving (Eq, Show, Generic, ToJSON)
 
-data BaseAction sel
+data Action sel
   = Focus sel
   | KeyPress Char
   | EnterText Text
@@ -23,16 +23,16 @@ data BaseAction sel
   | Navigate Text
   deriving (Eq, Show, Generic, ToJSON)
 
-data ActionSum = Single (BaseAction Selector) | Sequence [(BaseAction Selector)]
+data ActionSequence = Single (Action Selector) | Sequence [(Action Selector)]
 
-type PotentialActionSequence = [BaseAction Selector]
-type SelectedActionSequence  = [BaseAction Selected]
+type PotentialActionSequence = [Action Selector]
+type SelectedActionSequence  = [Action Selected]
 
-actionSumToPotentialActionSeq :: ActionSum -> PotentialActionSequence
+actionSumToPotentialActionSeq :: ActionSequence -> PotentialActionSequence
 actionSumToPotentialActionSeq = \case
   Single ba -> [ba]
   Sequence s -> s
 
-actionSumsToPotentialActionSeqs :: Vector (Int, ActionSum) -> Vector (Int, PotentialActionSequence)
+actionSumsToPotentialActionSeqs :: Vector (Int, ActionSequence) -> Vector (Int, PotentialActionSequence)
 actionSumsToPotentialActionSeqs v =
   map (\(f,s) -> (f, actionSumToPotentialActionSeq s)) v

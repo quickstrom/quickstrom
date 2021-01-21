@@ -261,14 +261,14 @@ takeWhileChanging compare' = Pipes.await >>= loop
       if next `compare'` prev then pass else loop next
 
 observeManyStatesAfter :: (MonadIO m, WebDriver m) => Queries -> SelectedActionSequence -> Pipe a (TraceElement ()) (Runner m) ()
-observeManyStatesAfter queries' action = do
+observeManyStatesAfter queries' actionSequence = do
   CheckEnv {checkScripts = scripts, checkOptions = CheckOptions {checkMaxTrailingStateChanges, checkTrailingStateChangeTimeout}} <- lift ask
   lift (runCheckScript (registerNextStateObserver scripts checkTrailingStateChangeTimeout queries'))
-  result <- lift (runAction action)
+  result <- lift (runActionSequence actionSequence)
   lift (runCheckScript (awaitNextState scripts) `catchResponseError` const pass)
   newState <- lift (runCheckScript (observeState scripts queries'))
   screenshot <- pure <$> lift takeScreenshot
-  Pipes.yield (TraceAction () action result)
+  Pipes.yield (TraceAction () actionSequence result)
   Pipes.yield (TraceState () (ObservedState screenshot newState))
   nonStutters <-
     ( loop checkTrailingStateChangeTimeout
@@ -357,11 +357,11 @@ selectValidActionSeq pa = traverseRest (zip ((Data.List.replicate 1 False) ++ (c
           if (Data.List.length selected >= 1) && (Data.List.all isJust selected) then
             return $ Just (catMaybes selected)
           else return Nothing
-        (h:rest) -> (fmap (\e -> selected ++ [e]) (selectValidBaseAction h)) >>= (traverseRest rest)
+        (h:rest) -> (fmap (\e -> selected ++ [e]) (selectValidAction h)) >>= (traverseRest rest)
 
-selectValidBaseAction ::
-  (MonadIO m, WebDriver m) => (Bool, BaseAction Selector) -> Runner m (Maybe (BaseAction Selected))
-selectValidBaseAction (isSeqTail, possibleAction) =
+selectValidAction ::
+  (MonadIO m, WebDriver m) => (Bool, Action Selector) -> Runner m (Maybe (Action Selected))
+selectValidAction (isSeqTail, possibleAction) =
   case possibleAction of
     KeyPress k -> do
       active <- isActiveInput
@@ -378,9 +378,9 @@ selectValidBaseAction (isSeqTail, possibleAction) =
     selectOne ::
       (MonadIO m, WebDriver m) =>
       Selector ->
-      (Selected -> BaseAction Selected) ->
+      (Selected -> Action Selected) ->
       (Element -> (Runner m) Bool) ->
-      Runner m (Maybe (BaseAction Selected))
+      Runner m (Maybe (Action Selected))
     selectOne sel ctor isValid = do
       found <- findAll sel
       validChoices <-
@@ -430,8 +430,8 @@ focus =
     Just e -> tryAction (ActionSuccess <$ (elementSendKeys "" e))
     Nothing -> pure ActionImpossible
 
-runBaseAction :: (MonadIO m, WebDriver m) => BaseAction Selected -> Runner m ActionResult
-runBaseAction = \case
+runAction :: (MonadIO m, WebDriver m) => Action Selected -> Runner m ActionResult
+runAction = \case
   Focus s -> focus s
   KeyPress c -> sendKey c
   EnterText t -> sendKeys t
@@ -440,18 +440,18 @@ runBaseAction = \case
   AwaitWithTimeoutSecs i s -> awaitElement i s
   Navigate uri -> tryAction (ActionSuccess <$ navigateTo uri)
 
-runAction :: (MonadIO m, WebDriver m) => SelectedActionSequence -> Runner m ActionResult
-runAction = \case
+runActionSequence :: (MonadIO m, WebDriver m) => SelectedActionSequence -> Runner m ActionResult
+runActionSequence = \case
     [] -> do pure ActionImpossible
-    (h:[]) -> runBaseAction h
-    (h:t) -> recurse t $ runBaseAction h
+    (h:[]) -> runAction h
+    (h:t) -> recurse t $ runAction h
   where
     recurse t r =
       do res <- r
          case res of
            ActionFailed _ -> pure res
            ActionImpossible -> pure res
-           _ -> fmap identity $ runAction t
+           _ -> fmap identity $ runActionSequence t
 
 findSelected :: WebDriver m => Selected -> Runner m (Maybe Element)
 findSelected (Selected s i) =

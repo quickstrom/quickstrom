@@ -1,12 +1,12 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedLabels #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Quickstrom.TraceTest where
 
 import Control.Lens
-import qualified Quickstrom.Gen as Gen
 import Data.Generics.Labels ()
+import qualified Quickstrom.Gen as Gen
 import Quickstrom.Prelude
 import Quickstrom.Trace
 import Test.QuickCheck (Property, forAll, (===))

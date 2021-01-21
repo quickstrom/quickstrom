@@ -251,9 +251,10 @@ writeScreenshotFile reportDir s = do
     (Image.decodePng s)
 
 traceToTest :: MonadIO m => FilePath -> Quickstrom.Trace Quickstrom.TraceElementEffect -> m Test
-traceToTest reportDir trace' = traceToTransitions trace'
-  & traverse . traverse %%~ writeScreenshotFile reportDir
-  & fmap Test
+traceToTest reportDir trace' =
+  traceToTransitions trace'
+    & traverse . traverse %%~ writeScreenshotFile reportDir
+    & fmap Test
 
 getAssets :: MonadIO m => m (Maybe [(FilePath, ByteString)])
 getAssets = liftIO $ do

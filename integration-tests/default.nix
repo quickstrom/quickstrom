@@ -32,7 +32,7 @@ let
         webdriver_pid="$!"
         trap "kill $webdriver_pid" EXIT
 
-        quickstrom check ${spec} ${origin} ${options} --log-level=INFO --browser=${browser.name} --browser-binary="${browser.binary}" | tee $out/test-report.log
+        quickstrom --log-level=INFO check ${spec} ${origin} ${options} --browser=${browser.name} --browser-binary="${browser.binary}" | tee $out/test-report.log
         exit_code=$?
 
         if [ $exit_code == "${toString expectedExitCode}" ]; then

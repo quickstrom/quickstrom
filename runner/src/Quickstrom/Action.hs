@@ -1,12 +1,12 @@
 {-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Quickstrom.Action where
 
 import Data.Aeson (ToJSON)
-import Data.Vector (Vector)
 import qualified Data.List.NonEmpty as NonEmpty
+import Data.Vector (Vector)
 import GHC.Generics (Generic)
 import Quickstrom.Element
 import Quickstrom.Prelude
@@ -28,6 +28,7 @@ data ActionSequence sel = Single (Action sel) | Sequence (NonEmpty (Action sel))
   deriving (Eq, Show, Generic, ToJSON)
 
 type PotentialActionSequence = [Action Selector]
+
 type SelectedActionSequence = [Action Selected]
 
 actionSequenceToList :: ActionSequence sel -> [Action sel]

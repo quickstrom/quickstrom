@@ -58,10 +58,10 @@ instance Semigroup ObservedElementStates where
 instance Monoid ObservedElementStates where
   mempty = ObservedElementStates mempty
 
-data Position = Position { x :: Int, y :: Int, width :: Int, height :: Int }
+data Position = Position {x :: Int, y :: Int, width :: Int, height :: Int}
   deriving (Eq, Show, Generic, FromJSON, ToJSON)
 
-data ObservedElementState = ObservedElementState { element :: Element, position :: Maybe Position, elementState :: HashMap ElementState Value}
+data ObservedElementState = ObservedElementState {element :: Element, position :: Maybe Position, elementState :: HashMap ElementState Value}
   deriving (Show, Eq, Generic, FromJSON, ToJSON)
 
 data ObservedState = ObservedState {screenshot :: Maybe ByteString, elementStates :: ObservedElementStates}

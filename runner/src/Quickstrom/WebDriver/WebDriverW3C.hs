@@ -161,15 +161,26 @@ addCaps WebDriverOptions {webDriverBrowser = Chrome, webDriverBrowserBinary, web
            [ ( "goog:chromeOptions",
                JSON.Object
                  [ ("binary", JSON.String (maybe "/usr/bin/google-chrome" toS webDriverBrowserBinary)),
-                   ("args",
-                    (JSON.Array
-                      (Vector.fromList
-                       (map JSON.toJSON
-                        (["headless", "no-sandbox", "disable-gpu", "privileged"] ++
-                         (if (Set.null (Set.filter ((List.isPrefixOf "user-data-dir=") . Text.unpack)
-                                        webDriverAdditionalOptions)) then
-                            ["incognito"] else []) ++
-                         (Set.toList webDriverAdditionalOptions)))))
+                   ( "args",
+                     ( JSON.Array
+                         ( Vector.fromList
+                             ( map
+                                 JSON.toJSON
+                                 ( ["headless", "no-sandbox", "disable-gpu", "privileged"]
+                                     ++ ( if ( Set.null
+                                                 ( Set.filter
+                                                     ((List.isPrefixOf "user-data-dir=") . Text.unpack)
+                                                     webDriverAdditionalOptions
+                                                 )
+                                             )
+                                            then ["incognito"]
+                                            else []
+                                        )
+                                     ++ (Set.toList webDriverAdditionalOptions)
+                                 )
+                             )
+                         )
+                     )
                    )
                  ]
              ),

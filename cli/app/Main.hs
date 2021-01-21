@@ -3,8 +3,8 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedLabels #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -13,8 +13,8 @@
 module Main where
 
 import Control.Lens hiding (argument)
-import Data.Generics.Labels ()
 import Control.Monad.Catch (try)
+import Data.Generics.Labels ()
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text as Text
@@ -49,7 +49,11 @@ import qualified Text.URI as URI
 import Text.URI.Lens (uriScheme)
 import qualified Text.URI.QQ as URI
 
-data CLI = CLI {chosenCommand :: Command, libraryPath :: Maybe FilePath}
+data CLI = CLI
+  { chosenCommand :: Command,
+    libraryPath :: Maybe FilePath,
+    logLevel :: Quickstrom.LogLevel
+  }
 
 data Command = Check CheckOptions | Lint LintOptions
 
@@ -62,7 +66,6 @@ data CheckOptions = CheckOptions
     maxTrailingStateChanges :: Int,
     trailingStateChangeTimeout :: Word64,
     captureScreenshots :: Bool,
-    logLevel :: Quickstrom.LogLevel,
     browser :: Quickstrom.Browser,
     browserOptions :: Set Text,
     browserBinary :: Maybe FilePath,
@@ -132,14 +135,6 @@ checkOptionsParser =
     <*> switch
       ( long "capture-screenshots"
           <> help "Capture a screenshot at each state, and record the positions of queried elements"
-      )
-    <*> option
-      (eitherReader Quickstrom.parseLogLevel)
-      ( value Quickstrom.LogInfo
-          <> metavar "LEVEL"
-          <> long "log-level"
-          <> short 'l'
-          <> help "Log level used by Quickstrom and the backing WebDriver server (e.g. geckodriver)"
       )
     <*> option
       (eitherReader Quickstrom.parseBrowser)
@@ -221,6 +216,14 @@ cliParser =
                 <> help "Directory containing compiled PureScript libraries used by Quickstrom (falls back to the QUICKSTROM_LIBRARY_DIR environment variable)"
             )
         )
+    <*> option
+      (eitherReader Quickstrom.parseLogLevel)
+      ( value Quickstrom.LogInfo
+          <> metavar "LEVEL"
+          <> long "log-level"
+          <> short 'l'
+          <> help "Log level used by Quickstrom and the backing WebDriver server (e.g. geckodriver)"
+      )
   where
     cmds =
       subparser
@@ -289,13 +292,14 @@ main = do
 
           let chosenReporterNames = if null reporters then ["console"] else reporters
               chosenReporters = filter ((`elem` chosenReporterNames) . fst) (initializeReporters cOpts)
-          reporterPreCheckErrors <- concatMapM
-                ( \(name, r) ->
-                    Reporter.preCheck r wdOpts opts >>= \case
-                      Reporter.OK -> pure []
-                      Reporter.CannotBeInvoked reason -> pure [(name, reason)]
-                )
-                chosenReporters
+          reporterPreCheckErrors <-
+            concatMapM
+              ( \(name, r) ->
+                  Reporter.preCheck r wdOpts opts >>= \case
+                    Reporter.OK -> pure []
+                    Reporter.CannotBeInvoked reason -> pure [(name, reason)]
+              )
+              chosenReporters
           if not (null reporterPreCheckErrors)
             then do
               Quickstrom.logDoc . Quickstrom.logSingle (Just Quickstrom.LogError) . annotate (color Red) $
@@ -314,8 +318,18 @@ main = do
                     line <> "Check encountered an error:" <+> pretty (show err :: Text) <> line
               exitWithResult result
     Lint LintOptions {..} -> do
-      hPutStrLn stderr ("Lint is not implemented yet" :: Text)
-      liftIO (exitWith (ExitFailure 1))
+      specResult <- runExceptT $ do
+        modules <- ExceptT (Quickstrom.loadLibraryModules libPath)
+        ExceptT (Quickstrom.loadSpecificationFile modules specPath)
+      flip runReaderT logLevel $ case specResult of
+        Left err -> do
+          Quickstrom.logDoc . Quickstrom.logSingle Nothing . annotate (color Red) $ "Specification did not pass linting."
+          hPutStrLn @Text stderr err
+          liftIO (exitWith (ExitFailure 1))
+        Right _spec ->
+          -- TODO: some Quickstrom-specific linting, like checking actions, queries, etc.
+          -- Right now we only load and type-check the code.
+          Quickstrom.logDoc . Quickstrom.logSingle Nothing . annotate (color Green) $ "Specification passed linting."
 
 availableReporters :: (MonadIO m, MonadReader Quickstrom.LogLevel m) => [(Text, CheckOptions -> Reporter m)]
 availableReporters =
@@ -336,7 +350,7 @@ parseRunnerName s =
 
 exitWithResult :: MonadIO m => Either SomeException Quickstrom.CheckResult -> m ()
 exitWithResult = \case
-  Right Quickstrom.CheckSuccess{}->
+  Right Quickstrom.CheckSuccess {} ->
     pass
   Right Quickstrom.CheckFailure {} -> do
     liftIO (exitWith (ExitFailure 3))
@@ -437,6 +451,8 @@ renderList :: [Doc ann] -> Doc ann
 renderList = vsep . map (\x -> bullet <+> align x)
 
 ordinal :: (Pretty n, Integral n) => n -> Doc ann
+ordinal 11 = "11th"
+ordinal 12 = "12th"
 ordinal n =
   pretty n <> case n `rem` 10 of
     1 -> "st"

@@ -32,6 +32,9 @@ type Test = {
     transitions: Transition[];
 }
 
+type TestResult = "Passed" | "Failed";
+type TestWithResult = Test & { result: TestResult };
+
 type Transition = {
     actionSequence?: ActionSequence;
     states: { from: State, to: State };
@@ -133,7 +136,7 @@ function testViewerReducer(state: TestViewerState, action: UserAction) {
 }
 
 
-function PassedReport({ report }: { report: Report<Passed> }) {
+function TestsReport({ report }: { report: Report<Passed | Failed> }) {
     const [selectedTest, setSelectedTest] = useState<Test | null>(null);
     return <div className="report">
         <Header report={report} onTestSelect={setSelectedTest} />
@@ -154,14 +157,6 @@ function ErroredReport({ report }: { report: Report<Errored> }) {
     </div>;
 }
 
-
-function FailedReport({ report }: { report: Report<Failed> }) {
-    return <div className="report">
-        <Header report={report} />
-        <TestViewer test={report.result.failedTest} />
-        <Footer report={report} />
-    </div>;
-}
 
 function pluralize(n: number, term: string): string {
     return `${n} ${term}${n > 1 ? "s" : ""}`;
@@ -186,7 +181,7 @@ function Header({ report, onTestSelect }: { report: Report<Result>, onTestSelect
             case "Failed":
                 return <div class="summary failure">
                     <p>
-                        Failed on {cardinalize(report.result.passedTests.length + 1)} test and {pluralize(report.result.shrinkLevels, "level")} of
+                        Failed on {cardinalize(report.result.passedTests.length + 1)} test and after {pluralize(report.result.shrinkLevels, "level")} of
               shrinking
               {report.result.reason || "."}
                     </p>
@@ -202,14 +197,19 @@ function Header({ report, onTestSelect }: { report: Report<Result>, onTestSelect
         }
     }
 
-    const testsInResult = (result: Result) => {
+    function annotateTest(result: TestResult): (test: Test) => TestWithResult {
+        return (test => ({ ...test, result }));
+    }
+
+    function testsInResult(result: Result): TestWithResult[] {
         switch (result.tag) {
             case "Failed":
-                return result.passedTests.concat([result.failedTest]);
+                return result.passedTests.map(annotateTest("Passed"))
+                    .concat([annotateTest("Failed")(result.failedTest)]);
             case "Errored":
                 return [];
             case "Passed":
-                return result.passedTests;
+                return result.passedTests.map(annotateTest("Passed"));
         }
     }
 
@@ -217,7 +217,7 @@ function Header({ report, onTestSelect }: { report: Report<Result>, onTestSelect
     const initial = tests[tests.length - 1];
 
     useEffect(() => {
-        onTestSelect(initial);
+        onTestSelect && onTestSelect(initial);
     }, []);
 
     return (
@@ -231,7 +231,7 @@ function Header({ report, onTestSelect }: { report: Report<Result>, onTestSelect
                     <select onChange={e => onTestSelect(tests[(e.target as HTMLSelectElement).selectedIndex])}>
                         {tests.map((test, i) => (
                             <option value={i} selected={test === initial}>
-                                Test {i + 1} ({test.transitions.length} transitions)
+                                Test {i + 1} ({test.result})
                             </option>
                         ))}
                     </select>
@@ -461,11 +461,11 @@ function excludeStutters(report: Report<Failed>): Report<Failed> {
 function App({ report }: { report: Report<Result> }) {
     switch (report.result.tag) {
         case "Passed":
-            return <PassedReport report={report as Report<Passed>} />;
+            return <TestsReport report={report as Report<Passed>} />;
         case "Errored":
             return <ErroredReport report={report as Report<Errored>} />;
         case "Failed":
-            return <FailedReport report={excludeStutters(report as Report<Failed>)} />;
+            return <TestsReport report={excludeStutters(report as Report<Failed>)} />;
     }
 }
 

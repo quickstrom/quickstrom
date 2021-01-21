@@ -28,7 +28,7 @@ import Test.Tasty.Hspec hiding (Selector)
 spec_htmlReporter :: Spec
 spec_htmlReporter =
   it "parses the trace as transitions" $
-    property $ \(Transitions expected) ->
+    property $ \(TestTransitions expected) ->
       let trace' = toTrace expected
           actual = traceToTransitions trace'
        in sortTransitions actual `ediffEq` sortTransitions expected
@@ -62,7 +62,7 @@ toTransition (Transition action' (States _ to') _) =
   maybe [] (pure . toActionElement) action'
     <> [toStateElement to']
 
-toActionElement :: Quickstrom.SelectedActionSequence -> Quickstrom.TraceElement Quickstrom.TraceElementEffect
+toActionElement :: Quickstrom.ActionSequence Quickstrom.Selected -> Quickstrom.TraceElement Quickstrom.TraceElementEffect
 toActionElement a = Quickstrom.TraceAction Quickstrom.NoStutter a Quickstrom.ActionSuccess
 
 toStateElement :: State ByteString -> Quickstrom.TraceElement Quickstrom.TraceElementEffect
@@ -91,14 +91,14 @@ toObservedElementState element' =
   where
     toPair (ElementStateValue state' value' _) = (state', value')
 
-newtype Transitions = Transitions (Vector (Transition ByteString))
+newtype TestTransitions = TestTransitions (Vector (Transition ByteString))
   deriving (Eq, Show)
 
-instance Arbitrary Transitions where
-  arbitrary = Transitions <$> genTransitions
-  shrink (Transitions txs) =
+instance Arbitrary TestTransitions where
+  arbitrary = TestTransitions <$> genTransitions
+  shrink (TestTransitions txs) =
     map
-      (Transitions . Vector.fromList)
+      (TestTransitions . Vector.fromList)
       (shrinkList shrinkNothing (Vector.toList txs))
 
 genTransitions :: Gen (Vector (Transition ByteString))
@@ -110,7 +110,7 @@ genTransitions = do
 genTransitionFrom :: State ByteString -> Gen (Transition ByteString)
 genTransitionFrom from' =
   Transition
-    <$> Gen.oneof [Just <$> genAction, pure Nothing]
+    <$> Gen.oneof [Just <$> genActionSequence, pure Nothing]
     <*> (States from' <$> genState)
     <*> pure False
 
@@ -129,8 +129,8 @@ genPosition = Quickstrom.Position <$> genNat <*> genNat <*> genNat <*> genNat
 genNat :: Gen Int
 genNat = getPositive <$> arbitrary
 
-genAction :: Gen Quickstrom.SelectedActionSequence
-genAction = pure [(Quickstrom.KeyPress 'a')]
+genActionSequence :: Gen (Quickstrom.ActionSequence Quickstrom.Selected)
+genActionSequence = pure (Quickstrom.Single (Quickstrom.KeyPress 'a'))
 
 identifier :: [Char] -> Gen Text
 identifier prefix = Text.pack . (prefix <>) . show <$> arbitrary @Word
@@ -162,6 +162,8 @@ instance ToExpr Diff
 instance ToExpr Quickstrom.ElementState
 
 instance ToExpr ElementStateValue
+
+instance ToExpr s => ToExpr (Quickstrom.ActionSequence s)
 
 instance ToExpr s => ToExpr (Quickstrom.Action s)
 

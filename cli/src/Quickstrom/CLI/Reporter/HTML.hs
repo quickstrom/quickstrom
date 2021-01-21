@@ -1,8 +1,8 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -12,9 +12,9 @@
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PackageImports #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Quickstrom.CLI.Reporter.HTML where
@@ -35,36 +35,45 @@ import Data.Text.Prettyprint.Doc (pretty, (<+>))
 import qualified Data.Time.Clock as Time
 import Data.Vector (Vector)
 import qualified Data.Vector as Vector
-import qualified Quickstrom.CLI.Reporter as Quickstrom
 import qualified Quickstrom.Action as Quickstrom
+import qualified Quickstrom.CLI.Reporter as Quickstrom
 import qualified Quickstrom.Element as Quickstrom
 import qualified Quickstrom.LogLevel as Quickstrom
 import Quickstrom.Prelude hiding (State, uncons)
 import qualified Quickstrom.Run as Quickstrom
 import qualified Quickstrom.Trace as Quickstrom
+import qualified System.Directory as Directory
 import System.Environment (getEnv)
 import System.FilePath ((</>))
-import qualified System.Directory as Directory
 
 data Report = Report
   { generatedAt :: Time.UTCTime,
-    summary :: Summary,
-    transitions :: Maybe (Vector (Transition FileScreenshot))
+    result :: Result
   }
   deriving (Eq, Show, Generic, JSON.ToJSON)
 
-data Summary
-  = Success {tests :: Int}
-  | Failure {tests :: Int, shrinkLevels :: Int, reason :: Maybe Text}
-  | Error {error :: Text, tests :: Int}
+data Result
+  = Passed {passedTests :: Vector Test}
+  | Failed
+      { shrinkLevels :: Int,
+        reason :: Maybe Text,
+        passedTests :: Vector Test,
+        failedTest :: Test
+      }
+  | Errored {error :: Text, tests :: Int}
+  deriving (Eq, Show, Generic, JSON.ToJSON)
+
+data Test = Test {transitions :: Transitions}
   deriving (Eq, Show, Generic, JSON.ToJSON)
 
 data Transition screenshot = Transition
-  { action :: Maybe Quickstrom.SelectedActionSequence,
+  { actionSequence :: Maybe (Quickstrom.ActionSequence Quickstrom.Selected),
     states :: States screenshot,
     stutter :: Bool
   }
   deriving (Eq, Show, Generic, JSON.ToJSON, Functor, Foldable, Traversable)
+
+type Transitions = Vector (Transition FileScreenshot)
 
 data States screenshot = States {from :: State screenshot, to :: State screenshot}
   deriving (Eq, Show, Generic, JSON.ToJSON, Functor, Foldable, Traversable)
@@ -139,31 +148,31 @@ htmlReporter reportDir = Quickstrom.Reporter {preCheck, report}
         throwIO (HTMLReporterException "File or directory already exists, refusing to overwrite!")
 
       liftIO (Directory.createDirectoryIfMissing True reportDir)
-      (summary, transitions) <- case result of
-        Quickstrom.CheckFailure {Quickstrom.failedAfter, Quickstrom.failingTest} -> do
-          let transitions = traceToTransitions (Quickstrom.trace failingTest)
+      reportResult <- case result of
+        Quickstrom.CheckFailure {Quickstrom.passedTests, Quickstrom.failedTest} -> do
+          passedTests' <- traverse (traceToTest reportDir . view #trace) passedTests
+          failedTest' <- traceToTest reportDir (failedTest ^. #trace)
           pure
-            ( Failure
-                { tests = failedAfter,
-                  shrinkLevels = Quickstrom.numShrinks failingTest,
-                  reason = Quickstrom.reason failingTest
-                },
-              Just transitions
-            )
+            Failed
+              { shrinkLevels = Quickstrom.numShrinks failedTest,
+                reason = Quickstrom.reason failedTest,
+                passedTests = passedTests',
+                failedTest = failedTest'
+              }
         Quickstrom.CheckError {Quickstrom.checkError} -> do
-          pure (Error {error = checkError, tests = Quickstrom.checkTests checkOpts}, Nothing)
-        Quickstrom.CheckSuccess -> pure (Success {tests = Quickstrom.checkTests checkOpts}, Nothing)
+          pure Errored {error = checkError, tests = Quickstrom.checkTests checkOpts}
+        Quickstrom.CheckSuccess {passedTests} -> do
+          passedTests' <- traverse (traceToTest reportDir . view #trace) passedTests
+          pure Passed {passedTests = passedTests'}
       let reportFile = reportDir </> "report.jsonp.js"
-      transitions & traverse . traverse . traverse %%~ writeScreenshotFile reportDir >>= \case
-        transitionsWithScreenshots -> do
-          let json = JSON.encode (Report now summary transitionsWithScreenshots)
-          liftIO $ do
-            BS.writeFile reportFile (Text.encodeUtf8 "window.report = " <> LBS.toStrict json)
-            getAssets >>= \case
-              Just assets | not (null assets) ->
-                for_ assets $ \(name, contents) ->
-                  BS.writeFile (reportDir </> name) contents
-              _ -> throwIO (HTMLReporterException "HTML report assets not found.")
+          json = JSON.encode (Report now reportResult)
+      liftIO $ do
+        BS.writeFile reportFile (Text.encodeUtf8 "window.report = " <> LBS.toStrict json)
+        getAssets >>= \case
+          Just assets | not (null assets) ->
+            for_ assets $ \(name, contents) ->
+              BS.writeFile (reportDir </> name) contents
+          _ -> throwIO (HTMLReporterException "HTML report assets not found.")
 
 encodeScreenshot :: ByteString -> Either Text Base64Screenshot
 encodeScreenshot b =
@@ -240,6 +249,11 @@ writeScreenshotFile reportDir s = do
     (throwIO . ScreenshotFileException . toS)
     (pure . Image.dynamicMap (\i -> FileScreenshot fileName (Image.imageWidth i) (Image.imageHeight i)))
     (Image.decodePng s)
+
+traceToTest :: MonadIO m => FilePath -> Quickstrom.Trace Quickstrom.TraceElementEffect -> m Test
+traceToTest reportDir trace' = traceToTransitions trace'
+  & traverse . traverse %%~ writeScreenshotFile reportDir
+  & fmap Test
 
 getAssets :: MonadIO m => m (Maybe [(FilePath, ByteString)])
 getAssets = liftIO $ do

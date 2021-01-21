@@ -36,6 +36,18 @@ footer {
     font-size: 0.875rem;
 }
 
+header {
+    display: flex;
+    align-items: center;
+}
+
+header .header-summary {
+    flex: 1 1 auto;
+}
+header .controls {
+    flex: 0 0 auto;
+}
+
 header h1 {
     margin: 0 0 1rem;
     font-size: 150%;
@@ -91,60 +103,65 @@ main .controls button:active {
     background: #2f2f2f;
 }
 
-.action, .states, .screenshots, .details {
+.action-sequence, .action, .states, .screenshots, .details {
     width: 100%;
     display: flex;
 }
 
-.action {
+.action-sequence {
     flex-direction: column;
     align-items: center;
     color: #fff;
 }
 
-.label {
+.action-sequence {
+    width: calc(100%/6 * 3);
+    margin: 2rem calc(100%/6 * 1.5) 1rem;
+    border-top: 1px solid #666;
+    border-left: 1px solid #666;
+    border-right: 1px solid #666;
+}
+
+.action-sequence .label {
+    margin: -2rem 0 0;
+    line-height: 1rem;
+    background: #222;
     display: block;
     text-transform: uppercase;
     font-size: .75rem;
     color: #999;
 }
 
-.action-inner {
+.action-sequence-inner {
     width: calc(100%/6 * 3);
     text-align: center;
     margin-top: 1.5rem;
 }
-.action .action-details {
-    min-height: 6rem;
-    border-top: 1px solid #666;
-    border-left: 1px solid #666;
-    border-right: 1px solid #666;
+.action-details h2 {
+    font-size: 150%;
+    margin: 1em 0 0 0;
 }
-.action .label {
-    margin-bottom: 1.5rem;
-}
-.action h2 {
-    font-size: 200%;
-    line-height: 2rem;
-    margin: -1rem 0 1rem 0;
-}
-.action .name {
+.action-details .name {
     display: inline-block;
     background: #222;
     padding: 0 1rem;
 }
-.action .name.none {
+.action-details .name.none {
     color: #666;
 }
-.action .selector {
+.action-details .text,
+.action-details .selector {
+    margin: .5em 0;
+}
+.action-details .selector {
     white-space: nowrap;
     font-family: 'Monaco', 'Consolas', 'Ubuntu Mono', monospace;
-    margin: .25rem 0;
+    margin: .5em 0;
 }
-.action .selected-index {
+.action-details .selected-index {
     font-weight: bold;
 }
-.action .key {
+.action-details .key {
     display: inline-block;
     padding: .5em .8em;
     background: #666;

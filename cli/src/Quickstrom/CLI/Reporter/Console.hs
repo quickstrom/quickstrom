@@ -3,11 +3,12 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedLabels #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Quickstrom.CLI.Reporter.Console where
 
+import Control.Lens
 import Data.Generics.Labels ()
 import Data.Text.Prettyprint.Doc (annotate, line, pretty, (<+>))
 import Prettyprinter.Render.Terminal (Color (..), color)
@@ -22,21 +23,21 @@ consoleReporter :: (MonadReader Quickstrom.LogLevel m, MonadIO m) => Quickstrom.
 consoleReporter =
   Quickstrom.Reporter
     { Quickstrom.preCheck = \_ _ -> pure Quickstrom.OK,
-      Quickstrom.report = \_ checkOpts result ->
+      Quickstrom.report = \_ _ result ->
         case result of
-          Quickstrom.CheckFailure {Quickstrom.failedAfter, Quickstrom.failingTest} -> do
-            let trace' = Quickstrom.trace failingTest
+          Quickstrom.CheckFailure {Quickstrom.failedAfter, Quickstrom.failedTest} -> do
+            let trace' = failedTest ^. #trace
             Quickstrom.logDoc (Quickstrom.logSingle Nothing (Quickstrom.prettyTrace trace'))
-            case Quickstrom.reason failingTest of
+            case Quickstrom.reason failedTest of
               Just err -> Quickstrom.logDoc (Quickstrom.logSingle Nothing (line <> annotate (color Red) ("Test failed with error:" <+> pretty err <> line)))
               Nothing -> pure ()
             Quickstrom.logDoc . Quickstrom.logSingle Nothing . annotate (color Red) $
-              line <> "Failed after" <+> pretty failedAfter <+> "tests and" <+> pretty (Quickstrom.numShrinks failingTest) <+> "levels of shrinking." <> line
+              line <> "Failed after" <+> pretty failedAfter <+> "tests and" <+> pretty (Quickstrom.numShrinks failedTest) <+> "levels of shrinking." <> line
           Quickstrom.CheckError {Quickstrom.checkError} -> do
             Quickstrom.logDoc . Quickstrom.logSingle Nothing . annotate (color Red) $
               line <> "Check encountered an error:" <+> pretty checkError <> line
-          Quickstrom.CheckSuccess ->
+          Quickstrom.CheckSuccess{ Quickstrom.passedTests } ->
             Quickstrom.logDoc . Quickstrom.logSingle Nothing . annotate (color Green) $
-              line <> "Passed" <+> pretty (Quickstrom.checkTests checkOpts) <+> "tests." <> line
+              line <> "Passed" <+> pretty (length passedTests) <+> "tests." <> line
     }
   where

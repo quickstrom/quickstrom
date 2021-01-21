@@ -194,7 +194,7 @@ loadProgram ms input = runExceptT $ do
 
 data SpecificationProgram = SpecificationProgram
   { specificationReadyWhen :: Quickstrom.Selector,
-    specificationActions :: Vector (Int, Quickstrom.PotentialActionSequence),
+    specificationActions :: Vector (Int, Quickstrom.ActionSequence Quickstrom.Selector),
     specificationQueries :: Quickstrom.Queries,
     specificationProgram :: Program WithObservedStates
   }
@@ -224,7 +224,7 @@ loadSpecification ms input = runExceptT $ do
     pure
       ( SpecificationProgram
           { specificationReadyWhen = Quickstrom.Selector readyWhen,
-            specificationActions = Quickstrom.actionSequencesToPotentialActionSeqs actions,
+            specificationActions = actions,
             specificationQueries = queries,
             specificationProgram = p
           }

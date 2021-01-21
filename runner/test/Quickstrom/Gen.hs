@@ -33,8 +33,8 @@ selectedAction =
       Click <$> selected
     ]
 
-selectedActionSequence :: Gen SelectedActionSequence
-selectedActionSequence = listOf1 selectedAction
+selectedActionSequence :: Gen (ActionSequence Selected)
+selectedActionSequence = Single <$> selectedAction
 
 actionResult :: Gen ActionResult
 actionResult = oneof [pure ActionSuccess, pure (ActionFailed "failed"), pure ActionImpossible]

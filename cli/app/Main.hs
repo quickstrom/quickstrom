@@ -336,7 +336,7 @@ parseRunnerName s =
 
 exitWithResult :: MonadIO m => Either SomeException Quickstrom.CheckResult -> m ()
 exitWithResult = \case
-  Right Quickstrom.CheckSuccess ->
+  Right Quickstrom.CheckSuccess{}->
     pass
   Right Quickstrom.CheckFailure {} -> do
     liftIO (exitWith (ExitFailure 3))
@@ -389,7 +389,7 @@ renderTestEvent = \case
         <> divider
         <> line
         <> line
-        <> annotate bold (renderSize size <+> "ActionSequence")
+        <> annotate bold (renderSize size <+> "actions")
   Quickstrom.TestPassed size trace' ->
     case traceWarnings size trace' of
       [] ->

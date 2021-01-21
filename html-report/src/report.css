@@ -36,6 +36,18 @@ footer {
     font-size: 0.875rem;
 }
 
+header {
+    display: flex;
+    align-items: center;
+}
+
+header .header-summary {
+    flex: 1 1 auto;
+}
+header .controls {
+    flex: 0 0 auto;
+}
+
 header h1 {
     margin: 0 0 1rem;
     font-size: 150%;

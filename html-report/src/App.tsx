@@ -1,6 +1,6 @@
 import { h, FunctionComponent } from 'preact';
 import Preact from 'preact';
-import { useReducer, useState, StateUpdater } from "preact/hooks";
+import { useReducer, useState, StateUpdater, useEffect } from "preact/hooks";
 
 export type Report<R> = {
     generatedAt: string;
@@ -98,8 +98,8 @@ type ActionSequence =
     { tag: "Single", contents: Action }
     | { tag: "Sequence", contents: Action[] };
 
-type AppState<R> = {
-    report: Report<R>,
+type TestViewerState = {
+    test: Test,
     index: number;
     current: Transition;
 };
@@ -110,10 +110,10 @@ type UserAction =
     ;
 
 
-function reportReducer(state: AppState<Failed>, action: UserAction) {
+function testViewerReducer(state: TestViewerState, action: UserAction) {
     if (action.tag === "previous") {
         const newIndex = state.index - 1;
-        const newCurrent = state.report.result.failedTest.transitions[newIndex];
+        const newCurrent = state.test.transitions[newIndex];
         if (newCurrent) {
             return { ...state, index: newIndex, current: newCurrent };
         } else {
@@ -121,7 +121,7 @@ function reportReducer(state: AppState<Failed>, action: UserAction) {
         }
     } else if (action.tag === "next") {
         const newIndex = state.index + 1;
-        const newCurrent = state.report.result.failedTest.transitions[newIndex];
+        const newCurrent = state.test.transitions[newIndex];
         if (newCurrent) {
             return { ...state, index: newIndex, current: newCurrent };
         } else {
@@ -134,9 +134,10 @@ function reportReducer(state: AppState<Failed>, action: UserAction) {
 
 
 function PassedReport({ report }: { report: Report<Passed> }) {
+    const [selectedTest, setSelectedTest] = useState<Test | null>(null);
     return <div className="report">
-        <Header report={report} />
-        <main />
+        <Header report={report} onTestSelect={setSelectedTest} />
+        {selectedTest && <TestViewer test={selectedTest} />}
         <Footer report={report} />
     </div>;
 }
@@ -155,10 +156,9 @@ function ErroredReport({ report }: { report: Report<Errored> }) {
 
 
 function FailedReport({ report }: { report: Report<Failed> }) {
-    const [state, dispatch] = useReducer(reportReducer, { current: report.result.failedTest.transitions[0], index: 0, report });
     return <div className="report">
         <Header report={report} />
-        <Transition state={state} dispatch={dispatch} />
+        <TestViewer test={report.result.failedTest} />
         <Footer report={report} />
     </div>;
 }
@@ -180,7 +180,7 @@ function cardinalize(n: number): string {
     }
 }
 
-function Header({ report }: { report: Report<Result> }) {
+function Header({ report, onTestSelect }: { report: Report<Result>, onTestSelect?: (test: Test) => void }) {
     const Summary: FunctionComponent = () => {
         switch (report.result.tag) {
             case "Failed":
@@ -200,13 +200,45 @@ function Header({ report }: { report: Report<Result> }) {
             default:
                 return null;
         }
-
     }
 
-    return <header>
-        <h1>Quickstrom Test Report</h1>
-        <Summary />
-    </header>;
+    const testsInResult = (result: Result) => {
+        switch (result.tag) {
+            case "Failed":
+                return result.passedTests.concat([result.failedTest]);
+            case "Errored":
+                return [];
+            case "Passed":
+                return result.passedTests;
+        }
+    }
+
+    const tests = testsInResult(report.result);
+    const initial = tests[tests.length - 1];
+
+    useEffect(() => {
+        onTestSelect(initial);
+    }, []);
+
+    return (
+        <header>
+            <div className="header-summary">
+                <h1>Quickstrom Test Report</h1>
+                <Summary />
+            </div>
+            <nav className="controls">
+                {onTestSelect &&
+                    <select onChange={e => onTestSelect(tests[(e.target as HTMLSelectElement).selectedIndex])}>
+                        {tests.map((test, i) => (
+                            <option value={i} selected={test === initial}>
+                                Test {i + 1} ({test.transitions.length} transitions)
+                            </option>
+                        ))}
+                    </select>
+                }
+            </nav>
+        </header>
+    );
 }
 
 function Footer({ report }: { report: Report<Result> }) {
@@ -215,7 +247,8 @@ function Footer({ report }: { report: Report<Result> }) {
   </footer>;
 }
 
-const Transition: FunctionComponent<{ state: AppState<Failed>, dispatch: (action: UserAction) => void }> = ({ state, dispatch }) => {
+const TestViewer: FunctionComponent<{ test: Test }> = ({ test }) => {
+    const [state, dispatch] = useReducer(testViewerReducer, { current: test.transitions[0], index: 0, test });
     const [selectedElement, setSelectedElement] = useState<QueriedElement | null>(null);
     const transition = state.current;
     return <main>
@@ -242,7 +275,7 @@ const Transition: FunctionComponent<{ state: AppState<Failed>, dispatch: (action
             </section>
         </section>
         <section class="controls">
-            <button disabled={state.index === (state.report.result.failedTest.transitions.length - 1)} onClick={() => dispatch({ tag: "next" })}>→</button>
+            <button disabled={state.index === (state.test.transitions.length - 1)} onClick={() => dispatch({ tag: "next" })}>→</button>
         </section>
     </main>
         ;
@@ -419,7 +452,7 @@ function excludeStutters(report: Report<Failed>): Report<Failed> {
         result: {
             ...report.result,
             failedTest: {
-                transitions: report.result.failedTest.transitions.filter(t => !t.stutter || !!t.action)
+                transitions: report.result.failedTest.transitions.filter(t => !t.stutter || !!t.actionSequence)
             },
         },
     };

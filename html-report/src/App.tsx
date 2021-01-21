@@ -162,7 +162,7 @@ function pluralize(n: number, term: string): string {
     return `${n} ${term}${n > 1 ? "s" : ""}`;
 }
 
-function cardinalize(n: number): string {
+function ordinal(n: number): string {
     switch (n) {
         case 11: return "11th";
         case 12: return "12th";
@@ -181,7 +181,7 @@ function Header({ report, onTestSelect }: { report: Report<Result>, onTestSelect
             case "Failed":
                 return <div class="summary failure">
                     <p>
-                        Failed on {cardinalize(report.result.passedTests.length + 1)} test and after {pluralize(report.result.shrinkLevels, "level")} of
+                        Failed on {ordinal(report.result.passedTests.length + 1)} test and after {pluralize(report.result.shrinkLevels, "level")} of
               shrinking
               {report.result.reason || "."}
                     </p>

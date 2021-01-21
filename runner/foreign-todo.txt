@@ -152,7 +152,6 @@
 .spago/strings/v4.0.1/src/Data/String/Regex.purs:foreign import replace' :: Regex -> (String -> Array String -> String) -> String -> String
 .spago/strings/v4.0.1/src/Data/String/Regex.purs:foreign import _search
 .spago/strings/v4.0.1/src/Data/String/Regex.purs:foreign import split :: Regex -> String -> Array String
-.spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import singleton :: Char -> String
 .spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import fromCharArray :: Array Char -> String
 .spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import toCharArray :: String -> Array Char
 .spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import _charAt
@@ -168,11 +167,9 @@
 .spago/strings/v4.0.1/src/Data/String/CodeUnits.purs:foreign import splitAt :: Int -> String -> { before :: String, after :: String }
 .spago/strings/v4.0.1/src/Data/String/Common.purs:foreign import _localeCompare
 .spago/strings/v4.0.1/src/Data/String/Common.purs:foreign import replaceAll :: Pattern -> Replacement -> String -> String
-.spago/strings/v4.0.1/src/Data/String/CodePoints.purs:foreign import _singleton
 .spago/strings/v4.0.1/src/Data/String/CodePoints.purs:foreign import _fromCodePointArray
 .spago/strings/v4.0.1/src/Data/String/CodePoints.purs:foreign import _codePointAt
 .spago/strings/v4.0.1/src/Data/String/CodePoints.purs:foreign import _countPrefix
-.spago/strings/v4.0.1/src/Data/String/CodePoints.purs:foreign import _take :: (Int -> String -> String) -> Int -> String -> String
 .spago/arrays/v5.3.1/src/Data/Array/NonEmpty/Internal.purs:foreign import fold1Impl :: forall a. (a -> a -> a) -> NonEmptyArray a -> a
 .spago/arrays/v5.3.1/src/Data/Array/NonEmpty/Internal.purs:foreign import traverse1Impl
 .spago/arrays/v5.3.1/src/Data/Array/ST/Partial.purs:foreign import peekImpl :: forall h a. Int -> STArray h a -> ST h a

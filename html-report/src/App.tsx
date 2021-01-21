@@ -2,19 +2,19 @@ import { h, FunctionComponent } from 'preact';
 import Preact from 'preact';
 import { useReducer, useState, StateUpdater } from "preact/hooks";
 
-type Report<R> = {
+export type Report<R> = {
     generatedAt: string;
     result: R;
 };
 
-type Result = Failed | Passed | Errored;
+export type Result = Failed | Passed | Errored;
 
-type Passed = {
+export type Passed = {
     tag: "Passed";
     passedTests: Test[];
 };
 
-type Failed = {
+export type Failed = {
     tag: "Failed";
     shrinkLevels: number;
     reason?: string;
@@ -22,7 +22,7 @@ type Failed = {
     failedTest: Test;
 };
 
-type Errored = {
+export type Errored = {
     tag: "Errored";
     error: string;
     tests: number;
@@ -33,7 +33,7 @@ type Test = {
 }
 
 type Transition = {
-    action?: Action;
+    action?: ActionSequence;
     states: { from: State, to: State };
     stutter: boolean;
 };
@@ -93,6 +93,8 @@ type Action =
     | { tag: "EnterText", contents: string }
     | { tag: "Click", contents: [string, number] }
     | { tag: "Navigate", contents: string };
+
+type ActionSequence = Action[];
 
 type AppState<R> = {
     report: Report<R>,
@@ -219,7 +221,7 @@ const Transition: FunctionComponent<{ state: AppState<Failed>, dispatch: (action
             <button disabled={state.index === 0} onClick={() => dispatch({ tag: "previous" })}>←</button>
         </section>
         <section class="content">
-            <Action action={transition.action} />
+            <Action actionSequence={transition.action} />
             <section class="states">
                 <State number={state.index + 1} extraClass="from" label="From" />
                 <State number={state.index + 2} extraClass="to" label="To" />
@@ -244,14 +246,14 @@ const Transition: FunctionComponent<{ state: AppState<Failed>, dispatch: (action
         ;
 }
 
-const Action: FunctionComponent<{ action?: Action }> = ({ action }) => {
+const Action: FunctionComponent<{ actionSequence?: ActionSequence }> = ({ actionSequence }) => {
     function renderKey(key: string) {
         switch (key) {
             case "\ue006": return <span>⏎</span>;
             default: return <span>{key}</span>;
         }
     }
-    function renderDetails() {
+    function renderDetails(action: Action) {
         function selector(sel: [string, number]) {
             return (
                 <div>
@@ -293,11 +295,16 @@ const Action: FunctionComponent<{ action?: Action }> = ({ action }) => {
     }
 
     return (
-        <section class="action">
-            <div class="action-inner">
-                <div class="label">Action</div>
-                {renderDetails()}
-            </div>
+        <section class="action-sequence">
+            {(actionSequence || []).map((action: Action) =>
+                <div class="action">
+                    <div class="action-inner">
+                        <div class="label">Action</div>
+                        {renderDetails(action)}
+                    </div>
+                </div>
+
+            )}
         </section>
     );
 }
@@ -407,11 +414,7 @@ function excludeStutters(report: Report<Failed>): Report<Failed> {
     };
 }
 
-function App() {
-    const report: Report<Result> = 
-        // @ts-ignore
-        window.report;
-
+function App({ report }: { report: Report<Result>}) {
     switch (report.result.tag) {
         case "Passed":
             return <PassedReport report={report as Report<Passed>} />;

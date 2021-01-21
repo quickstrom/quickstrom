@@ -1,0 +1,276 @@
+{
+    "result": {
+        "tag": "Failed",
+        "failedTest": {
+            "transitions": [
+                {
+                    "states": {
+                        "to": {
+                            "screenshot": {
+                                "height": 600,
+                                "url": "screenshot--7673827065254758842.png",
+                                "width": 800
+                            },
+                            "queries": [
+                                {
+                                    "selector": ".time-display",
+                                    "elements": [
+                                        {
+                                            "state": [
+                                                {
+                                                    "diff": "Identical",
+                                                    "value": "00:00",
+                                                    "elementState": {
+                                                        "tag": "property",
+                                                        "name": "textContent"
+                                                    }
+                                                }
+                                            ],
+                                            "id": "f70a359b-cc18-429c-9819-75854fe92a8d",
+                                            "position": {
+                                                "height": 17,
+                                                "width": 36,
+                                                "x": 8,
+                                                "y": 8
+                                            }
+                                        }
+                                    ]
+                                },
+                                {
+                                    "selector": ".play-pause",
+                                    "elements": [
+                                        {
+                                            "state": [
+                                                {
+                                                    "diff": "Identical",
+                                                    "value": "Play",
+                                                    "elementState": {
+                                                        "tag": "property",
+                                                        "name": "textContent"
+                                                    }
+                                                }
+                                            ],
+                                            "id": "e619b268-7e3c-49fe-acfb-5c5b89aa8eb6",
+                                            "position": {
+                                                "height": 21,
+                                                "width": 42,
+                                                "x": 8,
+                                                "y": 26
+                                            }
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        "from": {
+                            "screenshot": {
+                                "height": 600,
+                                "url": "screenshot-7813042498166306094.png",
+                                "width": 800
+                            },
+                            "queries": [
+                                {
+                                    "selector": ".time-display",
+                                    "elements": [
+                                        {
+                                            "state": [
+                                                {
+                                                    "diff": "Identical",
+                                                    "value": "00:00",
+                                                    "elementState": {
+                                                        "tag": "property",
+                                                        "name": "textContent"
+                                                    }
+                                                }
+                                            ],
+                                            "id": "f70a359b-cc18-429c-9819-75854fe92a8d",
+                                            "position": {
+                                                "height": 17,
+                                                "width": 36,
+                                                "x": 8,
+                                                "y": 8
+                                            }
+                                        }
+                                    ]
+                                },
+                                {
+                                    "selector": ".play-pause",
+                                    "elements": [
+                                        {
+                                            "state": [
+                                                {
+                                                    "diff": "Identical",
+                                                    "value": "Play",
+                                                    "elementState": {
+                                                        "tag": "property",
+                                                        "name": "textContent"
+                                                    }
+                                                }
+                                            ],
+                                            "id": "e619b268-7e3c-49fe-acfb-5c5b89aa8eb6",
+                                            "position": {
+                                                "height": 21,
+                                                "width": 42,
+                                                "x": 8,
+                                                "y": 26
+                                            }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    },
+                    "stutter": true,
+                    "action": [
+                        {
+                            "tag": "Click",
+                            "contents": [
+                                "button",
+                                0
+                            ]
+                        },
+                        {
+                            "tag": "Click",
+                            "contents": [
+                                "button",
+                                0
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "states": {
+                        "to": {
+                            "screenshot": {
+                                "height": 600,
+                                "url": "screenshot-7070917235843592543.png",
+                                "width": 800
+                            },
+                            "queries": [
+                                {
+                                    "selector": ".time-display",
+                                    "elements": [
+                                        {
+                                            "state": [
+                                                {
+                                                    "diff": "Modified",
+                                                    "value": "NaN:NaN",
+                                                    "elementState": {
+                                                        "tag": "property",
+                                                        "name": "textContent"
+                                                    }
+                                                }
+                                            ],
+                                            "id": "f70a359b-cc18-429c-9819-75854fe92a8d",
+                                            "position": {
+                                                "height": 17,
+                                                "width": 65,
+                                                "x": 8,
+                                                "y": 8
+                                            }
+                                        }
+                                    ]
+                                },
+                                {
+                                    "selector": ".play-pause",
+                                    "elements": [
+                                        {
+                                            "state": [
+                                                {
+                                                    "diff": "Identical",
+                                                    "value": "Play",
+                                                    "elementState": {
+                                                        "tag": "property",
+                                                        "name": "textContent"
+                                                    }
+                                                }
+                                            ],
+                                            "id": "e619b268-7e3c-49fe-acfb-5c5b89aa8eb6",
+                                            "position": {
+                                                "height": 21,
+                                                "width": 42,
+                                                "x": 8,
+                                                "y": 26
+                                            }
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        "from": {
+                            "screenshot": {
+                                "height": 600,
+                                "url": "screenshot--7673827065254758842.png",
+                                "width": 800
+                            },
+                            "queries": [
+                                {
+                                    "selector": ".time-display",
+                                    "elements": [
+                                        {
+                                            "state": [
+                                                {
+                                                    "diff": "Modified",
+                                                    "value": "00:00",
+                                                    "elementState": {
+                                                        "tag": "property",
+                                                        "name": "textContent"
+                                                    }
+                                                }
+                                            ],
+                                            "id": "f70a359b-cc18-429c-9819-75854fe92a8d",
+                                            "position": {
+                                                "height": 17,
+                                                "width": 36,
+                                                "x": 8,
+                                                "y": 8
+                                            }
+                                        }
+                                    ]
+                                },
+                                {
+                                    "selector": ".play-pause",
+                                    "elements": [
+                                        {
+                                            "state": [
+                                                {
+                                                    "diff": "Identical",
+                                                    "value": "Play",
+                                                    "elementState": {
+                                                        "tag": "property",
+                                                        "name": "textContent"
+                                                    }
+                                                }
+                                            ],
+                                            "id": "e619b268-7e3c-49fe-acfb-5c5b89aa8eb6",
+                                            "position": {
+                                                "height": 21,
+                                                "width": 42,
+                                                "x": 8,
+                                                "y": 26
+                                            }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    },
+                    "stutter": false,
+                    "action": [
+                        {
+                            "tag": "Click",
+                            "contents": [
+                                "button",
+                                0
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        "passedTests": [],
+        "reason": null,
+        "shrinkLevels": 3
+    },
+    "generatedAt": "2021-01-20T20:39:59.801368559Z"
+}

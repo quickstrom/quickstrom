@@ -91,11 +91,12 @@ main .controls button:active {
     background: #2f2f2f;
 }
 
-.action, .states, .screenshots, .details {
+.action-sequence, .action, .states, .screenshots, .details {
     width: 100%;
     display: flex;
 }
 
+.action-sequence, 
 .action {
     flex-direction: column;
     align-items: center;
@@ -114,7 +115,9 @@ main .controls button:active {
     text-align: center;
     margin-top: 1.5rem;
 }
-.action .action-details {
+.action-sequence .action:before {
+}
+.action-sequence .action:last-child .action-details {
     min-height: 6rem;
     border-top: 1px solid #666;
     border-left: 1px solid #666;

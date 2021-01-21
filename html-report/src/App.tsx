@@ -256,7 +256,7 @@ const TestViewer: FunctionComponent<{ test: Test }> = ({ test }) => {
             <button disabled={state.index === 0} onClick={() => dispatch({ tag: "previous" })}>←</button>
         </section>
         <section class="content">
-            <Action actionSequence={transition.actionSequence} />
+            <ActionSequence actionSequence={transition.actionSequence} />
             <section class="states">
                 <State number={state.index + 1} extraClass="from" label="From" />
                 <State number={state.index + 2} extraClass="to" label="To" />
@@ -281,7 +281,7 @@ const TestViewer: FunctionComponent<{ test: Test }> = ({ test }) => {
         ;
 }
 
-const Action: FunctionComponent<{ actionSequence?: ActionSequence }> = ({ actionSequence }) => {
+const ActionSequence: FunctionComponent<{ actionSequence?: ActionSequence }> = ({ actionSequence }) => {
     function renderKey(key: string) {
         switch (key) {
             case "\ue006": return <span>⏎</span>;
@@ -326,31 +326,48 @@ const Action: FunctionComponent<{ actionSequence?: ActionSequence }> = ({ action
                         {selector(action.contents)}
                     </div>
                 );
+            case "EnterText":
+                return (
+                    <div class="action-details">
+                        <h2><span class="name">{action.tag}</span></h2>
+                        <div className="text">{action.contents}</div>
+                    </div>
+                );
+            default:
+                return (
+                    <div class="action-details">
+                        <h2><span class="name">{action.tag}</span></h2>
+                    </div>
+                );
         }
     }
 
-    function actionSequenceToArray(actionSequence: ActionSequence) {
+    if (actionSequence) {
         switch (actionSequence.tag) {
             case "Single":
-                return [actionSequence.contents];
-            case "Sequence":
-                return actionSequence.contents;
-        }
-    }
-
-    return (
-        <section class="action-sequence">
-            {(actionSequence ? actionSequenceToArray(actionSequence) : []).map((action: Action) =>
-                <div class="action">
-                    <div class="action-inner">
-                        <div class="label">Action</div>
-                        {renderDetails(action)}
+                return (
+                    <div class="action-sequence">
+                        <div class="action-sequence-inner">
+                            <div class="label">Action</div>
+                            {renderDetails(actionSequence.contents)}
+                        </div>
                     </div>
-                </div>
 
-            )}
-        </section>
-    );
+                );
+            case "Sequence":
+                return (
+                    <div class="action-sequence">
+                        <div class="action-sequence-inner">
+                            <div class="label">Action Sequence</div>
+                            {actionSequence.contents.map(renderDetails)}
+                        </div>
+                    </div>
+
+                );
+        }
+    } {
+        return null;
+    }
 }
 
 const State: FunctionComponent<{ number: number, extraClass: string, label: string }> = ({ number, extraClass, label }) => {

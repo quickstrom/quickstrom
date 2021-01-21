@@ -28,11 +28,11 @@ data ActionSequence = Single (Action Selector) | Sequence [(Action Selector)]
 type PotentialActionSequence = [Action Selector]
 type SelectedActionSequence  = [Action Selected]
 
-actionSumToPotentialActionSeq :: ActionSequence -> PotentialActionSequence
-actionSumToPotentialActionSeq = \case
+actionSequenceToPotentialActionSeq :: ActionSequence -> PotentialActionSequence
+actionSequenceToPotentialActionSeq = \case
   Single ba -> [ba]
   Sequence s -> s
 
-actionSumsToPotentialActionSeqs :: Vector (Int, ActionSequence) -> Vector (Int, PotentialActionSequence)
-actionSumsToPotentialActionSeqs v =
-  map (\(f,s) -> (f, actionSumToPotentialActionSeq s)) v
+actionSequencesToPotentialActionSeqs :: Vector (Int, ActionSequence) -> Vector (Int, PotentialActionSequence)
+actionSequencesToPotentialActionSeqs v =
+  map (\(f,s) -> (f, actionSequenceToPotentialActionSeq s)) v

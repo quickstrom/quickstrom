@@ -209,7 +209,7 @@ instance MonadError EvalError m => ToHaskellValue m ActionSequence where
      case ctor of
        "Single" -> Single <$> toHaskellValue ss value
        "Sequence" -> Sequence <$> toHaskellValue ss value
-       _ -> throwError (ForeignFunctionError (Just ss) ("Unknown ActionSum constructor: " <> ctor))
+       _ -> throwError (ForeignFunctionError (Just ss) ("Unknown ActionSequence constructor: " <> ctor))
 
 instance MonadError EvalError m => ToHaskellValue m (Action Selector) where
   toHaskellValue ss v = do
@@ -225,7 +225,7 @@ instance MonadError EvalError m => ToHaskellValue m (Action Selector) where
       ("AwaitWithTimeoutSecs", (i:sel:_)) ->
         liftA2 AwaitWithTimeoutSecs (toHaskellValue ss i) $ Selector <$> (toHaskellValue ss sel)
       ("Navigate", (value:_)) -> Navigate <$> (fmap URI.render . parseURI =<< toHaskellValue ss value)
-      _ -> throwError (ForeignFunctionError (Just ss) ("Unknown BaseAction constructor: " <> ctor))
+      _ -> throwError (ForeignFunctionError (Just ss) ("Unknown Action constructor: " <> ctor))
     where
       parseURI input =
         case Parsec.runParser (URI.parser <* Parsec.eof :: Parsec Void Text URI) "" input of

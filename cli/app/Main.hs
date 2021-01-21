@@ -327,6 +327,8 @@ main = do
           hPutStrLn @Text stderr err
           liftIO (exitWith (ExitFailure 1))
         Right _spec ->
+          -- TODO: some Quickstrom-specific linting, like checking actions, queries, etc.
+          -- Right now we only load and type-check the code.
           Quickstrom.logDoc . Quickstrom.logSingle Nothing . annotate (color Green) $ "Specification passed linting."
 
 availableReporters :: (MonadIO m, MonadReader Quickstrom.LogLevel m) => [(Text, CheckOptions -> Reporter m)]

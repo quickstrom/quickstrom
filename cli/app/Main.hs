@@ -389,7 +389,7 @@ renderTestEvent = \case
         <> divider
         <> line
         <> line
-        <> annotate bold (renderSize size <+> "ActionSequence")
+        <> annotate bold (renderSize size <+> "actions")
   Quickstrom.TestPassed size trace' ->
     case traceWarnings size trace' of
       [] ->

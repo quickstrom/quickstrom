@@ -35,7 +35,7 @@ prettyAction = \case
 
 prettyActionSeq :: ActionSequence Selected -> Doc AnsiStyle
 prettyActionSeq (Single action') = prettyAction action'
-prettyActionSeq (Sequence actions') = vsep (zipWith item [1 ..] actions')
+prettyActionSeq (Sequence actions') = vsep (zipWith item [1 ..] (toList actions'))
   where
     item :: Int -> Action Selected -> Doc AnsiStyle
     item i = \case

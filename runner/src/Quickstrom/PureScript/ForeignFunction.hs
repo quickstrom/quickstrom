@@ -186,6 +186,13 @@ instance ToHaskellValue m a => ToHaskellValue m (Vector a) where
 instance ToHaskellValue m a => ToHaskellValue m [a] where
   toHaskellValue ss x = Vector.toList <$> toHaskellValue ss x
 
+instance ToHaskellValue m a => ToHaskellValue m (NonEmpty a) where
+  toHaskellValue ss x = do
+    xs <- Vector.toList <$> toHaskellValue ss x
+    case nonEmpty xs of
+      Just ne -> pure ne
+      Nothing -> throwError (ForeignFunctionError (Just ss) "List must have at least one element")
+
 instance ToHaskellValue m a => ToHaskellValue m (HashMap Text a) where
   toHaskellValue ss = traverse (toHaskellValue ss) <=< require ss (Proxy @"VObject")
 

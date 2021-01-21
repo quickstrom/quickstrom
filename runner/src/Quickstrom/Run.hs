@@ -350,12 +350,11 @@ generateValidActions possibleActions = loop
 
 selectValidActionSeq :: (MonadIO m, WebDriver m) => ActionSequence Selector -> Runner m (Maybe (ActionSequence Selected))
 selectValidActionSeq (Single action) = map Single <$> selectValidAction False action
-selectValidActionSeq (Sequence []) = fail "Empty action sequence" -- TODO: make impossible
-selectValidActionSeq (Sequence (a:as)) =
+selectValidActionSeq (Sequence (a :| as)) =
   selectValidAction False a >>= \case
     Just firstAction -> do
         restActions <- traverse (selectValidAction True) as
-        pure (Just (Sequence (firstAction : catMaybes restActions)))
+        pure (Just (Sequence (firstAction :| catMaybes restActions)))
     Nothing -> pure Nothing
 
 selectValidAction ::
@@ -442,14 +441,13 @@ runAction = \case
 runActionSequence :: (MonadIO m, WebDriver m) => ActionSequence Selected -> Runner m ActionResult
 runActionSequence = \case
     Single h -> runAction h
-    Sequence [] -> pure ActionImpossible -- TODO: make this impossible
     Sequence actions' -> 
       let loop [] = pure ActionSuccess
           loop (x:xs) =
             runAction x >>= \case
               ActionSuccess -> loop xs
               err -> pure err
-      in loop actions'
+      in loop (toList actions')
 
 findSelected :: WebDriver m => Selected -> Runner m (Maybe Element)
 findSelected (Selected s i) =

@@ -33,7 +33,7 @@ type Test = {
 }
 
 type Transition = {
-    action?: ActionSequence;
+    actionSequence?: ActionSequence;
     states: { from: State, to: State };
     stutter: boolean;
 };
@@ -94,7 +94,9 @@ type Action =
     | { tag: "Click", contents: [string, number] }
     | { tag: "Navigate", contents: string };
 
-type ActionSequence = Action[];
+type ActionSequence =
+    { tag: "Single", contents: Action }
+    | { tag: "Sequence", contents: Action[] };
 
 type AppState<R> = {
     report: Report<R>,
@@ -221,7 +223,7 @@ const Transition: FunctionComponent<{ state: AppState<Failed>, dispatch: (action
             <button disabled={state.index === 0} onClick={() => dispatch({ tag: "previous" })}>←</button>
         </section>
         <section class="content">
-            <Action actionSequence={transition.action} />
+            <Action actionSequence={transition.actionSequence} />
             <section class="states">
                 <State number={state.index + 1} extraClass="from" label="From" />
                 <State number={state.index + 2} extraClass="to" label="To" />
@@ -294,9 +296,18 @@ const Action: FunctionComponent<{ actionSequence?: ActionSequence }> = ({ action
         }
     }
 
+    function actionSequenceToArray(actionSequence: ActionSequence) {
+        switch (actionSequence.tag) {
+            case "Single":
+                return [actionSequence.contents];
+            case "Sequence":
+                return actionSequence.contents;
+        }
+    }
+
     return (
         <section class="action-sequence">
-            {(actionSequence || []).map((action: Action) =>
+            {(actionSequence ? actionSequenceToArray(actionSequence) : []).map((action: Action) =>
                 <div class="action">
                     <div class="action-inner">
                         <div class="label">Action</div>
@@ -414,7 +425,7 @@ function excludeStutters(report: Report<Failed>): Report<Failed> {
     };
 }
 
-function App({ report }: { report: Report<Result>}) {
+function App({ report }: { report: Report<Result> }) {
     switch (report.result.tag) {
         case "Passed":
             return <PassedReport report={report as Report<Passed>} />;

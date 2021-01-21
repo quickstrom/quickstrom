@@ -35,7 +35,7 @@ prettyAction = \case
 
 prettyActionSeq :: ActionSequence Selected -> Doc AnsiStyle
 prettyActionSeq (Single action') = prettyAction action'
-prettyActionSeq (Sequence actions') = vsep (zipWith item [1 ..] (toList actions'))
+prettyActionSeq (Sequence actions') = "Sequence:" <> line <> indent 2 (vsep (zipWith item [1 ..] (toList actions')))
   where
     item :: Int -> Action Selected -> Doc AnsiStyle
     item i = \case
@@ -52,9 +52,9 @@ prettyTrace (Trace elements') = vsep (zipWith prettyElement [1 ..] elements')
     prettyElement i = \case
       TraceAction effect action result ->
         let annotation = case result of
-              ActionSuccess -> effect `stutterColorOr` Blue <> bold
+              ActionSuccess -> effect `stutterColorOr` Magenta <> bold
               ActionFailed {} -> effect `stutterColorOr` Red <> bold
-              ActionImpossible -> color Yellow <> bold
+              ActionImpossible -> color Red <> bold
          in annotate annotation (pretty i <> "." <+> prettyActionSeq action)
       TraceState effect state' ->
         annotate (effect `stutterColorOr` Blue <> bold) (pretty i <> "." <+> "State")

@@ -323,7 +323,7 @@ foreignFunctions =
       (ffName "Data.Semigroup" "concatArray", foreignFunction (op2 ((<>) @(Vector (Value EvalAnn))))),
       (ffName "Data.String.CodePoints" "_unsafeCodePointAt0", foreignFunction unsafeCodePointAt0),
       (ffName "Data.String.CodePoints" "_singleton", foreignFunction singletonCodePoint),
-      (ffName "Data.String.CodePoints" "_take", foreignFunction takeCodePoints),
+      (ffName "Data.String.CodePoints" "_take", foreignFunction (op2 Text.take)),
       (ffName "Data.String.CodePoints" "_toCodePointArray", foreignFunction toCodePointArray),
       (ffName "Data.String.CodeUnits" "singleton", foreignFunction singletonCodeUnits),
       (ffName "Data.String.CodeUnits" "_indexOf", foreignFunction codeUnitsIndexOf),
@@ -477,8 +477,6 @@ foreignFunctions =
     singletonCodePoint _ i = singletonCodeUnits i
     singletonCodeUnits :: Monad m => Int -> Ret m (Text)
     singletonCodeUnits i = pure $ Text.singleton (Char.intToDigit i)
-    takeCodePoints :: Monad m => Value EvalAnn -> Int -> Text -> Ret m (Text)
-    takeCodePoints _ i t = pure $ Text.take i t
     toCodePointArray :: Monad m => Value EvalAnn -> Value EvalAnn -> Text -> Ret m (Vector Int)
     toCodePointArray _ _ t = pure (Vector.map ord (Vector.fromList (toS t)))
     unsafeCodePointAt0 :: Monad m => Value EvalAnn -> Text -> Ret m Int

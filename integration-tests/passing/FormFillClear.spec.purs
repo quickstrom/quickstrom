@@ -13,12 +13,16 @@ actions =
   clicks
     <> [ Tuple 1 (Single $ Click "input[type=reset]") ]
     <> [ Tuple 1 (Single $ Click "input[type=submit]") ]
-    <> [ Tuple 5 (Sequence [ Click "input[type=reset]"
-                           , Focus "input[type=email]"
-                           , EnterText "jane.doe@example.com"
-                           , Focus "input[type=number]"
-                           , EnterText "30"
-                           ]) ]
+    <> [ Tuple 5
+          ( Sequence
+              [ Click "input[type=reset]"
+              , Focus "input[type=email]"
+              , EnterText "jane.doe@example.com"
+              , Focus "input[type=number]"
+              , EnterText "30"
+              ]
+          )
+      ]
 
 proposition :: Boolean
 proposition =
@@ -32,7 +36,6 @@ proposition =
     reset = next emptyForm
 
     fill = emptyForm && next filledForm
-
   in
     initial && always (reset || fill)
 

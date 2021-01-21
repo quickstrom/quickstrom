@@ -36,7 +36,7 @@ consoleReporter =
           Quickstrom.CheckError {Quickstrom.checkError} -> do
             Quickstrom.logDoc . Quickstrom.logSingle Nothing . annotate (color Red) $
               line <> "Check encountered an error:" <+> pretty checkError <> line
-          Quickstrom.CheckSuccess{ Quickstrom.passedTests } ->
+          Quickstrom.CheckSuccess {Quickstrom.passedTests} ->
             Quickstrom.logDoc . Quickstrom.logSingle Nothing . annotate (color Green) $
               line <> "Passed" <+> pretty (length passedTests) <+> "tests." <> line
     }

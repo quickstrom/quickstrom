@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedLabels #-}
+{-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -16,8 +16,8 @@ import Data.TreeDiff.Class (ToExpr (..))
 import Data.TreeDiff.QuickCheck (ediffEq)
 import Data.Vector (Vector)
 import qualified Data.Vector as Vector
-import Quickstrom.CLI.Reporter.HTML hiding (elements)
 import qualified Quickstrom.Action as Quickstrom
+import Quickstrom.CLI.Reporter.HTML hiding (elements)
 import qualified Quickstrom.Element as Quickstrom
 import Quickstrom.Prelude hiding (State)
 import qualified Quickstrom.Trace as Quickstrom

@@ -27,7 +27,7 @@ import Data.Vector (Vector)
 import qualified Data.Vector as Vector
 import GHC.TypeNats (type (+))
 import Language.PureScript.AST (SourceSpan)
-import Quickstrom.Action (Action(..), ActionSequence(..))
+import Quickstrom.Action (Action (..), ActionSequence (..))
 import Quickstrom.Element (Selector (..))
 import Quickstrom.Prelude
 import Quickstrom.PureScript.Eval.Ann
@@ -209,14 +209,14 @@ instance (MonadError EvalError m, ToHaskellValue m a, ToHaskellValue m b) => ToH
       _ -> throwError (ForeignFunctionError (Just ss) ("Cannot be converted to tuple: " <> ctor))
 
 instance MonadError EvalError m => ToHaskellValue m (ActionSequence Selector) where
-   toHaskellValue ss v = do
-     obj <- require ss (Proxy @"VObject") v
-     ctor <- require ss (Proxy @"VString") =<< accessField ss "constructor" obj
-     value <- Vector.head <$> (require ss (Proxy @"VArray") =<< accessField ss "fields" obj)
-     case ctor of
-       "Single" -> Single <$> toHaskellValue ss value
-       "Sequence" -> Sequence <$> toHaskellValue ss value
-       _ -> throwError (ForeignFunctionError (Just ss) ("Unknown ActionSequence constructor: " <> ctor))
+  toHaskellValue ss v = do
+    obj <- require ss (Proxy @"VObject") v
+    ctor <- require ss (Proxy @"VString") =<< accessField ss "constructor" obj
+    value <- Vector.head <$> (require ss (Proxy @"VArray") =<< accessField ss "fields" obj)
+    case ctor of
+      "Single" -> Single <$> toHaskellValue ss value
+      "Sequence" -> Sequence <$> toHaskellValue ss value
+      _ -> throwError (ForeignFunctionError (Just ss) ("Unknown ActionSequence constructor: " <> ctor))
 
 instance MonadError EvalError m => ToHaskellValue m (Action Selector) where
   toHaskellValue ss v = do
@@ -224,14 +224,14 @@ instance MonadError EvalError m => ToHaskellValue m (Action Selector) where
     ctor <- require ss (Proxy @"VString") =<< accessField ss "constructor" obj
     values <- require ss (Proxy @"VArray") =<< accessField ss "fields" obj
     case (ctor, Vector.toList values) of
-      ("Focus", (value:_)) -> Focus . Selector <$> toHaskellValue ss value
-      ("KeyPress", (value:_)) -> KeyPress <$> toHaskellValue ss value
-      ("EnterText", (value:_)) -> EnterText <$> toHaskellValue ss value
-      ("Click", (value:_)) ->  Click . Selector <$> toHaskellValue ss value
-      ("Await", (value:_)) -> Await . Selector <$> toHaskellValue ss value
-      ("AwaitWithTimeoutSecs", (i:sel:_)) ->
+      ("Focus", (value : _)) -> Focus . Selector <$> toHaskellValue ss value
+      ("KeyPress", (value : _)) -> KeyPress <$> toHaskellValue ss value
+      ("EnterText", (value : _)) -> EnterText <$> toHaskellValue ss value
+      ("Click", (value : _)) -> Click . Selector <$> toHaskellValue ss value
+      ("Await", (value : _)) -> Await . Selector <$> toHaskellValue ss value
+      ("AwaitWithTimeoutSecs", (i : sel : _)) ->
         liftA2 AwaitWithTimeoutSecs (toHaskellValue ss i) $ Selector <$> (toHaskellValue ss sel)
-      ("Navigate", (value:_)) -> Navigate <$> (fmap URI.render . parseURI =<< toHaskellValue ss value)
+      ("Navigate", (value : _)) -> Navigate <$> (fmap URI.render . parseURI =<< toHaskellValue ss value)
       _ -> throwError (ForeignFunctionError (Just ss) ("Unknown Action constructor: " <> ctor))
     where
       parseURI input =

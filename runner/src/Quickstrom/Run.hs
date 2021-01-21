@@ -1,9 +1,9 @@
 {-# LANGUAGE BlockArguments #-}
-{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -177,8 +177,11 @@ select f = forever do
   x <- Pipes.await
   maybe (pure ()) Pipes.yield (f x)
 
-runSingle :: (MonadIO m, WebDriver m, Specification spec) =>
-               spec -> Size -> Producer TestEvent (Runner m) (Either FailedTest PassedTest)
+runSingle ::
+  (MonadIO m, WebDriver m, Specification spec) =>
+  spec ->
+  Size ->
+  Producer TestEvent (Runner m) (Either FailedTest PassedTest)
 runSingle spec size = do
   Pipes.yield (TestStarted size)
   result <-
@@ -353,8 +356,8 @@ selectValidActionSeq (Single action) = map Single <$> selectValidAction False ac
 selectValidActionSeq (Sequence (a :| as)) =
   selectValidAction False a >>= \case
     Just firstAction -> do
-        restActions <- traverse (selectValidAction True) as
-        pure (Just (Sequence (firstAction :| catMaybes restActions)))
+      restActions <- traverse (selectValidAction True) as
+      pure (Just (Sequence (firstAction :| catMaybes restActions)))
     Nothing -> pure Nothing
 
 selectValidAction ::
@@ -440,14 +443,14 @@ runAction = \case
 
 runActionSequence :: (MonadIO m, WebDriver m) => ActionSequence Selected -> Runner m ActionResult
 runActionSequence = \case
-    Single h -> runAction h
-    Sequence actions' -> 
-      let loop [] = pure ActionSuccess
-          loop (x:xs) =
-            runAction x >>= \case
-              ActionSuccess -> loop xs
-              err -> pure err
-      in loop (toList actions')
+  Single h -> runAction h
+  Sequence actions' ->
+    let loop [] = pure ActionSuccess
+        loop (x : xs) =
+          runAction x >>= \case
+            ActionSuccess -> loop xs
+            err -> pure err
+     in loop (toList actions')
 
 findSelected :: WebDriver m => Selected -> Runner m (Maybe Element)
 findSelected (Selected s i) =

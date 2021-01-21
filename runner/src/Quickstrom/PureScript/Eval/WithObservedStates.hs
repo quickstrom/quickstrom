@@ -27,7 +27,7 @@ import Quickstrom.PureScript.Eval.Class
 import Quickstrom.PureScript.Eval.Error
 import Quickstrom.PureScript.Eval.Interpret
 import Quickstrom.PureScript.Value
-import Quickstrom.Trace (ObservedState (..), ObservedElementState (..), ObservedElementStates (..))
+import Quickstrom.Trace (ObservedElementState (..), ObservedElementStates (..), ObservedState (..))
 
 data WithObservedStatesEnv = WithObservedStatesEnv
   { env :: Env' WithObservedStates,
@@ -113,13 +113,13 @@ instance MonadEvalQuery WithObservedStates where
             Undetermined -> pure (VBool False)
             e -> throwError e
         if doesQHold
-            then pure (VBool True)
-            else do
-                doesPHold <-
-                  require (exprSourceSpan p) (Proxy @"VBool") =<< eval p `catchError` \case
-                    Undetermined -> pure (VBool False)
-                    e -> throwError e
-                rest' <-
-                  require (exprSourceSpan p) (Proxy @"VBool")
-                    =<< local (field @"observedStates" %~ drop 1) (evalUntil ann p q)
-                pure (VBool (doesPHold && rest'))
+          then pure (VBool True)
+          else do
+            doesPHold <-
+              require (exprSourceSpan p) (Proxy @"VBool") =<< eval p `catchError` \case
+                Undetermined -> pure (VBool False)
+                e -> throwError e
+            rest' <-
+              require (exprSourceSpan p) (Proxy @"VBool")
+                =<< local (field @"observedStates" %~ drop 1) (evalUntil ann p q)
+            pure (VBool (doesPHold && rest'))

@@ -11,11 +11,11 @@ module Quickstrom.WebDriver.HsWebDriver where
 
 import Control.Monad (Monad (fail))
 import Control.Monad.Catch (MonadCatch (catch), MonadThrow)
+import qualified Data.ByteString.Lazy as LBS
 import Quickstrom.Element
 import Quickstrom.Prelude hiding (catch)
 import Quickstrom.Run
 import qualified Test.WebDriver as WebDriver
-import qualified Data.ByteString.Lazy as LBS
 
 newtype WebDriverClient a = WebDriverClient {unWebDriverClient :: WebDriver.WD a}
   deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch)

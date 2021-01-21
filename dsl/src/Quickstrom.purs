@@ -35,7 +35,6 @@ import Quickstrom.Spec (Actions, ProbabilisticAction, Action(..), ActionSequence
 import Type.Prelude (class ListToRow, class TypeEquals)
 
 -- ## Temporal operators
-
 foreign import _next :: forall a. a -> a
 
 foreign import _always :: Boolean -> Boolean
@@ -123,7 +122,6 @@ queryAll selector states = _queryAll selector states
 queryOne :: Query Maybe
 queryOne selector = head <<< queryAll selector
 
- -- ## State
-
+-- ## State
 unchanged :: forall a. Eq a => a -> Boolean
 unchanged x = x == next x

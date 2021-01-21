@@ -42,19 +42,25 @@ data Action
   | Navigate Path
 
 -- | Either a single action or a fixed sequence of actions.
-data ActionSequence = Single Action | Sequence (Array Action)
+data ActionSequence
+  = Single Action
+  | Sequence (Array Action)
 
-type ProbabilisticAction = Tuple Int ActionSequence
+type ProbabilisticAction
+  = Tuple Int ActionSequence
 
 -- | An array of tuples, containing probabilistic weights and 
 -- | action sequences.
-type Actions = Array ProbabilisticAction
+type Actions
+  = Array ProbabilisticAction
 
 -- | Generate click actions on common clickable elements.
 clicks :: Actions
-clicks = [ Tuple 1 (Single $ Click "button"),
-           Tuple 1 (Single $ Click "input[type=submit]"),
-           Tuple 1 (Single $ Click "a") ]
+clicks =
+  [ Tuple 1 (Single $ Click "button")
+  , Tuple 1 (Single $ Click "input[type=submit]")
+  , Tuple 1 (Single $ Click "a")
+  ]
 
 -- | Generate focus actions on elements matching the given selector.
 focus :: Selector -> Action

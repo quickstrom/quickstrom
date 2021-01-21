@@ -23,16 +23,17 @@ data Action sel
   | Navigate Text
   deriving (Eq, Show, Generic, ToJSON)
 
-data ActionSequence = Single (Action Selector) | Sequence [(Action Selector)]
+data ActionSequence sel = Single (Action sel) | Sequence [(Action sel)]
+  deriving (Eq, Show, Generic, ToJSON)
 
 type PotentialActionSequence = [Action Selector]
-type SelectedActionSequence  = [Action Selected]
+type SelectedActionSequence = [Action Selected]
 
-actionSequenceToPotentialActionSeq :: ActionSequence -> PotentialActionSequence
-actionSequenceToPotentialActionSeq = \case
+actionSequenceToList :: ActionSequence sel -> [Action sel]
+actionSequenceToList = \case
   Single ba -> [ba]
   Sequence s -> s
 
-actionSequencesToPotentialActionSeqs :: Vector (Int, ActionSequence) -> Vector (Int, PotentialActionSequence)
-actionSequencesToPotentialActionSeqs v =
-  map (\(f,s) -> (f, actionSequenceToPotentialActionSeq s)) v
+actionSequencesToLists :: Vector (Int, ActionSequence sel) -> Vector (Int, [Action sel])
+actionSequencesToLists v =
+  map (\(f, s) -> (f, actionSequenceToList s)) v

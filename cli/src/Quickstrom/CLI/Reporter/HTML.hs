@@ -67,7 +67,7 @@ data Test = Test {transitions :: Transitions}
   deriving (Eq, Show, Generic, JSON.ToJSON)
 
 data Transition screenshot = Transition
-  { action :: Maybe Quickstrom.SelectedActionSequence,
+  { actionSequence :: Maybe (Quickstrom.ActionSequence Quickstrom.Selected),
     states :: States screenshot,
     stutter :: Bool
   }

@@ -201,7 +201,7 @@ instance (MonadError EvalError m, ToHaskellValue m a, ToHaskellValue m b) => ToH
         pure (a, b)
       _ -> throwError (ForeignFunctionError (Just ss) ("Cannot be converted to tuple: " <> ctor))
 
-instance MonadError EvalError m => ToHaskellValue m ActionSequence where
+instance MonadError EvalError m => ToHaskellValue m (ActionSequence Selector) where
    toHaskellValue ss v = do
      obj <- require ss (Proxy @"VObject") v
      ctor <- require ss (Proxy @"VString") =<< accessField ss "constructor" obj

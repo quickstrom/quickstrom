@@ -3,7 +3,6 @@
 
 module Quickstrom.Pretty
   ( prettyAction,
-    prettyActions,
     prettyTrace,
     prettyValue,
     prettySelected,
@@ -34,8 +33,9 @@ prettyAction = \case
   EnterText t -> "enter text" <+> pretty (show t :: Text)
   Navigate uri -> "navigate to" <+> pretty uri
 
-prettyActionSeq :: SelectedActionSequence -> Doc AnsiStyle
-prettyActionSeq action = vsep (zipWith item [1 ..] action)
+prettyActionSeq :: ActionSequence Selected -> Doc AnsiStyle
+prettyActionSeq (Single action') = prettyAction action'
+prettyActionSeq (Sequence actions') = vsep (zipWith item [1 ..] actions')
   where
     item :: Int -> Action Selected -> Doc AnsiStyle
     item i = \case
@@ -43,13 +43,6 @@ prettyActionSeq action = vsep (zipWith item [1 ..] action)
 
 prettySelected :: Selected -> Doc AnsiStyle
 prettySelected (Selected (Selector sel) i) = pretty sel <> brackets (pretty i)
-
-prettyActions :: [SelectedActionSequence] -> Doc AnsiStyle
-prettyActions actions = vsep (zipWith item [1 ..] actions)
-  where
-    item :: Int -> SelectedActionSequence -> Doc AnsiStyle
-    item i = \case
-      action -> (pretty i <> "." <+> prettyActionSeq action)
 
 prettyTrace :: Trace TraceElementEffect -> Doc AnsiStyle
 prettyTrace (Trace []) = "(empty trace)"

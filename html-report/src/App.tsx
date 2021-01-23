@@ -107,31 +107,37 @@ type TestViewerState = {
     current: Transition;
 };
 
-type UserAction =
+type TestViewerAction =
     { tag: "previous" }
     | { tag: "next" }
+    | { tag: "change-test", test: Test }
     ;
 
 
-function testViewerReducer(state: TestViewerState, action: UserAction) {
-    if (action.tag === "previous") {
-        const newIndex = state.index - 1;
-        const newCurrent = state.test.transitions[newIndex];
-        if (newCurrent) {
-            return { ...state, index: newIndex, current: newCurrent };
-        } else {
-            return state;
-        }
-    } else if (action.tag === "next") {
-        const newIndex = state.index + 1;
-        const newCurrent = state.test.transitions[newIndex];
-        if (newCurrent) {
-            return { ...state, index: newIndex, current: newCurrent };
-        } else {
-            return state;
-        }
-    } else {
-        return state;
+function testViewerReducer(state: TestViewerState, action: TestViewerAction) {
+    switch (action.tag) {
+        case "previous":
+            return (() => {
+                const newIndex = state.index - 1;
+                const newCurrent = state.test.transitions[newIndex];
+                if (newCurrent) {
+                    return { ...state, index: newIndex, current: newCurrent };
+                } else {
+                    return state;
+                }
+            })();
+        case "next":
+            return (() => {
+                const newIndex = state.index + 1;
+                const newCurrent = state.test.transitions[newIndex];
+                if (newCurrent) {
+                    return { ...state, index: newIndex, current: newCurrent };
+                } else {
+                    return state;
+                }
+            })();
+        case "change-test":
+             return { ...state, index: 0, current: action.test.transitions[0], test: action.test };
     }
 }
 
@@ -249,6 +255,9 @@ function Footer({ report }: { report: Report<Result> }) {
 
 const TestViewer: FunctionComponent<{ test: Test }> = ({ test }) => {
     const [state, dispatch] = useReducer(testViewerReducer, { current: test.transitions[0], index: 0, test });
+    useEffect(() => {
+        dispatch({ tag: "change-test", test });
+    }, [test]);
     const [selectedElement, setSelectedElement] = useState<QueriedElement | null>(null);
     const transition = state.current;
     return <main>

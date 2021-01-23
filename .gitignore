@@ -15,3 +15,5 @@ quickstrom.svg
 .spago
 .spago2nix
 .psc-ide-port
+
+.direnv

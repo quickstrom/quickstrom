@@ -1,6 +1,8 @@
-{ pkgs ? import ./nixpkgs.nix { config = { allowBroken = true; }; } }:
+{ pkgs ? import ./nixpkgs.nix { config = { allowBroken = true; }; }
+, git-rev ? null
+}:
 let
-  drv = import ./. { inherit pkgs; };
+  drv = import ./. { inherit pkgs git-rev; };
   bash = pkgs.dockerTools.buildImage {
     name = "bash";
     tag = "latest";

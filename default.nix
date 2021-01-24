@@ -1,5 +1,5 @@
 { pkgs ? import ./nixpkgs.nix { config = { allowBroken = true; }; }
-, compiler ? "ghc865" }:
+, git-rev ? null, compiler ? "ghc865" }:
 let
   inherit (pkgs.lib.systems.elaborate { system = builtins.currentSystem; })
     isLinux;
@@ -21,12 +21,13 @@ let
       # haskell-src = self.callHackage "haskell-src" "1.0.3.0" { };
       # HTF = pkgs.haskell.lib.dontCheck (self.callHackage "HTF" "0.13.2.5" { });
 
-      quickstrom-runner = pkgs.haskell.lib.disableLibraryProfiling(import ./runner {
-        inherit pkgs;
-        haskellPackages = self;
-      });
-      quickstrom-cli = pkgs.haskell.lib.justStaticExecutables(import ./cli {
-        inherit pkgs;
+      quickstrom-runner = pkgs.haskell.lib.disableLibraryProfiling
+        (import ./runner {
+          inherit pkgs;
+          haskellPackages = self;
+        });
+      quickstrom-cli = pkgs.haskell.lib.justStaticExecutables (import ./cli {
+        inherit pkgs git-rev;
         haskellPackages = self;
       });
     };

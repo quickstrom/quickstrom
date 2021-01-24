@@ -20,8 +20,8 @@ jobs:
         signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
     - run: nix show-config
     - run: nix-env -f '<nixpkgs>' -i nix-build-uncached
-    - run: nix-build-uncached default.nix
-    - run: nix-build-uncached -j16 -build-flags '--option sandbox relaxed' integration-tests/default.nix
+    - run: nix-build-uncached --argstr git-rev $(git rev-parse HEAD) default.nix
+    - run: nix-build-uncached --argstr git-rev $(git rev-parse HEAD) -j16 -build-flags '--option sandbox relaxed' integration-tests/default.nix
       if: matrix.os == 'ubuntu-latest'
     - run: nix-shell --run "echo OK"
 
@@ -41,6 +41,6 @@ jobs:
       if: github.ref == 'refs/heads/main'
       env:
         DOCKER_HUB_ACCESS_TOKEN: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-    - run: docker load -i $(nix-build docker.nix)
+    - run: docker load -i $(nix-build --argstr git-rev $(git rev-parse HEAD) docker.nix)
     - run: docker push quickstrom/quickstrom:latest
       if: github.ref == 'refs/heads/main'

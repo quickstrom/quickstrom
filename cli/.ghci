@@ -1,0 +1,1 @@
+:set -Wall -XNoImplicitPrelude -i../runner/src -isrc -iapp -i../dist-newstyle/build/x86_64-linux/ghc-8.6.5/quickstrom-cli-0.1.0.0/build/autogen

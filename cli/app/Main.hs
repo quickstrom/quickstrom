@@ -8,6 +8,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Main where
@@ -17,6 +18,7 @@ import Control.Monad.Catch (try)
 import Data.Generics.Labels ()
 import Data.Set (Set)
 import qualified Data.Set as Set
+import Data.String (String)
 import qualified Data.Text as Text
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Terminal
@@ -29,6 +31,7 @@ import Quickstrom.CLI.Reporter (Reporter)
 import qualified Quickstrom.CLI.Reporter as Reporter
 import qualified Quickstrom.CLI.Reporter.Console as Reporter
 import qualified Quickstrom.CLI.Reporter.HTML as Reporter
+import qualified Quickstrom.CLI.Version as Quickstrom
 import qualified Quickstrom.LogLevel as Quickstrom
 import Quickstrom.Prelude hiding (option, try)
 import qualified Quickstrom.PureScript.Program as Quickstrom
@@ -55,7 +58,7 @@ data CLI = CLI
     logLevel :: Quickstrom.LogLevel
   }
 
-data Command = Check CheckOptions | Lint LintOptions
+data Command = Check CheckOptions | Lint LintOptions | Version
 
 data CheckOptions = CheckOptions
   { specPath :: FilePath,
@@ -216,19 +219,20 @@ cliParser =
                 <> help "Directory containing compiled PureScript libraries used by Quickstrom (falls back to the QUICKSTROM_LIBRARY_DIR environment variable)"
             )
         )
-    <*> option
-      (eitherReader Quickstrom.parseLogLevel)
-      ( value Quickstrom.LogInfo
-          <> metavar "LEVEL"
-          <> long "log-level"
-          <> short 'l'
-          <> help "Log level used by Quickstrom and the backing WebDriver server (e.g. geckodriver)"
-      )
+      <*> option
+        (eitherReader Quickstrom.parseLogLevel)
+        ( value Quickstrom.LogInfo
+            <> metavar "LEVEL"
+            <> long "log-level"
+            <> short 'l'
+            <> help "Log level used by Quickstrom and the backing WebDriver server (e.g. geckodriver)"
+        )
   where
     cmds =
       subparser
         ( command "check" (info (Check <$> checkOptionsParser) (progDesc "Check a web application using a specification"))
             <> command "lint" (info (Lint <$> lintOptionsParser) (progDesc "Lint a specification"))
+            <> command "version" (info (pure Version) (progDesc "Show the version of Quickstrom"))
         )
 
 optsInfo :: ParserInfo CLI
@@ -258,6 +262,7 @@ main = do
   CLI {..} <- execParser optsInfo
   libPath <- maybe libraryPathFromEnvironment pure libraryPath
   case chosenCommand of
+    Version -> hPutStrLn stderr version
     Check cOpts@CheckOptions {..} -> do
       originUri <- resolveAbsoluteURI origin
       specResult <- runExceptT $ do
@@ -381,6 +386,13 @@ logo =
       "\\___,_\\ \\__,_|_|\\___|_|\\_\\___/\\__|_|  \\___/|_| |_| |_|"
     ]
 
+banner :: Doc AnsiStyle
+banner =
+  annotate bold logo
+    <> line
+    <> line
+    <> "Version:" <+> pretty version
+
 divider :: Doc ann
 divider = pageWidth $ \(AvailablePerLine w _) -> pretty (Text.replicate w "―")
 
@@ -388,7 +400,7 @@ renderCheckEvent :: Quickstrom.CheckEvent -> [(Maybe Quickstrom.LogLevel, Doc An
 renderCheckEvent = \case
   Quickstrom.CheckStarted n ->
     Quickstrom.logSingle Nothing $
-      annotate bold logo
+      banner
         <> line
         <> line
         <> ("Running" <+> annotate (color Blue) (pretty n) <+> "tests...")
@@ -459,3 +471,6 @@ ordinal n =
     2 -> "nd"
     3 -> "rd"
     _ -> "th"
+
+version :: String
+version = $(Quickstrom.version)

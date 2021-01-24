@@ -11,6 +11,7 @@ quickstrom.svg
 /output
 /generated-docs
 /result*
+.direnv
 
 .spago
 .spago2nix

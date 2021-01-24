@@ -17,13 +17,12 @@ import Control.Monad.Trans.Writer.Strict (WriterT (runWriterT))
 import qualified Data.Aeson as JSON
 import qualified Data.Aeson.Types as JSON
 import qualified Data.ByteString.Lazy.Char8 as BS
+import Data.Char as Char
 import Data.Fixed (mod')
 import Data.Generics.Product (field)
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
-import Data.List (take)
 import qualified Data.List.NonEmpty as NonEmpty
-import Data.Char as Char
 import qualified Data.Text as Text
 import qualified Data.Text.Internal.Search as Text
 import qualified Data.Text.Read as Text

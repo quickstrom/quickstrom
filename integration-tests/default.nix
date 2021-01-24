@@ -1,6 +1,7 @@
-{ pkgs ? import ../nixpkgs.nix { config = { allowBroken = true; }; } }:
+{ pkgs ? import ../nixpkgs.nix { config = { allowBroken = true; }; }
+, git-rev ? null }:
 let
-  quickstrom = (import ../. { }).quickstrom;
+  quickstrom = (import ../. { inherit git-rev; }).quickstrom;
 
   browsers = {
     firefox = {
@@ -8,13 +9,13 @@ let
       binary = "${pkgs.firefox}/bin/firefox";
       server =
         "geckodriver --host 127.0.0.1 --port 4444 --marionette-host 127.0.0.1 --marionette-port 4445";
-      buildInputs = [pkgs.geckodriver pkgs.firefox];
+      buildInputs = [ pkgs.geckodriver pkgs.firefox ];
     };
     chromium = {
       name = "chrome";
       binary = "${pkgs.chromium}/bin/chromium-browser";
       server = "${pkgs.chromedriver}/bin/chromedriver --port=4444";
-      buildInputs = [pkgs.chromedriver pkgs.chromium];
+      buildInputs = [ pkgs.chromedriver pkgs.chromium ];
     };
   };
 

@@ -8,6 +8,15 @@ the image using Docker:
 
    $ docker pull quickstrom/quickstrom:latest
 
+Verify that Quickstrom can now be run using Docker:
+
+.. code-block:: console
+
+   $ docker run quickstrom/quickstrom:latest quickstrom version
+
+Installing a WebDriver Server
+-----------------------------
+
 A WebDriver server must be running and available on ``127.0.0.0:4444``
 for Quickstrom to work. In this example we'll use Geckodriver and
 Firefox. Download a Geckodriver image using Docker:

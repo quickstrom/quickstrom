@@ -89,7 +89,10 @@
               <ul class="current">
 <li class="toctree-l1 current"><a class="reference internal" href="../installation.html">Installation</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="nix.html">Installing with Nix</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Installing with Docker</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Installing with Docker</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#installing-a-webdriver-server">Installing a WebDriver Server</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#accessing-a-server-on-the-host">Accessing a Server on the Host</a></li>
 </ul>
 </li>
@@ -171,6 +174,12 @@ the image using Docker:</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> docker pull quickstrom/quickstrom:latest
 </pre></div>
 </div>
+<p>Verify that Quickstrom can now be run using Docker:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> docker run quickstrom/quickstrom:latest quickstrom version
+</pre></div>
+</div>
+<div class="section" id="installing-a-webdriver-server">
+<h2>Installing a WebDriver Server<a class="headerlink" href="#installing-a-webdriver-server" title="Permalink to this headline">¶</a></h2>
 <p>A WebDriver server must be running and available on <code class="docutils literal notranslate"><span class="pre">127.0.0.0:4444</span></code>
 for Quickstrom to work. In this example we’ll use Geckodriver and
 Firefox. Download a Geckodriver image using Docker:</p>
@@ -211,6 +220,7 @@ line does:</p>
 <p>There are <a class="reference external" href="https://docs.docker.com/engine/reference/run/#network-settings">other ways</a> of
 setting up network access between Docker containers. Using host networking is
 convenient in this case, but you might require or prefer another method.</p>
+</div>
 </div>
 <div class="section" id="accessing-a-server-on-the-host">
 <h1>Accessing a Server on the Host<a class="headerlink" href="#accessing-a-server-on-the-host" title="Permalink to this headline">¶</a></h1>

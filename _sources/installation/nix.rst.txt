@@ -20,13 +20,13 @@ executable:
    $ cachix use quickstrom
    $ nix-env -iA quickstrom -f https://github.com/quickstrom/quickstrom/tarball/main
 
-Quickstrom should now be available in your environment:
+Verify that Quickstrom is now available in your environment:
 
 .. code-block:: console
 
-   $ quickstrom check --browser=firefox <YOUR SPEC FILE> <ORIGIN URL>
+   $ quickstrom version
 
-You need to also run a WebDriver server for Quickstrom to work. This
+You need to run a WebDriver server for Quickstrom checks to work. This
 user documentation mostly uses GeckoDriver and Firefox, but you can
 use other browsers and WebDriver servers.
 

@@ -186,11 +186,11 @@ executable:</p>
 <span class="gp">$</span> nix-env -iA quickstrom -f https://github.com/quickstrom/quickstrom/tarball/main
 </pre></div>
 </div>
-<p>Quickstrom should now be available in your environment:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> quickstrom check --browser<span class="o">=</span>firefox &lt;YOUR SPEC FILE&gt; &lt;ORIGIN URL&gt;
+<p>Verify that Quickstrom is now available in your environment:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> quickstrom version
 </pre></div>
 </div>
-<p>You need to also run a WebDriver server for Quickstrom to work. This
+<p>You need to run a WebDriver server for Quickstrom checks to work. This
 user documentation mostly uses GeckoDriver and Firefox, but you can
 use other browsers and WebDriver servers.</p>
 <p>Install GeckoDriver using Nix:</p>

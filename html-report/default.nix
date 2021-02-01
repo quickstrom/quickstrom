@@ -1,6 +1,5 @@
 { pkgs ? import ../nixpkgs.nix { config = { allowBroken = true; }; } }:
 let
-
   src = pkgs.nix-gitignore.gitignoreSource [ ] ./.;
   html-report = pkgs.mkYarnPackage {
     inherit src;

@@ -2,7 +2,7 @@
   "name": "html-report",
   "version": "0.1.0",
   "scripts": {
-    "start": "parcel dev/index.html",
+    "start": "NODE_ENV=dev parcel dev/index.html",
     "build": "parcel build --no-source-maps --no-content-hash --public-url=. src/index.html -d dist && sed -i 's/<body>/<body><script src=\"report.jsonp.js\"><\\/script>/' dist/index.html"
   },
   "dependencies": {
@@ -20,7 +20,7 @@
     "preset": "ts-jest"
   },
   "staticFiles": {
-    "staticPath": "dev",
+    "staticPath": [{ "staticPath": "dev", "env": "dev" }],
     "watcherGlob": "**"
   }
 }

@@ -37,5 +37,4 @@ actionSequenceToList = \case
   Sequence as -> NonEmpty.toList as
 
 actionSequencesToLists :: Vector (Int, ActionSequence sel) -> Vector (Int, [Action sel])
-actionSequencesToLists v =
-  map (\(f, s) -> (f, actionSequenceToList s)) v
+actionSequencesToLists = map (second actionSequenceToList)

@@ -14,7 +14,6 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE Strict #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
@@ -195,7 +194,7 @@ runSingle spec size = do
     Left ft@(FailedTest _ trace _) -> do
       CheckOptions {checkShrinkLevels} <- lift (asks checkOptions)
       Pipes.yield (TestFailed size trace)
-      if (checkShrinkLevels > 0)
+      if checkShrinkLevels > 0
         then do
           Pipes.yield (Shrinking checkShrinkLevels)
           let shrinks = shrinkForest (QuickCheck.shrinkList shrinkAction) checkShrinkLevels (trace ^.. traceActions)
@@ -280,7 +279,7 @@ observeManyStatesAfter queries' actionSequence = do
       )
       & Pipes.toListM
       & lift
-  mapM_ (Pipes.yield . (TraceState ())) nonStutters
+  mapM_ (Pipes.yield . TraceState ()) nonStutters
   where
     loop :: WebDriver m => Timeout -> Producer ObservedState (Runner m) ()
     loop timeout = do
@@ -317,7 +316,7 @@ shrinkForest shrink limit = go 1
       | n <= limit = map (\x -> Node (Shrink n x) (go (succ n) x)) . shrink
       | otherwise = mempty
 
-traverseShrinks :: Monad m => ((Shrink a) -> m (Either e b)) -> Forest (Shrink a) -> Producer (Either e b) m ()
+traverseShrinks :: Monad m => (Shrink a -> m (Either e b)) -> Forest (Shrink a) -> Producer (Either e b) m ()
 traverseShrinks test = go
   where
     go = \case
@@ -366,15 +365,19 @@ selectValidAction skipValidation possibleAction =
   case possibleAction of
     KeyPress k -> do
       active <- isActiveInput
-      if skipValidation || active then (pure (Just (KeyPress k))) else pure Nothing
+      if skipValidation || active then pure (Just (KeyPress k)) else pure Nothing
     EnterText t -> do
       active <- isActiveInput
-      if skipValidation || active then (pure (Just (EnterText t))) else pure Nothing
+      if skipValidation || active then pure (Just (EnterText t)) else pure Nothing
     Navigate p -> pure (Just (Navigate p))
     Await sel -> pure (Just (Await sel))
     AwaitWithTimeoutSecs i sel -> pure (Just (AwaitWithTimeoutSecs i sel))
     Focus sel -> selectOne sel Focus (if skipValidation then alwaysTrue else isNotActive)
     Click sel -> selectOne sel Click (if skipValidation then alwaysTrue else isClickable)
+    Clear sel -> selectOne sel Clear (if skipValidation then alwaysTrue else isClearable)
+    Back -> pure (Just Back)
+    Forward -> pure (Just Forward)
+    Refresh  -> pure (Just Refresh)
   where
     selectOne ::
       (MonadIO m, WebDriver m) =>
@@ -385,19 +388,19 @@ selectValidAction skipValidation possibleAction =
     selectOne sel ctor isValid = do
       found <- findAll sel
       validChoices <-
-        ( filterM
+        filterM
             (\(_, e) -> isValid e `catchResponseError` const (pure False))
             (zip [0 ..] found)
-          )
       case validChoices of
         [] -> pure Nothing
         choices -> Just <$> generate (ctor . Selected sel <$> QuickCheck.elements (map fst choices))
     isNotActive e = (/= Just e) <$> activeElement
     activeElement = (Just <$> getActiveElement) `catchResponseError` const (pure Nothing)
-    alwaysTrue _ = do return True
+    alwaysTrue = const (pure True)
     isClickable e = do
       scripts <- asks checkScripts
       andM [isElementEnabled e, runCheckScript (isElementVisible scripts e)]
+    isClearable el = (`elem` ["input", "textarea"]) <$> getElementTagName el
     isActiveInput =
       activeElement >>= \case
         Just el -> (`elem` ["input", "textarea"]) <$> getElementTagName el
@@ -416,7 +419,13 @@ tryAction action =
 click :: WebDriver m => Selected -> Runner m ActionResult
 click =
   findSelected >=> \case
-    Just e -> tryAction (ActionSuccess <$ (elementClick e))
+    Just e -> tryAction (ActionSuccess <$ elementClick e)
+    Nothing -> pure ActionImpossible
+
+clear :: WebDriver m => Selected -> Runner m ActionResult
+clear =
+  findSelected >=> \case
+    Just e -> tryAction (ActionSuccess <$ elementClear e)
     Nothing -> pure ActionImpossible
 
 sendKeys :: WebDriver m => Text -> Runner m ActionResult
@@ -428,7 +437,7 @@ sendKey = sendKeys . Text.singleton
 focus :: WebDriver m => Selected -> Runner m ActionResult
 focus =
   findSelected >=> \case
-    Just e -> tryAction (ActionSuccess <$ (elementSendKeys "" e))
+    Just e -> tryAction (ActionSuccess <$ elementSendKeys "" e)
     Nothing -> pure ActionImpossible
 
 runAction :: (MonadIO m, WebDriver m) => Action Selected -> Runner m ActionResult
@@ -437,9 +446,13 @@ runAction = \case
   KeyPress c -> sendKey c
   EnterText t -> sendKeys t
   Click s -> click s
+  Clear s -> clear s
   Await s -> awaitElement defaultAwaitSecs s
   AwaitWithTimeoutSecs i s -> awaitElement i s
   Navigate uri -> tryAction (ActionSuccess <$ navigateTo uri)
+  Back -> tryAction (ActionSuccess <$ goBack)
+  Forward -> tryAction (ActionSuccess <$ goForward)
+  Refresh  -> tryAction (ActionSuccess <$ pageRefresh)
 
 runActionSequence :: (MonadIO m, WebDriver m) => ActionSequence Selected -> Runner m ActionResult
 runActionSequence = \case
@@ -454,7 +467,7 @@ runActionSequence = \case
 
 findSelected :: WebDriver m => Selected -> Runner m (Maybe Element)
 findSelected (Selected s i) =
-  findAll s >>= \es -> pure ((es ^? ix i))
+  findAll s >>= \es -> pure (es ^? ix i)
 
 awaitElement :: (MonadIO m, WebDriver m) => Int -> Selector -> Runner m ActionResult
 awaitElement secondsTimeout sel@(Selector s) =

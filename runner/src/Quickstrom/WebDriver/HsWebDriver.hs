@@ -25,10 +25,14 @@ instance WebDriver WebDriverClient where
   isElementEnabled = WebDriverClient . WebDriver.isEnabled . toRef
   getElementTagName = map toS . WebDriverClient . WebDriver.tagName . toRef
   elementClick = WebDriverClient . WebDriver.click . toRef
+  elementClear = WebDriverClient . WebDriver.clearInput . toRef
   elementSendKeys keys = WebDriverClient . WebDriver.sendKeys (toS keys) . toRef
   takeScreenshot = WebDriverClient (LBS.toStrict <$> WebDriver.screenshot)
   findAll (Selector s) = map fromRef <$> WebDriverClient (WebDriver.findElems (WebDriver.ByCSS s))
   navigateTo = WebDriverClient . WebDriver.openPage . toS
+  goBack = WebDriverClient WebDriver.back
+  goForward = WebDriverClient WebDriver.forward 
+  pageRefresh = WebDriverClient WebDriver.refresh 
   runScript script args = do
     r <- WebDriverClient (WebDriver.asyncJS (map WebDriver.JSArg args) script)
     case r of

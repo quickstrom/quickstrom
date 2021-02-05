@@ -24,10 +24,14 @@ class Monad m => WebDriver (m :: Type -> Type) where
   isElementEnabled :: Element -> m Bool
   getElementTagName :: Element -> m Text
   elementClick :: Element -> m ()
+  elementClear :: Element -> m ()
   elementSendKeys :: Text -> Element -> m ()
   takeScreenshot :: m ByteString
   findAll :: Selector -> m [Element]
   navigateTo :: Text -> m ()
+  goBack :: m ()
+  goForward :: m ()
+  pageRefresh :: m ()
   runScript :: JSON.FromJSON r => Text -> [JSON.Value] -> m r
   catchResponseError :: m a -> (WebDriverResponseError -> IO a) -> m a
   inNewPrivateWindow :: WebDriverOptions -> m a -> m a
@@ -37,10 +41,14 @@ instance WebDriver m => WebDriver (ReaderT e m) where
   isElementEnabled = lift . isElementEnabled
   getElementTagName = lift . getElementTagName
   elementClick = lift . elementClick
+  elementClear = lift . elementClear
   elementSendKeys keys = lift . elementSendKeys keys
   takeScreenshot = lift takeScreenshot
   findAll = lift . findAll
   navigateTo = lift . navigateTo
+  goBack = lift goBack
+  goForward = lift goForward
+  pageRefresh = lift pageRefresh
   runScript s = lift . runScript s
   catchResponseError ma f = ReaderT (\r -> catchResponseError (runReaderT ma r) f)
   inNewPrivateWindow opts (ReaderT ma) = ReaderT (inNewPrivateWindow opts . ma)

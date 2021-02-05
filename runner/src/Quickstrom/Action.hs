@@ -19,9 +19,13 @@ data Action sel
   | KeyPress Char
   | EnterText Text
   | Click sel
+  | Clear sel
   | Await Selector
   | AwaitWithTimeoutSecs Int Selector
   | Navigate Text
+  | Back
+  | Forward
+  | Refresh
   deriving (Eq, Show, Generic, ToJSON)
 
 data ActionSequence sel = Single (Action sel) | Sequence (NonEmpty (Action sel))

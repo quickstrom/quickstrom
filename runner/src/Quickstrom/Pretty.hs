@@ -26,12 +26,14 @@ import Quickstrom.Trace
 prettyAction :: Action Selected -> Doc AnsiStyle
 prettyAction = \case
   Click sel -> "click" <+> prettySelected sel
+  Clear sel -> "clear" <+> prettySelected sel
   Focus sel -> "focus" <+> prettySelected sel
   Await sel -> "await" <+> pretty (show sel :: Text)
   AwaitWithTimeoutSecs i sel -> "await secs" <+> pretty (show i :: Text) <+> pretty (show sel :: Text)
   KeyPress key -> "key press" <+> pretty (show key :: Text)
   EnterText t -> "enter text" <+> pretty (show t :: Text)
   Navigate uri -> "navigate to" <+> pretty uri
+  Refresh -> "refresh"
 
 prettyActionSeq :: ActionSequence Selected -> Doc AnsiStyle
 prettyActionSeq (Single action') = prettyAction action'

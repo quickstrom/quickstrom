@@ -61,10 +61,14 @@ instance MonadIO m => WebDriver (WebDriverW3C m) where
   isElementEnabled = WebDriverW3C . WebDriver.isElementEnabled . toRef
   getElementTagName = map toS . WebDriverW3C . WebDriver.getElementTagName . toRef
   elementClick = WebDriverW3C . WebDriver.elementClick . toRef
+  elementClear = WebDriverW3C . WebDriver.elementClear . toRef
   elementSendKeys keys = WebDriverW3C . WebDriver.elementSendKeys (toS keys) . toRef
   takeScreenshot = WebDriverW3C WebDriver.takeScreenshot
   findAll (Selector s) = map fromRef <$> WebDriverW3C (findElements CssSelector (Text.unpack s))
   navigateTo = WebDriverW3C . WebDriver.navigateTo . toS
+  goBack = WebDriverW3C WebDriver.goBack
+  goForward = WebDriverW3C WebDriver.goForward
+  pageRefresh = WebDriverW3C WebDriver.pageRefresh 
   runScript script args = do
     r <- WebDriverW3C (executeAsyncScript (String.fromString (toS script)) args)
     case JSON.fromJSON r of

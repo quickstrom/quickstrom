@@ -37,9 +37,11 @@ data Action
   | KeyPress Char
   | EnterText String
   | Click Selector
+  | Clear Selector
   | Await Selector
   | AwaitWithTimeoutSecs Int Selector
   | Navigate Path
+  | Refresh
 
 -- | Either a single action or a fixed sequence of actions.
 data ActionSequence

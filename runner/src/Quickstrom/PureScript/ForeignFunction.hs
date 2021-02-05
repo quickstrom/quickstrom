@@ -228,10 +228,12 @@ instance MonadError EvalError m => ToHaskellValue m (Action Selector) where
       ("KeyPress", (value : _)) -> KeyPress <$> toHaskellValue ss value
       ("EnterText", (value : _)) -> EnterText <$> toHaskellValue ss value
       ("Click", (value : _)) -> Click . Selector <$> toHaskellValue ss value
+      ("Clear", (value : _)) -> Clear . Selector <$> toHaskellValue ss value
       ("Await", (value : _)) -> Await . Selector <$> toHaskellValue ss value
       ("AwaitWithTimeoutSecs", (i : sel : _)) ->
         liftA2 AwaitWithTimeoutSecs (toHaskellValue ss i) $ Selector <$> (toHaskellValue ss sel)
       ("Navigate", (value : _)) -> Navigate <$> (fmap URI.render . parseURI =<< toHaskellValue ss value)
+      ("Refresh", []) -> pure Refresh
       _ -> throwError (ForeignFunctionError (Just ss) ("Unknown Action constructor: " <> ctor))
     where
       parseURI input =

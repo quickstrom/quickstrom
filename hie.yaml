@@ -1,21 +1,14 @@
 cradle: 
-  # cabal: 
-  #   - path: "."
-  #     component: "lib:quickstrom"
-  #   - path: "."
-  #     component: "exe:quickstrom"
-  #   - path: "."
-  #     component: "test:quickstrom-test"
-  direct: 
-    arguments:
-      - -XNoImplicitPrelude
-      - -Wall
-      - -Werror=incomplete-patterns
-      - -irunner/src
-      - -irunner/test
-      - -icli/src
-      - -iweb/src
-      - cli/src/Main.hs
-      - web/src/Main.hs
-      - runner/test/Main.hs
+  cabal: 
+  # direct: 
+  #   arguments:
+  #     - -XNoImplicitPrelude
+  #     - -Wall
+  #     - -Werror=incomplete-patterns
+  #     - -irunner/src
+  #     - -irunner/test
+  #     - -icli/src
+  #     - -icli/app
+  #     - cli/app/Main.hs
+  #     - runner/test/Main.hs
 

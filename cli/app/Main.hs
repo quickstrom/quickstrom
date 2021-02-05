@@ -137,7 +137,7 @@ checkOptionsParser =
       )
     <*> switch
       ( long "capture-screenshots"
-          <> help "Capture a screenshot at each state, and record the positions of queried elements"
+          <> help "Capture a screenshot at each state (implied when using --reporter=html)"
       )
     <*> option
       (eitherReader Quickstrom.parseBrowser)
@@ -292,7 +292,7 @@ main = do
                     checkMaxTrailingStateChanges = maxTrailingStateChanges,
                     checkTrailingStateChangeTimeout = Quickstrom.Timeout trailingStateChangeTimeout,
                     checkWebDriverOptions = wdOpts,
-                    checkCaptureScreenshots = captureScreenshots
+                    checkCaptureScreenshots = "html" `elem` reporters || captureScreenshots
                   }
 
           let chosenReporterNames = if null reporters then ["console"] else reporters

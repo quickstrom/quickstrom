@@ -264,12 +264,12 @@ takeWhileChanging compare' = Pipes.await >>= loop
 
 observeManyStatesAfter :: (MonadIO m, WebDriver m) => Queries -> ActionSequence Selected -> Pipe a (TraceElement ()) (Runner m) ()
 observeManyStatesAfter queries' actionSequence = do
-  CheckEnv {checkScripts = scripts, checkOptions = CheckOptions {checkMaxTrailingStateChanges, checkTrailingStateChangeTimeout}} <- lift ask
+  CheckEnv {checkScripts = scripts, checkOptions = CheckOptions {checkMaxTrailingStateChanges, checkTrailingStateChangeTimeout, checkCaptureScreenshots}} <- lift ask
   lift (runCheckScript (registerNextStateObserver scripts checkTrailingStateChangeTimeout queries'))
   result <- lift (runActionSequence actionSequence)
   lift (runCheckScript (awaitNextState scripts) `catchResponseError` const pass)
   newState <- lift (runCheckScript (observeState scripts queries'))
-  screenshot <- pure <$> lift takeScreenshot
+  screenshot <- if checkCaptureScreenshots then Just <$> lift takeScreenshot else pure Nothing
   Pipes.yield (TraceAction () actionSequence result)
   Pipes.yield (TraceState () (ObservedState screenshot newState))
   nonStutters <-

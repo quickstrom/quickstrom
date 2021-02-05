@@ -41,8 +41,6 @@ data Action
   | Await Selector
   | AwaitWithTimeoutSecs Int Selector
   | Navigate Path
-  | Back
-  | Forward
   | Refresh
 
 -- | Either a single action or a fixed sequence of actions.

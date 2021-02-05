@@ -33,8 +33,6 @@ prettyAction = \case
   KeyPress key -> "key press" <+> pretty (show key :: Text)
   EnterText t -> "enter text" <+> pretty (show t :: Text)
   Navigate uri -> "navigate to" <+> pretty uri
-  Back -> "back"
-  Forward -> "forward"
   Refresh -> "refresh"
 
 prettyActionSeq :: ActionSequence Selected -> Doc AnsiStyle

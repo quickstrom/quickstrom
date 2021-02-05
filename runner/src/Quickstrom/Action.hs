@@ -23,9 +23,8 @@ data Action sel
   | Await Selector
   | AwaitWithTimeoutSecs Int Selector
   | Navigate Text
-  | Back
-  | Forward
   | Refresh
+  -- `Back` and `Forward` can't be supported, as the history cannot be introspected to validate if these actions are possible.
   deriving (Eq, Show, Generic, ToJSON)
 
 data ActionSequence sel = Single (Action sel) | Sequence (NonEmpty (Action sel))

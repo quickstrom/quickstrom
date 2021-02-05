@@ -375,8 +375,6 @@ selectValidAction skipValidation possibleAction =
     Focus sel -> selectOne sel Focus (if skipValidation then alwaysTrue else isNotActive)
     Click sel -> selectOne sel Click (if skipValidation then alwaysTrue else isClickable)
     Clear sel -> selectOne sel Clear (if skipValidation then alwaysTrue else isClearable)
-    Back -> pure (Just Back)
-    Forward -> pure (Just Forward)
     Refresh  -> pure (Just Refresh)
   where
     selectOne ::
@@ -450,8 +448,6 @@ runAction = \case
   Await s -> awaitElement defaultAwaitSecs s
   AwaitWithTimeoutSecs i s -> awaitElement i s
   Navigate uri -> tryAction (ActionSuccess <$ navigateTo uri)
-  Back -> tryAction (ActionSuccess <$ goBack)
-  Forward -> tryAction (ActionSuccess <$ goForward)
   Refresh  -> tryAction (ActionSuccess <$ pageRefresh)
 
 runActionSequence :: (MonadIO m, WebDriver m) => ActionSequence Selected -> Runner m ActionResult

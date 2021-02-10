@@ -6,7 +6,7 @@ application.
 
 The tutorial assumes you're running on a Unix-like operating system
 and that you have Docker installed. You may run this using :doc:`other
-installation methods <../installation>` for Quickstrom and your
+installation methods <../../installation>` for Quickstrom and your
 WebDriver server, but all commands in this document are using Docker.
 
 Open up a terminal and create a new directory to work in:
@@ -439,7 +439,7 @@ user action, but not only. A ``tick`` transition (going from
 by *time*.
 
 We'll try tweaking Quickstrom's options related to :doc:`trailing
-state changes <../topics/trailing-state-changes>` to test more of the
+state changes <../../topics/trailing-state-changes>` to test more of the
 time-related behavior of the application.
 
 Run new tests by executing the following command:
@@ -503,5 +503,5 @@ very hard to find more of them for you, requiring less effort.
 
 This tutorial is intentionally fast-paced and low on theory. Now that
 you've got your hands dirty, it's a good time to check out
-:doc:`../topics/specification-language` to learn more about the
+:doc:`../../topics/specification-language` to learn more about the
 operators in Quickstrom.

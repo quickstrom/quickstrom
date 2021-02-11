@@ -304,21 +304,22 @@ The definition ``play`` describes a transition between ``paused`` and
 
    paused
      && next playing
-     && timeDisplayText == next timeDisplayText
+     && unchanged timeDisplayText
 
 OK, so what's going on here? We specify that the current state is
 ``paused``, and that the next state is ``playing``. Further, we say
-that the current time displayed should be the same as the next. That
-is, the time can't change during a ``play`` transition.
+that the current time displayed should be the same as the next, using
+the ``unchanged`` operator. That is, the time can't change during a
+``play`` transition.
 
-The ``pause`` transition is similar. Replace ``?pause`` with the
-following expression:
+The ``pause`` transition is similar, but less restrictive. It's not
+saying anything about the ``timeDisplayText``, because it's possible
+for the time to tick while "Pause" is clicked. Replace ``?pause`` with
+the following expression:
 
 .. code-block:: haskell
 
-   playing
-     && next paused
-     && timeDisplayText == next timeDisplayText
+   playing && next paused
 
 Finally, we have the ``tick``. When we're in the ``playing`` state,
 the time display changes its text on a ``tick``. Replace the hole

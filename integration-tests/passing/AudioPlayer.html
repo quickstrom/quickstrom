@@ -1,0 +1,78 @@
+<!doctype html>
+<!-- The following is a stripped-down audio player, featuring a
+button that toggles between the paused and playing states. It's used
+together with `AudioPlayer.spec.purs` for demo purposes. -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8"/>
+    <title>Audio Player Example</title>
+  </head>
+  <body>
+    <div class="audio-player">
+      <time class="time-display">00:00</time>
+      <nav>
+        <button class="play-pause">Play</button>
+      </nav>
+    </div>
+    <script>
+      const timeDisplay = document.querySelector(".audio-player .time-display");
+      const playPause = document.querySelector(".audio-player .play-pause");
+
+      function listen(eventName, element) {
+          return new Promise(resolve => {
+              function onEvent(e) {
+                  resolve(e);
+                  element.removeEventListener(eventName, onEvent);
+              }
+              element.addEventListener(eventName, onEvent);
+          });
+      }
+
+      function delay(ms) {
+          return new Promise(resolve => {
+              setTimeout(resolve, ms);
+          });
+      }
+
+      function timeDisplayText(time) {
+          const m = ("" + Math.floor(time / 60)).padStart(2, "0");
+          const s = ("" + time % 60).padStart(2, "0");
+          return `${m}:${s}`;
+      }
+
+      function playPauseLabel(state) {
+          switch (state) {
+          case "playing":
+              return "Pause";
+          case "paused":
+              return "Play";
+          }
+      }
+
+      async function inPaused(time) {
+          playPause.textContent = playPauseLabel("paused");
+          timeDisplay.textContent = timeDisplayText(time);
+          await listen("click", playPause);
+          await inPlaying(time);
+      }
+
+      async function inPlaying(time) {
+          playPause.textContent = playPauseLabel("playing");
+          timeDisplay.textContent = timeDisplayText(time);
+          const event = await Promise.race([
+              listen("click", playPause).then(_ => "pause"),
+              delay(1000).then(_ => "tick")
+          ]);
+          switch (event) {
+          case "pause":
+              return await inPaused(time);
+          case "tick":
+              return await inPlaying(time + 1);
+          }
+      }
+
+      inPaused(0).catch(err => console.error(err));
+      
+    </script>
+  </body>
+</html>

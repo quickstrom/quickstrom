@@ -197,7 +197,7 @@ runSingle spec size = do
       if checkShrinkLevels > 0
         then do
           Pipes.yield (Shrinking checkShrinkLevels)
-          let shrinks = shrinkForest (QuickCheck.shrinkList shrinkAction) checkShrinkLevels (trace ^.. traceActions)
+          let shrinks = shrinkForest shrinkList' checkShrinkLevels (trace ^.. traceActions)
           shrunk <-
             minBy
               (lengthOf (field @"trace" . traceElements))
@@ -273,7 +273,7 @@ observeManyStatesAfter queries' actionSequence = do
   Pipes.yield (TraceAction () actionSequence result)
   Pipes.yield (TraceState () (ObservedState screenshot newState))
   nonStutters <-
-    ( loop checkTrailingStateChangeTimeout
+    ( loop checkCaptureScreenshots checkTrailingStateChangeTimeout
         >-> takeWhileChanging (\a b -> elementStates a == elementStates b)
         >-> Pipes.take checkMaxTrailingStateChanges
       )
@@ -281,16 +281,16 @@ observeManyStatesAfter queries' actionSequence = do
       & lift
   mapM_ (Pipes.yield . TraceState ()) nonStutters
   where
-    loop :: WebDriver m => Timeout -> Producer ObservedState (Runner m) ()
-    loop timeout = do
+    loop :: WebDriver m => Bool -> Timeout -> Producer ObservedState (Runner m) ()
+    loop checkCaptureScreenshots timeout = do
       scripts <- lift (asks checkScripts)
       newState <- lift do
         runCheckScript (registerNextStateObserver scripts timeout queries')
         runCheckScript (awaitNextState scripts) `catchResponseError` const pass
         runCheckScript (observeState scripts queries')
-      screenshot <- pure <$> lift takeScreenshot
+      screenshot <- if checkCaptureScreenshots then Just <$> lift takeScreenshot else pure Nothing
       Pipes.yield (ObservedState screenshot newState)
-      loop (mapTimeout (* 2) timeout)
+      loop checkCaptureScreenshots (mapTimeout (* 2) timeout)
 
 {-# SCC runActions' "runActions'" #-}
 runActions' :: (MonadIO m, WebDriver m, Specification spec) => spec -> Pipe (ActionSequence Selected) (TraceElement ()) (Runner m) ()
@@ -327,6 +327,14 @@ traverseShrinks test = go
         when (isn't _Right r) do
           go xs
         go rest
+
+shrinkList' :: [a] -> [[a]]
+shrinkList' = concatMap shrinkInits . shrinkTails
+  where
+    shrinkInits = takeWhile (not . null) . iterate init
+    shrinkTails = takeWhile (not . null) . iterate tail
+
+shrinkList'' = QuickCheck.shrinkList shrinkAction
 
 shrinkAction :: ActionSequence Selected -> [ActionSequence Selected]
 shrinkAction _ = [] -- TODO?

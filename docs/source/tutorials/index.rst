@@ -17,7 +17,7 @@ Quickstrom Free
    free/first
 
 Quickstrom Cloud
----------------
+----------------
 
 .. toctree::
    :titlesonly:

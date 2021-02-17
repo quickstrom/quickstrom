@@ -15,33 +15,33 @@
   
   
   
-    <link rel="canonical" href="https://quickstrom.io/tutorials/first.html"/>
+    <link rel="canonical" href="https://quickstrom.io/tutorials/cloud/first.html"/>
   
 
   
-  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  <script type="text/javascript" src="../../_static/js/modernizr.min.js"></script>
   
     
-      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
-        <script src="../_static/jquery.js"></script>
-        <script src="../_static/underscore.js"></script>
-        <script src="../_static/doctools.js"></script>
-        <script src="../_static/language_data.js"></script>
+      <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/language_data.js"></script>
     
-    <script type="text/javascript" src="../_static/js/theme.js"></script>
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
 
     
 
   
-  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-  <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
-    <link rel="index" title="Index" href="../genindex.html" />
-    <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="FAQ" href="../faq.html" />
-    <link rel="prev" title="Tutorials" href="index.html" />
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/graphviz.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="FAQ" href="../../faq.html" />
+    <link rel="prev" title="Writing Your First Specification" href="../free/first.html" />
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Oswald:wght@500&family=Inconsolata:wght@400;600&display=swap" rel="stylesheet"> 
-    <link href="../_static/overrides.css" rel="stylesheet" type="text/css">
+    <link href="../../_static/overrides.css" rel="stylesheet" type="text/css">
 
 </head>
 
@@ -56,7 +56,7 @@
           
 
           
-            <a href="../index.html" class="icon icon-home"> Quickstrom
+            <a href="../../index.html" class="icon icon-home"> Quickstrom
           
 
           
@@ -69,7 +69,7 @@
 
           
 <div role="search">
-  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
@@ -87,26 +87,26 @@
             
             
               <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../topics/index.html">Topics</a></li>
-<li class="toctree-l1 current"><a class="reference internal" href="index.html">Tutorials</a><ul class="current">
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Writing Your First Specification</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#installing-with-docker">Installing with Docker</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#downloading-the-audio-player">Downloading the Audio Player</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#a-minimal-specification">A Minimal Specification</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#running-tests">Running Tests</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#refining-the-proposition">Refining the Proposition</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#filling-holes-in-the-specification">Filling Holes in the Specification</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../topics/index.html">Topics</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Tutorials</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../index.html#quickstrom-free">Quickstrom Free</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html#quickstrom-cloud">Quickstrom Cloud</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Writing Your First Specification</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#accessing-the-audio-player">Accessing the Audio Player</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#a-minimal-specification">A Minimal Specification</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#running-tests">Running Tests</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#refining-the-proposition">Refining the Proposition</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#catching-a-bug">Catching a Bug</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#transitions-based-on-time">Transitions Based on Time</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#summary">Summary</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#catching-a-bug">Catching a Bug</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#transitions-based-on-time">Transitions Based on Time</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#summary">Summary</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../faq.html">FAQ</a></li>
 </ul>
 
             
@@ -121,7 +121,7 @@
       <nav class="wy-nav-top" aria-label="top navigation">
         
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="../index.html">Quickstrom</a>
+          <a href="../../index.html">Quickstrom</a>
         
       </nav>
 
@@ -150,9 +150,9 @@
 
   <ul class="wy-breadcrumbs">
     
-      <li><a href="../index.html">Docs</a> &raquo;</li>
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
         
-          <li><a href="index.html">Tutorials</a> &raquo;</li>
+          <li><a href="../index.html">Tutorials</a> &raquo;</li>
         
       <li>Writing Your First Specification</li>
     
@@ -161,7 +161,7 @@
         
             
             
-              <a href="https://github.com/quickstrom/quickstrom/blob/HEAD/docs/source/tutorials/first.rst" class="fa fa-github"> Edit on GitHub</a>
+              <a href="https://github.com/quickstrom/quickstrom/blob/HEAD/docs/source/tutorials/cloud/first.rst" class="fa fa-github"> Edit on GitHub</a>
             
           
         
@@ -178,57 +178,26 @@
   <div class="section" id="writing-your-first-specification">
 <h1>Writing Your First Specification<a class="headerlink" href="#writing-your-first-specification" title="Permalink to this headline">¶</a></h1>
 <p>In this tutorial we’ll specify and check an <em>audio player</em> web
-application.</p>
-<p>The tutorial assumes you’re running on a Unix-like operating system
-and that you have Docker installed. You may run this using <a class="reference internal" href="../installation.html"><span class="doc">other
-installation methods</span></a> for Quickstrom and your
-WebDriver server, but all commands in this document are using Docker.</p>
-<p>Open up a terminal and create a new directory to work in:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> mkdir my-first-spec
-<span class="gp">$</span> <span class="nb">cd</span> my-first-spec
-</pre></div>
-</div>
-<div class="section" id="installing-with-docker">
-<h2>Installing with Docker<a class="headerlink" href="#installing-with-docker" title="Permalink to this headline">¶</a></h2>
-<p>In this tutorial you need a working installation of Docker. Head over
-to <a class="reference external" href="https://www.docker.com/">docker.com</a> and set it up if you
-haven’t already.</p>
-<p>Next, pull the QuickStrom image using Docker:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> docker pull quickstrom/quickstrom:latest
-</pre></div>
-</div>
-<p>Finally, we need a WebDriver server. Pull that down with Docker, too:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> docker pull selenium/standalone-chrome:3.141.59-20200826
-</pre></div>
-</div>
-</div>
-<div class="section" id="downloading-the-audio-player">
-<h2>Downloading the Audio Player<a class="headerlink" href="#downloading-the-audio-player" title="Permalink to this headline">¶</a></h2>
-<p>The web application we’re going to test is already written. Download
-it using <code class="docutils literal notranslate"><span class="pre">curl</span></code>:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> curl -L https://github.com/quickstrom/quickstrom/raw/main/examples/AudioPlayer.html -o AudioPlayer.html
-</pre></div>
-</div>
-<p>If you don’t have <code class="docutils literal notranslate"><span class="pre">curl</span></code> installed, you can download it from <a class="reference external" href="https://github.com/quickstrom/quickstrom/raw/main/examples/AudioPlayer.html">this
-URL</a>
-using your web browser. Make sure you’ve saved it our working
-directory as <code class="docutils literal notranslate"><span class="pre">AudioPlayer.html</span></code>.</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> ls
-<span class="go">AudioPlayer.html</span>
-</pre></div>
-</div>
-<p>OK! We’re now ready to write our specification.</p>
+application using Quickstrom Cloud.</p>
+<p>Begin by signing in at <a class="reference external" href="app.quickstrom.io">Quickstrom Cloud</a>.</p>
+<div class="section" id="accessing-the-audio-player">
+<h2>Accessing the Audio Player<a class="headerlink" href="#accessing-the-audio-player" title="Permalink to this headline">¶</a></h2>
+<p>The web application we’re going to test is already written and
+available on GitHub. We’re going to access it directly using
+<cite>htmlpreview.github.io</cite>. Try opening the following link:</p>
+<p><a class="reference external" href="https://htmlpreview.github.io/?https://github.com/quickstrom/quickstrom/blob/cloud/tutorial/examples/AudioPlayer.html">https://htmlpreview.github.io/?https://github.com/quickstrom/quickstrom/blob/cloud/tutorial/examples/AudioPlayer.html</a></p>
+<p>That’s the web application we’re going to test. We’re now ready to
+write our specification.</p>
 </div>
 <div class="section" id="a-minimal-specification">
 <h2>A Minimal Specification<a class="headerlink" href="#a-minimal-specification" title="Permalink to this headline">¶</a></h2>
 <p>We’ll begin by writing a specification that always makes the tests
-pass. Create a new file <code class="docutils literal notranslate"><span class="pre">AudioPlayer.spec.purs</span></code> and open it in your
-text editor of choice:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> touch AudioPlayer.spec.purs
-<span class="gp">$</span> <span class="nv">$EDITOR</span> AudioPlayer.spec.purs
-</pre></div>
-</div>
-<p>Type in the following in the file and save it:</p>
+pass:</p>
+<ol class="arabic">
+<li><p>Create a new specification by clicking <em>Specifications</em> in the top
+navigation bar, and then click the <em>New</em> button</p></li>
+<li><p>Give the specification a name, like “audio-player”</p></li>
+<li><p>Delete the existing code and replace it with the following:</p>
 <div class="highlight-haskell notranslate"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre> 1
  2
  3
@@ -256,6 +225,9 @@ text editor of choice:</p>
 <span class="nf">proposition</span> <span class="ow">=</span> <span class="n">true</span>
 </pre></div>
 </td></tr></table></div>
+</li>
+<li><p>Click the <em>Create</em> button</p></li>
+</ol>
 <p>A bunch of things are going on in this specification. Let’s break it
 down line by line:</p>
 <ul class="simple">
@@ -280,44 +252,35 @@ the system under test to be valid. For now, we’ll set it to
 </div>
 <div class="section" id="running-tests">
 <h2>Running Tests<a class="headerlink" href="#running-tests" title="Permalink to this headline">¶</a></h2>
-<p>Let’s run some tests!</p>
-<p>First, we need a Docker network. Let’s name it <code class="docutils literal notranslate"><span class="pre">quickstrom</span></code>:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> docker network create quickstrom
-</pre></div>
-</div>
-<p>Next, from within your <code class="docutils literal notranslate"><span class="pre">my-first-spec</span></code> directory, launch a ChromeDriver instance in the
-background:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> docker run --rm -d <span class="se">\</span>
-    --network quickstrom <span class="se">\</span>
-    --name webdriver <span class="se">\</span>
-    -v /dev/shm:/dev/shm <span class="se">\</span>
-    -v <span class="nv">$PWD</span>:/my-first-spec <span class="se">\</span>
-    selenium/standalone-chrome:3.141.59-20200826
-</pre></div>
-</div>
-<p>Notice how we mount the current working directory to
-<code class="docutils literal notranslate"><span class="pre">/my-first-spec</span></code> in the container. We do this to let Chrome access
-the <code class="docutils literal notranslate"><span class="pre">AudioPlayer.html</span></code> file.</p>
-<p>Now, let’s launch Quickstrom, again from within your <code class="docutils literal notranslate"><span class="pre">my-first-spec</span></code> directory:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> docker run --rm <span class="se">\</span>
-  --network quickstrom <span class="se">\</span>
-  -v <span class="nv">$PWD</span>:/my-first-spec <span class="se">\</span>
-  quickstrom/quickstrom <span class="se">\</span>
-  quickstrom check <span class="se">\</span>
-  --webdriver-host<span class="o">=</span>webdriver <span class="se">\</span>
-  --webdriver-path<span class="o">=</span>/wd/hub <span class="se">\</span>
-  --browser<span class="o">=</span>chrome <span class="se">\</span>
-  --tests<span class="o">=</span><span class="m">5</span> <span class="se">\</span>
-  /my-first-spec/AudioPlayer.spec.purs <span class="se">\</span>
-  /my-first-spec/AudioPlayer.html
-</pre></div>
-</div>
-<p>After some time, you should see an output like the following:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Running 5 tests...
+<p>Let’s run some tests:</p>
+<ol class="arabic">
+<li><p>Create a new check configuration by clicking <em>New</em> in the
+<em>Configurations</em> section</p></li>
+<li><p>Give it a name, like “htmlpreview”</p></li>
+<li><p>Use the following URL as the origin:</p>
+<p><a class="reference external" href="https://htmlpreview.github.io/?https://github.com/quickstrom/quickstrom/blob/cloud/tutorial/examples/AudioPlayer.html">https://htmlpreview.github.io/?https://github.com/quickstrom/quickstrom/blob/cloud/tutorial/examples/AudioPlayer.html</a></p>
+</li>
+<li><p>Click the <em>Create</em> button</p></li>
+<li><p>Find your newly created configuration in the table and click <em>Check</em></p></li>
+</ol>
+<p>This schedules a new check and opens the check view. It updates live
+as the check makes progress. After some time, you should see log
+output like the following:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Running 10 tests...
+
+―――――――――――――――――――――――――――
+
+10 Actions
+Test passed!
 
 ―――――――――――――――――――――――――――
 
 20 Actions
+Test passed!
+
+―――――――――――――――――――――――――――
+
+30 Actions
 Test passed!
 
 ―――――――――――――――――――――――――――
@@ -327,12 +290,27 @@ Test passed!
 
 ―――――――――――――――――――――――――――
 
+50 Actions
+Test passed!
+
+―――――――――――――――――――――――――――
+
 60 Actions
 Test passed!
 
 ―――――――――――――――――――――――――――
 
+70 Actions
+Test passed!
+
+―――――――――――――――――――――――――――
+
 80 Actions
+Test passed!
+
+―――――――――――――――――――――――――――
+
+90 Actions
 Test passed!
 
 ―――――――――――――――――――――――――――
@@ -343,7 +321,7 @@ Test passed!
 ―――――――――――――――――――――――――――
 
 
-Passed 5 tests.
+Passed 10 tests.
 </pre></div>
 </div>
 <p>Cool, we have it running! So far, though, we haven’t done much
@@ -354,8 +332,8 @@ intended behavior.</p>
 </div>
 <div class="section" id="refining-the-proposition">
 <h2>Refining the Proposition<a class="headerlink" href="#refining-the-proposition" title="Permalink to this headline">¶</a></h2>
-<p>Our system under test (<code class="docutils literal notranslate"><span class="pre">AudioPlayer.html</span></code>) is very simple. There’s
-a button for playing or pausing the audio player, and there’s a time
+<p>Our system under test, the audio player, is very simple. There’s a
+button for playing or pausing the audio player, and there’s a time
 display.</p>
 <p>Our specification will describe how the player should
 work. Informally, we state the requirements as follows:</p>
@@ -366,15 +344,18 @@ should transition to the <code class="docutils literal notranslate"><span class=
 <li><p>When in the <code class="docutils literal notranslate"><span class="pre">playing</span></code> state, the time display should reflect the
 progress with a ticking minutes and seconds display</p></li>
 <li><p>When <code class="docutils literal notranslate"><span class="pre">playing</span></code>, and when the play/pause button is clicked, it should
-go to the <code class="docutils literal notranslate"><span class="pre">paused</span></code> state, and the time display should not change</p></li>
+go to the <code class="docutils literal notranslate"><span class="pre">paused</span></code> state</p></li>
 <li><p>In the <code class="docutils literal notranslate"><span class="pre">paused</span></code> state, the button should say “Play”</p></li>
 <li><p>In the <code class="docutils literal notranslate"><span class="pre">playing</span></code> state, the button should say “Pause”</p></li>
 </ul>
 <p>Let’s translate those requirements to a formal specification in
-Quickstrom.</p>
-<p>Begin by defining two helpers, extracting the text content of the time
-display and the play/pause button. Place these definitions at the
-bottom of <code class="docutils literal notranslate"><span class="pre">AudioPlayer.spec.purs</span></code>:</p>
+Quickstrom. Go back to your specification (you’ll find it under
+<em>Specifications</em> in the top navigation bar), and click the <em>Edit</em>
+button.</p>
+<p>Now it’s time to edit the specification code. Begin by defining two
+helpers, extracting the text content of the time display and the
+play/pause button. Place these definitions at the bottom of
+<code class="docutils literal notranslate"><span class="pre">AudioPlayer.spec.purs</span></code>:</p>
 <div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">timeDisplayText</span> <span class="ow">::</span> <span class="kt">Maybe</span> <span class="kt">String</span>
 <span class="nf">timeDisplayText</span> <span class="ow">=</span>
   <span class="n">map</span> <span class="kr">_</span><span class="o">.</span><span class="n">textContent</span> <span class="p">(</span><span class="n">queryOne</span> <span class="s">&quot;.time-display&quot;</span> <span class="p">{</span> <span class="n">textContent</span> <span class="p">})</span>
@@ -434,30 +415,30 @@ element.</p>
 in. Next, we specify <em>transitions</em> between states.</p>
 <p>The definition <code class="docutils literal notranslate"><span class="pre">play</span></code> describes a transition between <code class="docutils literal notranslate"><span class="pre">paused</span></code> and
 <code class="docutils literal notranslate"><span class="pre">playing</span></code>. Replace the hole <code class="docutils literal notranslate"><span class="pre">?play</span></code> with the following expression:</p>
-<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">paused</span>
-  <span class="o">&amp;&amp;</span> <span class="n">next</span> <span class="n">playing</span>
-  <span class="o">&amp;&amp;</span> <span class="n">timeDisplayText</span> <span class="o">==</span> <span class="n">next</span> <span class="n">timeDisplayText</span>
+<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">paused</span> <span class="o">&amp;&amp;</span> <span class="n">next</span> <span class="n">playing</span>
 </pre></div>
 </div>
 <p>OK, so what’s going on here? We specify that the current state is
-<code class="docutils literal notranslate"><span class="pre">paused</span></code>, and that the next state is <code class="docutils literal notranslate"><span class="pre">playing</span></code>. Further, we say
-that the current time displayed should be the same as the next. That
-is, the time can’t change during a <code class="docutils literal notranslate"><span class="pre">play</span></code> transition.</p>
+<code class="docutils literal notranslate"><span class="pre">paused</span></code>, and that the next state is <code class="docutils literal notranslate"><span class="pre">playing</span></code>. That’s how we
+encode state transitions.</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">pause</span></code> transition is similar. Replace <code class="docutils literal notranslate"><span class="pre">?pause</span></code> with the
 following expression:</p>
-<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">playing</span>
-  <span class="o">&amp;&amp;</span> <span class="n">next</span> <span class="n">paused</span>
-  <span class="o">&amp;&amp;</span> <span class="n">timeDisplayText</span> <span class="o">==</span> <span class="n">next</span> <span class="n">timeDisplayText</span>
+<div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">playing</span> <span class="o">&amp;&amp;</span> <span class="n">next</span> <span class="n">paused</span>
 </pre></div>
 </div>
 <p>Finally, we have the <code class="docutils literal notranslate"><span class="pre">tick</span></code>. When we’re in the <code class="docutils literal notranslate"><span class="pre">playing</span></code> state,
-the time display changes its text on a <code class="docutils literal notranslate"><span class="pre">tick</span></code>. Replace the hole
-<code class="docutils literal notranslate"><span class="pre">?tick</span></code> with the following expression:</p>
+the time display changes its text on a <code class="docutils literal notranslate"><span class="pre">tick</span></code>. The displayed time
+should be monotonically increasing, so we compare alphabetically the
+current and the next time.</p>
+<p>Replace the hole <code class="docutils literal notranslate"><span class="pre">?tick</span></code> with the following expression:</p>
 <div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">playing</span>
   <span class="o">&amp;&amp;</span> <span class="n">next</span> <span class="n">playing</span>
-  <span class="o">&amp;&amp;</span> <span class="n">timeDisplayText</span> <span class="o">/=</span> <span class="n">next</span> <span class="n">timeDisplayText</span>
+  <span class="o">&amp;&amp;</span> <span class="n">timeDisplayText</span> <span class="o">&lt;</span> <span class="n">next</span> <span class="n">timeDisplayText</span>
 </pre></div>
 </div>
+<p>If the time display would go past “99:59”, we’d get into trouble with
+this specification. But because we won’t run tests for that long, we
+can get away with the string comparison.</p>
 <p>That’s it! We’ve filled all the holes. Your proposition should now
 look something like this:</p>
 <div class="highlight-haskell notranslate"><div class="highlight"><pre><span></span><span class="nf">proposition</span> <span class="ow">::</span> <span class="kt">Boolean</span>
@@ -467,20 +448,14 @@ look something like this:</p>
 
     <span class="n">paused</span> <span class="ow">=</span> <span class="n">buttonText</span> <span class="o">==</span> <span class="kt">Just</span> <span class="s">&quot;Play&quot;</span>
 
-    <span class="n">play</span> <span class="ow">=</span>
-      <span class="n">paused</span>
-        <span class="o">&amp;&amp;</span> <span class="n">next</span> <span class="n">playing</span>
-        <span class="o">&amp;&amp;</span> <span class="n">timeDisplayText</span> <span class="o">==</span> <span class="n">next</span> <span class="n">timeDisplayText</span>
+    <span class="n">play</span> <span class="ow">=</span> <span class="n">paused</span> <span class="o">&amp;&amp;</span> <span class="n">next</span> <span class="n">playing</span>
 
-    <span class="n">pause</span> <span class="ow">=</span>
-      <span class="n">playing</span>
-        <span class="o">&amp;&amp;</span> <span class="n">next</span> <span class="n">paused</span>
-        <span class="o">&amp;&amp;</span> <span class="n">timeDisplayText</span> <span class="o">==</span> <span class="n">next</span> <span class="n">timeDisplayText</span>
+    <span class="n">pause</span> <span class="ow">=</span> <span class="n">playing</span> <span class="o">&amp;&amp;</span> <span class="n">next</span> <span class="n">paused</span>
 
     <span class="n">tick</span> <span class="ow">=</span>
       <span class="n">playing</span>
         <span class="o">&amp;&amp;</span> <span class="n">next</span> <span class="n">playing</span>
-        <span class="o">&amp;&amp;</span> <span class="n">timeDisplayText</span> <span class="o">/=</span> <span class="n">next</span> <span class="n">timeDisplayText</span>
+        <span class="o">&amp;&amp;</span> <span class="n">timeDisplayText</span> <span class="o">&lt;</span> <span class="n">next</span> <span class="n">timeDisplayText</span>
   <span class="kr">in</span>
     <span class="n">paused</span> <span class="o">&amp;&amp;</span> <span class="n">always</span> <span class="p">(</span><span class="n">play</span> <span class="o">||</span> <span class="n">pause</span> <span class="o">||</span> <span class="n">tick</span><span class="p">)</span>
 </pre></div>
@@ -490,20 +465,7 @@ look something like this:</p>
 </div>
 <div class="section" id="catching-a-bug">
 <h2>Catching a Bug<a class="headerlink" href="#catching-a-bug" title="Permalink to this headline">¶</a></h2>
-<p>Run Quickstrom again, now that we’ve fleshed out the specification:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> docker run --rm <span class="se">\</span>
-  --network quickstrom <span class="se">\</span>
-  -v <span class="nv">$PWD</span>:/my-first-spec <span class="se">\</span>
-  quickstrom/quickstrom <span class="se">\</span>
-  quickstrom check <span class="se">\</span>
-  --webdriver-host<span class="o">=</span>webdriver <span class="se">\</span>
-  --webdriver-path<span class="o">=</span>/wd/hub <span class="se">\</span>
-  --browser<span class="o">=</span>chrome <span class="se">\</span>
-  --tests<span class="o">=</span><span class="m">5</span> <span class="se">\</span>
-  /my-first-spec/AudioPlayer.spec.purs <span class="se">\</span>
-  /my-first-spec/AudioPlayer.html
-</pre></div>
-</div>
+<p>Schedule a new check, now that we’ve fleshed out the specification.</p>
 <p>You’ll see a bunch of output, involving shrinking tests and more. It
 should end with something like the following:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>1. State
@@ -528,19 +490,11 @@ Failed after 1 tests and 4 levels of shrinking.
 </div>
 <p>Whoops, look at that! It says that the time display shows
 “NaN:NaN”. We’ve found our first bug using Quickstrom!</p>
-<p>Open up <code class="docutils literal notranslate"><span class="pre">AudioPlayer.html</span></code>, and change the following lines near the
-end of the file:</p>
-<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span><span class="k">case</span> <span class="s2">&quot;pause&quot;</span><span class="o">:</span>
-    <span class="k">return</span> <span class="nx">await</span> <span class="nx">inPaused</span><span class="p">();</span>
-</pre></div>
-</div>
-<p>They should be:</p>
-<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span><span class="k">case</span> <span class="s2">&quot;pause&quot;</span><span class="o">:</span>
-    <span class="k">return</span> <span class="nx">await</span> <span class="nx">inPaused</span><span class="p">(</span><span class="nx">time</span><span class="p">);</span> <span class="c1">// &lt;-- this is where we must pass in time</span>
-</pre></div>
-</div>
-<p>Rerun the tests using the same <code class="docutils literal notranslate"><span class="pre">quickstrom</span></code> command as before. All
-tests pass!</p>
+<p>There’s another version of the web application with a fix in place for
+this bug. Create a new check configuration but using the following URL
+as the origin:</p>
+<p><a class="reference external" href="https://htmlpreview.github.io/?https://github.com/quickstrom/quickstrom/blob/cloud/tutorial/examples/AudioPlayer.fix-1.html">https://htmlpreview.github.io/?https://github.com/quickstrom/quickstrom/blob/cloud/tutorial/examples/AudioPlayer.fix-1.html</a></p>
+<p>Check again but with your new configuration. All tests pass!</p>
 <p>Are we done? Is the audio player correct? Not quite.</p>
 </div>
 <div class="section" id="transitions-based-on-time">
@@ -549,25 +503,10 @@ tests pass!</p>
 user action, but not only. A <code class="docutils literal notranslate"><span class="pre">tick</span></code> transition (going from
 <code class="docutils literal notranslate"><span class="pre">playing</span></code> to <code class="docutils literal notranslate"><span class="pre">playing</span></code> with an incremented progress) is triggered
 by <em>time</em>.</p>
-<p>We’ll try tweaking Quickstrom’s options related to <a class="reference internal" href="../topics/trailing-state-changes.html"><span class="doc">trailing
+<p>We’ll try tweaking Quickstrom’s options related to <a class="reference internal" href="../../topics/trailing-state-changes.html"><span class="doc">trailing
 state changes</span></a> to test more of the
 time-related behavior of the application.</p>
-<p>Run new tests by executing the following command:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> docker run --rm <span class="se">\</span>
-  --network quickstrom <span class="se">\</span>
-  -v <span class="nv">$PWD</span>:/my-first-spec <span class="se">\</span>
-  quickstrom/quickstrom <span class="se">\</span>
-  quickstrom check <span class="se">\</span>
-  --webdriver-host<span class="o">=</span>webdriver <span class="se">\</span>
-  --webdriver-path<span class="o">=</span>/wd/hub <span class="se">\</span>
-  --browser<span class="o">=</span>chrome <span class="se">\</span>
-  --tests<span class="o">=</span><span class="m">5</span> <span class="se">\</span>
-<span class="hll">  --max-trailing-state-changes<span class="o">=</span><span class="m">1</span> <span class="se">\</span>
-</span><span class="hll">  --trailing-state-change-timeout<span class="o">=</span><span class="m">500</span> <span class="se">\</span>
-</span>  /my-first-spec/AudioPlayer.spec.purs <span class="se">\</span>
-  /my-first-spec/AudioPlayer.html
-</pre></div>
-</div>
+<p>Create a new check configuration with the same origin URL as the previously created one, but open up the <em>Advanced options</em> section and set <em>Max trailing state changes</em> to <code class="docutils literal notranslate"><span class="pre">1</span></code> rather than <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
 <p>You should see output such as the following:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>1. State
   • .play-pause
@@ -591,9 +530,11 @@ Failed after 1 tests and 5 levels of shrinking.
 <p>Look, another bug! It seems that there are <code class="docutils literal notranslate"><span class="pre">tick</span></code> transitions even
 though the play/pause button indicates that we’re in the <code class="docutils literal notranslate"><span class="pre">paused</span></code>
 state.</p>
-<p>In fact, the problem is the button text, not the time display. I’ll
-leave it up to you to find the error in the code, fix it, and make
-the tests pass.</p>
+<p>In fact, the problem is the button text, not the time display. There’s
+another version at the following URL with another bug fix:</p>
+<p><a class="reference external" href="https://htmlpreview.github.io/?https://github.com/quickstrom/quickstrom/blob/cloud/tutorial/examples/AudioPlayer.fix-2.html">https://htmlpreview.github.io/?https://github.com/quickstrom/quickstrom/blob/cloud/tutorial/examples/AudioPlayer.fix-2.html</a></p>
+<p>Create yet another check configuration with this origin URL, and you
+should have all tests pass.</p>
 </div>
 <div class="section" id="summary">
 <h2>Summary<a class="headerlink" href="#summary" title="Permalink to this headline">¶</a></h2>
@@ -604,7 +545,7 @@ We can’t know if we’ve found all problems. However, Quickstrom tries
 very hard to find more of them for you, requiring less effort.</p>
 <p>This tutorial is intentionally fast-paced and low on theory. Now that
 you’ve got your hands dirty, it’s a good time to check out
-<a class="reference internal" href="../topics/specification-language.html"><span class="doc">The Specification Language</span></a> to learn more about the
+<a class="reference internal" href="../../topics/specification-language.html"><span class="doc">The Specification Language</span></a> to learn more about the
 operators in Quickstrom.</p>
 </div>
 </div>
@@ -617,10 +558,10 @@ operators in Quickstrom.</p>
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="../faq.html" class="btn btn-neutral float-right" title="FAQ" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+        <a href="../../faq.html" class="btn btn-neutral float-right" title="FAQ" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
-        <a href="index.html" class="btn btn-neutral float-left" title="Tutorials" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+        <a href="../free/first.html" class="btn btn-neutral float-left" title="Writing Your First Specification" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
       
     </div>
   

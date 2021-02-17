@@ -1,14 +1,1 @@
-import (fetchTarball "https://github.com/NixOS/nixpkgs/archive/fd0daed2e8d590418fc565de70ea6ca47a6d2dcb.tar.gz")
-
-# let
-#   baseUrl = "https://github.com/nixos/nixpkgs-channels";
-#   # `git ls-remote https://github.com/nixos/nixpkgs-channels nixos-unstable`
-#   rev = "96069f7d890b90cbf4e8b4b53e15b036210ac146";
-# in
-# 
-# import (builtins.fetchTarball {
-#   # Descriptive name to make the store path easier to identify
-#   name = "nixos-unstable-2020-08-10";
-#   url = "${baseUrl}/archive/${rev}.tar.gz";
-#   sha256 = "0ixyfsw7p0gq9w7hzamgnvk8xjnf62niygmpi39zh2a312k94lqr";
-# })
+import (fetchTarball "https://github.com/NixOS/nixpkgs/archive/be864bbd6763cd4c92777643b9c4c6f07c3390d5.tar.gz")

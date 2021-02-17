@@ -157,4 +157,13 @@ in makeTests {
     # Chrome/Chromium and Chromedriver, however, support it.
     expectedExitCode = 0;
   };
+
+  # same as in the examples with (intentional) bugs fixed
+  AudioPlayer = {
+    spec = ./passing/AudioPlayer.spec.purs;
+    origin = "$src/passing/AudioPlayer.html";
+    options = "--max-actions=100 --max-trailing-state-changes=1 --trailing-state-change-timeout=500";
+    browser = browsers.chromium;
+    expectedExitCode = 0;
+  };
 }

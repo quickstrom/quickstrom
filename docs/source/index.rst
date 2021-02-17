@@ -15,7 +15,7 @@ Documentation
 If you're new to Quickstrom, start here:
 
 * :doc:`installation`: how to get Quickstrom running on your computer
-* :doc:`tutorials/first`: the entry-level tutorial
+* :doc:`tutorials/free/first`: the entry-level tutorial
 
 The documentation is split up into sections depending on the type of
 document:

@@ -2,11 +2,11 @@ Writing Your First Specification
 ================================
 
 In this tutorial we'll specify and check an *audio player* web
-application.
+application using the free version of Quickstrom.
 
 The tutorial assumes you're running on a Unix-like operating system
 and that you have Docker installed. You may run this using :doc:`other
-installation methods <../installation>` for Quickstrom and your
+installation methods <../../installation>` for Quickstrom and your
 WebDriver server, but all commands in this document are using Docker.
 
 Open up a terminal and create a new directory to work in:
@@ -213,7 +213,7 @@ work. Informally, we state the requirements as follows:
 * When in the ``playing`` state, the time display should reflect the
   progress with a ticking minutes and seconds display
 * When ``playing``, and when the play/pause button is clicked, it should
-  go to the ``paused`` state, and the time display should not change
+  go to the ``paused`` state
 * In the ``paused`` state, the button should say "Play"
 * In the ``playing`` state, the button should say "Pause"
 
@@ -302,33 +302,35 @@ The definition ``play`` describes a transition between ``paused`` and
 
 .. code-block:: haskell
 
-   paused
-     && next playing
-     && timeDisplayText == next timeDisplayText
+   paused && next playing
 
 OK, so what's going on here? We specify that the current state is
-``paused``, and that the next state is ``playing``. Further, we say
-that the current time displayed should be the same as the next. That
-is, the time can't change during a ``play`` transition.
+``paused``, and that the next state is ``playing``. That's how we
+encode state transitions.
 
 The ``pause`` transition is similar. Replace ``?pause`` with the
 following expression:
 
 .. code-block:: haskell
 
-   playing
-     && next paused
-     && timeDisplayText == next timeDisplayText
+   playing && next paused
 
 Finally, we have the ``tick``. When we're in the ``playing`` state,
-the time display changes its text on a ``tick``. Replace the hole
-``?tick`` with the following expression:
+the time display changes its text on a ``tick``. The displayed time
+should be monotonically increasing, so we compare alphabetically the
+current and the next time.
+
+Replace the hole ``?tick`` with the following expression:
 
 .. code-block:: haskell
 
    playing
      && next playing
-     && timeDisplayText /= next timeDisplayText
+     && timeDisplayText < next timeDisplayText
+
+If the time display would go past "99:59", we'd get into trouble with
+this specification. But because we won't run tests for that long, we
+can get away with the string comparison.
 
 That's it! We've filled all the holes. Your proposition should now
 look something like this:
@@ -342,20 +344,14 @@ look something like this:
    
        paused = buttonText == Just "Play"
    
-       play =
-         paused
-           && next playing
-           && timeDisplayText == next timeDisplayText
+       play = paused && next playing
    
-       pause =
-         playing
-           && next paused
-           && timeDisplayText == next timeDisplayText
+       pause = playing && next paused
    
        tick =
          playing
            && next playing
-           && timeDisplayText /= next timeDisplayText
+           && timeDisplayText < next timeDisplayText
      in
        paused && always (play || pause || tick)
 
@@ -439,7 +435,7 @@ user action, but not only. A ``tick`` transition (going from
 by *time*.
 
 We'll try tweaking Quickstrom's options related to :doc:`trailing
-state changes <../topics/trailing-state-changes>` to test more of the
+state changes <../../topics/trailing-state-changes>` to test more of the
 time-related behavior of the application.
 
 Run new tests by executing the following command:
@@ -503,5 +499,5 @@ very hard to find more of them for you, requiring less effort.
 
 This tutorial is intentionally fast-paced and low on theory. Now that
 you've got your hands dirty, it's a good time to check out
-:doc:`../topics/specification-language` to learn more about the
+:doc:`../../topics/specification-language` to learn more about the
 operators in Quickstrom.

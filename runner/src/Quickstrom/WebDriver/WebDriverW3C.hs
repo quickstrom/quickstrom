@@ -68,7 +68,7 @@ instance MonadIO m => WebDriver (WebDriverW3C m) where
   navigateTo = WebDriverW3C . WebDriver.navigateTo . toS
   goBack = WebDriverW3C WebDriver.goBack
   goForward = WebDriverW3C WebDriver.goForward
-  pageRefresh = WebDriverW3C WebDriver.pageRefresh 
+  pageRefresh = WebDriverW3C WebDriver.pageRefresh
   runScript script args = do
     r <- WebDriverW3C (executeAsyncScript (String.fromString (toS script)) args)
     case JSON.fromJSON r of
@@ -166,31 +166,31 @@ addCaps WebDriverOptions {webDriverBrowser = Chrome, webDriverBrowserBinary, web
                JSON.Object
                  [ ("binary", JSON.String (maybe "/usr/bin/google-chrome" toS webDriverBrowserBinary)),
                    ( "args",
-                     ( JSON.Array
-                         ( Vector.fromList
-                             ( map
-                                 JSON.toJSON
-                                 ( ["headless", "no-sandbox", "disable-gpu", "privileged"]
-                                     ++ ( if ( Set.null
-                                                 ( Set.filter
-                                                     ((List.isPrefixOf "user-data-dir=") . Text.unpack)
-                                                     webDriverAdditionalOptions
-                                                 )
-                                             )
-                                            then ["incognito"]
-                                            else []
-                                        )
-                                     ++ (Set.toList webDriverAdditionalOptions)
-                                 )
-                             )
-                         )
-                     )
+                     JSON.Array
+                       ( Vector.fromList
+                           ( map
+                               JSON.toJSON
+                               ( ["headless", "no-sandbox", "disable-gpu", "privileged"]
+                                   ++ (if hasUserDataDir then [] else ["incognito"])
+                                   ++ Set.toList webDriverAdditionalOptions
+                               )
+                           )
+                       )
                    )
                  ]
              ),
              ("browserName", "chrome")
            ]
        )
+  where
+    hasUserDataDir =
+      not
+        ( Set.null
+            ( Set.filter
+                (Text.isPrefixOf "user-data-dir=")
+                webDriverAdditionalOptions
+            )
+        )
 
 -- | Same as the non-exported definition in 'Web.Api.WebDriver.Endpoints'.
 cleanupOnError ::

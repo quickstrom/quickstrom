@@ -84,15 +84,27 @@ Let's run some tests:
 #. Click the *Create* button
 #. Find your newly created configuration in the table and click *Check*
 
-After some time, you should see an output like the following:
+This schedules a new check and opens the check view. It updates live
+as the check makes progress. After some time, you should see log
+output like the following:
 
 .. code::
    
-   Running 5 tests...
+   Running 10 tests...
+   
+   ―――――――――――――――――――――――――――
+   
+   10 Actions
+   Test passed!
    
    ―――――――――――――――――――――――――――
    
    20 Actions
+   Test passed!
+   
+   ―――――――――――――――――――――――――――
+   
+   30 Actions
    Test passed!
    
    ―――――――――――――――――――――――――――
@@ -102,12 +114,27 @@ After some time, you should see an output like the following:
    
    ―――――――――――――――――――――――――――
    
+   50 Actions
+   Test passed!
+   
+   ―――――――――――――――――――――――――――
+   
    60 Actions
    Test passed!
    
    ―――――――――――――――――――――――――――
    
+   70 Actions
+   Test passed!
+   
+   ―――――――――――――――――――――――――――
+   
    80 Actions
+   Test passed!
+   
+   ―――――――――――――――――――――――――――
+   
+   90 Actions
    Test passed!
    
    ―――――――――――――――――――――――――――
@@ -118,7 +145,7 @@ After some time, you should see an output like the following:
    ―――――――――――――――――――――――――――
    
    
-   Passed 5 tests.
+   Passed 10 tests.
 
 
 Cool, we have it running! So far, though, we haven't done much
@@ -130,8 +157,8 @@ intended behavior.
 Refining the Proposition
 ------------------------
 
-Our system under test (``AudioPlayer.html``) is very simple. There's
-a button for playing or pausing the audio player, and there's a time
+Our system under test, the audio player, is very simple. There's a
+button for playing or pausing the audio player, and there's a time
 display.
 
 Our specification will describe how the player should
@@ -148,11 +175,14 @@ work. Informally, we state the requirements as follows:
 * In the ``playing`` state, the button should say "Pause"
 
 Let's translate those requirements to a formal specification in
-Quickstrom.
+Quickstrom. Go back to your specification (you'll find it under
+*Specifications* in the top navigation bar), and click the *Edit*
+button.
 
-Begin by defining two helpers, extracting the text content of the time
-display and the play/pause button. Place these definitions at the
-bottom of ``AudioPlayer.spec.purs``:
+Now it's time to edit the specification code. Begin by defining two
+helpers, extracting the text content of the time display and the
+play/pause button. Place these definitions at the bottom of
+``AudioPlayer.spec.purs``:
 
 .. code-block:: haskell
 
@@ -169,7 +199,6 @@ the following code:
 
 .. code-block:: haskell
 
-   
    proposition :: Boolean
    proposition =
      let
@@ -291,21 +320,7 @@ Let's run some more tests.
 Catching a Bug
 --------------
 
-Run Quickstrom again, now that we've fleshed out the specification:
-
-.. code-block:: console
-
-   $ docker run --rm \
-     --network quickstrom \
-     -v $PWD:/my-first-spec \
-     quickstrom/quickstrom \
-     quickstrom check \
-     --webdriver-host=webdriver \
-     --webdriver-path=/wd/hub \
-     --browser=chrome \
-     --tests=5 \
-     /my-first-spec/AudioPlayer.spec.purs \
-     /my-first-spec/AudioPlayer.html
+Schedule a new check, now that we've fleshed out the specification.
 
 You'll see a bunch of output, involving shrinking tests and more. It
 should end with something like the following:
@@ -336,23 +351,13 @@ should end with something like the following:
 Whoops, look at that! It says that the time display shows
 "NaN:NaN". We've found our first bug using Quickstrom!
 
-Open up ``AudioPlayer.html``, and change the following lines near the
-end of the file:
+There's another version of the web application with a fix in place for
+this bug. Create a new check configuration but using the following URL
+as the origin:
 
-.. code-block:: javascript
+https://htmlpreview.github.io/?https://github.com/quickstrom/quickstrom/blob/cloud/tutorial/examples/AudioPlayer.fix-1.html
 
-   case "pause":
-       return await inPaused();
-
-They should be:
-
-.. code-block:: javascript
-
-   case "pause":
-       return await inPaused(time); // <-- this is where we must pass in time
-
-Rerun the tests using the same ``quickstrom`` command as before. All
-tests pass!
+Check again but with your new configuration. All tests pass!
 
 Are we done? Is the audio player correct? Not quite.
 
@@ -368,24 +373,7 @@ We'll try tweaking Quickstrom's options related to :doc:`trailing
 state changes <../../topics/trailing-state-changes>` to test more of the
 time-related behavior of the application.
 
-Run new tests by executing the following command:
-
-.. code-block:: console
-   :emphasize-lines: 10-11
-
-   $ docker run --rm \
-     --network quickstrom \
-     -v $PWD:/my-first-spec \
-     quickstrom/quickstrom \
-     quickstrom check \
-     --webdriver-host=webdriver \
-     --webdriver-path=/wd/hub \
-     --browser=chrome \
-     --tests=5 \
-     --max-trailing-state-changes=1 \
-     --trailing-state-change-timeout=500 \
-     /my-first-spec/AudioPlayer.spec.purs \
-     /my-first-spec/AudioPlayer.html
+Create a new check configuration with the same origin URL as the previously created one, but open up the *Advanced options* section and set *Max trailing state changes* to ``1`` rather than ``0``.
 
 You should see output such as the following:
 
@@ -413,9 +401,13 @@ Look, another bug! It seems that there are ``tick`` transitions even
 though the play/pause button indicates that we're in the ``paused``
 state.
 
-In fact, the problem is the button text, not the time display. I'll
-leave it up to you to find the error in the code, fix it, and make
-the tests pass.
+In fact, the problem is the button text, not the time display. There's
+another version at the following URL with another bug fix:
+
+https://htmlpreview.github.io/?https://github.com/quickstrom/quickstrom/blob/cloud/tutorial/examples/AudioPlayer.fix-2.html
+
+Create yet another check configuration with this origin URL, and you
+should have all tests pass.
 
 Summary
 -------

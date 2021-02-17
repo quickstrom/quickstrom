@@ -2,7 +2,7 @@ Writing Your First Specification
 ================================
 
 In this tutorial we'll specify and check an *audio player* web
-application.
+application using the free version of Quickstrom.
 
 The tutorial assumes you're running on a Unix-like operating system
 and that you have Docker installed. You may run this using :doc:`other

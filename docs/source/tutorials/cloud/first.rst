@@ -2,95 +2,51 @@ Writing Your First Specification
 ================================
 
 In this tutorial we'll specify and check an *audio player* web
-application.
+application using Quickstrom Cloud.
 
-The tutorial assumes you're running on a Unix-like operating system
-and that you have Docker installed. You may run this using :doc:`other
-installation methods <../../installation>` for Quickstrom and your
-WebDriver server, but all commands in this document are using Docker.
+Begin by signing in at `Quickstrom Cloud <app.quickstrom.io>`_.
 
-Open up a terminal and create a new directory to work in:
+Accessing the Audio Player
+--------------------------
 
-.. code-block:: console
+The web application we're going to test is already written and
+available on GitHub. We're going to access it directly using
+`htmlpreview.github.io`. Try opening the following link:
 
-   $ mkdir my-first-spec
-   $ cd my-first-spec
+https://htmlpreview.github.io/?https://github.com/quickstrom/quickstrom/blob/cloud/tutorial/examples/AudioPlayer.html 
 
-Installing with Docker
-----------------------
-
-In this tutorial you need a working installation of Docker. Head over
-to `docker.com <https://www.docker.com/>`__ and set it up if you
-haven't already.
-
-Next, pull the QuickStrom image using Docker:
-
-.. code-block:: console
-
-   $ docker pull quickstrom/quickstrom:latest
-
-Finally, we need a WebDriver server. Pull that down with Docker, too:
-
-.. code-block:: console
-
-   $ docker pull selenium/standalone-chrome:3.141.59-20200826
-
-Downloading the Audio Player
------------------------------
-
-https://htmlpreview.github.io/?https://github.com/quickstrom/quickstrom/blob/master/examples/AudioPlayer.html
-
-The web application we're going to test is already written. Download
-it using ``curl``:
-
-.. code-block:: console
-                
-   $ curl -L https://github.com/quickstrom/quickstrom/raw/main/examples/AudioPlayer.html -o AudioPlayer.html
-
-
-If you don't have ``curl`` installed, you can download it from `this
-URL
-<https://github.com/quickstrom/quickstrom/raw/main/examples/AudioPlayer.html>`__
-using your web browser. Make sure you've saved it our working
-directory as ``AudioPlayer.html``.
-
-.. code-block:: console
-                
-   $ ls
-   AudioPlayer.html
-
-OK! We're now ready to write our specification.
+That's the web application we're going to test. We're now ready to
+write our specification.
 
 A Minimal Specification
 -----------------------
 
 We'll begin by writing a specification that always makes the tests
-pass. Create a new file ``AudioPlayer.spec.purs`` and open it in your
-text editor of choice:
+pass:
 
-.. code-block:: console
-                
-   $ touch AudioPlayer.spec.purs
-   $ $EDITOR AudioPlayer.spec.purs
+#. Create a new specification by clicking *Specifications* in the top
+   navigation bar, and then click the *New* button
+#. Give the specification a name, like "audio-player"
+#. Delete the existing code and replace it with the following:
 
-Type in the following in the file and save it:
+   .. code-block:: haskell
+      :linenos:
 
-.. code-block:: haskell
-   :linenos:
+      module AudioPlayer where
+   
+      import Quickstrom
+      import Data.Maybe (Maybe(..))
+   
+      readyWhen :: Selector
+      readyWhen = ".audio-player"
+   
+      actions :: Actions
+      actions = clicks
+   
+      proposition :: Boolean
+      proposition = true
 
-   module AudioPlayer where
-
-   import Quickstrom
-   import Data.Maybe (Maybe(..))
-
-   readyWhen :: Selector
-   readyWhen = ".audio-player"
-
-   actions :: Actions
-   actions = clicks
-
-   proposition :: Boolean
-   proposition = true
+#. Click the *Create* button
 
 A bunch of things are going on in this specification. Let's break it
 down line by line:
@@ -116,45 +72,17 @@ down line by line:
 Running Tests
 -------------
 
-Let's run some tests!
+Let's run some tests:
 
-First, we need a Docker network. Let's name it ``quickstrom``:
+#. Create a new check configuration by clicking *New* in the
+   *Configurations* section
+#. Give it a name, like "htmlpreview"
+#. Use the following URL as the origin:
 
-.. code-block:: console
+   https://htmlpreview.github.io/?https://github.com/quickstrom/quickstrom/blob/cloud/tutorial/examples/AudioPlayer.html
 
-   $ docker network create quickstrom
-
-Next, from within your ``my-first-spec`` directory, launch a ChromeDriver instance in the
-background:
-
-.. code-block:: console
-
-   $ docker run --rm -d \
-       --network quickstrom \
-       --name webdriver \
-       -v /dev/shm:/dev/shm \
-       -v $PWD:/my-first-spec \
-       selenium/standalone-chrome:3.141.59-20200826
-
-Notice how we mount the current working directory to
-``/my-first-spec`` in the container. We do this to let Chrome access
-the ``AudioPlayer.html`` file.
-
-Now, let's launch Quickstrom, again from within your ``my-first-spec`` directory:
-
-.. code-block:: console
-
-   $ docker run --rm \
-     --network quickstrom \
-     -v $PWD:/my-first-spec \
-     quickstrom/quickstrom \
-     quickstrom check \
-     --webdriver-host=webdriver \
-     --webdriver-path=/wd/hub \
-     --browser=chrome \
-     --tests=5 \
-     /my-first-spec/AudioPlayer.spec.purs \
-     /my-first-spec/AudioPlayer.html
+#. Click the *Create* button
+#. Find your newly created configuration in the table and click *Check*
 
 After some time, you should see an output like the following:
 
@@ -215,7 +143,7 @@ work. Informally, we state the requirements as follows:
 * When in the ``playing`` state, the time display should reflect the
   progress with a ticking minutes and seconds display
 * When ``playing``, and when the play/pause button is clicked, it should
-  go to the ``paused`` state, and the time display should not change
+  go to the ``paused`` state
 * In the ``paused`` state, the button should say "Play"
 * In the ``playing`` state, the button should say "Pause"
 
@@ -304,33 +232,35 @@ The definition ``play`` describes a transition between ``paused`` and
 
 .. code-block:: haskell
 
-   paused
-     && next playing
-     && timeDisplayText == next timeDisplayText
+   paused && next playing
 
 OK, so what's going on here? We specify that the current state is
-``paused``, and that the next state is ``playing``. Further, we say
-that the current time displayed should be the same as the next. That
-is, the time can't change during a ``play`` transition.
+``paused``, and that the next state is ``playing``. That's how we
+encode state transitions.
 
 The ``pause`` transition is similar. Replace ``?pause`` with the
 following expression:
 
 .. code-block:: haskell
 
-   playing
-     && next paused
-     && timeDisplayText == next timeDisplayText
+   playing && next paused
 
 Finally, we have the ``tick``. When we're in the ``playing`` state,
-the time display changes its text on a ``tick``. Replace the hole
-``?tick`` with the following expression:
+the time display changes its text on a ``tick``. The displayed time
+should be monotonically increasing, so we compare alphabetically the
+current and the next time.
+
+Replace the hole ``?tick`` with the following expression:
 
 .. code-block:: haskell
 
    playing
      && next playing
-     && timeDisplayText /= next timeDisplayText
+     && timeDisplayText < next timeDisplayText
+
+If the time display would go past "99:59", we'd get into trouble with
+this specification. But because we won't run tests for that long, we
+can get away with the string comparison.
 
 That's it! We've filled all the holes. Your proposition should now
 look something like this:
@@ -344,20 +274,14 @@ look something like this:
    
        paused = buttonText == Just "Play"
    
-       play =
-         paused
-           && next playing
-           && timeDisplayText == next timeDisplayText
+       play = paused && next playing
    
-       pause =
-         playing
-           && next paused
-           && timeDisplayText == next timeDisplayText
+       pause = playing && next paused
    
        tick =
          playing
            && next playing
-           && timeDisplayText /= next timeDisplayText
+           && timeDisplayText < next timeDisplayText
      in
        paused && always (play || pause || tick)
 

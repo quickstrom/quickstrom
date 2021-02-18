@@ -59,11 +59,14 @@ prettyTrace (Trace elements') = vsep (zipWith prettyElement [1 ..] elements')
               ActionImpossible -> color Red <> bold
          in annotate annotation (pretty i <> "." <+> prettyActionSeq action)
       TraceState effect state' ->
-        annotate (effect `stutterColorOr` Blue <> bold) (pretty i <> "." <+> "State")
+        annotate (effect `stutterColorOr` Blue <> bold) (withSuffix effect (pretty i <> "." <+> "State"))
           <> line
           <> indent 2 (prettyObservedState state')
-    Stutter `stutterColorOr` _ = colorDull Black
+    Stutter `stutterColorOr` _ = color White
     NoStutter `stutterColorOr` fallback = color fallback
+
+    withSuffix Stutter = (<+> "(stutter)")
+    withSuffix NoStutter = identity
 
 prettyObservedState :: ObservedState -> Doc AnsiStyle
 prettyObservedState (ObservedState _ (ObservedElementStates states))

@@ -2,10 +2,15 @@
 
 module Quickstrom.StreamingVerifier where
 
-import qualified Data.Bool
 import Quickstrom.Prelude hiding (State, and, negate, not)
+import Algebra.Lattice
+import Algebra.Heyting
 
 -- * Language
+
+data Certainty a = Definitely a | Probably a
+
+type Result = Certainty Bool
 
 type State = Char
 
@@ -14,17 +19,28 @@ data Value b
   | Continue (State -> Value b)
   deriving (Functor)
 
-(/\) :: Value Bool -> Value Bool -> Value Bool
-Done b1 /\ Done b2 = Done (b1 && b2)
-Continue f1 /\ Continue f2 = Continue (\s -> f1 s /\ f2 s)
-Continue f1 /\ v2 = Continue (\s -> f1 s /\ v2)
-v1 /\ Continue f2 = Continue (\s -> v1 /\ f2 s)
+instance Lattice a => Lattice (Value a) where
+  Done b1 /\ Done b2 = Done (b1 /\ b2)
+  Continue f1 /\ Continue f2 = Continue (\s -> f1 s /\ f2 s)
+  Continue f1 /\ v2 = Continue (\s -> f1 s /\ v2)
+  v1 /\ Continue f2 = Continue (\s -> v1 /\ f2 s)
 
-negate :: Value Bool -> Value Bool
-negate = map Data.Bool.not
+  Done b1 \/ Done b2 = Done (b1 \/ b2)
+  Continue f1 \/ Continue f2 = Continue (\s -> f1 s \/ f2 s)
+  Continue f1 \/ v2 = Continue (\s -> f1 s \/ v2)
+  v1 \/ Continue f2 = Continue (\s -> v1 \/ f2 s)
+
+instance BoundedMeetSemiLattice a => BoundedMeetSemiLattice (Value a) where
+  top = Done top
+
+instance BoundedJoinSemiLattice a => BoundedJoinSemiLattice (Value a) where
+  bottom = Done bottom
+
+instance Heyting a => Heyting (Value a) where
+  a ==> b = map neg a \/ b
 
 data Formula
-  = Atomic (Char -> Bool)
+  = Atomic (State -> Bool)
   | And Formula Formula
   | Next Formula
   | Not Formula
@@ -37,14 +53,19 @@ is c = Atomic (== c)
 next :: Formula -> Formula
 next = Next
 
-not :: Formula -> Formula
-not = Not
+instance Lattice Formula where
+  (/\) = And
+  f1 \/ f2 = neg (neg f1 /\ neg f2)
 
-and :: Formula -> Formula -> Formula
-and = And
+instance BoundedMeetSemiLattice Formula where
+  top = Atomic (const top)
 
-or :: Formula -> Formula -> Formula
-or f1 f2 = not (and (not f1) (not f2))
+instance BoundedJoinSemiLattice Formula where
+  bottom = Atomic (const bottom)
+
+instance Heyting Formula where
+  f1 ==> f2 = neg f1 /\ f2
+  neg = Not
 
 -- * Evaluation
 
@@ -52,7 +73,7 @@ eval :: Formula -> State -> Value Bool
 eval (Atomic a) s = Done (a s)
 eval (And f1 f2) s = eval f1 s /\ eval f2 s
 eval (Next f) _ = Continue (eval f)
-eval (Not f) s = negate (eval f s)
+eval (Not f) s = neg (eval f s)
 
 evalList :: Formula -> [State] -> Maybe Bool
 evalList _ [] = Nothing

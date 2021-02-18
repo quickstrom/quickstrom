@@ -20,6 +20,7 @@ common shared-deps
                     , Glob
                     , hashable
                     , http-client
+                    , lattices
                     , lens
                     , lens-aeson
                     , megaparsec

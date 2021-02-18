@@ -70,6 +70,7 @@ library
                     , Quickstrom.Result
                     , Quickstrom.Run
                     , Quickstrom.Specification
+                    , Quickstrom.StreamingVerifier
                     , Quickstrom.Trace
                     , Quickstrom.WebDriver.Class
                     , Quickstrom.WebDriver.HsWebDriver

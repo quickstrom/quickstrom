@@ -3,9 +3,11 @@
 
 module Quickstrom.StreamingVerifier where
 
+import Numeric.Natural
 import Algebra.Heyting
 import Algebra.Lattice
-import Quickstrom.Prelude hiding (State, and, negate, not)
+import Quickstrom.Prelude hiding (State, and, negate, not, show)
+import GHC.Show
 
 -- * Language
 
@@ -38,37 +40,29 @@ type Result = Certainty Bool
 type State = Char
 type Trace = [State]
 
-data Value b
-  = Done b
-  | Continue (Maybe State -> Value b)
-  deriving (Functor)
-
-instance Lattice a => Lattice (Value a) where
-  Done b1 /\ Done b2 = Done (b1 /\ b2)
-  Continue f1 /\ Continue f2 = Continue (\s -> f1 s /\ f2 s)
-  Continue f1 /\ v2 = Continue (\s -> f1 s /\ v2)
-  v1 /\ Continue f2 = Continue (\s -> v1 /\ f2 s)
-
-  Done b1 \/ Done b2 = Done (b1 \/ b2)
-  Continue f1 \/ Continue f2 = Continue (\s -> f1 s \/ f2 s)
-  Continue f1 \/ v2 = Continue (\s -> f1 s \/ v2)
-  v1 \/ Continue f2 = Continue (\s -> v1 \/ f2 s)
-
-instance BoundedMeetSemiLattice a => BoundedMeetSemiLattice (Value a) where
-  top = Done top
-
-instance BoundedJoinSemiLattice a => BoundedJoinSemiLattice (Value a) where
-  bottom = Done bottom
-
-instance Heyting a => Heyting (Value a) where
-  a ==> b = map neg a \/ b
-
 data Formula
-  = Atomic (State -> Bool)
+  = Trivial
+  | Absurd
+  | Atomic (State -> Bool)
   | And Formula Formula
+  | Or Formula Formula
+  -- | strong next
   | Next Formula
+  -- | weak next
   | WNext Formula
-  | Not Formula
+  -- | demanding next
+  | DNext Formula
+
+instance Show Formula where
+  show = \case
+    Trivial -> "Trivial"
+    Absurd -> "Absurd"
+    Atomic _ -> "Atomic"
+    And p q -> "(And " <> show p <> " " <> show q <> ")"
+    Or p q -> "(Or " <> show p <> " " <> show q <> ")"
+    Next p -> "(Next " <> show p <> ")"
+    WNext _ -> "(WNext ...)"
+    DNext p -> "(DNext " <> show p <> ")"
 
 -- * Syntax
 
@@ -81,49 +75,61 @@ next = Next
 wnext :: Formula -> Formula
 wnext = WNext
 
-always :: Formula -> Formula
-always f = f /\ wnext (always f)
+always :: Natural -> Formula -> Formula
+always 0 f = f /\ WNext (always 0 f)
+always n f = f /\ DNext (always (pred n) f)
 
-eventually :: Formula -> Formula
-eventually f = f \/ next (eventually f)
+eventually :: Natural -> Formula -> Formula
+eventually 0 f = f \/ Next (eventually 0 f)
+eventually n f = f \/ DNext (eventually (pred n) f)
 
 instance Lattice Formula where
   (/\) = And
-  f1 \/ f2 = neg (neg f1 /\ neg f2)
+  (\/) = Or
 
 instance BoundedMeetSemiLattice Formula where
-  top = Atomic (const top)
+  top = Trivial
 
 instance BoundedJoinSemiLattice Formula where
-  bottom = Atomic (const bottom)
-
-instance Heyting Formula where
-  f1 ==> f2 = neg f1 /\ f2
-  neg = Not
+  bottom = Absurd
 
 -- * Evaluation
 
-eval :: Formula -> State -> Value Result
-eval (Atomic a) s = Done (fromBool (a s))
-eval (And f1 f2) s = eval f1 s /\ eval f2 s
-eval (Next f) _ =
-  Continue
-    ( \case
-        Just s -> eval f s
-        Nothing -> Done (Probably False)
-    )
-eval (WNext f) _ =
-  Continue
-    ( \case
-        Just s -> eval f s
-        Nothing -> Done (Probably True)
-    )
-eval (Not f) s = neg (eval f s)
+step :: Formula -> State -> Formula
+step Trivial _ = Trivial
+step Absurd _ = Trivial
+step (Atomic a) s = if a s then Trivial else Absurd
+step (And f1 f2) s =
+  case step f1 s of
+    Trivial -> step f2 s
+    Absurd -> Absurd
+    r1 ->
+      case step f2 s of
+        Trivial -> Trivial
+        Absurd -> Absurd
+        r2 -> r1 /\ r2
+step (Or f1 f2) s = step f1 s \/ step f2 s -- TODO: ???
+step (Next f) _ = f
+step (WNext f) _ = f
+step (DNext f) _ = f
 
-evalTrace :: Formula -> Trace -> Result
-evalTrace _ [] = Definitely False
-evalTrace f (x : xs) = go (eval f x) xs
+verify :: Formula -> Trace -> Maybe Result
+verify = go 
   where
-    go (Done b) _ = b
-    go (Continue c) (x' : xs') = go (c (Just x')) xs'
-    go (Continue c) [] = go (c Nothing) []
+    go = \case
+      Trivial -> const (Just (Definitely True))
+      Absurd -> const (Just (Definitely False))
+      a@Atomic{} -> \case
+        [] -> Nothing
+        x' : xs' -> go (step a x') xs'
+      Next p -> \case
+        [] -> Just (Probably False)
+        x' : xs' -> go (step p x') xs'
+      WNext p -> \case
+        [] -> Just (Probably True)
+        x' : xs' -> go (step p x') xs'
+      DNext p -> \case
+        [] ->  Nothing
+        x' : xs' -> go (step p x') xs'
+      And p q -> \xs' -> liftA2 (/\) (go p xs') (go q xs')
+      Or p q -> \xs' -> liftA2 (\/) (go p xs') (go q xs')

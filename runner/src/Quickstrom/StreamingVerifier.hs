@@ -9,6 +9,28 @@ import Algebra.Heyting
 -- * Language
 
 data Certainty a = Definitely a | Probably a
+  deriving (Show, Functor)
+
+instance Lattice a => Lattice (Certainty a) where
+  Definitely a /\ Definitely b = Definitely (a /\ b)
+  Probably a /\ Definitely b = Probably (a /\ b)
+  Definitely a /\ Probably b = Probably (a /\ b)
+  Probably a /\ Probably b = Probably (a /\ b)
+
+  Probably a \/ Probably b = Probably (a \/ b)
+  Probably a \/ Definitely b = Definitely (a \/ b)
+  Definitely a \/ Probably b = Definitely (a \/ b)
+  Definitely a \/ Definitely b = Definitely (a \/ b)
+
+instance BoundedMeetSemiLattice a => BoundedMeetSemiLattice (Certainty a) where
+  top = Definitely top
+
+instance BoundedJoinSemiLattice a =>  BoundedJoinSemiLattice (Certainty a) where
+  bottom = Definitely bottom
+
+instance Heyting a => Heyting (Certainty a) where
+  f1 ==> f2 = neg f1 /\ f2
+  neg = map neg
 
 type Result = Certainty Bool
 
@@ -69,16 +91,16 @@ instance Heyting Formula where
 
 -- * Evaluation
 
-eval :: Formula -> State -> Value Bool
-eval (Atomic a) s = Done (a s)
+eval :: Formula -> State -> Value Result
+eval (Atomic a) s = Done (fromBool (a s))
 eval (And f1 f2) s = eval f1 s /\ eval f2 s
 eval (Next f) _ = Continue (eval f)
 eval (Not f) s = neg (eval f s)
 
-evalList :: Formula -> [State] -> Maybe Bool
-evalList _ [] = Nothing
-evalList f (x : xs) = go (eval f x) xs
+evalList :: Formula -> [State] -> Result
+evalList _ [] = Definitely False
+evalList f (x:xs) = go (eval f x) xs
   where
-    go (Done b) _ = Just b
-    go _ [] = Nothing
+    go (Done b) _ = b
     go (Continue c) (x' : xs') = go (c x') xs'
+    go (Continue _) [] = Probably False

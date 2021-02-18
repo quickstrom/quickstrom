@@ -1,0 +1,1 @@
+:set -XNoImplicitPrelude -XDataKinds -XOverloadedStrings -XTypeApplications -Wall -Werror=incomplete-patterns -isrc -itest

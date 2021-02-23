@@ -137,7 +137,7 @@ function testViewerReducer(state: TestViewerState, action: TestViewerAction) {
                 }
             })();
         case "change-test":
-             return { ...state, index: 0, current: action.test.transitions[0], test: action.test };
+            return { ...state, index: 0, current: action.test.transitions[0], test: action.test };
     }
 }
 
@@ -279,12 +279,12 @@ const TestViewer: FunctionComponent<{ test: Test }> = ({ test }) => {
             </section>
             <section class="details">
                 <div class="state-queries from">
+                    <QueriesDetails queries={transition.states.from.queries} />
                 </div>
                 <div class="state-queries to">
+                    <QueriesDetails queries={transition.states.to.queries} />
                 </div>
             </section>
-        </section>
-        <section class="details">
         </section>
     </main>
         ;
@@ -423,14 +423,6 @@ const Screenshot: FunctionComponent<{ state: State, extraClass: string, selected
         function percentageOf(x: number, total: number): string {
             return `${(x / total) * 100}%`;
         }
-        function elementStateName(s: ElementState): string {
-            switch (s.tag) {
-                case "Text":
-                    return "Text";
-                default:
-                    return s.name;
-            }
-        }
         function renderQueryMarkers(query: Query) {
             return query.elements.map(element => {
                 if (element.position) {
@@ -446,14 +438,7 @@ const Screenshot: FunctionComponent<{ state: State, extraClass: string, selected
                                 height: percentageOf(element.position.height, state.screenshot.height)
                             }}>
                             < div class="marker-details" >
-                                <table>
-                                    {element.state.map(e => (
-                                        <tr class={e.diff.toLowerCase()}>
-                                            <td>{elementStateName(e.elementState)}</td>
-                                            <td>{e.value}</td>
-                                        </tr>
-                                    ))}
-                                </table>
+                                <ElementStateTable element={element} />
                             </div >
                         </div >
                     );
@@ -471,6 +456,47 @@ const Screenshot: FunctionComponent<{ state: State, extraClass: string, selected
             </div>
         );
     }
+
+
+const QueriesDetails: FunctionComponent<{ queries: Query[] }> = ({ queries }) => {
+    return <ul class="queries-details">
+        {queries.map(query =>
+            <li>
+                <h2 class="selector">{query.selector}</h2>
+                <QueryDetails elements={query.elements} />
+            </li>
+        )}
+    </ul>;
+};
+
+const QueryDetails: FunctionComponent<{ elements: QueriedElement[] }> = ({ elements }) => {
+    return <ul>
+        {elements.map(element =>
+            <li>
+                <h3>{element.id}</h3>
+                <ElementStateTable element={element} />
+            </li>
+        )}
+    </ul>;
+};
+const ElementStateTable: FunctionComponent<{ element: QueriedElement }> = ({ element }) => {
+    function elementStateName(s: ElementState): string {
+        switch (s.tag) {
+            case "Text":
+                return "Text";
+            default:
+                return s.name;
+        }
+    }
+    return <table class="element-state">
+        {element.state.map(e => (
+            <tr class={e.diff.toLowerCase()}>
+                <td>{elementStateName(e.elementState)}</td>
+                <td>{e.value}</td>
+            </tr>
+        ))}
+    </table>;
+};
 
 function excludeStutters(report: Report<Failed>): Report<Failed> {
     return {

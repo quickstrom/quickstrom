@@ -106,6 +106,12 @@ main .controls button:active {
     background: #2f2f2f;
 }
 
+.selector {
+    white-space: nowrap;
+    font-family: 'Monaco', 'Consolas', 'Ubuntu Mono', monospace;
+    font-weight: normal;
+}
+
 .action-sequence, .action, .states, .screenshots, .details {
     width: 100%;
     display: flex;
@@ -157,8 +163,6 @@ main .controls button:active {
     margin: .5em 0;
 }
 .action-details .selector {
-    white-space: nowrap;
-    font-family: 'Monaco', 'Consolas', 'Ubuntu Mono', monospace;
     margin: .5em 0;
 }
 .action-details .selected-index {
@@ -261,31 +265,52 @@ main .controls button:active {
 .state-screenshot-inner .marker.active .marker-details {
     display: block;
 }
-.state-screenshot-inner .marker .marker-details table {
+
+.details {
+    display: flex;
+    margin: 2rem 0;
+}
+.details .state-queries {
+    flex: 1 1 50%;
+}
+.details ul {
+    margin: 1rem;
+}
+.details ul ul {
+    list-style: initial;
+    padding-left: 1rem;
+}
+.details .element-state {
+    margin: 1rem;
+}
+
+.element-state {
     width: 100%;
 }
-.state-screenshot-inner .marker .marker-details td {
+.element-state td {
     padding: .5rem;
+    background: #333;
+    color: #ccc;
 }
-.state-screenshot-inner .marker .marker-details td:first-child {
+.element-state td:first-child {
     width: 1%;
-    border-right: 1px solid #aaa;
+    border-right: 1px solid rgba(255,255,255,.2);
 }
-.state-screenshot-inner .marker .marker-details td:last-child {
+.element-state td:last-child {
     text-align: right;
 }
 
-.state-screenshot-inner .marker .marker-details .added td {
-    background: rgb(207, 255, 207);
-    color: green;
+.element-state .added td {
+    background: rgb(54, 80, 54);
+    color: rgb(207, 255, 207);
 }
 
-.state-screenshot-inner .marker .marker-details .modified td {
-    background: rgb(208, 208, 255);
-    color: blue;
+.element-state .modified td {
+    background: rgb(39, 39, 92);
+    color: rgb(208, 208, 255);
 }
 
-.state-screenshot-inner .marker .marker-details .removed td {
-    background: rgb(255, 206, 206);
-    color: red;
+.element-state .removed td {
+    background: rgb(83, 32, 32);
+    color: rgb(255, 206, 206);
 }

@@ -74,7 +74,7 @@ section.error {
 main {
     flex: 1 0 auto;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
 }
 
 main .content {
@@ -85,18 +85,21 @@ main .content {
 main .controls {
     flex: 0 0 auto;
     display: flex;
+    justify-content: space-between;
 }
 main .controls button {
     background: #222;
     border: none;
     padding: 2rem;
     cursor: pointer;
-    font-size: 1.5rem;
-    font-weight: bold;
     color: #ccc;
+    letter-spacing: 0.05em;
+    font-size: 1rem;
+    text-transform: uppercase;
 }
 main .controls button:disabled {
     cursor: not-allowed;
+    color: #666;
 }
 main .controls button:hover,
 main .controls button:active {

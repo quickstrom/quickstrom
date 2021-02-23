@@ -262,7 +262,8 @@ const TestViewer: FunctionComponent<{ test: Test }> = ({ test }) => {
     const transition = state.current;
     return <main>
         <section class="controls">
-            <button disabled={state.index === 0} onClick={() => dispatch({ tag: "previous" })}>←</button>
+            <button disabled={state.index === 0} onClick={() => dispatch({ tag: "previous" })}>← Previous</button>
+            <button disabled={state.index === (state.test.transitions.length - 1)} onClick={() => dispatch({ tag: "next" })}>Next →</button>
         </section>
         <section class="content">
             <ActionSequence actionSequence={transition.actionSequence} />
@@ -283,8 +284,7 @@ const TestViewer: FunctionComponent<{ test: Test }> = ({ test }) => {
                 </div>
             </section>
         </section>
-        <section class="controls">
-            <button disabled={state.index === (state.test.transitions.length - 1)} onClick={() => dispatch({ tag: "next" })}>→</button>
+        <section class="details">
         </section>
     </main>
         ;

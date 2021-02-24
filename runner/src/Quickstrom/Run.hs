@@ -203,7 +203,6 @@ runSingle spec size = do
               (lengthOf (field @"trace" . traceElements))
               ( traverseShrinks runShrink shrinks
                   >-> select (preview _Left)
-                  >-> Pipes.take 5
               )
           pure (maybe (Left ft) Left shrunk)
         else pure (Left ft)
@@ -375,7 +374,7 @@ selectValidAction skipValidation possibleAction =
     Focus sel -> selectOne sel Focus (if skipValidation then alwaysTrue else isNotActive)
     Click sel -> selectOne sel Click (if skipValidation then alwaysTrue else isClickable)
     Clear sel -> selectOne sel Clear (if skipValidation then alwaysTrue else isClearable)
-    Refresh  -> pure (Just Refresh)
+    Refresh -> pure (Just Refresh)
   where
     selectOne ::
       (MonadIO m, WebDriver m) =>
@@ -387,8 +386,8 @@ selectValidAction skipValidation possibleAction =
       found <- findAll sel
       validChoices <-
         filterM
-            (\(_, e) -> isValid e `catchResponseError` const (pure False))
-            (zip [0 ..] found)
+          (\(_, e) -> isValid e `catchResponseError` const (pure False))
+          (zip [0 ..] found)
       case validChoices of
         [] -> pure Nothing
         choices -> Just <$> generate (ctor . Selected sel <$> QuickCheck.elements (map fst choices))
@@ -448,7 +447,7 @@ runAction = \case
   Await s -> awaitElement defaultAwaitSecs s
   AwaitWithTimeoutSecs i s -> awaitElement i s
   Navigate uri -> tryAction (ActionSuccess <$ navigateTo uri)
-  Refresh  -> tryAction (ActionSuccess <$ pageRefresh)
+  Refresh -> tryAction (ActionSuccess <$ pageRefresh)
 
 runActionSequence :: (MonadIO m, WebDriver m) => ActionSequence Selected -> Runner m ActionResult
 runActionSequence = \case

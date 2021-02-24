@@ -261,14 +261,19 @@ takeWhileChanging compare' = Pipes.await >>= loop
       next <- Pipes.await
       if next `compare'` prev then pass else loop next
 
+takeScreenshot' :: WebDriver m => Runner m (Maybe ByteString)
+takeScreenshot' = do
+  CheckEnv {checkOptions = CheckOptions {checkCaptureScreenshots}} <- ask
+  if checkCaptureScreenshots then Just <$> takeScreenshot else pure Nothing
+
 observeManyStatesAfter :: (MonadIO m, WebDriver m) => Queries -> ActionSequence Selected -> Pipe a (TraceElement ()) (Runner m) ()
 observeManyStatesAfter queries' actionSequence = do
-  CheckEnv {checkScripts = scripts, checkOptions = CheckOptions {checkMaxTrailingStateChanges, checkTrailingStateChangeTimeout, checkCaptureScreenshots}} <- lift ask
+  CheckEnv {checkScripts = scripts, checkOptions = CheckOptions {checkMaxTrailingStateChanges, checkTrailingStateChangeTimeout}} <- lift ask
   lift (runCheckScript (registerNextStateObserver scripts checkTrailingStateChangeTimeout queries'))
   result <- lift (runActionSequence actionSequence)
   lift (runCheckScript (awaitNextState scripts) `catchResponseError` const pass)
   newState <- lift (runCheckScript (observeState scripts queries'))
-  screenshot <- if checkCaptureScreenshots then Just <$> lift takeScreenshot else pure Nothing
+  screenshot <- lift takeScreenshot'
   Pipes.yield (TraceAction () actionSequence result)
   Pipes.yield (TraceState () (ObservedState screenshot newState))
   nonStutters <-
@@ -287,7 +292,7 @@ observeManyStatesAfter queries' actionSequence = do
         runCheckScript (registerNextStateObserver scripts timeout queries')
         runCheckScript (awaitNextState scripts) `catchResponseError` const pass
         runCheckScript (observeState scripts queries')
-      screenshot <- pure <$> lift takeScreenshot
+      screenshot <- lift takeScreenshot'
       Pipes.yield (ObservedState screenshot newState)
       loop (mapTimeout (* 2) timeout)
 
@@ -296,7 +301,7 @@ runActions' :: (MonadIO m, WebDriver m, Specification spec) => spec -> Pipe (Act
 runActions' spec = do
   scripts <- lift (asks checkScripts)
   state1 <- lift (runCheckScript (observeState scripts queries'))
-  screenshot <- pure <$> lift takeScreenshot
+  screenshot <- lift takeScreenshot'
   Pipes.yield (TraceState () (ObservedState screenshot state1))
   loop
   where

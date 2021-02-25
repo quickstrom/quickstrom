@@ -4,19 +4,12 @@
 
 module Quickstrom.Run.Runner where
 
-import Control.Monad (Monad (fail))
 import Control.Monad.Catch (MonadCatch, MonadThrow)
 import qualified Data.Aeson as JSON
-import Data.String (String, fromString)
-import Quickstrom.Element (Element)
 import Quickstrom.Prelude hiding (catch, check, trace)
-import Quickstrom.Specification (Queries)
 import Quickstrom.Timeout (Timeout)
-import Quickstrom.Trace (ObservedElementStates)
-import Quickstrom.WebDriver.Class (WebDriver, WebDriverOptions, runScript)
+import Quickstrom.WebDriver.Class (WebDriver, WebDriverOptions)
 import Quickstrom.Run.Scripts (CheckScripts)
-import System.Environment (lookupEnv)
-import System.FilePath ((</>))
 import Text.URI (URI)
 
 data CheckEnv = CheckEnv {checkOptions :: CheckOptions, checkScripts :: CheckScripts}

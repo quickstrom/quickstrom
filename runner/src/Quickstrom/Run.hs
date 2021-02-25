@@ -55,7 +55,7 @@ import qualified Pipes.Prelude as Pipes
 import Quickstrom.Action
 import Quickstrom.Prelude hiding (catch, check, trace)
 import Quickstrom.Result
-import Quickstrom.Run.Actions (shrinkAction, awaitElement, defaultAwaitSecs, generateValidActions, runActionSequence)
+import Quickstrom.Run.Actions (shrinkAction, awaitElement, defaultTimeout, generateValidActions, runActionSequence)
 import Quickstrom.Run.Scripts (CheckScripts (..), readScripts, runCheckScript)
 import Quickstrom.Run.Runner (CheckEnv (..), CheckOptions (..), Runner, Size (..), run)
 import Quickstrom.Specification
@@ -206,7 +206,7 @@ beforeRun :: (MonadIO m, WebDriver m, Specification spec) => spec -> Runner m ()
 beforeRun spec = do
   navigateToOrigin
   do
-    res <- awaitElement defaultAwaitSecs (readyWhen spec)
+    res <- awaitElement defaultTimeout (readyWhen spec)
     case res of
       ActionFailed s -> fail $ Text.unpack s
       _ -> pass

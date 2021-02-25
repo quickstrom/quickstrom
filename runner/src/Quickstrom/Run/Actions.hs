@@ -7,7 +7,7 @@
 
 module Quickstrom.Run.Actions
   ( awaitElement,
-    defaultAwaitSecs,
+    defaultTimeout,
     shrinkAction,
     generateValidActions,
     runActionSequence,
@@ -33,7 +33,8 @@ import Quickstrom.Action
 import Quickstrom.Run.Scripts (CheckScripts (..), runCheckScript)
 import Quickstrom.Element
 import Quickstrom.Prelude hiding (catch, check, trace)
-import Quickstrom.Trace
+import Quickstrom.Trace (ActionResult (..))
+import Quickstrom.Timeout (Timeout (..))
 import Quickstrom.WebDriver.Class
 import qualified Test.QuickCheck as QuickCheck
 import Quickstrom.Run.Runner
@@ -150,8 +151,8 @@ runAction = \case
   EnterText t -> sendKeys t
   Click s -> click s
   Clear s -> clear s
-  Await s -> awaitElement defaultAwaitSecs s
-  AwaitWithTimeoutSecs i s -> awaitElement i s
+  Await s -> awaitElement defaultTimeout s
+  AwaitWithTimeoutSecs i s -> awaitElement (Timeout (fromIntegral i * 1000)) s
   Navigate uri -> tryAction (ActionSuccess <$ navigateTo uri)
   Refresh -> tryAction (ActionSuccess <$ pageRefresh)
 
@@ -170,17 +171,17 @@ findSelected :: WebDriver m => Selected -> m (Maybe Element)
 findSelected (Selected s i) =
   findAll s >>= \es -> pure (es ^? ix i)
 
-defaultAwaitSecs :: Int
-defaultAwaitSecs = 10
+defaultTimeout :: Timeout
+defaultTimeout = Timeout 10_000
 
--- TODO: Rewrite to use Timeout
-awaitElement :: (MonadIO m, WebDriver m) => Int -> Selector -> Runner m ActionResult
-awaitElement secondsTimeout sel@(Selector s) =
-  let loop n
-        | n > secondsTimeout =
-          pure $ ActionFailed ("Giving up after having waited " <> show secondsTimeout <> " seconds for selector to match an element: " <> toS s)
+awaitElement :: (MonadIO m, WebDriver m) => Timeout -> Selector -> Runner m ActionResult
+awaitElement (Timeout ms) sel@(Selector s) =
+  let interval = max 100 (min 1_000 (ms `div` 10))
+      loop n
+        | n > ms =
+          pure $ ActionFailed ("Giving up after having waited " <> show ms <> " ms for selector to match an element: " <> toS s)
         | otherwise =
           findAll sel >>= \case
-            [] -> liftIO (threadDelay 1000000) >> loop (n + 1)
+            [] -> liftIO (threadDelay (fromIntegral interval)) >> loop (n + interval)
             _ -> pure ActionSuccess
-   in loop (1 :: Int)
+   in loop 0

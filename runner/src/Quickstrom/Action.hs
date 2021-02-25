@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE LambdaCase #-}
@@ -25,10 +26,10 @@ data Action sel
   | Navigate Text
   | Refresh
   -- `Back` and `Forward` can't be supported, as the history cannot be introspected to validate if these actions are possible.
-  deriving (Eq, Show, Generic, ToJSON)
+  deriving (Eq, Show, Functor, Generic, ToJSON)
 
 data ActionSequence sel = Single (Action sel) | Sequence (NonEmpty (Action sel))
-  deriving (Eq, Show, Generic, ToJSON)
+  deriving (Eq, Show, Functor, Generic, ToJSON)
 
 type PotentialActionSequence = [Action Selector]
 

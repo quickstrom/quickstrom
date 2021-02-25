@@ -1,9 +1,11 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections #-}
 
 module Quickstrom.Run.Actions
   ( awaitElement,
@@ -11,11 +13,12 @@ module Quickstrom.Run.Actions
     shrinkAction,
     generateValidActions,
     runActionSequence,
+    reselect,
   )
 where
 
-import Control.Lens hiding (each)
-import Control.Monad (filterM, (>=>))
+import Control.Lens
+import Control.Monad (filterM)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Loops (andM)
 import Control.Monad.Trans.Class (MonadTrans (lift))
@@ -30,14 +33,14 @@ import qualified Data.Vector as Vector
 import Pipes (Producer)
 import qualified Pipes
 import Quickstrom.Action
-import Quickstrom.Run.Scripts (CheckScripts (..), runCheckScript)
 import Quickstrom.Element
 import Quickstrom.Prelude hiding (catch, check, trace)
-import Quickstrom.Trace (ActionResult (..))
+import Quickstrom.Run.Runner
+import Quickstrom.Run.Scripts (CheckScripts (..), runCheckScript)
 import Quickstrom.Timeout (Timeout (..))
+import Quickstrom.Trace (ActionResult (..))
 import Quickstrom.WebDriver.Class
 import qualified Test.QuickCheck as QuickCheck
-import Quickstrom.Run.Runner
 
 shrinkAction :: ActionSequence Selected -> [ActionSequence Selected]
 shrinkAction _ = [] -- TODO?
@@ -45,21 +48,56 @@ shrinkAction _ = [] -- TODO?
 generate :: MonadIO m => QuickCheck.Gen a -> m a
 generate = liftIO . QuickCheck.generate
 
-generateValidActions :: (MonadIO m, WebDriver m) => Vector (Int, ActionSequence Selector) -> Producer (ActionSequence Selected) (Runner m) ()
+data Weighted a = Weighted {weight :: Int, weighted :: a}
+  deriving (Show, Eq, Functor, Generic)
+
+generateValidActions ::
+  (MonadIO m, WebDriver m) =>
+  Vector (Weighted (ActionSequence Selector)) ->
+  Producer (ActionSequence (Element, Selected)) (Runner m) ()
 generateValidActions possibleActions = loop
   where
-    loop = do
-      validActions <- lift $ for (Vector.toList possibleActions) \(prob, action') -> do
-        fmap (prob,) <$> selectValidActionSeq action'
-      case map (_2 %~ pure) (catMaybes validActions) of
-        [] -> pass
-        actions' -> do
-          actions'
-            & QuickCheck.frequency
-            & generate
-            & lift
-            & (>>= Pipes.yield)
-          loop
+    loop =
+      lift (findActionCandidates possibleActions >>= filterValidActionCandidates >>= chooseAction)
+        >>= \case
+          Nothing -> pass
+          Just action -> Pipes.yield action >> loop
+
+findActionCandidates ::
+  (MonadIO m, WebDriver m) =>
+  Vector (Weighted (ActionSequence Selector)) ->
+  Runner m (Vector (Weighted (ActionSequence (Element, Selected))))
+findActionCandidates = foldMap findActionCandidate 
+  where
+    findActionCandidate :: Weighted (ActionSequence Selector) -> Runner m (Vector (Weighted (ActionSequence (Element, Selected))))
+    findActionCandidate = \case
+      KeyPress k -> pure (Keypress k)
+      EnterText t -> do
+        active <- isActiveInput
+        if skipValidation || active then pure (Just (EnterText t)) else pure Nothing
+      Navigate p -> pure (Just (Navigate p))
+      Await sel -> pure (Just (Await sel))
+      AwaitWithTimeoutSecs i sel -> pure (Just (AwaitWithTimeoutSecs i sel))
+      Focus sel -> selectOne sel Focus (if skipValidation then alwaysTrue else isNotActive)
+      Click sel -> selectOne sel Click (if skipValidation then alwaysTrue else isClickable)
+      Clear sel -> selectOne sel Clear (if skipValidation then alwaysTrue else isClearable)
+      Refresh -> pure (Just Refresh)
+
+filterValidActionCandidates ::
+  (MonadIO m, WebDriver m) =>
+  Vector (Weighted (ActionSequence (Element, Selected))) ->
+  Runner m (Vector (Weighted (ActionSequence (Element, Selected))))
+filterValidActionCandidates = _
+
+chooseAction ::
+  (MonadIO m, WebDriver m) =>
+  Vector (Weighted (ActionSequence (Element, Selected))) ->
+  Runner m (Maybe (ActionSequence (Element, Selected)))
+chooseAction = _
+
+-- actions'
+--   & QuickCheck.frequency
+--   & generate
 
 selectValidActionSeq :: (MonadIO m, WebDriver m) => ActionSequence Selector -> Runner m (Maybe (ActionSequence Selected))
 selectValidActionSeq (Single action) = map Single <$> selectValidAction False action
@@ -120,17 +158,11 @@ tryAction action =
   action
     `catchResponseError` (\(WebDriverResponseError msg) -> pure (ActionFailed msg))
 
-click :: WebDriver m => Selected -> Runner m ActionResult
-click =
-  findSelected >=> \case
-    Just e -> tryAction (ActionSuccess <$ elementClick e)
-    Nothing -> pure ActionImpossible
+click :: WebDriver m => Element -> Runner m ActionResult
+click e = tryAction (ActionSuccess <$ elementClick e)
 
-clear :: WebDriver m => Selected -> Runner m ActionResult
-clear =
-  findSelected >=> \case
-    Just e -> tryAction (ActionSuccess <$ elementClear e)
-    Nothing -> pure ActionImpossible
+clear :: WebDriver m => Element -> Runner m ActionResult
+clear e = tryAction (ActionSuccess <$ elementClear e)
 
 sendKeys :: WebDriver m => Text -> Runner m ActionResult
 sendKeys t = tryAction (ActionSuccess <$ (getActiveElement >>= elementSendKeys t))
@@ -138,13 +170,10 @@ sendKeys t = tryAction (ActionSuccess <$ (getActiveElement >>= elementSendKeys t
 sendKey :: WebDriver m => Char -> Runner m ActionResult
 sendKey = sendKeys . Text.singleton
 
-focus :: WebDriver m => Selected -> Runner m ActionResult
-focus =
-  findSelected >=> \case
-    Just e -> tryAction (ActionSuccess <$ elementSendKeys "" e)
-    Nothing -> pure ActionImpossible
+focus :: WebDriver m => Element -> Runner m ActionResult
+focus e = tryAction (ActionSuccess <$ elementSendKeys "" e)
 
-runAction :: (MonadIO m, WebDriver m) => Action Selected -> Runner m ActionResult
+runAction :: (MonadIO m, WebDriver m) => Action Element -> Runner m ActionResult
 runAction = \case
   Focus s -> focus s
   KeyPress c -> sendKey c
@@ -156,7 +185,7 @@ runAction = \case
   Navigate uri -> tryAction (ActionSuccess <$ navigateTo uri)
   Refresh -> tryAction (ActionSuccess <$ pageRefresh)
 
-runActionSequence :: (MonadIO m, WebDriver m) => ActionSequence Selected -> Runner m ActionResult
+runActionSequence :: (MonadIO m, WebDriver m) => ActionSequence Element -> Runner m ActionResult
 runActionSequence = \case
   Single h -> runAction h
   Sequence actions' ->
@@ -167,9 +196,10 @@ runActionSequence = \case
             err -> pure err
      in loop (toList actions')
 
-findSelected :: WebDriver m => Selected -> m (Maybe Element)
-findSelected (Selected s i) =
-  findAll s >>= \es -> pure (es ^? ix i)
+reselect :: WebDriver m => Selected -> m (Maybe (Element, Selected))
+reselect selected@(Selected s i) = do
+  es <- findAll s
+  pure ((,selected) <$> (es ^? ix i))
 
 defaultTimeout :: Timeout
 defaultTimeout = Timeout 10_000

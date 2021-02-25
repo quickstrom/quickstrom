@@ -55,6 +55,7 @@ import qualified Pipes.Prelude as Pipes
 import Quickstrom.Action
 import Quickstrom.Prelude hiding (catch, check, trace)
 import Quickstrom.Result
+import Quickstrom.Element (Element)
 import Quickstrom.Run.Actions (shrinkAction, awaitElement, defaultTimeout, generateValidActions, runActionSequence)
 import Quickstrom.Run.Scripts (CheckScripts (..), readScripts, runCheckScript)
 import Quickstrom.Run.Runner (CheckEnv (..), CheckOptions (..), Runner, Size (..), run)
@@ -166,7 +167,7 @@ runSingle spec size = do
     runAndVerifyIsolated ::
       (MonadIO m, WebDriver m) =>
       Int ->
-      Producer (ActionSequence Selected) (Runner m) () ->
+      Producer (ActionSequence (Element, Selected)) (Runner m) () ->
       Producer TestEvent (Runner m) (Either FailedTest (Trace TraceElementEffect))
     runAndVerifyIsolated n producer = do
       trace <- lift do
@@ -224,15 +225,15 @@ takeScreenshot' = do
   CheckEnv {checkOptions = CheckOptions {checkCaptureScreenshots}} <- ask
   if checkCaptureScreenshots then Just <$> takeScreenshot else pure Nothing
 
-observeManyStatesAfter :: (MonadIO m, WebDriver m) => Queries -> ActionSequence Selected -> Pipe a (TraceElement ()) (Runner m) ()
+observeManyStatesAfter :: (MonadIO m, WebDriver m) => Queries -> ActionSequence (Element, Selected) -> Pipe a (TraceElement ()) (Runner m) ()
 observeManyStatesAfter queries' actionSequence = do
   CheckEnv {checkScripts = scripts, checkOptions = CheckOptions {checkMaxTrailingStateChanges, checkTrailingStateChangeTimeout}} <- lift ask
   lift (runCheckScript (registerNextStateObserver scripts checkTrailingStateChangeTimeout queries'))
-  result <- lift (runActionSequence actionSequence)
+  result <- lift (runActionSequence (map fst actionSequence))
   lift (runCheckScript (awaitNextState scripts) `catchResponseError` const pass)
   newState <- lift (runCheckScript (observeState scripts queries'))
   screenshot <- lift takeScreenshot'
-  Pipes.yield (TraceAction () actionSequence result)
+  Pipes.yield (TraceAction () (map snd actionSequence) result)
   Pipes.yield (TraceState () (ObservedState screenshot newState))
   nonStutters <-
     ( loop checkTrailingStateChangeTimeout
@@ -255,7 +256,7 @@ observeManyStatesAfter queries' actionSequence = do
       loop (mapTimeout (* 2) timeout)
 
 {-# SCC runActions' "runActions'" #-}
-runActions' :: (MonadIO m, WebDriver m, Specification spec) => spec -> Pipe (ActionSequence Selected) (TraceElement ()) (Runner m) ()
+runActions' :: (MonadIO m, WebDriver m, Specification spec) => spec -> Pipe (ActionSequence (Element, Selected)) (TraceElement ()) (Runner m) ()
 runActions' spec = do
   scripts <- lift (asks checkScripts)
   state1 <- lift (runCheckScript (observeState scripts queries'))

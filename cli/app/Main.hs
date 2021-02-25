@@ -26,6 +26,7 @@ import Data.Text.Prettyprint.Doc.Symbols.Unicode (bullet)
 import Options.Applicative
 import qualified Pipes as Pipes
 import qualified Quickstrom.Browser as Quickstrom
+import qualified Quickstrom.Timeout as Quickstrom
 import qualified Quickstrom.CLI.Logging as Quickstrom
 import Quickstrom.CLI.Reporter (Reporter)
 import qualified Quickstrom.CLI.Reporter as Reporter

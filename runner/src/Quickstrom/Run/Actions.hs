@@ -67,21 +67,23 @@ findActionCandidates ::
   (MonadIO m, WebDriver m) =>
   Vector (Weighted (ActionSequence Selector)) ->
   Runner m (Vector (Weighted (ActionSequence (Element, Selected))))
-findActionCandidates = foldMap findActionCandidate 
+findActionCandidates = foldMap findActionCandidate
   where
-    findActionCandidate :: Weighted (ActionSequence Selector) -> Runner m (Vector (Weighted (ActionSequence (Element, Selected))))
+    findActionSequenceCandidate :: Weighted (ActionSequence Selector) -> Runner m (Maybe (Weighted (ActionSequence (Element, Selected))))
+    findActionSequenceCandidate (Weighted weight' (Single action)) = map (Weighted weight' . Single) <$> findActionCandidate action
+    findActionSequenceCandidate (Weighted weight' (Sequence actions)) = map (Weighted weight' . map Sequence) <$> traverse findActionCandidate actions
+
+    findActionCandidate :: Action Selector -> Runner m (Maybe (Action (Element, Selected)))
     findActionCandidate = \case
-      KeyPress k -> pure (Keypress k)
-      EnterText t -> do
-        active <- isActiveInput
-        if skipValidation || active then pure (Just (EnterText t)) else pure Nothing
-      Navigate p -> pure (Just (Navigate p))
-      Await sel -> pure (Just (Await sel))
-      AwaitWithTimeoutSecs i sel -> pure (Just (AwaitWithTimeoutSecs i sel))
+      KeyPress k -> pure (pure (KeyPress k))
+      EnterText t -> pure (pure (EnterText t))
+      Navigate p -> pure (pure (Navigate p))
+      Await sel -> pure (pure (Await sel))
+      AwaitWithTimeoutSecs i sel -> pure (pure (AwaitWithTimeoutSecs i sel))
       Focus sel -> selectOne sel Focus (if skipValidation then alwaysTrue else isNotActive)
       Click sel -> selectOne sel Click (if skipValidation then alwaysTrue else isClickable)
       Clear sel -> selectOne sel Clear (if skipValidation then alwaysTrue else isClearable)
-      Refresh -> pure (Just Refresh)
+      Refresh -> pure (pure Refresh)
 
 filterValidActionCandidates ::
   (MonadIO m, WebDriver m) =>

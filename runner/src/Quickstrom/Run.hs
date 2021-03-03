@@ -1,12 +1,10 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
@@ -14,7 +12,6 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE Strict #-}
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -53,14 +50,14 @@ import Pipes (Pipe, Producer, (>->))
 import qualified Pipes
 import qualified Pipes.Prelude as Pipes
 import Quickstrom.Action
+import Quickstrom.Element (Element)
 import Quickstrom.Prelude hiding (catch, check, trace)
 import Quickstrom.Result
-import Quickstrom.Element (Element)
-import Quickstrom.Run.Actions (shrinkAction, awaitElement, defaultTimeout, generateValidActions, runActionSequence)
-import Quickstrom.Run.Scripts (CheckScripts (..), readScripts, runCheckScript)
+import Quickstrom.Run.Actions (awaitElement, defaultTimeout, generateValidActions, reselect, runActionSequence, shrinkAction)
 import Quickstrom.Run.Runner (CheckEnv (..), CheckOptions (..), Runner, Size (..), run)
+import Quickstrom.Run.Scripts (CheckScripts (..), readScripts, runCheckScript)
 import Quickstrom.Specification
-import Quickstrom.Timeout (mapTimeout, Timeout)
+import Quickstrom.Timeout (Timeout, mapTimeout)
 import Quickstrom.Trace
 import Quickstrom.WebDriver.Class
 import qualified Test.QuickCheck as QuickCheck
@@ -179,9 +176,19 @@ runSingle spec size = do
         Right Accepted -> pure (Right trace)
         Right Rejected -> pure (Left (FailedTest n trace Nothing))
         Left err -> pure (Left (FailedTest n trace (Just err)))
+    runShrink ::
+      (MonadIO m, WebDriver m) =>
+      Shrink [ActionSequence Selected] ->
+      Producer TestEvent (Runner m) (Either FailedTest (Trace TraceElementEffect))
     runShrink (Shrink n actions') = do
       Pipes.yield (RunningShrink n)
-      runAndVerifyIsolated n (Pipes.each actions')
+      reselected <-
+        actions'
+          & traverse . traverse %%~ reselectOrFail
+          & lift
+      runAndVerifyIsolated n (Pipes.each reselected)
+    reselectOrFail :: WebDriver m => Selected -> Runner m (Element, Selected)
+    reselectOrFail s = reselect s >>= maybe (fail ("Couldn't reselect: " <> show s)) pure
 
 runAll :: (MonadIO m, WebDriver m, Specification spec) => CheckOptions -> spec -> Producer CheckEvent (Runner m) CheckResult
 runAll opts spec' = go mempty (sizes opts `zip` [1 ..])

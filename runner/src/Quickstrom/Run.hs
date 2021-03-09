@@ -53,7 +53,7 @@ import Quickstrom.Action
 import Quickstrom.Element (Element)
 import Quickstrom.Prelude hiding (catch, check, trace)
 import Quickstrom.Result
-import Quickstrom.Run.Actions (awaitElement, defaultTimeout, generateValidActions, reselect, runActionSequence, shrinkAction)
+import Quickstrom.Run.Actions (awaitElement, defaultTimeout, generateValidActions, reselect, runActionSequence, shrinkAction, isCurrentlyValid)
 import Quickstrom.Run.Runner (CheckEnv (..), CheckOptions (..), Runner, Size (..), run)
 import Quickstrom.Run.Scripts (CheckScripts (..), readScripts, runCheckScript)
 import Quickstrom.Specification
@@ -182,13 +182,11 @@ runSingle spec size = do
       Producer TestEvent (Runner m) (Either FailedTest (Trace TraceElementEffect))
     runShrink (Shrink n actions') = do
       Pipes.yield (RunningShrink n)
-      reselected <-
-        actions'
-          & traverse . traverse %%~ reselectOrFail
-          & lift
-      runAndVerifyIsolated n (Pipes.each reselected)
-    reselectOrFail :: WebDriver m => Selected -> Runner m (Element, Selected)
-    reselectOrFail s = reselect s >>= maybe (fail ("Couldn't reselect: " <> show s)) pure
+      Pipes.each actions'
+        >-> Pipes.mapM (traverse reselect)
+        >-> Pipes.mapMaybe (traverse identity)
+        >-> Pipes.filterM isCurrentlyValid
+        & runAndVerifyIsolated n 
 
 runAll :: (MonadIO m, WebDriver m, Specification spec) => CheckOptions -> spec -> Producer CheckEvent (Runner m) CheckResult
 runAll opts spec' = go mempty (sizes opts `zip` [1 ..])

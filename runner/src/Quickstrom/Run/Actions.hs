@@ -1,6 +1,4 @@
 {-# LANGUAGE BlockArguments #-}
-
-
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NumericUnderscores #-}
@@ -12,6 +10,8 @@ module Quickstrom.Run.Actions
     defaultTimeout,
     shrinkAction,
     generateValidActions,
+    isCurrentlyValid,
+    isActionCurrentlyValid,
     runActionSequence,
     reselect,
     chooseAction,
@@ -54,7 +54,7 @@ generateValidActions ::
 generateValidActions possibleActions = loop
   where
     loop =
-      lift (findActionCandidates possibleActions >>= filterValidActionCandidates >>= chooseAction)
+      lift (findActionCandidates possibleActions >>= filterCurrentlyValidActionCandidates >>= chooseAction)
         >>= \case
           Nothing -> pass
           Just action -> Pipes.yield action >> loop
@@ -96,22 +96,27 @@ findActionCandidates = map fold . traverse (map (maybe mempty pure) . findAction
         [] -> pure Nothing
         choices -> Just <$> generate (QuickCheck.elements [(e, Selected sel i) | (i, e) <- choices])
 
-filterValidActionCandidates ::
+filterCurrentlyValidActionCandidates ::
   (MonadIO m, WebDriver m) =>
   Vector (Weighted (ActionSequence (Element, Selected))) ->
   Runner m (Vector (Weighted (ActionSequence (Element, Selected))))
-filterValidActionCandidates = Vector.filterM (isValid . actionSequenceHead . weighted)
+filterCurrentlyValidActionCandidates = Vector.filterM (isCurrentlyValid . weighted)
+
+isCurrentlyValid :: WebDriver m => ActionSequence (Element, b) -> Runner m Bool
+isCurrentlyValid = isActionCurrentlyValid . actionSequenceHead
+
+isActionCurrentlyValid :: WebDriver m => Action (Element, b) -> Runner m Bool
+isActionCurrentlyValid = \case
+  KeyPress _ -> isActiveInput
+  EnterText _ -> isActiveInput
+  Navigate _ -> pure True
+  Await _el -> pure True
+  AwaitWithTimeoutSecs _ _ -> pure True
+  Focus (el, _) -> isNotActive el
+  Click (el, _) -> isClickable el
+  Clear (el, _) -> isClearable el
+  Refresh -> pure True
   where
-    isValid = \case
-      KeyPress _ -> isActiveInput
-      EnterText _ -> isActiveInput
-      Navigate _ -> pure True
-      Await _el -> pure True
-      AwaitWithTimeoutSecs _ _ -> pure True
-      Focus (el, _) -> isNotActive el
-      Click (el, _) -> isClickable el
-      Clear (el, _) -> isClearable el
-      Refresh -> pure True
     isNotActive e = (/= Just e) <$> activeElement
     activeElement = (Just <$> getActiveElement) `catchResponseError` const (pure Nothing)
     isClickable e = do

@@ -69,7 +69,11 @@ library
                     , Quickstrom.PureScript.Value
                     , Quickstrom.Result
                     , Quickstrom.Run
+                    , Quickstrom.Run.Actions
+                    , Quickstrom.Run.Runner
+                    , Quickstrom.Run.Scripts
                     , Quickstrom.Specification
+                    , Quickstrom.Timeout
                     , Quickstrom.Trace
                     , Quickstrom.WebDriver.Class
                     , Quickstrom.WebDriver.HsWebDriver

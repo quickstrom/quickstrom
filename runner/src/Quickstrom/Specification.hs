@@ -1,11 +1,11 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
+
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
+
+
+
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TupleSections #-}
+
 
 module Quickstrom.Specification where
 
@@ -22,6 +22,6 @@ type Queries = HashMap Selector (HashSet ElementState)
 
 class Specification s where
   readyWhen :: s -> Selector
-  actions :: s -> Vector (Int, ActionSequence Selector)
+  actions :: s -> Vector (Weighted (ActionSequence Selector))
   queries :: s -> Queries
   verify :: s -> [ObservedState] -> Either Text Result

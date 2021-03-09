@@ -203,7 +203,7 @@ data SpecificationProgram = SpecificationProgram
 instance Quickstrom.Specification SpecificationProgram where
   readyWhen = specificationReadyWhen
 
-  actions = specificationActions
+  actions = map (uncurry Quickstrom.Weighted) . specificationActions
 
   verify sp states = (_Left %~ (prettyText . prettyEvalError)) $ do
     valid <- toHaskellValue (moduleSourceSpan (programMain p)) =<< evalWithObservedStates p "proposition" states
@@ -218,7 +218,7 @@ loadSpecification ms input = runExceptT $ do
   p <- ExceptT (loadProgram ms input)
   p2 <- ExceptT (loadProgram ms input) -- temporary hack!
   either (throwError . prettyText . prettyEvalErrorWithSourceSpan) pure $ do
-    let ss = (moduleSourceSpan (programMain p))
+    let ss = moduleSourceSpan (programMain p)
     readyWhen <- toHaskellValue ss =<< evalWithObservedStates p "readyWhen" []
     actions <- toHaskellValue ss =<< evalWithObservedStates p "actions" []
     queries <- extractQueries p2 "proposition"
@@ -365,7 +365,7 @@ foreignFunctions =
         10 -> Text.decimal t
         16 -> Text.hexadecimal t
         _ -> Left mempty
-    lazyDefer :: Applicative m => (Value EvalAnn) -> Ret m (Value EvalAnn)
+    lazyDefer :: Applicative m => Value EvalAnn -> Ret m (Value EvalAnn)
     lazyDefer = pure
     lazyForce :: (Value EvalAnn -> Ret m (Value EvalAnn)) -> Ret m (Value EvalAnn)
     lazyForce f = f (VObject mempty)
@@ -472,9 +472,9 @@ foreignFunctions =
       local (field @"env" .~ fenv {envForeignFunctions = envForeignFunctions env'}) (eval body)
     unsafeGet :: MonadError EvalError m => Text -> HashMap Text (Value EvalAnn) -> Ret m (Value EvalAnn)
     unsafeGet k xs = Ret (accessField P.nullSourceSpan k xs)
-    singletonCodePoint :: Monad m => Value EvalAnn -> Int -> Ret m (Text)
+    singletonCodePoint :: Monad m => Value EvalAnn -> Int -> Ret m Text
     singletonCodePoint _ i = singletonCodeUnits i
-    singletonCodeUnits :: Monad m => Int -> Ret m (Text)
+    singletonCodeUnits :: Monad m => Int -> Ret m Text
     singletonCodeUnits i = pure $ Text.singleton (Char.intToDigit i)
     toCodePointArray :: Monad m => Value EvalAnn -> Value EvalAnn -> Text -> Ret m (Vector Int)
     toCodePointArray _ _ t = pure (Vector.map ord (Vector.fromList (toS t)))

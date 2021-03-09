@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE LambdaCase #-}
@@ -25,10 +26,14 @@ data Action sel
   | Navigate Text
   | Refresh
   -- `Back` and `Forward` can't be supported, as the history cannot be introspected to validate if these actions are possible.
-  deriving (Eq, Show, Generic, ToJSON)
+  deriving (Eq, Show, Functor, Foldable, Traversable, Generic, ToJSON)
 
 data ActionSequence sel = Single (Action sel) | Sequence (NonEmpty (Action sel))
-  deriving (Eq, Show, Generic, ToJSON)
+  deriving (Eq, Show, Functor, Foldable, Traversable, Generic, ToJSON)
+
+actionSequenceHead :: ActionSequence sel -> Action sel
+actionSequenceHead (Single a) = a
+actionSequenceHead (Sequence (a :| _)) = a
 
 type PotentialActionSequence = [Action Selector]
 
@@ -41,3 +46,6 @@ actionSequenceToList = \case
 
 actionSequencesToLists :: Vector (Int, ActionSequence sel) -> Vector (Int, [Action sel])
 actionSequencesToLists = map (second actionSequenceToList)
+
+data Weighted a = Weighted {weight :: Int, weighted :: a}
+  deriving (Show, Eq, Functor, Foldable, Traversable, Generic)

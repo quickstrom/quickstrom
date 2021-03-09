@@ -36,6 +36,7 @@ in quickstrom.haskellPackages.shellFor {
     nixfmt
     ghcid
     quickstrom.haskellPackages.haskell-language-server
+    quickstrom.haskellPackages.fast-tags
     cabal-install
     quickstrom.haskellPackages.ormolu
     easy-ps.purty

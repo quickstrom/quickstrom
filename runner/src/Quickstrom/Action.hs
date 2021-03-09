@@ -1,7 +1,6 @@
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE LambdaCase #-}
 
 module Quickstrom.Action where
 
@@ -28,21 +27,15 @@ data Action sel
   -- `Back` and `Forward` can't be supported, as the history cannot be introspected to validate if these actions are possible.
   deriving (Eq, Show, Functor, Foldable, Traversable, Generic, ToJSON)
 
-data ActionSequence sel = Single (Action sel) | Sequence (NonEmpty (Action sel))
+newtype ActionSequence sel = ActionSequence (NonEmpty (Action sel))
   deriving (Eq, Show, Functor, Foldable, Traversable, Generic, ToJSON)
-
-actionSequenceHead :: ActionSequence sel -> Action sel
-actionSequenceHead (Single a) = a
-actionSequenceHead (Sequence (a :| _)) = a
 
 type PotentialActionSequence = [Action Selector]
 
 type SelectedActionSequence = [Action Selected]
 
 actionSequenceToList :: ActionSequence sel -> [Action sel]
-actionSequenceToList = \case
-  Single a -> [a]
-  Sequence as -> NonEmpty.toList as
+actionSequenceToList (ActionSequence actions') = NonEmpty.toList actions'
 
 actionSequencesToLists :: Vector (Int, ActionSequence sel) -> Vector (Int, [Action sel])
 actionSequencesToLists = map (second actionSequenceToList)

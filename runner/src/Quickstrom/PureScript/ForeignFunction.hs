@@ -214,8 +214,8 @@ instance MonadError EvalError m => ToHaskellValue m (ActionSequence Selector) wh
     ctor <- require ss (Proxy @"VString") =<< accessField ss "constructor" obj
     value <- Vector.head <$> (require ss (Proxy @"VArray") =<< accessField ss "fields" obj)
     case ctor of
-      "Single" -> Single <$> toHaskellValue ss value
-      "Sequence" -> Sequence <$> toHaskellValue ss value
+      "Single" -> ActionSequence . pure <$> toHaskellValue ss value
+      "Sequence" -> ActionSequence <$> toHaskellValue ss value
       _ -> throwError (ForeignFunctionError (Just ss) ("Unknown ActionSequence constructor: " <> ctor))
 
 instance MonadError EvalError m => ToHaskellValue m (Action Selector) where

@@ -34,7 +34,7 @@ selectedAction =
     ]
 
 selectedActionSequence :: Gen (ActionSequence Selected)
-selectedActionSequence = Single <$> selectedAction
+selectedActionSequence = ActionSequence . pure <$> selectedAction
 
 actionResult :: Gen ActionResult
 actionResult = oneof [pure ActionSuccess, pure (ActionFailed "failed"), pure ActionImpossible]

@@ -6,13 +6,10 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
@@ -91,7 +88,7 @@ instance
   ) =>
   ToForeignFunction m 1 (a -> Ret m b)
   where
-  toForeignFunction f = Ind $ \a -> do
+  toForeignFunction f = Ind $ \a -> 
     toForeignFunction (f a)
 
 instance
@@ -102,7 +99,7 @@ instance
   ) =>
   ToForeignFunction m 2 (a -> b -> Ret m c)
   where
-  toForeignFunction f = Ind $ \a -> Ind $ \b -> do
+  toForeignFunction f = Ind $ \a -> Ind $ \b -> 
     toForeignFunction (f a b)
 
 instance
@@ -114,7 +111,7 @@ instance
   ) =>
   ToForeignFunction m 3 (a -> b -> c -> Ret m d)
   where
-  toForeignFunction f = Ind $ \a -> Ind $ \b -> Ind $ \c -> do
+  toForeignFunction f = Ind $ \a -> Ind $ \b -> Ind $ \c -> 
     toForeignFunction (f a b c)
 
 instance
@@ -127,7 +124,7 @@ instance
   ) =>
   ToForeignFunction m 4 (a -> b -> c -> d -> Ret m e)
   where
-  toForeignFunction f = Ind $ \a -> Ind $ \b -> Ind $ \c -> Ind $ \d -> do
+  toForeignFunction f = Ind $ \a -> Ind $ \b -> Ind $ \c -> Ind $ \d -> 
     toForeignFunction (f a b c d)
 
 instance
@@ -141,7 +138,7 @@ instance
   ) =>
   ToForeignFunction m 5 (a -> b -> c -> d -> e -> Ret m f)
   where
-  toForeignFunction f = Ind $ \a -> Ind $ \b -> Ind $ \c -> Ind $ \d -> Ind $ \e -> do
+  toForeignFunction f = Ind $ \a -> Ind $ \b -> Ind $ \c -> Ind $ \d -> Ind $ \e -> 
     toForeignFunction (f a b c d e)
 
 instance
@@ -156,7 +153,7 @@ instance
   ) =>
   ToForeignFunction m 6 (a -> b -> c -> d -> e -> f -> Ret m g)
   where
-  toForeignFunction f' = Ind $ \a -> Ind $ \b -> Ind $ \c -> Ind $ \d -> Ind $ \e -> Ind $ \f -> do
+  toForeignFunction f' = Ind $ \a -> Ind $ \b -> Ind $ \c -> Ind $ \d -> Ind $ \e -> Ind $ \f -> 
     toForeignFunction (f' a b c d e f)
 
 class MonadError EvalError m => ToHaskellValue m r where
@@ -214,8 +211,8 @@ instance MonadError EvalError m => ToHaskellValue m (ActionSequence Selector) wh
     ctor <- require ss (Proxy @"VString") =<< accessField ss "constructor" obj
     value <- Vector.head <$> (require ss (Proxy @"VArray") =<< accessField ss "fields" obj)
     case ctor of
-      "Single" -> Single <$> toHaskellValue ss value
-      "Sequence" -> Sequence <$> toHaskellValue ss value
+      "Single" -> ActionSequence . pure <$> toHaskellValue ss value
+      "Sequence" -> ActionSequence <$> toHaskellValue ss value
       _ -> throwError (ForeignFunctionError (Just ss) ("Unknown ActionSequence constructor: " <> ctor))
 
 instance MonadError EvalError m => ToHaskellValue m (Action Selector) where
@@ -224,15 +221,15 @@ instance MonadError EvalError m => ToHaskellValue m (Action Selector) where
     ctor <- require ss (Proxy @"VString") =<< accessField ss "constructor" obj
     values <- require ss (Proxy @"VArray") =<< accessField ss "fields" obj
     case (ctor, Vector.toList values) of
-      ("Focus", (value : _)) -> Focus . Selector <$> toHaskellValue ss value
-      ("KeyPress", (value : _)) -> KeyPress <$> toHaskellValue ss value
-      ("EnterText", (value : _)) -> EnterText <$> toHaskellValue ss value
-      ("Click", (value : _)) -> Click . Selector <$> toHaskellValue ss value
-      ("Clear", (value : _)) -> Clear . Selector <$> toHaskellValue ss value
-      ("Await", (value : _)) -> Await . Selector <$> toHaskellValue ss value
-      ("AwaitWithTimeoutSecs", (i : sel : _)) ->
-        liftA2 AwaitWithTimeoutSecs (toHaskellValue ss i) $ Selector <$> (toHaskellValue ss sel)
-      ("Navigate", (value : _)) -> Navigate <$> (fmap URI.render . parseURI =<< toHaskellValue ss value)
+      ("Focus", value : _) -> Focus . Selector <$> toHaskellValue ss value
+      ("KeyPress", value : _) -> KeyPress <$> toHaskellValue ss value
+      ("EnterText", value : _) -> EnterText <$> toHaskellValue ss value
+      ("Click", value : _) -> Click . Selector <$> toHaskellValue ss value
+      ("Clear", value : _) -> Clear . Selector <$> toHaskellValue ss value
+      ("Await", value : _) -> Await . Selector <$> toHaskellValue ss value
+      ("AwaitWithTimeoutSecs", i : sel : _) ->
+        liftA2 AwaitWithTimeoutSecs (toHaskellValue ss i) $ Selector <$> toHaskellValue ss sel
+      ("Navigate", value : _) -> Navigate <$> (fmap URI.render . parseURI =<< toHaskellValue ss value)
       ("Refresh", []) -> pure Refresh
       _ -> throwError (ForeignFunctionError (Just ss) ("Unknown Action constructor: " <> ctor))
     where
@@ -251,14 +248,14 @@ instance (Eval r m, FromHaskellValue a, ToHaskellValue m b) => ToHaskellValue m 
       )
 
 instance (Eval r m, FromHaskellValue a, FromHaskellValue b, ToHaskellValue m c) => ToHaskellValue m (a -> b -> Ret m c) where
-  toHaskellValue ss fn = do
+  toHaskellValue ss fn =
     pure
-      ( \a b -> Ret $ do
-          fn' <- require ss (Proxy @"VFunction") fn
-          fn'' <- require ss (Proxy @"VFunction") =<< evalFunc fn' (fromHaskellValue a)
-          c <- evalFunc fn'' (fromHaskellValue b)
-          toHaskellValue ss c
-      )
+    ( \a b -> Ret $ do
+        fn' <- require ss (Proxy @"VFunction") fn
+        fn'' <- require ss (Proxy @"VFunction") =<< evalFunc fn' (fromHaskellValue a)
+        c <- evalFunc fn'' (fromHaskellValue b)
+        toHaskellValue ss c
+    )
 
 class FromHaskellValue a where
   fromHaskellValue :: a -> Value EvalAnn

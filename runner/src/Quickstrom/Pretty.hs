@@ -36,8 +36,8 @@ prettyAction = \case
   Refresh -> "refresh"
 
 prettyActionSeq :: ActionSequence Selected -> Doc AnsiStyle
-prettyActionSeq (Single action') = prettyAction action'
-prettyActionSeq (Sequence actions') = "Sequence:" <> line <> indent 2 (vsep (zipWith item [1 ..] (toList actions')))
+prettyActionSeq (ActionSequence (action' :| [])) = prettyAction action'
+prettyActionSeq (ActionSequence (action :| actions')) = "Sequence:" <> line <> indent 2 (vsep (zipWith item [1 ..] (action : toList actions')))
   where
     item :: Int -> Action Selected -> Doc AnsiStyle
     item i = \case

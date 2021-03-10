@@ -40,6 +40,7 @@ import Quickstrom.Timeout (Timeout (..))
 import Quickstrom.Trace (ActionResult (..))
 import Quickstrom.WebDriver.Class
 import qualified Test.QuickCheck as QuickCheck
+import qualified Data.List.NonEmpty as NonEmpty
 
 shrinkAction :: ActionSequence Selected -> [ActionSequence Selected]
 shrinkAction _ = [] -- TODO?
@@ -66,15 +67,14 @@ findActionCandidates ::
 findActionCandidates = map fold . traverse (map (maybe mempty pure) . findActionSequenceCandidate)
   where
     findActionSequenceCandidate :: (MonadIO m, WebDriver m) => Weighted (ActionSequence Selector) -> Runner m (Maybe (Weighted (ActionSequence (Element, Selected))))
-    findActionSequenceCandidate (Weighted weight' (Single action)) = map (Weighted weight' . Single) <$> findActionCandidate action
-    findActionSequenceCandidate (Weighted weight' (Sequence (action :| actions))) =
+    findActionSequenceCandidate (Weighted weight' (ActionSequence (action :| actions))) =
       findActionCandidate action >>= \case
         Just candidate -> do
           candidates <-
             traverse
               (maybe (fail ("Cannot find elements to select for all subsequent actions in sequence: " <> show actions)) pure <=< findActionCandidate)
               actions
-          pure (pure (Weighted weight' (Sequence (candidate :| candidates))))
+          pure (pure (Weighted weight' (ActionSequence (candidate :| candidates))))
         Nothing -> pure Nothing
 
     findActionCandidate :: (MonadIO m, WebDriver m) => Action Selector -> Runner m (Maybe (Action (Element, Selected)))
@@ -103,7 +103,7 @@ filterCurrentlyValidActionCandidates ::
 filterCurrentlyValidActionCandidates = Vector.filterM (isCurrentlyValid . weighted)
 
 isCurrentlyValid :: WebDriver m => ActionSequence (Element, b) -> Runner m Bool
-isCurrentlyValid = isActionCurrentlyValid . actionSequenceHead
+isCurrentlyValid (ActionSequence actions') = isActionCurrentlyValid (NonEmpty.head actions')
 
 isActionCurrentlyValid :: WebDriver m => Action (Element, b) -> Runner m Bool
 isActionCurrentlyValid = \case
@@ -169,15 +169,13 @@ runAction = \case
   Refresh -> tryAction (ActionSuccess <$ pageRefresh)
 
 runActionSequence :: (MonadIO m, WebDriver m) => ActionSequence Element -> Runner m ActionResult
-runActionSequence = \case
-  Single h -> runAction h
-  Sequence actions' ->
-    let loop [] = pure ActionSuccess
-        loop (x : xs) =
-          runAction x >>= \case
-            ActionSuccess -> loop xs
-            err -> pure err
-     in loop (toList actions')
+runActionSequence (ActionSequence actions') =
+  let loop [] = pure ActionSuccess
+      loop (x : xs) =
+        runAction x >>= \case
+          ActionSuccess -> loop xs
+          err -> pure err
+   in loop (toList actions')
 
 reselect :: WebDriver m => Selected -> m (Maybe (Element, Selected))
 reselect selected@(Selected s i) = do

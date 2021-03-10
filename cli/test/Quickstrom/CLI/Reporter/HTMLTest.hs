@@ -130,7 +130,7 @@ genNat :: Gen Int
 genNat = getPositive <$> arbitrary
 
 genActionSequence :: Gen (Quickstrom.ActionSequence Quickstrom.Selected)
-genActionSequence = pure (Quickstrom.Single (Quickstrom.KeyPress 'a'))
+genActionSequence = pure (Quickstrom.ActionSequence (pure (Quickstrom.KeyPress 'a')))
 
 identifier :: [Char] -> Gen Text
 identifier prefix = Text.pack . (prefix <>) . show <$> arbitrary @Word

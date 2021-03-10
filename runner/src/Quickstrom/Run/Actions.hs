@@ -193,6 +193,6 @@ awaitElement (Timeout ms) sel@(Selector s) =
           pure $ ActionFailed ("Giving up after having waited " <> show ms <> " ms for selector to match an element: " <> toS s)
         | otherwise =
           findAll sel >>= \case
-            [] -> liftIO (threadDelay (fromIntegral interval)) >> loop (n + interval)
+            [] -> liftIO (threadDelay (fromIntegral interval * 1000)) >> loop (n + interval)
             _ -> pure ActionSuccess
    in loop 0

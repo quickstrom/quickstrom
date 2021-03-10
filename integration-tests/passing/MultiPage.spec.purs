@@ -2,7 +2,6 @@ module Spec where
 
 import Quickstrom
 import Data.Maybe (Maybe(..), isJust, isNothing)
-import Data.Tuple (Tuple(..))
 import Data.String (trim)
 
 readyWhen :: String
@@ -11,8 +10,10 @@ readyWhen = "body"
 actions :: Actions
 actions =
   clicks
-    <> [ Tuple 5 (Single $ Focus "input[type=text]") ]
-    <> [ Tuple 5 (Single $ KeyPress ' '), Tuple 5 (Single $ KeyPress 'a') ]
+    <> [ Focus "input[type=text]" `weighted` 5 
+       , KeyPress ' ' `weighted` 5
+       , KeyPress 'a' `weighted` 5
+       ]
 
 proposition :: Boolean
 proposition =

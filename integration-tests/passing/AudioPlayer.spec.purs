@@ -39,7 +39,8 @@ proposition =
     tick =
       playing
         && next playing
-        && timeDisplayText < next timeDisplayText
+        && timeDisplayText
+        < next timeDisplayText
   in
     -- This last part is the central part of the specification,
     -- describing the initial state and the possible transitions. It

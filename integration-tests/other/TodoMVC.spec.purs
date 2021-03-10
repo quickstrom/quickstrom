@@ -18,17 +18,17 @@ actions :: Actions
 actions = appFoci <> appClicks <> appKeyPresses
   where
   appClicks =
-    [ Tuple 5 (Single $ Click queries.filters.notSelected)
-    , Tuple 1 (Single $ Click queries.filters.selected)
-    , Tuple 1 (Single $ Click queries.toggleAll)
-    , Tuple 1 (Single $ Click queries.destroy)
+    [ Click queries.filters.notSelected `weighted` 5
+    , Click queries.filters.selected `weighted` 1
+    , Click queries.toggleAll `weighted` 1
+    , Click queries.destroy `weighted` 1
     ]
 
-  appFoci = [ Tuple 5 (Single $ Focus queries.newTodo) ]
+  appFoci = [ Focus queries.newTodo `weighted` 1 ]
 
   appKeyPresses =
-    [ Tuple 5 (Single $ keyPress 'a')
-    , Tuple 5 (Single $ specialKeyPress KeyReturn)
+    [ keyPress 'a' `weighted` 5
+    , specialKeyPress KeyReturn `weighted` 5
     ]
 
 proposition :: Boolean

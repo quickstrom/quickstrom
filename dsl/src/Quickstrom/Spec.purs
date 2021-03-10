@@ -3,7 +3,10 @@ module Quickstrom.Spec
   , Action(..)
   , ActionSequence(..)
   , Actions
+  , class ToActionSequence
+  , toActionSequence
   , ProbabilisticAction
+  , weighted
   , clicks
   , focus
   , foci
@@ -14,8 +17,6 @@ module Quickstrom.Spec
   ) where
 
 import Prelude
-import Quickstrom.Selector (Selector)
-import Data.Tuple (Tuple(..))
 import Data.Array (range)
 import Data.Char (fromCharCode)
 import Data.Enum (class Enum)
@@ -24,7 +25,10 @@ import Data.Generic.Rep.Enum (genericPred, genericSucc)
 import Data.Generic.Rep.Ord (genericCompare)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (fromJust)
+import Data.NonEmpty (NonEmpty, singleton)
+import Data.Tuple (Tuple(..))
 import Partial.Unsafe (unsafePartial)
+import Quickstrom.Selector (Selector)
 
 -- | URL to a web page, or a relative path within a web site.
 type Path
@@ -43,10 +47,18 @@ data Action
   | Navigate Path
   | Refresh
 
--- | Either a single action or a fixed sequence of actions.
-data ActionSequence
-  = Single Action
-  | Sequence (Array Action)
+-- | A non-empty sequence of actions.
+newtype ActionSequence
+  = ActionSequence (NonEmpty Array Action)
+
+class ToActionSequence a where
+  toActionSequence :: a -> ActionSequence
+
+instance toActionSequenceAction :: ToActionSequence Action where
+  toActionSequence a = ActionSequence (singleton a)
+
+instance toActionSequenceNonEmpty :: ToActionSequence (NonEmpty Array Action) where
+  toActionSequence = ActionSequence
 
 type ProbabilisticAction
   = Tuple Int ActionSequence
@@ -56,12 +68,15 @@ type ProbabilisticAction
 type Actions
   = Array ProbabilisticAction
 
+weighted :: forall a. ToActionSequence a => a -> Int -> ProbabilisticAction
+weighted a weight = Tuple weight (toActionSequence a)
+
 -- | Generate click actions on common clickable elements.
 clicks :: Actions
 clicks =
-  [ Tuple 1 (Single $ Click "button")
-  , Tuple 1 (Single $ Click "input[type=submit]")
-  , Tuple 1 (Single $ Click "a")
+  [ Click "button" `weighted` 1
+  , Click "input[type=submit]" `weighted` 1
+  , Click "a" `weighted` 1
   ]
 
 -- | Generate focus actions on elements matching the given selector.
@@ -70,7 +85,10 @@ focus = Focus
 
 -- | Generate focus actions on common focusable elements.
 foci :: Actions
-foci = [ Tuple 1 (Single $ Focus "input"), Tuple 1 (Single $ Focus "textarea") ]
+foci =
+  [ Focus "input" `weighted` 1
+  , Focus "textarea" `weighted` 1
+  ]
 
 -- | Generate a key press action with the given character.
 keyPress :: Char -> Action

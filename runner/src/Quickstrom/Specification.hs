@@ -1,11 +1,6 @@
 {-# LANGUAGE DataKinds #-}
-
 {-# LANGUAGE ExistentialQuantification #-}
-
-
-
 {-# LANGUAGE RankNTypes #-}
-
 
 module Quickstrom.Specification where
 

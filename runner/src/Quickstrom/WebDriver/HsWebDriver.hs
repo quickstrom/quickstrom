@@ -31,8 +31,8 @@ instance WebDriver WebDriverClient where
   findAll (Selector s) = map fromRef <$> WebDriverClient (WebDriver.findElems (WebDriver.ByCSS s))
   navigateTo = WebDriverClient . WebDriver.openPage . toS
   goBack = WebDriverClient WebDriver.back
-  goForward = WebDriverClient WebDriver.forward 
-  pageRefresh = WebDriverClient WebDriver.refresh 
+  goForward = WebDriverClient WebDriver.forward
+  pageRefresh = WebDriverClient WebDriver.refresh
   runScript script args = do
     r <- WebDriverClient (WebDriver.asyncJS (map WebDriver.JSArg args) script)
     case r of

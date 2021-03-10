@@ -11,17 +11,17 @@ readyWhen = "body"
 actions :: Actions
 actions =
   clicks
-    <> [ Tuple 1 (Single $ Click "input[type=reset]") ]
-    <> [ Tuple 1 (Single $ Click "input[type=submit]") ]
-    <> [ Tuple 5
-          ( Sequence
-              [ Click "input[type=reset]"
-              , Focus "input[type=email]"
+    <> [ Click "input[type=reset]" `weighted` 1 ]
+    <> [ Click "input[type=submit]" `weighted` 1 ]
+    <> [ ( Click "input[type=reset]"
+            :| [ Focus "input[type=email]"
               , EnterText "jane.doe@example.com"
               , Focus "input[type=number]"
               , EnterText "30"
               ]
-          )
+        )
+          `weigthed`
+            5
       ]
 
 proposition :: Boolean

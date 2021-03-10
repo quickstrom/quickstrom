@@ -1,6 +1,6 @@
-{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveTraversable #-}
 
 module Quickstrom.Action where
 

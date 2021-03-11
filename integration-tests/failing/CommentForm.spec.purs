@@ -11,14 +11,14 @@ readyWhen = "form"
 
 actions :: Actions
 actions =
-  [ Tuple 3 (Single $ Focus "input[type=text]:nth-child(1)")
+  [ focus "input[type=text]:nth-child(1)" `weighted` 3
   -- This spec is flaky. It only finds the bug on some runs, so the following action
   -- is commented out to increase chances of a failed example:
   --
   --   , Tuple 1 (Single $ Focus "input[type=text]:nth-child(2)")
-  , Tuple 5 (Single $ Click "input[type=submit]")
-  , Tuple 5 (Single $ KeyPress ' ')
-  , Tuple 5 (Single $ KeyPress 'a')
+  , click "input[type=submit]" `weighted` 5
+  , keyPress ' ' `weighted` 5
+  , keyPress 'a' `weighted` 5
   ]
 
 proposition :: Boolean

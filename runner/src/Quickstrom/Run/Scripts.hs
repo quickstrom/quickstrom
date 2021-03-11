@@ -1,4 +1,5 @@
 {-# LANGUAGE RankNTypes #-}
+
 module Quickstrom.Run.Scripts where
 
 import Control.Monad (Monad (fail))

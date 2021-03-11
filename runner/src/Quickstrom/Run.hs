@@ -53,7 +53,7 @@ import Quickstrom.Action
 import Quickstrom.Element (Element)
 import Quickstrom.Prelude hiding (catch, check, trace)
 import Quickstrom.Result
-import Quickstrom.Run.Actions (awaitElement, defaultTimeout, generateValidActions, reselect, runActionSequence, shrinkAction, isCurrentlyValid)
+import Quickstrom.Run.Actions (awaitElement, defaultTimeout, generateValidActions, isCurrentlyValid, reselect, runActionSequence, shrinkAction)
 import Quickstrom.Run.Runner (CheckEnv (..), CheckOptions (..), Runner, Size (..), run)
 import Quickstrom.Run.Scripts (CheckScripts (..), readScripts, runCheckScript)
 import Quickstrom.Specification
@@ -186,7 +186,7 @@ runSingle spec size = do
         >-> Pipes.mapM (traverse reselect)
         >-> Pipes.mapMaybe (traverse identity)
         >-> Pipes.filterM isCurrentlyValid
-        & runAndVerifyIsolated n 
+        & runAndVerifyIsolated n
 
 runAll :: (MonadIO m, WebDriver m, Specification spec) => CheckOptions -> spec -> Producer CheckEvent (Runner m) CheckResult
 runAll opts spec' = go mempty (sizes opts `zip` [1 ..])

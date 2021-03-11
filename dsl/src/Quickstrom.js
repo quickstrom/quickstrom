@@ -6,7 +6,6 @@
 exports._next = null;
 exports._always = null;
 exports._until = null;
-exports._log = null;
 exports._queryAll = null;
 exports._property = null;
 exports._attribute = null;

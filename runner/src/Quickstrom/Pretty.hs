@@ -14,7 +14,7 @@ import Data.Function ((&))
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.List as List
 import Data.Ord (comparing)
-import Data.Text.Prettyprint.Doc
+import Data.Text.Prettyprint.Doc hiding (width)
 import Data.Text.Prettyprint.Doc.Render.Terminal
 import Data.Text.Prettyprint.Doc.Symbols.Unicode (bullet)
 import qualified Data.Vector as Vector
@@ -87,13 +87,17 @@ prettyObservedState (ObservedState _ (ObservedElementStates states))
             )
       )
   where
-    prettyMatchedElement (ObservedElementState element' _position stateValues) =
-      "-" <+> pretty element'
-        <> align
-          ( line
-              <> indent 2 (vsep (map prettyStateValue (HashMap.toList stateValues)))
-          )
+    prettyMatchedElement (ObservedElementState element' pos stateValues) =
+      "-"
+        <+> ( pretty element' <+> prettyPosition pos
+                <> line
+                <> indent 2 (vsep (map prettyStateValue (HashMap.toList stateValues)))
+            )
     prettyStateValue (state'', value) = "-" <+> prettyState state'' <+> "=" <+> prettyValue value
+
+prettyPosition :: Maybe Position -> Doc AnsiStyle
+prettyPosition Nothing = "(no position)"
+prettyPosition (Just pos) = parens (pretty (width pos) <> "x" <> pretty (height pos) <+> "at" <+> parens (pretty (x pos) <> ","  <+> pretty (y pos)))
 
 prettyValue :: JSON.Value -> Doc AnsiStyle
 prettyValue = \case

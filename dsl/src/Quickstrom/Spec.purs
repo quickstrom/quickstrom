@@ -1,21 +1,32 @@
 module Quickstrom.Spec
   ( Path
-  , Action(..)
-  , ActionSequence(..)
+  , Action
   , Actions
   , ProbabilisticAction
-  , clicks
+  , class ToAction
+  , toAction
+  , followedBy
+  , weighted
+  -- Actions
   , focus
-  , foci
   , keyPress
+  , enterText
+  , click
+  , clear
+  , await
+  , awaitWithTimeoutSecs 
+  , navigate 
+  , refresh 
+  -- Predefined
+  , clicks
+  , foci
   , asciiKeyPresses
   , SpecialKey(..)
   , specialKeyPress
   ) where
 
 import Prelude
-import Quickstrom.Selector (Selector)
-import Data.Tuple (Tuple(..))
+
 import Data.Array (range)
 import Data.Char (fromCharCode)
 import Data.Enum (class Enum)
@@ -25,6 +36,7 @@ import Data.Generic.Rep.Ord (genericCompare)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (fromJust)
 import Partial.Unsafe (unsafePartial)
+import Quickstrom.Selector (Selector)
 
 -- | URL to a web page, or a relative path within a web site.
 type Path
@@ -43,46 +55,86 @@ data Action
   | Navigate Path
   | Refresh
 
--- | Either a single action or a fixed sequence of actions.
-data ActionSequence
-  = Single Action
-  | Sequence (Array Action)
+type Weighted a = {weight :: Int, weighted :: a}
 
-type ProbabilisticAction
-  = Tuple Int ActionSequence
+-- | An action (or fixed sequence of actions) carrying a 
+-- | weight, representing its relative probability of being chosen.
+newtype ProbabilisticAction = ProbabilisticAction (Weighted (Array Action))
 
 -- | An array of tuples, containing probabilistic weights and 
 -- | action sequences.
 type Actions
   = Array ProbabilisticAction
 
+-- | Internal class for return type polymorphism in action functions.
+class ToAction a where
+  toAction :: Action -> a
+
+instance toActionAction :: ToAction Action where
+  toAction = identity
+
+instance toActionProbabilisticAction :: ToAction ProbabilisticAction where
+  toAction a = ProbabilisticAction { weighted: pure a, weight: 1 }
+
+followedBy :: ProbabilisticAction -> Action -> ProbabilisticAction
+followedBy (ProbabilisticAction p) a = ProbabilisticAction (p { weighted = p.weighted <> pure a })
+
+weighted :: ProbabilisticAction -> Int -> ProbabilisticAction
+weighted (ProbabilisticAction a) w = ProbabilisticAction a { weight = w }
+
+-- * Actions
+
+focus :: forall a. ToAction a => Selector -> a
+focus = toAction <<< Focus
+
+keyPress :: forall a. ToAction a => Char -> a
+keyPress = toAction <<< KeyPress
+
+enterText :: forall a. ToAction a => String -> a
+enterText = toAction <<< EnterText
+
+click :: forall a. ToAction a => Selector -> a
+click = toAction <<< Click
+
+clear :: forall a. ToAction a => Selector -> a
+clear = toAction <<< Clear
+
+await :: forall a. ToAction a => Selector -> a
+await = toAction <<< Await
+
+awaitWithTimeoutSecs :: forall a. ToAction a => Int -> Selector -> a
+awaitWithTimeoutSecs s = toAction <<< AwaitWithTimeoutSecs s
+
+navigate :: forall a. ToAction a => Path -> a
+navigate = toAction <<< Navigate
+
+refresh :: forall a. ToAction a => a
+refresh = toAction Refresh
+
+-- * Predefined actions
+
 -- | Generate click actions on common clickable elements.
 clicks :: Actions
 clicks =
-  [ Tuple 1 (Single $ Click "button")
-  , Tuple 1 (Single $ Click "input[type=submit]")
-  , Tuple 1 (Single $ Click "a")
+  [ click "button" `weighted` 1
+  , click "input[type=submit]" `weighted` 1
+  , click "a" `weighted` 1
   ]
-
--- | Generate focus actions on elements matching the given selector.
-focus :: Selector -> Action
-focus = Focus
 
 -- | Generate focus actions on common focusable elements.
 foci :: Actions
-foci = [ Tuple 1 (Single $ Focus "input"), Tuple 1 (Single $ Focus "textarea") ]
-
--- | Generate a key press action with the given character.
-keyPress :: Char -> Action
-keyPress = KeyPress
+foci =
+  [ focus "input" `weighted` 1
+  , focus "textarea" `weighted` 1
+  ]
 
 -- | Generate key press actions with printable ASCII characters.
-asciiKeyPresses :: Array Action
-asciiKeyPresses = KeyPress <<< unsafePartial fromJust <<< fromCharCode <$> range 32 126
+asciiKeyPresses :: forall a. ToAction a => Array a
+asciiKeyPresses = toAction <<< KeyPress <<< unsafePartial fromJust <<< fromCharCode <$> range 32 126
 
 -- | Generate a key press action with the given special key.
-specialKeyPress :: SpecialKey -> Action
-specialKeyPress specialKey = KeyPress (specialKeyToChar specialKey)
+specialKeyPress :: forall a. ToAction a => SpecialKey -> a
+specialKeyPress specialKey = toAction (KeyPress (specialKeyToChar specialKey))
 
 data SpecialKey
   = KeyAdd

@@ -7,9 +7,9 @@ module Quickstrom.Run.Runner where
 import Control.Monad.Catch (MonadCatch, MonadThrow)
 import qualified Data.Aeson as JSON
 import Quickstrom.Prelude hiding (catch, check, trace)
+import Quickstrom.Run.Scripts (CheckScripts)
 import Quickstrom.Timeout (Timeout)
 import Quickstrom.WebDriver.Class (WebDriver, WebDriverOptions)
-import Quickstrom.Run.Scripts (CheckScripts)
 import Text.URI (URI)
 
 data CheckEnv = CheckEnv {checkOptions :: CheckOptions, checkScripts :: CheckScripts}

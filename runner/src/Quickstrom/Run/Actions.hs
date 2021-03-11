@@ -24,6 +24,7 @@ import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Loops (andM)
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import Data.List hiding (map)
+import qualified Data.List.NonEmpty as NonEmpty
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Text.Prettyprint.Doc
@@ -40,7 +41,6 @@ import Quickstrom.Timeout (Timeout (..))
 import Quickstrom.Trace (ActionResult (..))
 import Quickstrom.WebDriver.Class
 import qualified Test.QuickCheck as QuickCheck
-import qualified Data.List.NonEmpty as NonEmpty
 
 shrinkAction :: ActionSequence Selected -> [ActionSequence Selected]
 shrinkAction _ = [] -- TODO?

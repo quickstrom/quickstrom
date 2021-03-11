@@ -39,15 +39,23 @@ selectedActionSequence = ActionSequence . pure <$> selectedAction
 actionResult :: Gen ActionResult
 actionResult = oneof [pure ActionSuccess, pure (ActionFailed "failed"), pure ActionImpossible]
 
-traceElement :: Gen (TraceElement ())
-traceElement =
+traceElementWithState :: Gen ObservedState -> Gen (TraceElement ())
+traceElementWithState genState =
   oneof
     [ TraceAction () <$> selectedActionSequence <*> actionResult,
-      TraceState () <$> observedState
+      TraceState () <$> genState
     ]
 
+traceElement :: Gen (TraceElement ())
+traceElement = traceElementWithState observedState
+
+traceWithState :: Gen ObservedState -> Gen (Trace ())
+traceWithState genState = do
+  s0 <- genState
+  Trace . (TraceState () s0 :) <$> listOf (traceElementWithState genState)
+
 trace :: Gen (Trace ())
-trace = Trace <$> listOf traceElement
+trace = traceWithState observedState
 
 nonEmpty :: Gen [a] -> Gen (NonEmpty.NonEmpty a)
 nonEmpty g = fromMaybe discard . NonEmpty.nonEmpty <$> g

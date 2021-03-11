@@ -26,7 +26,6 @@ import Data.Text.Prettyprint.Doc.Symbols.Unicode (bullet)
 import Options.Applicative
 import qualified Pipes as Pipes
 import qualified Quickstrom.Browser as Quickstrom
-import qualified Quickstrom.Timeout as Quickstrom
 import qualified Quickstrom.CLI.Logging as Quickstrom
 import Quickstrom.CLI.Reporter (Reporter)
 import qualified Quickstrom.CLI.Reporter as Reporter
@@ -37,6 +36,7 @@ import qualified Quickstrom.LogLevel as Quickstrom
 import Quickstrom.Prelude hiding (option, try)
 import qualified Quickstrom.PureScript.Program as Quickstrom
 import qualified Quickstrom.Run as Quickstrom
+import qualified Quickstrom.Timeout as Quickstrom
 import qualified Quickstrom.Trace as Quickstrom
 import qualified Quickstrom.WebDriver.Class as Quickstrom
 import qualified Quickstrom.WebDriver.WebDriverW3C as WebDriver

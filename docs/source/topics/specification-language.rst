@@ -191,40 +191,47 @@ Actions
 -------
 
 We must instruct Quickstrom what actions it should try. The ``actions``
-definition in a specification module has the following type:
+definition in a specification module is where you list possible actions.
 
 .. code-block:: haskell
 
-   Array (Tuple Int ActionSequence)
+   actions :: Actions
+   actions = [ action1, action2, ... ]
 
-It's an array of pairs, or tuples, where each pair holds a weight and a
-sequence of actions. The weight specifies the intended probability
-of the sequence being picked, relative to the other sequences.
+It's an array of values, where each value describes an action or a fixed
+sequence of actions. Each action also carries a weight, which specifies the
+intended probability of the action being picked, relative to the other
+actions.
 
-To illustrate, in the following array of action sequences, the probability of 
-``a1`` being picked is 40%, while the others are at 20% each. This is assuming 
-the first action in each sequence is *possible* at each point a sequence is being
-picked.
+The default weight is ``1``. To override it, use the ``weighted`` function:
 
-.. code-block::
+.. code-block:: haskell
+
+   click "#important-action" `weighted` 10
+
+To illustrate, in the following array of actions, the probability of ``a1``
+being picked is 40%, while the others are at 20% each. This is assuming the
+action (or the first action in each sequence) is *possible* at each point a
+sequence is being picked.
+
+.. code-block:: haskell
 
    actions = [
-       Tuple 2 a1,
-       Tuple 1 a2,
-       Tuple 1 a3,
-       Tuple 1 a4
+       a1 `weighted` 2,
+       a2,
+       a3,
+       a4
      ]
 
 Action Sequences
 ~~~~~~~~~~~~~~~~
 
-An action sequence is either a single action or a fixed sequence of actions:
+An action sequence is either a single action or a fixed sequence of actions.
+Here's a simple sequence:
 
 .. code-block:: haskell
 
-   data ActionSequence 
-      = Single Action 
-      | Sequence (Array Action)
+   backAndForth = click "#back" `followedBy` click "#forward"
 
 A sequence of actions is always performed in its entirety when picked, as
 long as the first action in the sequence is considered possible by the test
@@ -233,36 +240,45 @@ runner.
 Actions
 ~~~~~~~
 
-The ``Action`` data type is defined in the Quickstrom library, along with
-some aliases for common actions. For instance, here's the definition of
-``foci``:
+The available actions are provided in the Quickstrom library:
+
+* ``focus``
+* ``keyPress``
+* ``enterText``
+* ``click``
+* ``clear``
+* ``await``
+* ``awaitWithTimeoutSecs``
+* ``navigate``
+* ``refresh``
+
+Along with those functions, there are some aliases for common actions. For
+instance, here's the definition of ``foci``:
 
 .. code-block:: haskell
 
    -- | Generate focus actions on common focusable elements.
    foci :: Actions
    foci = 
-      [ Tuple 1 (Single (Focus "input"))
-      , Tuple 1 (Single (Focus "textarea"))
+      [ focus "input"
+      , focus "textarea"
       ]
 
-More action constructors and aliases should be introduced as Quickstrom
-evolves.
+More actions and aliases should be introduced as Quickstrom evolves.
 
 Example
 ~~~~~~~
 
 As an example of composing actions and sequences of actions, here's a
-collection of actions that try to log in and to click a buy button:
+collection of actions that try to log in or to click a buy button:
 
 .. code-block:: haskell
 
-   foci = 
-      [ Tuple 1 (Sequence [ Focus "input[type=password]"
-                          , EnterText "$ecr3tz"
-                          , Click "input[type=submit][name=log-in]"
-                          ])
-      , Tuple 1 (Single (Click "input[type=submit][name=buy]"))
+   actions = 
+      [ focus "input[type=password]"
+          `followedBy` enterText "$ecr3tz"
+          `followedBy` click "input[type=submit][name=log-in]"
+      , click "input[type=submit][name=buy]"
       ]
 
 .. note::

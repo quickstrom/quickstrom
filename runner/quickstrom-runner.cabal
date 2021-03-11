@@ -1,7 +1,7 @@
 cabal-version:        2.2
 
 name:                 quickstrom-runner
-version:              0.1.0.0
+version:              0
 author:               Oskar Wickström
 maintainer:           oskar@wickstrom.tech
 build-type:           Simple

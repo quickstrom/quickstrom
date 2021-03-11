@@ -129,12 +129,12 @@ foci =
   ]
 
 -- | Generate key press actions with printable ASCII characters.
-asciiKeyPresses :: Array Action
-asciiKeyPresses = KeyPress <<< unsafePartial fromJust <<< fromCharCode <$> range 32 126
+asciiKeyPresses :: forall a. ToAction a => Array a
+asciiKeyPresses = toAction <<< KeyPress <<< unsafePartial fromJust <<< fromCharCode <$> range 32 126
 
 -- | Generate a key press action with the given special key.
-specialKeyPress :: SpecialKey -> Action
-specialKeyPress specialKey = KeyPress (specialKeyToChar specialKey)
+specialKeyPress :: forall a. ToAction a => SpecialKey -> a
+specialKeyPress specialKey = toAction (KeyPress (specialKeyToChar specialKey))
 
 data SpecialKey
   = KeyAdd

@@ -10,9 +10,9 @@ readyWhen = "body"
 actions :: Actions
 actions =
   clicks
-    <> [ Focus "input[type=text]" `weighted` 5 
-       , KeyPress ' ' `weighted` 5
-       , KeyPress 'a' `weighted` 5
+    <> [ focus "input[type=text]" `weighted` 5 
+       , keyPress ' ' `weighted` 5
+       , keyPress 'a' `weighted` 5
        ]
 
 proposition :: Boolean

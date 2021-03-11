@@ -18,13 +18,13 @@ actions :: Actions
 actions = appFoci <> appClicks <> appKeyPresses
   where
   appClicks =
-    [ Click queries.filters.notSelected `weighted` 5
-    , Click queries.filters.selected `weighted` 1
-    , Click queries.toggleAll `weighted` 1
-    , Click queries.destroy `weighted` 1
+    [ click queries.filters.notSelected `weighted` 5
+    , click queries.filters.selected `weighted` 1
+    , click queries.toggleAll `weighted` 1
+    , click queries.destroy `weighted` 1
     ]
 
-  appFoci = [ Focus queries.newTodo `weighted` 1 ]
+  appFoci = [ focus queries.newTodo `weighted` 1 ]
 
   appKeyPresses =
     [ keyPress 'a' `weighted` 5

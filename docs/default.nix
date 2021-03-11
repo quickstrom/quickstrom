@@ -14,8 +14,6 @@ let
       cp -r build/html $out
     '';
   };
-  publish = pkgs.writeShellScriptBin "quickstrom-publish-docs" ''
-    ${pkgs.ghp-import}/bin/ghp-import -p -f -l --cname docs.quickstrom.io ${site}
   '';
 in { inherit site publish dependencies; }
 

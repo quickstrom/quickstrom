@@ -101,8 +101,6 @@ cd docs
 make html
 ```
 
-To deploy the built documentation, run:
-
-```shell
-nix-shell --run quickstrom-publish-docs
-```
+The documentation is built for both releases and pull requests by Read the
+Docs. When you've submitted a PR to Quickstrom, you should see a Read the
+Docs check with _Details_. Use this to preview any documentation changes.

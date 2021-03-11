@@ -45,7 +45,6 @@ in quickstrom.haskellPackages.shellFor {
     quickstrom-format-sources
 
     docs.dependencies
-    docs.publish
 
     # only for lorri
     dsl

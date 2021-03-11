@@ -14,5 +14,5 @@ let
       cp -r build/html $out
     '';
   };
-in { inherit site publish dependencies; }
+in { inherit site dependencies; }
 

@@ -214,7 +214,7 @@ being picked is 40%, while the others are at 20% each. This is assuming the
 action (or the first action in each sequence) is *possible* at each point a
 sequence is being picked.
 
-.. code-block::
+.. code-block:: haskell
 
    actions = [
        a1 `weighted` 2,
@@ -229,7 +229,7 @@ Action Sequences
 An action sequence is either a single action or a fixed sequence of actions.
 Here's a simple sequence:
 
-.. code-block::
+.. code-block:: haskell
 
    backAndForth = click "#back" `followedBy` click "#forward"
 

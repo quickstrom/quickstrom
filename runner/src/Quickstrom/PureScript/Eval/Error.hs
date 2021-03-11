@@ -85,6 +85,6 @@ require ss (ctor :: Proxy ctor) v = case v ^? _Ctor @ctor of
 accessField :: MonadError EvalError m => SourceSpan -> Text -> HashMap Text (Value ann) -> m (Value ann)
 accessField ss key obj =
   maybe
-    (throwError (UnexpectedError (Just ss) ("Key not present in object: " <> key)))
+    (throwError (UnexpectedError (Just ss) ("Key '" <> key <> "' not present in object: " <> show (void obj))))
     pure
     (HashMap.lookup key obj)

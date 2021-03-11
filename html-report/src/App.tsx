@@ -97,9 +97,9 @@ type Action =
     | { tag: "Click", contents: [string, number] }
     | { tag: "Navigate", contents: string };
 
-type ActionSequence =
-    { tag: "Single", contents: Action }
-    | { tag: "Sequence", contents: Action[] };
+type NonEmptyArray<T> = [T, ...T[]];
+
+type ActionSequence = NonEmptyArray<Action>;
 
 type TestViewerState = {
     test: Test,
@@ -352,28 +352,14 @@ const ActionSequence: FunctionComponent<{ actionSequence?: ActionSequence }> = (
     }
 
     if (actionSequence) {
-        switch (actionSequence.tag) {
-            case "Single":
-                return (
-                    <div class="action-sequence">
-                        <div class="action-sequence-inner">
-                            <div class="label">Action</div>
-                            {renderDetails(actionSequence.contents)}
-                        </div>
-                    </div>
-
-                );
-            case "Sequence":
-                return (
-                    <div class="action-sequence">
-                        <div class="action-sequence-inner">
-                            <div class="label">Action Sequence</div>
-                            {actionSequence.contents.map(renderDetails)}
-                        </div>
-                    </div>
-
-                );
-        }
+        return (
+            <div class="action-sequence">
+                <div class="action-sequence-inner">
+                    <div class="label">Action Sequence</div>
+                    {actionSequence.map(renderDetails)}
+                </div>
+            </div>
+        );
     } {
         return null;
     }

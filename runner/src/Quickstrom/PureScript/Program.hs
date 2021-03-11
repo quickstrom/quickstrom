@@ -195,7 +195,7 @@ loadProgram ms input = runExceptT $ do
 
 data SpecificationProgram = SpecificationProgram
   { specificationReadyWhen :: Quickstrom.Selector,
-    specificationActions :: Vector (Int, Quickstrom.ActionSequence Quickstrom.Selector),
+    specificationActions :: Vector (Quickstrom.Weighted (Quickstrom.ActionSequence Quickstrom.Selector)),
     specificationQueries :: Quickstrom.Queries,
     specificationProgram :: Program WithObservedStates
   }
@@ -203,7 +203,7 @@ data SpecificationProgram = SpecificationProgram
 instance Quickstrom.Specification SpecificationProgram where
   readyWhen = specificationReadyWhen
 
-  actions = map (uncurry Quickstrom.Weighted) . specificationActions
+  actions = specificationActions
 
   verify sp states = (_Left %~ (prettyText . prettyEvalError)) $ do
     valid <- toHaskellValue (moduleSourceSpan (programMain p)) =<< evalWithObservedStates p "proposition" states

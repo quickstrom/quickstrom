@@ -20,6 +20,7 @@ module Quickstrom
   , unchanged
   , module Quickstrom.Selector
   , module Spec
+  , module NonEmpty
   , module Data.HeytingAlgebra
   , module Prelude
   ) where
@@ -27,11 +28,12 @@ module Quickstrom
 import Prelude
 import Data.Array (head)
 import Data.Maybe (Maybe)
+import Data.NonEmpty (NonEmpty(..), (:|)) as NonEmpty
 import Data.HeytingAlgebra (implies)
 import Data.Symbol (class IsSymbol, SProxy(..), reflectSymbol)
 import Prim.RowList (class RowToList, Cons, Nil, kind RowList)
 import Quickstrom.Selector (Selector)
-import Quickstrom.Spec (Actions, ProbabilisticAction, Action(..), class ToActionSequence, toActionSequence, weighted, Path, SpecialKey(..), asciiKeyPresses, clicks, foci, focus, keyPress, specialKeyPress) as Spec
+import Quickstrom.Spec (class ToAction, Actions, Path, ProbabilisticAction, SpecialKey(..), asciiKeyPresses, await, awaitWithTimeoutSecs, clear, click, clicks, enterText, foci, focus, keyPress, navigate, refresh, specialKeyPress, toAction, weighted) as Spec
 import Type.Prelude (class ListToRow, class TypeEquals)
 
 -- ## Temporal operators

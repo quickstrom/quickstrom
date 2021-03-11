@@ -24,7 +24,7 @@ import Data.Vector (Vector)
 import qualified Data.Vector as Vector
 import GHC.TypeNats (type (+))
 import Language.PureScript.AST (SourceSpan)
-import Quickstrom.Action (Action (..), ActionSequence (..))
+import Quickstrom.Action (Action (..), ActionSequence (..), Weighted(..))
 import Quickstrom.Element (Selector (..))
 import Quickstrom.Prelude
 import Quickstrom.PureScript.Eval.Ann
@@ -205,17 +205,15 @@ instance (MonadError EvalError m, ToHaskellValue m a, ToHaskellValue m b) => ToH
         pure (a, b)
       _ -> throwError (ForeignFunctionError (Just ss) ("Cannot be converted to tuple: " <> ctor))
 
-instance MonadError EvalError m => ToHaskellValue m (ActionSequence Selector) where
+instance (MonadError EvalError m, ToHaskellValue m a) => ToHaskellValue m (Weighted a) where
   toHaskellValue ss v = do
     obj <- require ss (Proxy @"VObject") v
-    ctor <- require ss (Proxy @"VString") =<< accessField ss "constructor" obj
-    values <- require ss (Proxy @"VArray") =<< accessField ss "fields" obj
-    case (ctor, Vector.toList values) of
-      ("NonEmpty", [h, t]) -> do
-        h' <- toHaskellValue ss h
-        t' <- toHaskellValue ss t
-        pure (ActionSequence (h' :| t'))
-      _ -> throwError (ForeignFunctionError (Just ss) ("Unknown ActionSequence constructor: " <> ctor))
+    Weighted 
+      <$> (require ss (Proxy @"VInt") =<< accessField ss "weight" obj)
+      <*> (toHaskellValue ss =<< accessField ss "weighted" obj)
+
+instance MonadError EvalError m => ToHaskellValue m (ActionSequence Selector) where
+  toHaskellValue ss v = ActionSequence <$> toHaskellValue ss v
 
 instance MonadError EvalError m => ToHaskellValue m (Action Selector) where
   toHaskellValue ss v = do

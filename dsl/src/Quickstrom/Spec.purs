@@ -1,23 +1,33 @@
 module Quickstrom.Spec
   ( Path
-  , Action(..)
-  , ActionSequence(..)
+  , Action
   , Actions
-  , class ToActionSequence
-  , toActionSequence
   , ProbabilisticAction
+  , class ToAction
+  , toAction
   , weighted
-  , clicks
+  -- Actions
   , focus
-  , foci
   , keyPress
+  , enterText
+  , click
+  , clear
+  , await
+  , awaitWithTimeoutSecs 
+  , navigate 
+  , refresh 
+  -- Predefined
+  , clicks
+  , foci
   , asciiKeyPresses
   , SpecialKey(..)
   , specialKeyPress
   ) where
 
 import Prelude
+
 import Data.Array (range)
+import Data.Array.NonEmpty (NonEmptyArray, singleton, snoc)
 import Data.Char (fromCharCode)
 import Data.Enum (class Enum)
 import Data.Generic.Rep (class Generic)
@@ -25,8 +35,6 @@ import Data.Generic.Rep.Enum (genericPred, genericSucc)
 import Data.Generic.Rep.Ord (genericCompare)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (fromJust)
-import Data.NonEmpty (NonEmpty, singleton)
-import Data.Tuple (Tuple(..))
 import Partial.Unsafe (unsafePartial)
 import Quickstrom.Selector (Selector)
 
@@ -47,52 +55,78 @@ data Action
   | Navigate Path
   | Refresh
 
--- | A non-empty sequence of actions.
-newtype ActionSequence
-  = ActionSequence (NonEmpty Array Action)
+type Weighted a = {weight :: Int, weighted :: a}
 
-class ToActionSequence a where
-  toActionSequence :: a -> ActionSequence
-
-instance toActionSequenceAction :: ToActionSequence Action where
-  toActionSequence a = ActionSequence (singleton a)
-
-instance toActionSequenceNonEmpty :: ToActionSequence (NonEmpty Array Action) where
-  toActionSequence = ActionSequence
-
-type ProbabilisticAction
-  = Tuple Int ActionSequence
+-- | An action (or fixed sequence of actions) carrying a 
+-- | weight, representing its relative probability of being chosen.
+newtype ProbabilisticAction = ProbabilisticAction (Weighted (NonEmptyArray Action))
 
 -- | An array of tuples, containing probabilistic weights and 
 -- | action sequences.
 type Actions
   = Array ProbabilisticAction
 
-weighted :: forall a. ToActionSequence a => a -> Int -> ProbabilisticAction
-weighted a weight = Tuple weight (toActionSequence a)
+-- | Internal class for return type polymorphism in action functions.
+class ToAction a where
+  toAction :: Action -> a
+
+instance toActionAction :: ToAction Action where
+  toAction = identity
+
+instance toActionProbabilisticAction :: ToAction ProbabilisticAction where
+  toAction a = ProbabilisticAction { weighted: singleton a, weight: 1 }
+
+followedBy :: ProbabilisticAction -> Action -> ProbabilisticAction
+followedBy (ProbabilisticAction p) a = ProbabilisticAction (p { weighted = p.weighted `snoc` a })
+
+weighted :: ProbabilisticAction -> Int -> ProbabilisticAction
+weighted (ProbabilisticAction a) w = ProbabilisticAction a { weight = w }
+
+-- * Actions
+
+focus :: forall a. ToAction a => Selector -> a
+focus = toAction <<< Focus
+
+keyPress :: forall a. ToAction a => Char -> a
+keyPress = toAction <<< KeyPress
+
+enterText :: forall a. ToAction a => String -> a
+enterText = toAction <<< EnterText
+
+click :: forall a. ToAction a => Selector -> a
+click = toAction <<< Click
+
+clear :: forall a. ToAction a => Selector -> a
+clear = toAction <<< Clear
+
+await :: forall a. ToAction a => Selector -> a
+await = toAction <<< Await
+
+awaitWithTimeoutSecs :: forall a. ToAction a => Int -> Selector -> a
+awaitWithTimeoutSecs s = toAction <<< AwaitWithTimeoutSecs s
+
+navigate :: forall a. ToAction a => Path -> a
+navigate = toAction <<< Navigate
+
+refresh :: forall a. ToAction a => a
+refresh = toAction Refresh
+
+-- * Predefined actions
 
 -- | Generate click actions on common clickable elements.
 clicks :: Actions
 clicks =
-  [ Click "button" `weighted` 1
-  , Click "input[type=submit]" `weighted` 1
-  , Click "a" `weighted` 1
+  [ click "button" `weighted` 1
+  , click "input[type=submit]" `weighted` 1
+  , click "a" `weighted` 1
   ]
-
--- | Generate focus actions on elements matching the given selector.
-focus :: Selector -> Action
-focus = Focus
 
 -- | Generate focus actions on common focusable elements.
 foci :: Actions
 foci =
-  [ Focus "input" `weighted` 1
-  , Focus "textarea" `weighted` 1
+  [ focus "input" `weighted` 1
+  , focus "textarea" `weighted` 1
   ]
-
--- | Generate a key press action with the given character.
-keyPress :: Char -> Action
-keyPress = KeyPress
 
 -- | Generate key press actions with printable ASCII characters.
 asciiKeyPresses :: Array Action

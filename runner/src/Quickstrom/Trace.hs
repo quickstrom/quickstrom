@@ -106,14 +106,16 @@ data TraceElementEffect = Stutter | NoStutter
   deriving (Show, Eq, Generic, ToJSON)
 
 annotateStutteringSteps :: Trace a -> Trace TraceElementEffect
-annotateStutteringSteps (Trace els) = Trace (go els mempty)
+annotateStutteringSteps (Trace els) = Trace (go els Nothing)
   where
     -- TODO: Not tail-recursive, might need optimization
     go (TraceAction _ action result : rest) lastState =
-      (TraceAction NoStutter action result : go rest lastState)
-    go (TraceState _ newState : rest) lastState =
+      TraceAction NoStutter action result : go rest lastState
+    go (TraceState _ newState : rest) Nothing =
+      TraceState NoStutter newState : go rest (Just newState)
+    go (TraceState _ newState : rest) (Just lastState) =
       let ann' = if elementStates newState == elementStates lastState then Stutter else NoStutter
-       in TraceState ann' newState : go rest newState
+       in TraceState ann' newState : go rest (Just newState)
     go [] _ = []
 
 withoutStutterStates :: Trace TraceElementEffect -> Trace TraceElementEffect

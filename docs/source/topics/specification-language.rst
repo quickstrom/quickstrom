@@ -207,7 +207,7 @@ The default weight is ``1``. To override it, use the ``weighted`` function:
 
 .. code-block:: haskell
 
-   importantAction = click "#important-action" `weighted` 10
+   click "#important-action" `weighted` 10
 
 To illustrate, in the following array of actions, the probability of ``a1``
 being picked is 40%, while the others are at 20% each. This is assuming the
@@ -274,7 +274,7 @@ collection of actions that try to log in or to click a buy button:
 
 .. code-block:: haskell
 
-   foci = 
+   actions = 
       [ focus "input[type=password]"
           `followedBy` enterText "$ecr3tz"
           `followedBy` click "input[type=submit][name=log-in]"

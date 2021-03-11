@@ -90,6 +90,9 @@ traceElements = Product.position @1
 observedStates :: Traversal' (Trace ann) ObservedState
 observedStates = traceElements . traverse . _Ctor @"TraceState" . Product.position @2
 
+observedStatePositions :: Traversal' ObservedState (Maybe Position)
+observedStatePositions = field @"elementStates" . _Wrapped' . traverse . traverse . field @"position"
+
 traceActions :: Traversal' (Trace ann) (ActionSequence Selected)
 traceActions = traceElements . traverse . _Ctor @"TraceAction" . Product.position @2
 
@@ -98,6 +101,9 @@ traceActionFailures = traceElements . traverse . _Ctor @"TraceAction" . Product.
 
 nonStutterStates :: Monoid r => Getting r (Trace TraceElementEffect) ObservedState
 nonStutterStates = traceElements . traverse . _Ctor @"TraceState" . filtered ((== NoStutter) . fst) . Product.position @2
+
+observedStateWithoutPositions :: ObservedState -> ObservedState
+observedStateWithoutPositions = observedStatePositions .~ Nothing
 
 ann :: Lens (TraceElement ann) (TraceElement ann2) ann ann2
 ann = Product.position @1
@@ -114,7 +120,10 @@ annotateStutteringSteps (Trace els) = Trace (go els Nothing)
     go (TraceState _ newState : rest) Nothing =
       TraceState NoStutter newState : go rest (Just newState)
     go (TraceState _ newState : rest) (Just lastState) =
-      let ann' = if elementStates newState == elementStates lastState then Stutter else NoStutter
+      let ann' =
+            if elementStates (observedStateWithoutPositions newState) == elementStates (observedStateWithoutPositions lastState)
+              then Stutter
+              else NoStutter
        in TraceState ann' newState : go rest (Just newState)
     go [] _ = []
 

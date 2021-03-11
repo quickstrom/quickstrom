@@ -9,6 +9,7 @@ import Data.Int as Int
 import Data.Maybe (Maybe(..), isJust, isNothing)
 import Data.String (trim)
 import Data.Tuple (Tuple(..))
+import Data.Symbol (SProxy(..))
 
 readyWhen :: Selector
 readyWhen = "app-gdpr-modal"
@@ -17,7 +18,7 @@ actions :: Actions
 actions =
   [ (click "app-gdpr-modal #btn-center-confirm") `weighted` 10000000 ]
   <>
-  [ click "#next" `weighted` 1
+  [ click "[role=main] a" `weighted` 1
   , click ".modal-content #btn-abort" `weighted` 5
   , click ".modal-content #btn-close" `weighted` 5
   -- , click ".panel-footer button" `weighted` 2
@@ -47,6 +48,7 @@ proposition =
             || selectMemberInKyrkaOrSamfund
             || continueToInkomst
             || submitWithErrors
+            || toggleAccordion
         )
   where
   initial = isJust gdprModalTitle
@@ -75,6 +77,9 @@ proposition =
       && ( activeWizardTab
             == next activeWizardTab
         )
+  
+  toggleAccordion =
+    accordionExpanded /= next accordionExpanded
 
 gdprModalTitle :: Maybe String
 gdprModalTitle = _.textContent <$> queryOne "app-gdpr-modal .modal-title" { textContent }
@@ -110,3 +115,11 @@ selectedMemberInKyrkaOrSamfund = case _.head.value <$> Array.uncons (Array.filte
   where
   memberInKyrkaOrSamfundRadioButtons :: Array { checked :: Boolean, value :: String }
   memberInKyrkaOrSamfundRadioButtons = queryAll "[name=isMemberInKyrkaOrSamfund]" { value, checked }
+
+ariaExpanded :: Attribute "aria-expanded"
+ariaExpanded = attribute SProxy
+
+accordionExpanded :: Maybe Boolean
+accordionExpanded = do
+  expanded <- _.ariaExpanded =<< queryOne "#accordion-lon-efter-skatt .accordion" { ariaExpanded }
+  pure (expanded == "true")

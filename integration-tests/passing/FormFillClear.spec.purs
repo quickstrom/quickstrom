@@ -11,17 +11,14 @@ readyWhen = "body"
 actions :: Actions
 actions =
   clicks
-    <> [ Click "input[type=reset]" `weighted` 1 ]
-    <> [ Click "input[type=submit]" `weighted` 1 ]
-    <> [ ( Click "input[type=reset]"
-            :| [ Focus "input[type=email]"
-              , EnterText "jane.doe@example.com"
-              , Focus "input[type=number]"
-              , EnterText "30"
-              ]
-        )
-          `weigthed`
-            5
+    <> [ click "input[type=reset]" `weighted` 1 ]
+    <> [ click "input[type=submit]" `weighted` 1 ]
+    <> [ click "input[type=reset]"
+           `followedBy` focus "input[type=email]"
+           `followedBy` enterText "jane.doe@example.com"
+           `followedBy` focus "input[type=number]"
+           `followedBy` enterText "30"
+           `weigthed` 5
       ]
 
 proposition :: Boolean

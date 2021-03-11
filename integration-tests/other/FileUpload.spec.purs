@@ -6,7 +6,7 @@ import Data.Tuple (Tuple(..))
 
 readyWhen = "button"
 
-actions = clicks <> [ Click "input[type=file]" `weighted` 10 ]
+actions = clicks <> [ click "input[type=file]" `weighted` 10 ]
 
 proposition :: Boolean
 proposition =

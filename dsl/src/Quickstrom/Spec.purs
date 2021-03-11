@@ -5,6 +5,7 @@ module Quickstrom.Spec
   , ProbabilisticAction
   , class ToAction
   , toAction
+  , followedBy
   , weighted
   -- Actions
   , focus
@@ -27,7 +28,6 @@ module Quickstrom.Spec
 import Prelude
 
 import Data.Array (range)
-import Data.Array.NonEmpty (NonEmptyArray, singleton, snoc)
 import Data.Char (fromCharCode)
 import Data.Enum (class Enum)
 import Data.Generic.Rep (class Generic)
@@ -59,7 +59,7 @@ type Weighted a = {weight :: Int, weighted :: a}
 
 -- | An action (or fixed sequence of actions) carrying a 
 -- | weight, representing its relative probability of being chosen.
-newtype ProbabilisticAction = ProbabilisticAction (Weighted (NonEmptyArray Action))
+newtype ProbabilisticAction = ProbabilisticAction (Weighted (Array Action))
 
 -- | An array of tuples, containing probabilistic weights and 
 -- | action sequences.
@@ -74,10 +74,10 @@ instance toActionAction :: ToAction Action where
   toAction = identity
 
 instance toActionProbabilisticAction :: ToAction ProbabilisticAction where
-  toAction a = ProbabilisticAction { weighted: singleton a, weight: 1 }
+  toAction a = ProbabilisticAction { weighted: pure a, weight: 1 }
 
 followedBy :: ProbabilisticAction -> Action -> ProbabilisticAction
-followedBy (ProbabilisticAction p) a = ProbabilisticAction (p { weighted = p.weighted `snoc` a })
+followedBy (ProbabilisticAction p) a = ProbabilisticAction (p { weighted = p.weighted <> pure a })
 
 weighted :: ProbabilisticAction -> Int -> ProbabilisticAction
 weighted (ProbabilisticAction a) w = ProbabilisticAction a { weight = w }

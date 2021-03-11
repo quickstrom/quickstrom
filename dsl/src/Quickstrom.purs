@@ -33,7 +33,7 @@ import Data.HeytingAlgebra (implies)
 import Data.Symbol (class IsSymbol, SProxy(..), reflectSymbol)
 import Prim.RowList (class RowToList, Cons, Nil, kind RowList)
 import Quickstrom.Selector (Selector)
-import Quickstrom.Spec (class ToAction, Actions, Path, ProbabilisticAction, SpecialKey(..), asciiKeyPresses, await, awaitWithTimeoutSecs, clear, click, clicks, enterText, foci, focus, keyPress, navigate, refresh, specialKeyPress, toAction, weighted) as Spec
+import Quickstrom.Spec (class ToAction, Actions, Path, ProbabilisticAction, SpecialKey(..), asciiKeyPresses, await, awaitWithTimeoutSecs, clear, click, clicks, enterText, foci, focus, keyPress, navigate, refresh, specialKeyPress, toAction, followedBy, weighted) as Spec
 import Type.Prelude (class ListToRow, class TypeEquals)
 
 -- ## Temporal operators

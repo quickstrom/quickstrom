@@ -347,7 +347,8 @@ foreignFunctions =
       (ffName "Math" "floor", foreignFunction (op1 (fromIntegral @Int @Double . floor @Double @Int))),
       (ffName "Math" "remainder", foreignFunction (op2 (mod' @Double))),
       (ffName "Partial.Unsafe" "unsafePartial", foreignFunction unsafePartial),
-      (ffName "Record.Unsafe" "unsafeGet", foreignFunction unsafeGet)
+      (ffName "Record.Unsafe" "unsafeGet", foreignFunction unsafeGet),
+      (ffName "Unsafe.Coerce" "unsafeCoerce", foreignFunction unsafeCoerce)
     ]
   where
     ffName mn n = QualifiedName (ModuleName <$> NonEmpty.fromList (Text.splitOn "." mn)) (Name n)
@@ -472,6 +473,8 @@ foreignFunctions =
       local (field @"env" .~ fenv {envForeignFunctions = envForeignFunctions env'}) (eval body)
     unsafeGet :: MonadError EvalError m => Text -> HashMap Text (Value EvalAnn) -> Ret m (Value EvalAnn)
     unsafeGet k xs = Ret (accessField P.nullSourceSpan k xs)
+    unsafeCoerce :: MonadError EvalError m => Value EvalAnn -> Ret m (Value EvalAnn)
+    unsafeCoerce = Ret . pure
     singletonCodePoint :: Monad m => Value EvalAnn -> Int -> Ret m Text
     singletonCodePoint _ i = singletonCodeUnits i
     singletonCodeUnits :: Monad m => Int -> Ret m Text

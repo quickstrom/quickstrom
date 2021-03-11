@@ -17,10 +17,10 @@ actions :: Actions
 actions =
   [ (click "app-gdpr-modal #btn-center-confirm") `weighted` 10000000 ]
   <>
-  [ click "[role=main] a" `weighted` 1
+  [ click "#next" `weighted` 1
   , click ".modal-content #btn-abort" `weighted` 5
   , click ".modal-content #btn-close" `weighted` 5
-  , click ".panel-footer button" `weighted` 2
+  -- , click ".panel-footer button" `weighted` 2
 
   , click "input[type=radio]" `weighted` 5
   , click "form select option" `weighted` 2
@@ -53,9 +53,7 @@ proposition =
 
   acceptGdpr = isJust gdprModalTitle && next (isNothing gdprModalTitle)
 
-  selectBirthYear = case birthYear of
-    Nothing -> next (isJust birthYear)
-    Just current -> next (isJust birthYear && Just current /= birthYear)
+  selectBirthYear = birthYear /= next birthYear
 
   selectKommun = case kommun of
     Nothing -> next (isJust kommun)

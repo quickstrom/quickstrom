@@ -11,22 +11,30 @@ import Data.String (trim)
 import Data.Tuple (Tuple(..))
 
 readyWhen :: Selector
-readyWhen = "app-gdpr-modal #btn-center-confirm"
+readyWhen = "app-gdpr-modal"
 
 actions :: Actions
 actions =
-  [ Click "[role=main] a" `weigthed` 1
-  , Click "app-gdpr-modal #btn-center-confirm" `weigthed` 10000000
-  , Click ".modal-content button" `weigthed` 5
-  , Click ".panel-footer button" `weigthed` 2
+  [ (click "app-gdpr-modal #btn-center-confirm") `weighted` 10000000 ]
+  <>
+  [ click "[role=main] a" `weighted` 1
+  , click ".modal-content #btn-abort" `weighted` 5
+  , click ".modal-content #btn-close" `weighted` 5
+  , click ".panel-footer button" `weighted` 2
+
+  , click "input[type=radio]" `weighted` 5
+  , click "form select option" `weighted` 2
+  , click "form .cm-scroll-box input" `weighted` 2
+
   -- targeted form events
-  , Focus "form input" `weigthed` 3
-  , Click "input[type=radio]" `weigthed` 5
-  , Click "form select option" `weigthed` 2
-  , Click "form .cm-scroll-box input" `weigthed` 2
-  , EnterText "1990" `weigthed` 5 -- year
-  , EnterText "1950" `weigthed` 2 -- year
-  , EnterText "19900" `weigthed` 5 -- salary (but also a year, the first 4 chars)
+
+  , focus "#fodelsar" `followedBy` clear "fodelsear" `followedBy` enterText "1950" `weighted` 3
+  , focus "#fodelsar" `followedBy` clear "fodelsear" `followedBy` enterText "1990" `weighted` 3
+  , focus "#fodelsar" `followedBy` clear "fodelsear" `followedBy` enterText "2020" `weighted` 3
+
+  , clear "inkomst" `followedBy` enterText "2020" `weighted` 1
+  , focus "#inkomst" `followedBy` enterText "0" `weighted` 5
+  , focus "#inkomst" `followedBy` enterText "1" `weighted` 5
   ]
 
 proposition :: Boolean

@@ -195,6 +195,7 @@ definition in a specification module is where you list possible actions.
 
 .. code-block:: haskell
 
+   actions :: Actions
    actions = [ action1, action2, ... ]
 
 It's an array of values, where each value describes an action or a fixed
@@ -239,7 +240,7 @@ runner.
 Actions
 ~~~~~~~
 
-The action functions are defined in the Quickstrom library:
+The available actions are provided in the Quickstrom library:
 
 * ``focus``
 * ``keyPress``

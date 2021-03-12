@@ -312,7 +312,7 @@ main = do
                 "The following reporters cannot be invoked:" <> line <> renderList [pretty name <> ":" <+> reason | (name, reason) <- reporterPreCheckErrors]
             else do
               result <-
-                Pipes.runEffect (Pipes.for (Quickstrom.check opts (WebDriver.runWebDriver wdOpts) spec) (lift . Quickstrom.logDoc . renderCheckEvent))
+                Pipes.runEffect (Pipes.for (Pipes.hoist (WebDriver.run wdOpts) (Quickstrom.check opts spec)) (lift . Quickstrom.logDoc . renderCheckEvent))
                   & try
               Quickstrom.logDoc . Quickstrom.logSingle Nothing $ line <> divider <> line
               case result of
@@ -438,9 +438,9 @@ renderTestEvent = \case
     Quickstrom.logSingle Nothing $
       line
         <> annotate bold ("Shrinking failing test down to the" <+> ordinal level <+> "level..." <> line)
-  Quickstrom.RunningShrink level ->
+  Quickstrom.RunningShrink level size ->
     Quickstrom.logSingle (Just Quickstrom.LogInfo) $
-      "Running shrunk test at level" <+> pretty level <> "."
+      "Running shrunk test with" <+> pretty size <+> "actions (shrink level" <+> pretty level <> ")"
   where
     traceWarnings :: Quickstrom.Size -> Quickstrom.Trace Quickstrom.TraceElementEffect -> [Doc AnsiStyle]
     traceWarnings size trace' =

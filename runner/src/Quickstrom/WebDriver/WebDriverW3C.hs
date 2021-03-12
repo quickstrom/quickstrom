@@ -1,7 +1,12 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedLists #-}
@@ -9,18 +14,14 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Quickstrom.WebDriver.WebDriverW3C where
+module Quickstrom.WebDriver.WebDriverW3C (run) where
 
 import Control.Lens
-import Control.Monad (Monad (fail))
-import Control.Monad.Catch (MonadThrow (..))
+import Control.Monad.Catch (MonadThrow (..), MonadCatch)
 import qualified Control.Monad.Script.Http as ScriptHttp
-import Control.Monad.Trans.Class (MonadTrans)
-import Control.Monad.Trans.Identity (IdentityT (..))
 import qualified Data.Aeson as JSON
 import Data.Aeson.Lens
 import qualified Data.HashMap.Strict as HashMap
-import qualified Data.List as List
 import qualified Data.Set as Set
 import qualified Data.String as String
 import qualified Data.Text as Text
@@ -43,58 +44,32 @@ import Web.Api.WebDriver hiding
     throwError,
   )
 import qualified Web.Api.WebDriver as WebDriver
+import Data.Generics.Labels ()
+import Data.IORef (IORef)
+import qualified Data.IORef as IORef
 
-newtype WebDriverW3C m a = WebDriverW3C {unWebDriverW3C :: WebDriverTT IdentityT m a}
-  deriving (Functor, Applicative, Monad)
+data WebDriverEnv m = WebDriverEnv { config :: WebDriverConfig m, stateRef :: IORef (S WDState) }
+  deriving (Generic)
 
-instance MonadTrans WebDriverW3C where
-  lift = WebDriverW3C . liftWebDriverTT . IdentityT
+newtype WebDriverW3C m a = WebDriverW3C (ReaderT (WebDriverEnv IO) m a)
+  deriving (Functor, Applicative, Monad, MonadIO, MonadCatch, MonadThrow, MonadReader (WebDriverEnv IO))
 
-instance MonadIO m => MonadIO (WebDriverW3C m) where
-  liftIO = WebDriverW3C . liftWebDriverTT . liftIO
+run :: MonadIO m => WebDriverOptions -> WebDriverW3C m a -> m a
+run opts (WebDriverW3C ma) = do
+  env <- init opts
+  runReaderT ma env
 
-instance MonadIO m => MonadThrow (WebDriverW3C m) where
-  throwM = liftIO . throwM
-
-instance MonadIO m => WebDriver (WebDriverW3C m) where
-  getActiveElement = fromRef <$> WebDriverW3C WebDriver.getActiveElement
-  isElementEnabled = WebDriverW3C . WebDriver.isElementEnabled . toRef
-  getElementTagName = map toS . WebDriverW3C . WebDriver.getElementTagName . toRef
-  elementClick = WebDriverW3C . WebDriver.elementClick . toRef
-  elementClear = WebDriverW3C . WebDriver.elementClear . toRef
-  elementSendKeys keys = WebDriverW3C . WebDriver.elementSendKeys (toS keys) . toRef
-  takeScreenshot = WebDriverW3C WebDriver.takeScreenshot
-  findAll (Selector s) = map fromRef <$> WebDriverW3C (findElements CssSelector (Text.unpack s))
-  navigateTo = WebDriverW3C . WebDriver.navigateTo . toS
-  goBack = WebDriverW3C WebDriver.goBack
-  goForward = WebDriverW3C WebDriver.goForward
-  pageRefresh = WebDriverW3C WebDriver.pageRefresh
-  runScript script args = do
-    r <- WebDriverW3C (executeAsyncScript (String.fromString (toS script)) args)
-    case JSON.fromJSON r of
-      JSON.Success (Right a) -> pure a
-      JSON.Success (Left e) -> throwIO (WebDriverOtherError e)
-      JSON.Error e -> throwIO (WebDriverOtherError (toS e))
-
-  catchResponseError (WebDriverW3C ma) f =
-    WebDriverW3C $
-      ma `WebDriver.catchError` \case
-        ResponseError _ msg _ _ _ -> liftWebDriverTT (liftIO (f (WebDriverResponseError (toS msg))))
-        err -> liftWebDriverTT (throwIO (WebDriverOtherError (show err)))
-
-  inNewPrivateWindow = runIsolated
-
-runWebDriver :: MonadIO m => WebDriverOptions -> WebDriverW3C m b -> m b
-runWebDriver WebDriverOptions {..} (WebDriverW3C ma) = do
+init :: MonadIO m => WebDriverOptions -> m (WebDriverEnv IO)
+init WebDriverOptions{..} = do
   mgr <- liftIO (Http.newManager Http.defaultManagerSettings)
   let httpOptions :: Wreq.Options
       httpOptions =
         Wreq.defaults
           & Wreq.manager .~ Right mgr
           & Wreq.headers .~ [("Content-Type", "application/json; charset=utf-8")]
-  execWebDriverT (reconfigure defaultWebDriverConfig httpOptions) ma >>= \case
-    (Right x, _, _) -> pure x
-    (Left err, _, _) -> liftIO (fail (show err))
+      opts = reconfigure defaultWebDriverConfig httpOptions
+  st <- liftIO (IORef.newIORef (_initialState opts))
+  pure (WebDriverEnv opts st)
   where
     reconfigure c httpOptions =
       c
@@ -119,18 +94,25 @@ runWebDriver WebDriverOptions {..} (WebDriverW3C ma) = do
             LogError -> ScriptHttp.LogError
        in WebDriver.basicLogEntryPrinter opts {WebDriver._logMinSeverity = minSeverity} logEntry
 
+runCommand :: (MonadIO m, MonadThrow m) => WebDriverT IO a -> WebDriverW3C m a
+runCommand action = do
+  WebDriverEnv conf stateRef <- ask
+  s <- liftIO (IORef.readIORef stateRef)
+  liftIO (execWebDriverT conf { _initialState  = s } action) >>= \case
+    (Right x, s', _) -> liftIO (IORef.writeIORef stateRef s') >> pure x
+    (Left err, s', _) -> liftIO (IORef.writeIORef stateRef s') >> throwM (WebDriverOtherError (show err))
+
 -- | Mostly the same as the non-exported definition in 'Web.Api.WebDriver.Endpoints'.
 runIsolated ::
-  Monad m =>
+  (MonadIO m, MonadThrow m) =>
   WebDriverOptions ->
   WebDriverW3C m a ->
   WebDriverW3C m a
-runIsolated opts (WebDriverW3C theSession) = WebDriverW3C . cleanupOnError $ do
-  sid <- newSession' (addCaps opts) emptyCapabilities
-  modifyState (setSessionId (Just sid))
-  a <- theSession
-  deleteSession
-  modifyState (setSessionId Nothing)
+runIsolated opts ma = do
+  sid <- runCommand (newSession' (addCaps opts) emptyCapabilities)
+  runCommand (modifyState (setSessionId (Just sid)))
+  a <- ma
+  runCommand deleteSession
   pure a
 
 addCaps :: WebDriverOptions -> JSON.Value -> JSON.Value
@@ -171,7 +153,7 @@ addCaps WebDriverOptions {webDriverBrowser = Chrome, webDriverBrowserBinary, web
                            ( map
                                JSON.toJSON
                                ( ["headless", "no-sandbox", "disable-gpu", "privileged"]
-                                   ++ (if hasUserDataDir then [] else ["incognito"])
+                                   ++ (["incognito" | not hasUserDataDir])
                                    ++ Set.toList webDriverAdditionalOptions
                                )
                            )
@@ -193,20 +175,6 @@ addCaps WebDriverOptions {webDriverBrowser = Chrome, webDriverBrowserBinary, web
         )
 
 -- | Same as the non-exported definition in 'Web.Api.WebDriver.Endpoints'.
-cleanupOnError ::
-  (Monad eff, Monad (t eff), MonadTrans t) =>
-  -- | `WebDriver` session that may throw errors
-  WebDriverTT t eff a ->
-  WebDriverTT t eff a
-cleanupOnError x =
-  catchAnyError
-    x
-    (\e -> deleteSession >> WebDriver.throwError e)
-    (\e -> deleteSession >> throwHttpException e)
-    (\e -> deleteSession >> throwIOException e)
-    (\e -> deleteSession >> throwJsonError e)
-
--- | Same as the non-exported definition in 'Web.Api.WebDriver.Endpoints'.
 setSessionId ::
   Maybe String.String ->
   S WDState ->
@@ -218,3 +186,24 @@ toRef (Element ref) = ElementRef (Text.unpack ref)
 
 fromRef :: ElementRef -> Element
 fromRef (ElementRef ref) = Element (Text.pack ref)
+
+instance (Monad m, MonadIO m, MonadThrow m) => WebDriver (WebDriverW3C m) where
+  getActiveElement = fromRef <$> runCommand WebDriver.getActiveElement
+  isElementEnabled = runCommand . WebDriver.isElementEnabled . toRef
+  getElementTagName = map toS . runCommand . WebDriver.getElementTagName . toRef
+  elementClick = runCommand . WebDriver.elementClick . toRef
+  elementClear = runCommand . WebDriver.elementClear . toRef
+  elementSendKeys keys = runCommand . WebDriver.elementSendKeys (toS keys) . toRef
+  takeScreenshot = runCommand WebDriver.takeScreenshot
+  findAll (Selector s) = map fromRef <$> runCommand (findElements CssSelector (Text.unpack s))
+  navigateTo = runCommand . WebDriver.navigateTo . toS
+  goBack = runCommand WebDriver.goBack
+  goForward = runCommand WebDriver.goForward
+  pageRefresh = runCommand WebDriver.pageRefresh
+  runScript script args = do
+    r <- runCommand (executeAsyncScript (String.fromString (toS script)) args)
+    case JSON.fromJSON r of
+      JSON.Success (Right a) -> pure a
+      JSON.Success (Left e) -> throwIO (WebDriverOtherError e)
+      JSON.Error e -> throwIO (WebDriverOtherError (toS e))
+  inNewPrivateWindow = runIsolated

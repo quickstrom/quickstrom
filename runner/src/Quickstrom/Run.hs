@@ -33,12 +33,14 @@ module Quickstrom.Run
 where
 
 import Control.Lens hiding (each)
+import Control.Lens.Extras (is)
 import Control.Monad (fail, forever, when)
 import Control.Monad.Catch (MonadCatch, catch)
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import Control.Natural (type (~>))
 import Data.Function ((&))
 import Data.Generics.Product (field)
+import Data.Generics.Sum (_Ctor)
 import Data.List hiding (map)
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -86,7 +88,7 @@ data TestEvent
   | TestPassed Size (Trace TraceElementEffect)
   | TestFailed Size (Trace TraceElementEffect)
   | Shrinking Int
-  | RunningShrink Int
+  | RunningShrink Int Int
   deriving (Show, Generic)
 
 data CheckEvent
@@ -95,18 +97,23 @@ data CheckEvent
   | CheckFinished CheckResult
   deriving (Show, Generic)
 
+data ShrinkResult
+  = ShrinkTestSuccess {shrunkTrace :: Trace TraceElementEffect}
+  | ShrinkTestFailure {failedTest :: FailedTest}
+  | ShrinkTestError {shrinkError :: Text}
+  deriving (Show, Generic)
+
 check ::
-  (Specification spec, MonadIO n, MonadCatch n, WebDriver m, MonadIO m) =>
+  (Specification spec, WebDriver m, MonadIO m, MonadCatch m) =>
   CheckOptions ->
-  (m ~> n) ->
   spec ->
-  Pipes.Producer CheckEvent n CheckResult
-check opts@CheckOptions {checkTests} runWebDriver spec = do
+  Pipes.Producer CheckEvent m CheckResult
+check opts@CheckOptions {checkTests} spec = do
   -- stdGen <- getStdGen
   Pipes.yield (CheckStarted checkTests)
   env <- CheckEnv opts <$> lift readScripts
   res <-
-    Pipes.hoist (runWebDriver . run env) (runAll opts spec)
+    Pipes.hoist (run env) (runAll opts spec)
       & (`catch` \err@SomeException {} -> pure (CheckError (show err)))
   Pipes.yield (CheckFinished res)
   pure res
@@ -131,7 +138,7 @@ select f = forever do
   maybe (pure ()) Pipes.yield (f x)
 
 runSingle ::
-  (MonadIO m, WebDriver m, Specification spec) =>
+  (MonadIO m, MonadCatch m, WebDriver m, Specification spec) =>
   spec ->
   Size ->
   Producer TestEvent (Runner m) (Either FailedTest PassedTest)
@@ -151,18 +158,19 @@ runSingle spec size = do
       if checkShrinkLevels > 0
         then do
           Pipes.yield (Shrinking checkShrinkLevels)
-          let shrinks = shrinkForest (QuickCheck.shrinkList shrinkAction) checkShrinkLevels (trace ^.. traceActions)
+          let shrinks = shrinkForest shrinkActions checkShrinkLevels (trace ^.. traceActions)
           shrunk <-
             minBy
               (lengthOf (field @"trace" . traceElements))
-              ( traverseShrinks runShrink shrinks
-                  >-> select (preview _Left)
+              ( traverseShrinks runShrink (_Ctor @"ShrinkTestFailure") shrinks
+                  >-> select (preview (_Ctor @"ShrinkTestFailure"))
+                  >-> Pipes.take 100
               )
           pure (maybe (Left ft) Left shrunk)
         else pure (Left ft)
   where
     runAndVerifyIsolated ::
-      (MonadIO m, WebDriver m) =>
+      (MonadIO m, MonadCatch m, WebDriver m) =>
       Int ->
       Producer (ActionSequence (Element, Selected)) (Runner m) () ->
       Producer TestEvent (Runner m) (Either FailedTest (Trace TraceElementEffect))
@@ -177,21 +185,23 @@ runSingle spec size = do
         Right Rejected -> pure (Left (FailedTest n trace Nothing))
         Left err -> pure (Left (FailedTest n trace (Just err)))
     runShrink ::
-      (MonadIO m, WebDriver m) =>
+      (MonadIO m, MonadCatch m, WebDriver m) =>
       Shrink [ActionSequence Selected] ->
-      Producer TestEvent (Runner m) (Either FailedTest (Trace TraceElementEffect))
+      Producer TestEvent (Runner m) ShrinkResult
     runShrink (Shrink n actions') = do
-      Pipes.yield (RunningShrink n)
+      Pipes.yield (RunningShrink n (length actions'))
       Pipes.each actions'
         >-> Pipes.mapM (traverse reselect)
         >-> Pipes.mapMaybe (traverse identity)
         >-> Pipes.filterM isCurrentlyValid
         & runAndVerifyIsolated n
+        & (<&> either ShrinkTestFailure ShrinkTestSuccess)
+        & (`catch` (\(WebDriverOtherError t) -> pure (ShrinkTestError t)))
 
-runAll :: (MonadIO m, WebDriver m, Specification spec) => CheckOptions -> spec -> Producer CheckEvent (Runner m) CheckResult
+runAll :: (MonadIO m, MonadCatch m, WebDriver m, Specification spec) => CheckOptions -> spec -> Producer CheckEvent (Runner m) CheckResult
 runAll opts spec' = go mempty (sizes opts `zip` [1 ..])
   where
-    go :: (MonadIO m, WebDriver m) => Vector PassedTest -> [(Size, Int)] -> Producer CheckEvent (Runner m) CheckResult
+    go :: (MonadIO m, MonadCatch m, WebDriver m) => Vector PassedTest -> [(Size, Int)] -> Producer CheckEvent (Runner m) CheckResult
     go passed [] = pure (CheckSuccess passed)
     go passed ((size, n) : rest) =
       (runSingle spec' size >-> Pipes.map CheckTestEvent)
@@ -202,6 +212,13 @@ runAll opts spec' = go mempty (sizes opts `zip` [1 ..])
 sizes :: CheckOptions -> [Size]
 sizes CheckOptions {checkMaxActions = Size maxActions, checkTests} =
   map (\n -> Size (n * maxActions `div` fromIntegral checkTests)) [1 .. fromIntegral checkTests]
+
+shrinkActions :: [ActionSequence Selected] -> [[ActionSequence Selected]]
+shrinkActions [] = []
+shrinkActions as = [first75, init as]
+  where
+    first75 = take (floor @Double (fromIntegral (length as) * 0.75)) as
+-- shrinkActions = QuickCheck.shrinkList shrinkAction
 
 navigateToOrigin :: WebDriver m => Runner m ()
 navigateToOrigin = do
@@ -230,12 +247,12 @@ takeScreenshot' = do
   CheckEnv {checkOptions = CheckOptions {checkCaptureScreenshots}} <- ask
   if checkCaptureScreenshots then Just <$> takeScreenshot else pure Nothing
 
-observeManyStatesAfter :: (MonadIO m, WebDriver m) => Queries -> ActionSequence (Element, Selected) -> Pipe a (TraceElement ()) (Runner m) ()
+observeManyStatesAfter :: (MonadIO m, MonadCatch m, WebDriver m) => Queries -> ActionSequence (Element, Selected) -> Pipe a (TraceElement ()) (Runner m) ()
 observeManyStatesAfter queries' actionSequence = do
   CheckEnv {checkScripts = scripts, checkOptions = CheckOptions {checkMaxTrailingStateChanges, checkTrailingStateChangeTimeout}} <- lift ask
   lift (runCheckScript (registerNextStateObserver scripts checkTrailingStateChangeTimeout queries'))
   result <- lift (runActionSequence (map fst actionSequence))
-  lift (runCheckScript (awaitNextState scripts) `catchResponseError` const pass)
+  lift (runCheckScript (awaitNextState scripts) `catch` (\WebDriverResponseError {} -> pass))
   newState <- lift (runCheckScript (observeState scripts queries'))
   screenshot <- lift takeScreenshot'
   Pipes.yield (TraceAction () (map snd actionSequence) result)
@@ -249,19 +266,19 @@ observeManyStatesAfter queries' actionSequence = do
       & lift
   mapM_ (Pipes.yield . TraceState ()) nonStutters
   where
-    loop :: WebDriver m => Timeout -> Producer ObservedState (Runner m) ()
+    loop :: (MonadCatch m, WebDriver m) => Timeout -> Producer ObservedState (Runner m) ()
     loop timeout = do
       scripts <- lift (asks checkScripts)
       newState <- lift do
         runCheckScript (registerNextStateObserver scripts timeout queries')
-        runCheckScript (awaitNextState scripts) `catchResponseError` const pass
+        runCheckScript (awaitNextState scripts) `catch` (\WebDriverResponseError {} -> pass)
         runCheckScript (observeState scripts queries')
       screenshot <- lift takeScreenshot'
       Pipes.yield (ObservedState screenshot newState)
       loop (mapTimeout (* 2) timeout)
 
 {-# SCC runActions' "runActions'" #-}
-runActions' :: (MonadIO m, WebDriver m, Specification spec) => spec -> Pipe (ActionSequence (Element, Selected)) (TraceElement ()) (Runner m) ()
+runActions' :: (MonadIO m, MonadCatch m, WebDriver m, Specification spec) => spec -> Pipe (ActionSequence (Element, Selected)) (TraceElement ()) (Runner m) ()
 runActions' spec = do
   scripts <- lift (asks checkScripts)
   state1 <- lift (runCheckScript (observeState scripts queries'))
@@ -284,14 +301,14 @@ shrinkForest shrink limit = go 1
       | n <= limit = map (\x -> Node (Shrink n x) (go (succ n) x)) . shrink
       | otherwise = mempty
 
-traverseShrinks :: Monad m => (Shrink a -> m (Either e b)) -> Forest (Shrink a) -> Producer (Either e b) m ()
-traverseShrinks test = go
+traverseShrinks :: Monad m => (Shrink a -> m b) -> Prism' b x -> Forest (Shrink a) -> Producer b m ()
+traverseShrinks test failure = go
   where
     go = \case
       [] -> pure ()
       Node x xs : rest -> do
         r <- lift (test x)
         Pipes.yield r
-        when (isn't _Right r) do
+        when (is failure r) do
           go xs
         go rest

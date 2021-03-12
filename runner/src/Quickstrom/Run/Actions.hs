@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
@@ -41,6 +42,7 @@ import Quickstrom.Timeout (Timeout (..))
 import Quickstrom.Trace (ActionResult (..))
 import Quickstrom.WebDriver.Class
 import qualified Test.QuickCheck as QuickCheck
+import Control.Monad.Catch (MonadCatch(catch))
 
 shrinkAction :: ActionSequence Selected -> [ActionSequence Selected]
 shrinkAction _ = [] -- TODO?
@@ -49,7 +51,7 @@ generate :: MonadIO m => QuickCheck.Gen a -> m a
 generate = liftIO . QuickCheck.generate
 
 generateValidActions ::
-  (MonadIO m, WebDriver m) =>
+  (MonadIO m, MonadCatch m, WebDriver m) =>
   Vector (Weighted (ActionSequence Selector)) ->
   Producer (ActionSequence (Element, Selected)) (Runner m) ()
 generateValidActions possibleActions = loop
@@ -97,15 +99,15 @@ findActionCandidates = map fold . traverse (map (maybe mempty pure) . findAction
         choices -> Just <$> generate (QuickCheck.elements [(e, Selected sel i) | (i, e) <- choices])
 
 filterCurrentlyValidActionCandidates ::
-  (MonadIO m, WebDriver m) =>
+  (MonadIO m, MonadCatch m, WebDriver m) =>
   Vector (Weighted (ActionSequence (Element, Selected))) ->
   Runner m (Vector (Weighted (ActionSequence (Element, Selected))))
 filterCurrentlyValidActionCandidates = Vector.filterM (isCurrentlyValid . weighted)
 
-isCurrentlyValid :: WebDriver m => ActionSequence (Element, b) -> Runner m Bool
+isCurrentlyValid :: (MonadCatch m, WebDriver m) => ActionSequence (Element, b) -> Runner m Bool
 isCurrentlyValid (ActionSequence actions') = isActionCurrentlyValid (NonEmpty.head actions')
 
-isActionCurrentlyValid :: WebDriver m => Action (Element, b) -> Runner m Bool
+isActionCurrentlyValid :: (MonadCatch m, WebDriver m) => Action (Element, b) -> Runner m Bool
 isActionCurrentlyValid = \case
   KeyPress _ -> isActiveInput
   EnterText _ -> isActiveInput
@@ -118,7 +120,7 @@ isActionCurrentlyValid = \case
   Refresh -> pure True
   where
     isNotActive e = (/= Just e) <$> activeElement
-    activeElement = (Just <$> getActiveElement) `catchResponseError` const (pure Nothing)
+    activeElement = (Just <$> getActiveElement) `catch` (\WebDriverResponseError{} -> pure Nothing)
     isClickable e = do
       scripts <- asks checkScripts
       getElementTagName e >>= \case
@@ -138,27 +140,26 @@ chooseAction choices
   | Vector.null choices = pure Nothing
   | otherwise = Just <$> generate (QuickCheck.frequency [(w, pure x) | Weighted w x <- Vector.toList choices])
 
-tryAction :: WebDriver m => Runner m ActionResult -> Runner m ActionResult
+tryAction :: MonadCatch m => Runner m ActionResult -> Runner m ActionResult
 tryAction action =
-  action
-    `catchResponseError` (\(WebDriverResponseError msg) -> pure (ActionFailed msg))
+  action `catch` (\(WebDriverResponseError msg) -> pure (ActionFailed msg))
 
-click :: WebDriver m => Element -> Runner m ActionResult
+click :: (MonadCatch m, WebDriver m) => Element -> Runner m ActionResult
 click e = tryAction (ActionSuccess <$ elementClick e)
 
-clear :: WebDriver m => Element -> Runner m ActionResult
+clear :: (MonadCatch m, WebDriver m) => Element -> Runner m ActionResult
 clear e = tryAction (ActionSuccess <$ elementClear e)
 
-sendKeys :: WebDriver m => Text -> Runner m ActionResult
+sendKeys :: (MonadCatch m, WebDriver m) => Text -> Runner m ActionResult
 sendKeys t = tryAction (ActionSuccess <$ (getActiveElement >>= elementSendKeys t))
 
-sendKey :: WebDriver m => Char -> Runner m ActionResult
+sendKey :: (MonadCatch m, WebDriver m) => Char -> Runner m ActionResult
 sendKey = sendKeys . Text.singleton
 
-focus :: WebDriver m => Element -> Runner m ActionResult
+focus :: (MonadCatch m, WebDriver m) => Element -> Runner m ActionResult
 focus e = tryAction (ActionSuccess <$ elementSendKeys "" e)
 
-runAction :: (MonadIO m, WebDriver m) => Action Element -> Runner m ActionResult
+runAction :: (MonadIO m, MonadCatch m, WebDriver m) => Action Element -> Runner m ActionResult
 runAction = \case
   Focus s -> focus s
   KeyPress c -> sendKey c
@@ -170,7 +171,7 @@ runAction = \case
   Navigate uri -> tryAction (ActionSuccess <$ navigateTo uri)
   Refresh -> tryAction (ActionSuccess <$ pageRefresh)
 
-runActionSequence :: (MonadIO m, WebDriver m) => ActionSequence Element -> Runner m ActionResult
+runActionSequence :: (MonadIO m, MonadCatch m, WebDriver m) => ActionSequence Element -> Runner m ActionResult
 runActionSequence (ActionSequence actions') =
   let loop [] = pure ActionSuccess
       loop (x : xs) =

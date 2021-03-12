@@ -13,7 +13,7 @@ The web application we're going to test is already written and
 available on GitHub. We're going to access it directly using
 `htmlpreview.github.io`. Try opening the following link:
 
-https://htmlpreview.github.io/?https://github.com/quickstrom/quickstrom/blob/cloud/tutorial/examples/AudioPlayer.html 
+https://htmlpreview.github.io/?https://github.com/quickstrom/quickstrom/blob/main/examples/AudioPlayer.html 
 
 That's the web application we're going to test. We're now ready to
 write our specification.
@@ -79,7 +79,7 @@ Let's run some tests:
 #. Give it a name, like "htmlpreview"
 #. Use the following URL as the origin:
 
-   https://htmlpreview.github.io/?https://github.com/quickstrom/quickstrom/blob/cloud/tutorial/examples/AudioPlayer.html
+   https://htmlpreview.github.io/?https://github.com/quickstrom/quickstrom/blob/main/examples/AudioPlayer.html
 
 #. Click the *Create* button
 #. Find your newly created configuration in the table and click *Check*
@@ -355,7 +355,7 @@ There's another version of the web application with a fix in place for
 this bug. Create a new check configuration but using the following URL
 as the origin:
 
-https://htmlpreview.github.io/?https://github.com/quickstrom/quickstrom/blob/cloud/tutorial/examples/AudioPlayer.fix-1.html
+https://htmlpreview.github.io/?https://github.com/quickstrom/quickstrom/blob/main/examples/AudioPlayer.fix-1.html
 
 Check again but with your new configuration. All tests pass!
 
@@ -404,7 +404,7 @@ state.
 In fact, the problem is the button text, not the time display. There's
 another version at the following URL with another bug fix:
 
-https://htmlpreview.github.io/?https://github.com/quickstrom/quickstrom/blob/cloud/tutorial/examples/AudioPlayer.fix-2.html
+https://htmlpreview.github.io/?https://github.com/quickstrom/quickstrom/blob/main/examples/AudioPlayer.fix-2.html
 
 Create yet another check configuration with this origin URL, and you
 should have all tests pass.

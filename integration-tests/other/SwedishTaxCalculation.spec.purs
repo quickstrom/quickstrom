@@ -18,6 +18,7 @@ actions :: Actions
 actions =
   [ (click "app-gdpr-modal #btn-center-confirm") `weighted` 10000000 ]
   <>
+
   [ click "[role=main] a" `weighted` 1
   , click ".modal-content #btn-abort" `weighted` 5
   , click ".modal-content #btn-close" `weighted` 5
@@ -27,15 +28,19 @@ actions =
   , click "form select option" `weighted` 2
   , click "form .cm-scroll-box input" `weighted` 2
 
-  -- targeted form events
+  -- targeted form actions
 
-  , focus "#fodelsar" `followedBy` clear "fodelsear" `followedBy` enterText "1950" `weighted` 3
-  , focus "#fodelsar" `followedBy` clear "fodelsear" `followedBy` enterText "1990" `weighted` 3
-  , focus "#fodelsar" `followedBy` clear "fodelsear" `followedBy` enterText "2020" `weighted` 3
+  , click "#next" `weighted` 5
 
-  , clear "inkomst" `followedBy` enterText "2020" `weighted` 1
+  , focus "#fodelsear" `followedBy` clear "#fodelsear" `followedBy` enterText "1950" `weighted` 3
+  , focus "#fodelsear" `followedBy` clear "#fodelsear" `followedBy` enterText "1990" `weighted` 3
+  , focus "#fodelsear" `followedBy` clear "#fodelsear" `followedBy` enterText "2020" `weighted` 3
+
+  , clear "#inkomst" `weighted` 1
   , focus "#inkomst" `followedBy` enterText "0" `weighted` 5
   , focus "#inkomst" `followedBy` enterText "1" `weighted` 5
+
+  , click "#beraknaknapp" `weighted` 3
   ]
 
 proposition :: Boolean

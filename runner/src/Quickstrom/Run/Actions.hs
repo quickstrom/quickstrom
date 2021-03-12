@@ -121,7 +121,9 @@ isActionCurrentlyValid = \case
     activeElement = (Just <$> getActiveElement) `catchResponseError` const (pure Nothing)
     isClickable e = do
       scripts <- asks checkScripts
-      andM [isElementEnabled e, runCheckScript (isElementVisible scripts e)]
+      getElementTagName e >>= \case
+        "option" -> isElementEnabled e
+        _ -> andM [isElementEnabled e, runCheckScript (isElementVisible scripts e)]
     isClearable el = (`elem` ["input", "textarea"]) <$> getElementTagName el
     isActiveInput =
       activeElement >>= \case

@@ -32,7 +32,7 @@ module Quickstrom.Run
 where
 
 import Control.Lens hiding (each)
-import Control.Monad (fail, forever)
+import Control.Monad (fail)
 import Control.Monad.Catch (MonadCatch, catch)
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import Data.Function ((&))
@@ -49,7 +49,7 @@ import qualified Pipes
 import qualified Pipes.Prelude as Pipes
 import Quickstrom.Action
 import Quickstrom.Element (Element)
-import Quickstrom.Prelude hiding (catch, check, trace)
+import Quickstrom.Prelude hiding (catch, check, trace, Prefix)
 import Quickstrom.Result
 import Quickstrom.Run.Actions (awaitElement, defaultTimeout, generateValidActions, isCurrentlyValid, reselect, runActionSequence)
 import Quickstrom.Run.Runner (CheckEnv (..), CheckOptions (..), Runner, Size (..), run)
@@ -117,11 +117,6 @@ check opts@CheckOptions {checkTests} spec = do
 elementsToTrace :: Monad m => Producer (TraceElement ()) (Runner m) () -> Runner m (Trace ())
 elementsToTrace = fmap Trace . Pipes.toListM
 
-select :: Monad m => (a -> Maybe b) -> Pipe a b m ()
-select f = forever do
-  x <- Pipes.await
-  maybe (pure ()) Pipes.yield (f x)
-
 runSingle ::
   (MonadIO m, MonadCatch m, WebDriver m, Specification spec) =>
   spec ->
@@ -143,14 +138,15 @@ runSingle spec size = do
       if checkMaxShrinks > 0
         then do
           Pipes.yield (Shrinking checkMaxShrinks)
-          let shrinks = pruneDuplicates (shrinkActions (trace ^.. traceActions))
+          let prefixes = shrinkPrefixes (trace ^.. traceActions)
           counterExamples <-
             Pipes.toListM
-              ( traverseShrinks runShrink (_Ctor @"ShrinkTestFailure") shrinks
+              ( searchSmallestFailingPrefix runShrink (_Ctor @"ShrinkTestFailure") prefixes
                   >-> Pipes.take checkMaxShrinks
-                  >-> select (preview (_Ctor @"ShrinkTestFailure"))
               )
-          let counterExample = headMay (sortOn (lengthOf (field @"trace" . traceElements)) counterExamples)
+          let counterExample =
+                  counterExamples
+                    & minimumByOf (folded. _Ctor @"ShrinkTestFailure") (compare `on` lengthOf (field @"trace" . traceElements))
           pure (maybe (Left ft) (Left . (field @"numShrinks" .~ length counterExamples)) counterExample)
         else pure (Left ft)
   where
@@ -171,9 +167,9 @@ runSingle spec size = do
         Left err -> pure (Left (FailedTest n trace (Just err)))
     runShrink ::
       (MonadIO m, MonadCatch m, WebDriver m) =>
-      Shrink [ActionSequence Selected] ->
+      Prefix (ActionSequence Selected) ->
       Producer TestEvent (Runner m) ShrinkResult
-    runShrink (Shrink actions') = do
+    runShrink (Prefix actions') = do
       Pipes.yield (RunningShrink (length actions'))
       Pipes.each actions'
         >-> Pipes.mapM (traverse reselect)

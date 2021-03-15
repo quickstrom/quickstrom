@@ -20,7 +20,7 @@ newtype Size = Size {unSize :: Word32}
 data CheckOptions = CheckOptions
   { checkTests :: Int,
     checkMaxActions :: Size,
-    checkShrinkLevels :: Int,
+    checkMaxShrinks :: Int,
     checkOrigin :: URI,
     checkMaxTrailingStateChanges :: Int,
     checkTrailingStateChangeTimeout :: Timeout,

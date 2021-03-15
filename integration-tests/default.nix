@@ -103,21 +103,21 @@ in makeTests {
   todomvc-angularjs = {
     spec = ./other/TodoMVC.spec.purs;
     origin = "${todomvc}/examples/angularjs/index.html";
-    options = "--shrink-levels=0";
+    options = "--max-shrinks=0";
     browser = browsers.firefox;
     expectedExitCode = 3;
   };
   AsyncUpdate = {
     spec = ./failing/AsyncUpdate.spec.purs;
     origin = "$src/failing/AsyncUpdate.html";
-    options = "--shrink-levels=0 --tests=50 --max-actions=100";
+    options = "--max-shrinks=0 --tests=50 --max-actions=100";
     browser = browsers.firefox;
     expectedExitCode = 3;
   };
   DoubleToggle = {
     spec = ./failing/DoubleToggle.spec.purs;
     origin = "$src/failing/DoubleToggle.html";
-    options = "--shrink-levels=0 --tests=50 --max-actions=100";
+    options = "--max-shrinks=0 --tests=50 --max-actions=100";
     browser = browsers.firefox;
     expectedExitCode = 3;
   };
@@ -126,14 +126,14 @@ in makeTests {
   # comment-form = {
   #   spec = ./failing/CommentForm.spec.purs;
   #   origin = "$src/failing/CommentForm.html";
-  #   options = "--shrink-levels=0 --tests=50 --max-actions=100";
+  #   options = "--max-shrinks=0 --tests=50 --max-actions=100";
   #   browser = browsers.firefox;
   #   expectedExitCode = 3;
   # };
   Spinners = {
     spec = ./failing/Spinners.spec.purs;
     origin = "$src/failing/Spinners.html";
-    options = "--shrink-levels=0 --tests=50 --max-actions=100";
+    options = "--max-shrinks=0 --tests=50 --max-actions=100";
     browser = browsers.chromium;
     expectedExitCode = 3;
   };
@@ -143,7 +143,7 @@ in makeTests {
   FileUpload-firefox = {
     spec = ./other/FileUpload.spec.purs;
     origin = "$src/other/FileUpload.html";
-    options = "--shrink-levels=0 --tests=50 --max-actions=100";
+    options = "--max-shrinks=0 --tests=50 --max-actions=100";
     browser = browsers.firefox;
     # Firefox through Geckodriver doesn't support the custom file input
     # technique, and crashes when the triggering button is clicked.
@@ -152,7 +152,7 @@ in makeTests {
   FileUpload-chromium = {
     spec = ./other/FileUpload.spec.purs;
     origin = "$src/other/FileUpload.html";
-    options = "--shrink-levels=0 --tests=10 --max-actions=100";
+    options = "--max-shrinks=0 --tests=10 --max-actions=100";
     browser = browsers.chromium;
     # Chrome/Chromium and Chromedriver, however, support it.
     expectedExitCode = 0;

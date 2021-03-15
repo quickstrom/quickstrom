@@ -33,7 +33,6 @@ class Monad m => WebDriver (m :: Type -> Type) where
   goForward :: m ()
   pageRefresh :: m ()
   runScript :: JSON.FromJSON r => Text -> [JSON.Value] -> m r
-  catchResponseError :: m a -> (WebDriverResponseError -> IO a) -> m a
   inNewPrivateWindow :: WebDriverOptions -> m a -> m a
 
 instance WebDriver m => WebDriver (ReaderT e m) where
@@ -50,7 +49,6 @@ instance WebDriver m => WebDriver (ReaderT e m) where
   goForward = lift goForward
   pageRefresh = lift pageRefresh
   runScript s = lift . runScript s
-  catchResponseError ma f = ReaderT (\r -> catchResponseError (runReaderT ma r) f)
   inNewPrivateWindow opts (ReaderT ma) = ReaderT (inNewPrivateWindow opts . ma)
 
 data WebDriverResponseError = WebDriverResponseError Text

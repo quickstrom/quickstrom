@@ -19,6 +19,15 @@ let
       'specs/**/*.purs'
   '';
 
+  wd-chrome = pkgs.writeShellScriptBin "quickstrom-wd-chrome" ''
+    docker run --rm -d \
+      --name webdriver-chrome \
+      --network=host \
+      -v /dev/shm:/dev/shm \
+      -v /tmp:/tmp \
+      selenium/standalone-chrome:3.141.59-20200826
+  '';
+
   quickstrom-format-sources =
     pkgs.writeShellScriptBin "quickstrom-format-sources" ''
       find . -not -path './dist-newstyle/*' -name '*.hs' -exec ormolu -m inplace {} \;
@@ -43,6 +52,7 @@ in quickstrom.haskellPackages.shellFor {
 
     quickstrom-purs-ide
     quickstrom-format-sources
+    wd-chrome
 
     docs.dependencies
 

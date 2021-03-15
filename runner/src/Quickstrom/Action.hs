@@ -12,7 +12,7 @@ import Quickstrom.Element
 import Quickstrom.Prelude
 
 data Selected = Selected Selector Int
-  deriving (Eq, Show, Generic, ToJSON)
+  deriving (Eq, Show, Generic, ToJSON, Hashable)
 
 data Action sel
   = Focus sel
@@ -25,10 +25,10 @@ data Action sel
   | Navigate Text
   | Refresh
   -- `Back` and `Forward` can't be supported, as the history cannot be introspected to validate if these actions are possible.
-  deriving (Eq, Show, Functor, Foldable, Traversable, Generic, ToJSON)
+  deriving (Eq, Show, Functor, Foldable, Traversable, Generic, ToJSON, Hashable)
 
 newtype ActionSequence sel = ActionSequence (NonEmpty (Action sel))
-  deriving (Eq, Show, Functor, Foldable, Traversable, Generic, ToJSON)
+  deriving (Eq, Show, Functor, Foldable, Traversable, Generic, ToJSON, Hashable)
 
 type PotentialActionSequence = [Action Selector]
 

@@ -55,7 +55,7 @@ data Report = Report
 data Result
   = Passed {passedTests :: Vector Test}
   | Failed
-      { shrinkLevels :: Int,
+      { numShrinks :: Int,
         reason :: Maybe Text,
         passedTests :: Vector Test,
         failedTest :: Test
@@ -154,7 +154,7 @@ htmlReporter reportDir = Quickstrom.Reporter {preCheck, report}
           failedTest' <- traceToTest reportDir (failedTest ^. #trace)
           pure
             Failed
-              { shrinkLevels = Quickstrom.numShrinks failedTest,
+              { numShrinks = Quickstrom.numShrinks failedTest,
                 reason = Quickstrom.reason failedTest,
                 passedTests = passedTests',
                 failedTest = failedTest'

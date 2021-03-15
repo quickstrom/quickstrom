@@ -16,7 +16,7 @@ export type Passed = {
 
 export type Failed = {
     tag: "Failed";
-    shrinkLevels: number;
+    numShrinks: number;
     reason?: string;
     passedTests: Test[];
     failedTest: Test;
@@ -176,7 +176,7 @@ function ordinal(n: number): string {
             switch (n % 10) {
                 case 1: return `${n}st`;
                 case 2: return `2nd`;
-                default: return `1st`;
+                default: return `${n}th`;
             }
     }
 }
@@ -187,9 +187,8 @@ function Header({ report, onTestSelect }: { report: Report<Result>, onTestSelect
             case "Failed":
                 return <div class="summary failure">
                     <p>
-                        Failed on {ordinal(report.result.passedTests.length + 1)} test and after {pluralize(report.result.shrinkLevels, "level")} of
-              shrinking
-              {report.result.reason || "."}
+                        Failed on {ordinal(report.result.passedTests.length + 1)} test and after {pluralize(report.result.numShrinks, "shrink")}.
+              {report.result.reason}
                     </p>
                 </div>;
             case "Errored":

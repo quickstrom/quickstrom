@@ -476,15 +476,5 @@ renderSize (Quickstrom.Size s) = pretty s
 renderList :: [Doc ann] -> Doc ann
 renderList = vsep . map (\x -> bullet <+> align x)
 
-ordinal :: (Pretty n, Integral n) => n -> Doc ann
-ordinal 11 = "11th"
-ordinal 12 = "12th"
-ordinal n =
-  pretty n <> case n `rem` 10 of
-    1 -> "st"
-    2 -> "nd"
-    3 -> "rd"
-    _ -> "th"
-
 version :: String
 version = $(Quickstrom.version)

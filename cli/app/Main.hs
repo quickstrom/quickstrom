@@ -447,10 +447,10 @@ renderTestEvent = \case
   Quickstrom.TestFailed _size _trace ->
     Quickstrom.logSingle Nothing $
       line <> annotate (color Red) "Test failed"
-  Quickstrom.Shrinking level ->
+  Quickstrom.Shrinking _ ->
     Quickstrom.logSingle Nothing $
       line
-        <> annotate bold ("Shrinking failing test down to the" <+> ordinal level <+> "level..." <> line)
+        <> annotate bold ("Shrinking failing test..." <> line)
   Quickstrom.RunningShrink size ->
     Quickstrom.logSingle (Just Quickstrom.LogInfo) $
       "Running shrunk test with" <+> pretty size <+> "actions."

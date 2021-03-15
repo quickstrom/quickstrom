@@ -55,6 +55,7 @@ proposition =
       `implies` null errors
 
   consistentResult =
+    (activeWizardTab == Just "Fyll i din lön") `implies`
     case lonResult of
       Just r -> 
         case r.manadsloen of

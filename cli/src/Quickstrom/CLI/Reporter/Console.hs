@@ -18,6 +18,7 @@ import qualified Quickstrom.LogLevel as Quickstrom
 import Quickstrom.Prelude
 import qualified Quickstrom.Pretty as Quickstrom
 import qualified Quickstrom.Run as Quickstrom
+import Prettyprinter (Doc)
 
 consoleReporter :: (MonadReader Quickstrom.LogLevel m, MonadIO m) => Quickstrom.Reporter m
 consoleReporter =
@@ -32,12 +33,15 @@ consoleReporter =
               Just err -> Quickstrom.logDoc (Quickstrom.logSingle Nothing (line <> annotate (color Red) ("Test failed with error:" <+> pretty err <> line)))
               Nothing -> pure ()
             Quickstrom.logDoc . Quickstrom.logSingle Nothing . annotate (color Red) $
-              line <> "Failed after" <+> pretty failedAfter <+> "tests and" <+> pretty (Quickstrom.numShrinks failedTest) <+> "levels of shrinking." <> line
+              line <> "Failed after" <+> pluralize failedAfter "test" <+> "and" <+> pluralize (Quickstrom.numShrinks failedTest) "shrink" <> "." <> line
           Quickstrom.CheckError {Quickstrom.checkError} -> do
             Quickstrom.logDoc . Quickstrom.logSingle Nothing . annotate (color Red) $
               line <> "Check encountered an error:" <+> pretty checkError <> line
           Quickstrom.CheckSuccess {Quickstrom.passedTests} ->
             Quickstrom.logDoc . Quickstrom.logSingle Nothing . annotate (color Green) $
-              line <> "Passed" <+> pretty (length passedTests) <+> "tests." <> line
+              line <> "Passed" <+> pluralize (length passedTests) "test" <> "." <> line
     }
   where
+    pluralize :: Int -> Doc ann -> Doc ann
+    pluralize 1 term = "1" <+> term
+    pluralize n term = pretty n <+> term <> "s"

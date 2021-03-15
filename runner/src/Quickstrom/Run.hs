@@ -39,7 +39,7 @@ import Control.Monad.Trans.Class (MonadTrans (lift))
 import Data.Function ((&))
 import Data.Generics.Product (field)
 import Data.Generics.Sum (_Ctor)
-import Data.List hiding (map)
+import Data.List hiding (map, sortOn)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Text.Prettyprint.Doc
@@ -156,14 +156,13 @@ runSingle spec size = do
         then do
           Pipes.yield (Shrinking checkMaxShrinks)
           let shrinks = shrinkForest shrinkActions (trace ^.. traceActions)
-          shrunk <-
-            minBy
-              (lengthOf (field @"trace" . traceElements))
+          counterExamples <- Pipes.toListM
               ( traverseShrinks runShrink (_Ctor @"ShrinkTestFailure") shrinks
-                  >-> select (preview (_Ctor @"ShrinkTestFailure"))
                   >-> Pipes.take checkMaxShrinks
+                  >-> select (preview (_Ctor @"ShrinkTestFailure"))
               )
-          pure (maybe (Left ft) Left shrunk)
+          let counterExample = headMay (sortOn (lengthOf (field @"trace" . traceElements)) counterExamples)
+          pure (maybe (Left ft) (Left . (field @"numShrinks" .~ length counterExamples)) counterExample)
         else pure (Left ft)
   where
     runAndVerifyIsolated ::
@@ -191,7 +190,7 @@ runSingle spec size = do
         >-> Pipes.mapM (traverse reselect)
         >-> Pipes.mapMaybe (traverse identity)
         >-> Pipes.filterM isCurrentlyValid
-        & runAndVerifyIsolated (length actions')
+        & runAndVerifyIsolated 0
         & (<&> either ShrinkTestFailure ShrinkTestSuccess)
         & (`catch` (\(WebDriverOtherError t) -> pure (ShrinkTestError t)))
 

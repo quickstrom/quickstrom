@@ -90,6 +90,7 @@ test-suite quickstrom-runner-test
   other-modules:      Quickstrom.Gen
                     , Quickstrom.PureScript.AnalyzeTest
                     , Quickstrom.PureScriptTest
+                    , Quickstrom.Run.ShrinkingTest
                     , Quickstrom.TraceTest
   build-depends:      base
                     , quickstrom-runner

@@ -71,6 +71,7 @@ library
                     , Quickstrom.Run.Actions
                     , Quickstrom.Run.Runner
                     , Quickstrom.Run.Scripts
+                    , Quickstrom.Run.Shrinking
                     , Quickstrom.Specification
                     , Quickstrom.Timeout
                     , Quickstrom.Trace

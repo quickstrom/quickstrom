@@ -56,6 +56,7 @@ import Quickstrom.Result
 import Quickstrom.Run.Actions (awaitElement, defaultTimeout, generateValidActions, isCurrentlyValid, reselect, runActionSequence)
 import Quickstrom.Run.Runner (CheckEnv (..), CheckOptions (..), Runner, Size (..), run)
 import Quickstrom.Run.Scripts (CheckScripts (..), readScripts, runCheckScript)
+import Quickstrom.Run.Shrinking
 import Quickstrom.Specification
 import Quickstrom.Timeout (Timeout, mapTimeout)
 import Quickstrom.Trace
@@ -156,7 +157,8 @@ runSingle spec size = do
         then do
           Pipes.yield (Shrinking checkMaxShrinks)
           let shrinks = shrinkForest shrinkActions (trace ^.. traceActions)
-          counterExamples <- Pipes.toListM
+          counterExamples <-
+            Pipes.toListM
               ( traverseShrinks runShrink (_Ctor @"ShrinkTestFailure") shrinks
                   >-> Pipes.take checkMaxShrinks
                   >-> select (preview (_Ctor @"ShrinkTestFailure"))
@@ -208,13 +210,6 @@ runAll opts spec' = go mempty (sizes opts `zip` [1 ..])
 sizes :: CheckOptions -> [Size]
 sizes CheckOptions {checkMaxActions = Size maxActions, checkTests} =
   map (\n -> Size (n * maxActions `div` fromIntegral checkTests)) [1 .. fromIntegral checkTests]
-
-shrinkActions :: [a] -> [[a]]
-shrinkActions [] = []
-shrinkActions as = filter (not . null) [first75, init as]
-  where
-    first75 = take (floor @Double (fromIntegral (length as) * 0.75)) as
--- shrinkActions = QuickCheck.shrinkList shrinkAction
 
 navigateToOrigin :: WebDriver m => Runner m ()
 navigateToOrigin = do
@@ -287,23 +282,3 @@ runActions' spec = do
       actionSequence <- Pipes.await
       observeManyStatesAfter queries' actionSequence
       loop
-
-newtype Shrink a = Shrink a
-  deriving (Eq, Show)
-
-shrinkForest :: (a -> [a]) -> a -> Forest (Shrink a)
-shrinkForest shrink = go
-  where
-    go = map (\x -> Node (Shrink x) (go x)) . shrink
-
-traverseShrinks :: Monad m => (Shrink a -> m b) -> Prism' b x -> Forest (Shrink a) -> Producer b m ()
-traverseShrinks test failure = go
-  where
-    go = \case
-      [] -> pure ()
-      Node x xs : rest -> do
-        r <- lift (test x)
-        Pipes.yield r
-        when (is failure r) do
-          go xs
-        go rest

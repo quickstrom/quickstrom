@@ -32,8 +32,7 @@ module Quickstrom.Run
 where
 
 import Control.Lens hiding (each)
-import Control.Lens.Extras (is)
-import Control.Monad (fail, forever, when)
+import Control.Monad (fail, forever)
 import Control.Monad.Catch (MonadCatch, catch)
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import Data.Function ((&))
@@ -43,7 +42,6 @@ import Data.List hiding (map, sortOn)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Text.Prettyprint.Doc
-import Data.Tree
 import Data.Vector (Vector)
 import GHC.Generics (Generic)
 import Pipes (Pipe, Producer, (>->))
@@ -63,7 +61,7 @@ import Quickstrom.Trace
 import Quickstrom.WebDriver.Class
 import qualified Text.URI as URI
 
-data PassedTest = PassedTest
+newtype PassedTest = PassedTest
   { trace :: Trace TraceElementEffect
   }
   deriving (Show, Generic)
@@ -119,17 +117,6 @@ check opts@CheckOptions {checkTests} spec = do
 elementsToTrace :: Monad m => Producer (TraceElement ()) (Runner m) () -> Runner m (Trace ())
 elementsToTrace = fmap Trace . Pipes.toListM
 
-minBy :: (Monad m, Ord b) => (a -> b) -> Producer a m () -> m (Maybe a)
-minBy f = Pipes.fold step Nothing identity
-  where
-    step x a = Just $ case x of
-      Nothing -> a
-      Just a' ->
-        case f a `compare` f a' of
-          EQ -> a
-          LT -> a
-          GT -> a'
-
 select :: Monad m => (a -> Maybe b) -> Pipe a b m ()
 select f = forever do
   x <- Pipes.await
@@ -156,7 +143,7 @@ runSingle spec size = do
       if checkMaxShrinks > 0
         then do
           Pipes.yield (Shrinking checkMaxShrinks)
-          let shrinks = shrinkForest shrinkActions (trace ^.. traceActions)
+          let shrinks = pruneDuplicates (shrinkActions (trace ^.. traceActions))
           counterExamples <-
             Pipes.toListM
               ( traverseShrinks runShrink (_Ctor @"ShrinkTestFailure") shrinks

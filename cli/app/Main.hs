@@ -66,7 +66,8 @@ data CheckOptions = CheckOptions
     origin :: Text,
     tests :: Int,
     maxActions :: Quickstrom.Size,
-    shrinkLevels :: Int,
+    maxShrinks :: Int,
+    shrinkLevels :: Maybe Int,
     maxTrailingStateChanges :: Int,
     trailingStateChangeTimeout :: Word64,
     captureScreenshots :: Bool,
@@ -114,13 +115,22 @@ checkOptionsParser =
                   <> help "Maximum number of actions to generate in the largest test"
               )
         )
-    <*> option
-      auto
-      ( short 's'
-          <> value 10
-          <> metavar "NUMBER"
-          <> long "shrink-levels"
-          <> help "How many levels to shrink the generated actions after a failed test"
+    <*> ( option
+            auto
+            ( value 50
+                <> short 's'
+                <> metavar "NUMBER"
+                <> long "max-shrinks"
+                <> help "Maximum number of shrunk examples to test before presenting a counter-example"
+            )
+        )
+    <*> optional
+      ( option
+          auto
+          ( metavar "NUMBER"
+              <> long "shrink-levels"
+              <> help "(deprecated)"
+          )
       )
     <*> option
       auto
@@ -274,6 +284,9 @@ main = do
           hPutStrLn @Text stderr err
           exitWith (ExitFailure 2)
         Right spec -> flip runReaderT logLevel $ do
+          when (isJust shrinkLevels) $
+            Quickstrom.logDoc . Quickstrom.logSingle (Just Quickstrom.LogWarn) . annotate (color Yellow) $
+              "The option `--shrink-levels` is deprecated. Use `--max-shrinks` instead."
           let wdOpts =
                 Quickstrom.WebDriverOptions
                   { webDriverLogLevel = logLevel,
@@ -288,7 +301,7 @@ main = do
                 Quickstrom.CheckOptions
                   { checkTests = tests,
                     checkMaxActions = maxActions,
-                    checkShrinkLevels = shrinkLevels,
+                    checkMaxShrinks = maxShrinks,
                     checkOrigin = originUri,
                     checkMaxTrailingStateChanges = maxTrailingStateChanges,
                     checkTrailingStateChangeTimeout = Quickstrom.Timeout trailingStateChangeTimeout,
@@ -438,9 +451,9 @@ renderTestEvent = \case
     Quickstrom.logSingle Nothing $
       line
         <> annotate bold ("Shrinking failing test down to the" <+> ordinal level <+> "level..." <> line)
-  Quickstrom.RunningShrink level size ->
+  Quickstrom.RunningShrink size ->
     Quickstrom.logSingle (Just Quickstrom.LogInfo) $
-      "Running shrunk test with" <+> pretty size <+> "actions (shrink level" <+> pretty level <> ")"
+      "Running shrunk test with" <+> pretty size <+> "actions."
   where
     traceWarnings :: Quickstrom.Size -> Quickstrom.Trace Quickstrom.TraceElementEffect -> [Doc AnsiStyle]
     traceWarnings size trace' =

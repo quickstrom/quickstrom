@@ -13,7 +13,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE Strict #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 module Quickstrom.Run
@@ -37,7 +36,6 @@ import Control.Lens.Extras (is)
 import Control.Monad (fail, forever, when)
 import Control.Monad.Catch (MonadCatch, catch)
 import Control.Monad.Trans.Class (MonadTrans (lift))
-import Control.Natural (type (~>))
 import Data.Function ((&))
 import Data.Generics.Product (field)
 import Data.Generics.Sum (_Ctor)
@@ -55,14 +53,13 @@ import Quickstrom.Action
 import Quickstrom.Element (Element)
 import Quickstrom.Prelude hiding (catch, check, trace)
 import Quickstrom.Result
-import Quickstrom.Run.Actions (awaitElement, defaultTimeout, generateValidActions, isCurrentlyValid, reselect, runActionSequence, shrinkAction)
+import Quickstrom.Run.Actions (awaitElement, defaultTimeout, generateValidActions, isCurrentlyValid, reselect, runActionSequence)
 import Quickstrom.Run.Runner (CheckEnv (..), CheckOptions (..), Runner, Size (..), run)
 import Quickstrom.Run.Scripts (CheckScripts (..), readScripts, runCheckScript)
 import Quickstrom.Specification
 import Quickstrom.Timeout (Timeout, mapTimeout)
 import Quickstrom.Trace
 import Quickstrom.WebDriver.Class
-import qualified Test.QuickCheck as QuickCheck
 import qualified Text.URI as URI
 
 data PassedTest = PassedTest
@@ -88,7 +85,7 @@ data TestEvent
   | TestPassed Size (Trace TraceElementEffect)
   | TestFailed Size (Trace TraceElementEffect)
   | Shrinking Int
-  | RunningShrink Int Int
+  | RunningShrink Int
   deriving (Show, Generic)
 
 data CheckEvent
@@ -153,18 +150,18 @@ runSingle spec size = do
       Pipes.yield (TestPassed size trace)
       pure (Right (PassedTest trace))
     Left ft@(FailedTest _ trace _) -> do
-      CheckOptions {checkShrinkLevels} <- lift (asks checkOptions)
+      CheckOptions {checkMaxShrinks} <- lift (asks checkOptions)
       Pipes.yield (TestFailed size trace)
-      if checkShrinkLevels > 0
+      if checkMaxShrinks > 0
         then do
-          Pipes.yield (Shrinking checkShrinkLevels)
-          let shrinks = shrinkForest shrinkActions checkShrinkLevels (trace ^.. traceActions)
+          Pipes.yield (Shrinking checkMaxShrinks)
+          let shrinks = shrinkForest shrinkActions (trace ^.. traceActions)
           shrunk <-
             minBy
               (lengthOf (field @"trace" . traceElements))
               ( traverseShrinks runShrink (_Ctor @"ShrinkTestFailure") shrinks
                   >-> select (preview (_Ctor @"ShrinkTestFailure"))
-                  >-> Pipes.take 100
+                  >-> Pipes.take checkMaxShrinks
               )
           pure (maybe (Left ft) Left shrunk)
         else pure (Left ft)
@@ -188,13 +185,13 @@ runSingle spec size = do
       (MonadIO m, MonadCatch m, WebDriver m) =>
       Shrink [ActionSequence Selected] ->
       Producer TestEvent (Runner m) ShrinkResult
-    runShrink (Shrink n actions') = do
-      Pipes.yield (RunningShrink n (length actions'))
+    runShrink (Shrink actions') = do
+      Pipes.yield (RunningShrink (length actions'))
       Pipes.each actions'
         >-> Pipes.mapM (traverse reselect)
         >-> Pipes.mapMaybe (traverse identity)
         >-> Pipes.filterM isCurrentlyValid
-        & runAndVerifyIsolated n
+        & runAndVerifyIsolated (length actions')
         & (<&> either ShrinkTestFailure ShrinkTestSuccess)
         & (`catch` (\(WebDriverOtherError t) -> pure (ShrinkTestError t)))
 
@@ -213,9 +210,9 @@ sizes :: CheckOptions -> [Size]
 sizes CheckOptions {checkMaxActions = Size maxActions, checkTests} =
   map (\n -> Size (n * maxActions `div` fromIntegral checkTests)) [1 .. fromIntegral checkTests]
 
-shrinkActions :: [ActionSequence Selected] -> [[ActionSequence Selected]]
+shrinkActions :: [a] -> [[a]]
 shrinkActions [] = []
-shrinkActions as = [first75, init as]
+shrinkActions as = filter (not . null) [first75, init as]
   where
     first75 = take (floor @Double (fromIntegral (length as) * 0.75)) as
 -- shrinkActions = QuickCheck.shrinkList shrinkAction
@@ -292,14 +289,13 @@ runActions' spec = do
       observeManyStatesAfter queries' actionSequence
       loop
 
-data Shrink a = Shrink Int a
+newtype Shrink a = Shrink a
+  deriving (Eq, Show)
 
-shrinkForest :: (a -> [a]) -> Int -> a -> Forest (Shrink a)
-shrinkForest shrink limit = go 1
+shrinkForest :: (a -> [a]) -> a -> Forest (Shrink a)
+shrinkForest shrink = go
   where
-    go n
-      | n <= limit = map (\x -> Node (Shrink n x) (go (succ n) x)) . shrink
-      | otherwise = mempty
+    go = map (\x -> Node (Shrink x) (go x)) . shrink
 
 traverseShrinks :: Monad m => (Shrink a -> m b) -> Prism' b x -> Forest (Shrink a) -> Producer b m ()
 traverseShrinks test failure = go

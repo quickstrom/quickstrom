@@ -36,7 +36,7 @@ type TestResult = "Passed" | "Failed";
 type TestWithResult = Test & { result: TestResult };
 
 type Transition = {
-    actionSequence?: ActionSequence;
+    actionSequence?: Sequence<Action>;
     states: { from: State, to: State };
     stutter: boolean;
 };
@@ -95,11 +95,15 @@ type Action =
     | { tag: "KeyPress", contents: string }
     | { tag: "EnterText", contents: string }
     | { tag: "Click", contents: [string, number] }
-    | { tag: "Navigate", contents: string };
+    | { tag: "Clear", contents: [string, number] }
+    | { tag: "Await", contents: [string, number] }
+    | { tag: "AwaitWithTimeoutSecs", contents: [number, [string, number]] }
+    | { tag: "Navigate", contents: string }
+    | { tag: "Refresh" };
 
 type NonEmptyArray<T> = [T, ...T[]];
 
-type ActionSequence = NonEmptyArray<Action>;
+type Sequence<T> = { tag: "Sequence", contents: NonEmptyArray<T> };
 
 type TestViewerState = {
     test: Test,
@@ -289,7 +293,7 @@ const TestViewer: FunctionComponent<{ test: Test }> = ({ test }) => {
         ;
 }
 
-const ActionSequence: FunctionComponent<{ actionSequence?: ActionSequence }> = ({ actionSequence }) => {
+const ActionSequence: FunctionComponent<{ actionSequence?: Sequence<Action> }> = ({ actionSequence }) => {
     function renderKey(key: string) {
         switch (key) {
             case "\ue006": return <span>⏎</span>;
@@ -327,6 +331,13 @@ const ActionSequence: FunctionComponent<{ actionSequence?: ActionSequence }> = (
                         <div class="key">{renderKey(action.contents)}</div>
                     </div>
                 );
+            case "Clear":
+                return (
+                    <div class="action-details">
+                        <h2><span class="name">{action.tag}</span></h2>
+                        {selector(action.contents)}
+                    </div>
+                );
             case "Focus":
                 return (
                     <div class="action-details">
@@ -339,6 +350,21 @@ const ActionSequence: FunctionComponent<{ actionSequence?: ActionSequence }> = (
                     <div class="action-details">
                         <h2><span class="name">{action.tag}</span></h2>
                         <div className="text">{action.contents}</div>
+                    </div>
+                );
+            case "Await":
+                return (
+                    <div class="action-details">
+                        <h2><span class="name">{action.tag}</span></h2>
+                        {selector(action.contents)}
+                    </div>
+                );
+            case "AwaitWithTimeoutSecs":
+                return (
+                    <div class="action-details">
+                        <h2><span class="name">{action.tag}</span></h2>
+                        <div className="seconds">{action.contents[0]}s</div>
+                        {selector(action.contents[1])}
                     </div>
                 );
             default:
@@ -355,7 +381,7 @@ const ActionSequence: FunctionComponent<{ actionSequence?: ActionSequence }> = (
             <div class="action-sequence">
                 <div class="action-sequence-inner">
                     <div class="label">Action Sequence</div>
-                    {actionSequence.map(renderDetails)}
+                    {actionSequence.contents.map(renderDetails)}
                 </div>
             </div>
         );

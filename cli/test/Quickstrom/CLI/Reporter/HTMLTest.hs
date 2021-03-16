@@ -1,4 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -54,7 +53,7 @@ toTrace ts =
     Just (x, _) ->
       Quickstrom.Trace
         ( pure (toStateElement (x ^. #states . #from))
-            <> (foldMap toTransition ts)
+            <> foldMap toTransition ts
         )
 
 toTransition :: Transition ByteString -> [Quickstrom.TraceElement Quickstrom.TraceElementEffect]
@@ -62,7 +61,7 @@ toTransition (Transition action' (States _ to') _) =
   maybe [] (pure . toActionElement) action'
     <> [toStateElement to']
 
-toActionElement :: Quickstrom.ActionSequence Quickstrom.Selected -> Quickstrom.TraceElement Quickstrom.TraceElementEffect
+toActionElement :: Quickstrom.ActionSequence Quickstrom.ActionSubject -> Quickstrom.TraceElement Quickstrom.TraceElementEffect
 toActionElement a = Quickstrom.TraceAction Quickstrom.NoStutter a Quickstrom.ActionSuccess
 
 toStateElement :: State ByteString -> Quickstrom.TraceElement Quickstrom.TraceElementEffect
@@ -82,7 +81,7 @@ toStateElement (State screenshot' queries') =
         )
     )
 
-toObservedElementState :: Element -> Quickstrom.ObservedElementState
+toObservedElementState :: QueriedElement -> Quickstrom.ObservedElementState
 toObservedElementState element' =
   Quickstrom.ObservedElementState
     (Quickstrom.Element (element' ^. #id))
@@ -118,10 +117,10 @@ genState :: Gen (State ByteString)
 genState = State Nothing <$> vectorOf genQuery `suchThat` (not . hasDuplicates . map (view #selector))
 
 genQuery :: Gen Query
-genQuery = Query <$> identifier "selector-" <*> vectorOf genElement `suchThat` (not . hasDuplicates . map (view #id))
+genQuery = Query <$> identifier "selector-" <*> vectorOf genQueriedElement `suchThat` (not . hasDuplicates . map (view #id))
 
-genElement :: Gen Element
-genElement = Element <$> identifier "element-" <*> (Just <$> genPosition) <*> pure []
+genQueriedElement :: Gen QueriedElement
+genQueriedElement = QueriedElement <$> identifier "element-" <*> (Just <$> genPosition) <*> pure []
 
 genPosition :: Gen Quickstrom.Position
 genPosition = Quickstrom.Position <$> genNat <*> genNat <*> genNat <*> genNat
@@ -129,7 +128,7 @@ genPosition = Quickstrom.Position <$> genNat <*> genNat <*> genNat <*> genNat
 genNat :: Gen Int
 genNat = getPositive <$> arbitrary
 
-genActionSequence :: Gen (Quickstrom.ActionSequence Quickstrom.Selected)
+genActionSequence :: Gen (Quickstrom.ActionSequence Quickstrom.ActionSubject)
 genActionSequence = pure (Quickstrom.ActionSequence (pure (Quickstrom.KeyPress 'a')))
 
 identifier :: [Char] -> Gen Text
@@ -155,7 +154,13 @@ instance ToExpr Query
 
 instance ToExpr Quickstrom.Position
 
-instance ToExpr Element
+instance ToExpr QueriedElement
+
+instance ToExpr Quickstrom.ActionSubject
+
+instance ToExpr Quickstrom.Element
+
+instance ToExpr ActionElement
 
 instance ToExpr Diff
 

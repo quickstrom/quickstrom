@@ -36,7 +36,7 @@ type TestResult = "Passed" | "Failed";
 type TestWithResult = Test & { result: TestResult };
 
 type Transition = {
-    actionSequence?: Sequence<Action>;
+    actionSequence?: NonEmptyArray<Action>;
     states: { from: State, to: State };
     stutter: boolean;
 };
@@ -57,11 +57,13 @@ type Screenshot = {
     height: number;
 }
 
-type QueriedElement = {
+type Element = {
     id: string;
-    position: Position;
-    state: ElementStateValue[];
+    position?: Position;
 };
+
+type ActionElement = Element;
+type QueriedElement = Element & { state: ElementStateValue[]; };
 
 type ElementStateValue = {
     elementState: ElementState;
@@ -90,20 +92,20 @@ type Position = {
     y: number;
 }
 
+type ActionSubject = { selected: [string, number], element: ActionElement };
+
 type Action =
-    { tag: "Focus", contents: [string, number] }
+    { tag: "Focus", contents: ActionSubject }
     | { tag: "KeyPress", contents: string }
     | { tag: "EnterText", contents: string }
-    | { tag: "Click", contents: [string, number] }
-    | { tag: "Clear", contents: [string, number] }
-    | { tag: "Await", contents: [string, number] }
-    | { tag: "AwaitWithTimeoutSecs", contents: [number, [string, number]] }
+    | { tag: "Click", contents: ActionSubject }
+    | { tag: "Clear", contents: ActionSubject }
+    | { tag: "Await", contents: string }
+    | { tag: "AwaitWithTimeoutSecs", contents: [number, string] }
     | { tag: "Navigate", contents: string }
     | { tag: "Refresh" };
 
 type NonEmptyArray<T> = [T, ...T[]];
-
-type Sequence<T> = { tag: "Sequence", contents: NonEmptyArray<T> };
 
 type TestViewerState = {
     test: Test,
@@ -293,7 +295,7 @@ const TestViewer: FunctionComponent<{ test: Test }> = ({ test }) => {
         ;
 }
 
-const ActionSequence: FunctionComponent<{ actionSequence?: Sequence<Action> }> = ({ actionSequence }) => {
+const ActionSequence: FunctionComponent<{ actionSequence?: NonEmptyArray<Action> }> = ({ actionSequence }) => {
     function renderKey(key: string) {
         switch (key) {
             case "\ue006": return <span>⏎</span>;
@@ -301,11 +303,11 @@ const ActionSequence: FunctionComponent<{ actionSequence?: Sequence<Action> }> =
         }
     }
     function renderDetails(action: Action) {
-        function selector(sel: [string, number]) {
+        function renderActionSubject(subject: ActionSubject) {
             return (
                 <div>
-                    <p class="selector">{sel[0]}</p>
-                    <p class="selected-index">[{sel[1]}]</p>
+                    <p class="selector">{subject.selected[0]}</p>
+                    <p class="selected-index">[{subject.selected[1]}]</p>
                 </div>
             );
         }
@@ -321,7 +323,7 @@ const ActionSequence: FunctionComponent<{ actionSequence?: Sequence<Action> }> =
                 return (
                     <div class="action-details">
                         <h2><span class="name">{action.tag}</span></h2>
-                        {selector(action.contents)}
+                        {renderActionSubject(action.contents)}
                     </div>
                 );
             case "KeyPress":
@@ -335,14 +337,14 @@ const ActionSequence: FunctionComponent<{ actionSequence?: Sequence<Action> }> =
                 return (
                     <div class="action-details">
                         <h2><span class="name">{action.tag}</span></h2>
-                        {selector(action.contents)}
+                        {renderActionSubject(action.contents)}
                     </div>
                 );
             case "Focus":
                 return (
                     <div class="action-details">
                         <h2><span class="name">{action.tag}</span></h2>
-                        {selector(action.contents)}
+                        {renderActionSubject(action.contents)}
                     </div>
                 );
             case "EnterText":
@@ -356,7 +358,7 @@ const ActionSequence: FunctionComponent<{ actionSequence?: Sequence<Action> }> =
                 return (
                     <div class="action-details">
                         <h2><span class="name">{action.tag}</span></h2>
-                        {selector(action.contents)}
+                        <p class="selector">{action.contents}</p>
                     </div>
                 );
             case "AwaitWithTimeoutSecs":
@@ -364,7 +366,7 @@ const ActionSequence: FunctionComponent<{ actionSequence?: Sequence<Action> }> =
                     <div class="action-details">
                         <h2><span class="name">{action.tag}</span></h2>
                         <div className="seconds">{action.contents[0]}s</div>
-                        {selector(action.contents[1])}
+                        <p class="selector">{action.contents[1]}</p>
                     </div>
                 );
             default:
@@ -381,7 +383,7 @@ const ActionSequence: FunctionComponent<{ actionSequence?: Sequence<Action> }> =
             <div class="action-sequence">
                 <div class="action-sequence-inner">
                     <div class="label">Action Sequence</div>
-                    {actionSequence.contents.map(renderDetails)}
+                    {actionSequence.map(renderDetails)}
                 </div>
             </div>
         );

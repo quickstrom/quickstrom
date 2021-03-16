@@ -9,7 +9,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import Quickstrom.Action
 import Quickstrom.Element
-import Quickstrom.Trace hiding (observedStates)
+import Quickstrom.Trace hiding (observedStates, selected)
 import Test.QuickCheck hiding ((===), (==>))
 import Prelude hiding (Bool (..))
 
@@ -19,21 +19,24 @@ selector = elements (map (Selector . Text.singleton) ['a' .. 'c'])
 selected :: Gen Selected
 selected = Selected <$> selector <*> choose (0, 3)
 
+actionSubject :: Gen ActionSubject
+actionSubject = ActionSubject <$> selected <*> pure (Element "test") <*> pure Nothing
+
 stringValues :: Gen Text
 stringValues = elements ["s1", "s2", "s3"]
 
 observedState :: Gen ObservedState
 observedState = pure mempty
 
-selectedAction :: Gen (Action Selected)
+selectedAction :: Gen (Action ActionSubject)
 selectedAction =
   oneof
-    [ Focus <$> selected,
+    [ Focus <$> actionSubject,
       KeyPress <$> elements ['A' .. 'C'],
-      Click <$> selected
+      Click <$> actionSubject
     ]
 
-selectedActionSequence :: Gen (ActionSequence Selected)
+selectedActionSequence :: Gen (ActionSequence ActionSubject)
 selectedActionSequence = ActionSequence . pure <$> selectedAction
 
 actionResult :: Gen ActionResult

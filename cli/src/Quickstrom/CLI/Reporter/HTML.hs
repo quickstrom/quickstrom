@@ -1,6 +1,5 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -13,7 +12,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -67,7 +65,7 @@ data Test = Test {transitions :: Transitions}
   deriving (Eq, Show, Generic, JSON.ToJSON)
 
 data Transition screenshot = Transition
-  { actionSequence :: Maybe (Quickstrom.ActionSequence Quickstrom.Selected),
+  { actionSequence :: Maybe (Quickstrom.ActionSequence Quickstrom.ActionSubject),
     states :: States screenshot,
     stutter :: Bool
   }
@@ -87,10 +85,13 @@ data Base64Screenshot = Base64Screenshot {encoded :: Text, width :: Int, height 
 data FileScreenshot = FileScreenshot {url :: FilePath, width :: Int, height :: Int}
   deriving (Eq, Show, Generic, JSON.ToJSON)
 
-data Query = Query {selector :: Text, elements :: Vector Element}
+data Query = Query {selector :: Text, elements :: Vector QueriedElement}
   deriving (Eq, Show, Generic, JSON.ToJSON)
 
-data Element = Element {id :: Text, position :: Maybe Quickstrom.Position, state :: Vector ElementStateValue}
+data QueriedElement = QueriedElement {id :: Text, position :: Maybe Quickstrom.Position, state :: Vector ElementStateValue}
+  deriving (Eq, Show, Generic, JSON.ToJSON)
+
+data ActionElement = ActionElement {id :: Text, position :: Maybe Quickstrom.Position}
   deriving (Eq, Show, Generic, JSON.ToJSON)
 
 data ElementStateValue = ElementStateValue {elementState :: Quickstrom.ElementState, value :: JSON.Value, diff :: Diff}
@@ -197,7 +198,7 @@ traceToTransitions (Quickstrom.Trace es) = go (Vector.fromList es) mempty
       a <- pop (_Ctor @"TraceAction" . _2)
       (ann2, s2) <- pop (_Ctor @"TraceState")
       let diffs = elementStateDiffs s1 s2
-      pure (Transition (Just a) (States (toState diffs s1) (toState diffs s2)) (ann2 == Quickstrom.Stutter), (Vector.drop 2 t))
+      pure (Transition (Just a) (States (toState diffs s1) (toState diffs s2)) (ann2 == Quickstrom.Stutter), Vector.drop 2 t)
 
     trailingStateTransition :: Vector (Quickstrom.TraceElement Quickstrom.TraceElementEffect) -> Maybe (Transition ByteString, Vector (Quickstrom.TraceElement Quickstrom.TraceElementEffect))
     trailingStateTransition t = flip evalStateT t $ do
@@ -214,11 +215,11 @@ traceToTransitions (Quickstrom.Trace es) = go (Vector.fromList es) mempty
 
     toQuery :: ElementStateDiffs -> (Quickstrom.Selector, [Quickstrom.ObservedElementState]) -> Query
     toQuery diffs (Quickstrom.Selector sel, elements') =
-      Query {selector = sel, elements = Vector.fromList (map (toElement diffs) elements')}
+      Query {selector = sel, elements = Vector.fromList (map (toQueriedElement diffs) elements')}
 
-    toElement :: ElementStateDiffs -> Quickstrom.ObservedElementState -> Element
-    toElement diffs o =
-      Element
+    toQueriedElement :: ElementStateDiffs -> Quickstrom.ObservedElementState -> QueriedElement
+    toQueriedElement diffs o =
+      QueriedElement
         (o ^. #element . #ref)
         (o ^. #position)
         (Vector.fromList (map (toElementStateValue diffs (o ^. #element)) (HashMap.toList (o ^. #elementState))))
@@ -243,7 +244,7 @@ instance Exception ScreenshotFileException
 
 writeScreenshotFile :: MonadIO m => FilePath -> ByteString -> m FileScreenshot
 writeScreenshotFile reportDir s = do
-  let fileName = ("screenshot-" <> show (hash s) <> ".png")
+  let fileName = "screenshot-" <> show (hash s) <> ".png"
   liftIO (BS.writeFile (reportDir </> fileName) s)
   either
     (throwIO . ScreenshotFileException . toS)

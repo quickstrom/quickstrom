@@ -23,11 +23,11 @@ import Quickstrom.Element
 import Quickstrom.Prelude
 import Quickstrom.Trace
 
-prettyAction :: Action Selected -> Doc AnsiStyle
+prettyAction :: Action ActionSubject -> Doc AnsiStyle
 prettyAction = \case
-  Click sel -> "click" <+> prettySelected sel
-  Clear sel -> "clear" <+> prettySelected sel
-  Focus sel -> "focus" <+> prettySelected sel
+  Click s -> "click" <+> prettyActionSubject s
+  Clear s -> "clear" <+> prettyActionSubject s
+  Focus s -> "focus" <+> prettyActionSubject s
   Await sel -> "await" <+> pretty (show sel :: Text)
   AwaitWithTimeoutSecs i sel -> "await secs" <+> pretty (show i :: Text) <+> pretty (show sel :: Text)
   KeyPress key -> "key press" <+> pretty (show key :: Text)
@@ -35,13 +35,17 @@ prettyAction = \case
   Navigate uri -> "navigate to" <+> pretty uri
   Refresh -> "refresh"
 
-prettyActionSeq :: ActionSequence Selected -> Doc AnsiStyle
+prettyActionSeq :: ActionSequence ActionSubject -> Doc AnsiStyle
 prettyActionSeq (ActionSequence (action' :| [])) = prettyAction action'
 prettyActionSeq (ActionSequence (action :| actions')) = "Sequence:" <> line <> indent 2 (vsep (zipWith item [1 ..] (action : toList actions')))
   where
-    item :: Int -> Action Selected -> Doc AnsiStyle
+    item :: Int -> Action ActionSubject -> Doc AnsiStyle
     item i = \case
       ba -> (pretty i <> "." <+> prettyAction ba)
+
+prettyActionSubject :: ActionSubject  -> Doc AnsiStyle
+prettyActionSubject (ActionSubject s _ pos) =
+  prettySelected s <+> prettyPosition pos
 
 prettySelected :: Selected -> Doc AnsiStyle
 prettySelected (Selected (Selector sel) i) = pretty sel <> brackets (pretty i)

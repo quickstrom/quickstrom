@@ -4,7 +4,8 @@
 
 module Quickstrom.Action where
 
-import Data.Aeson (ToJSON)
+
+import Data.Aeson (ToJSON, FromJSON)
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.Vector (Vector)
 import GHC.Generics (Generic)
@@ -12,7 +13,7 @@ import Quickstrom.Element
 import Quickstrom.Prelude
 
 data Selected = Selected Selector Int
-  deriving (Eq, Show, Generic, ToJSON, Hashable)
+  deriving (Eq, Show, Generic, FromJSON, ToJSON, Hashable)
 
 data Action sel
   = Focus sel

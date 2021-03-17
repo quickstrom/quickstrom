@@ -16,7 +16,7 @@ import Data.TreeDiff.QuickCheck (ediffEq)
 import Data.Vector (Vector)
 import qualified Data.Vector as Vector
 import qualified Quickstrom.Action as Quickstrom
-import Quickstrom.CLI.Reporter.HTML hiding (elements)
+import Quickstrom.CLI.Reporter.HTML hiding (elements, toActionSubject)
 import qualified Quickstrom.Element as Quickstrom
 import Quickstrom.Prelude hiding (State)
 import qualified Quickstrom.Trace as Quickstrom
@@ -61,8 +61,22 @@ toTransition (Transition action' (States _ to') _) =
   maybe [] (pure . toActionElement) action'
     <> [toStateElement to']
 
-toActionElement :: Quickstrom.ActionSequence Quickstrom.ActionSubject -> Quickstrom.TraceElement Quickstrom.TraceElementEffect
-toActionElement a = Quickstrom.TraceAction Quickstrom.NoStutter a Quickstrom.ActionSuccess
+toActionElement :: Quickstrom.ActionSequence ActionSubject -> Quickstrom.TraceElement Quickstrom.TraceElementEffect
+toActionElement a = Quickstrom.TraceAction Quickstrom.NoStutter (map toActionSubject a) Quickstrom.ActionSuccess
+
+toActionSubject :: ActionSubject -> Quickstrom.ActionSubject
+toActionSubject as =
+  Quickstrom.ActionSubject
+    (as ^. #selected)
+    (Quickstrom.Element (as ^. #element . #id))
+    (as ^. #element . #position)
+
+-- toActionSubject :: Quickstrom.ActionSubject -> ActionSubject
+-- toActionSubject as =
+--   ActionSubject
+--     { selected = as ^. #selected,
+--       element = ActionElement {id = as ^. #element . #ref, position = as ^. #position}
+--     }
 
 toStateElement :: State ByteString -> Quickstrom.TraceElement Quickstrom.TraceElementEffect
 toStateElement (State screenshot' queries') =
@@ -128,7 +142,7 @@ genPosition = Quickstrom.Position <$> genNat <*> genNat <*> genNat <*> genNat
 genNat :: Gen Int
 genNat = getPositive <$> arbitrary
 
-genActionSequence :: Gen (Quickstrom.ActionSequence Quickstrom.ActionSubject)
+genActionSequence :: Gen (Quickstrom.ActionSequence ActionSubject)
 genActionSequence = pure (Quickstrom.ActionSequence (pure (Quickstrom.KeyPress 'a')))
 
 identifier :: [Char] -> Gen Text
@@ -156,7 +170,7 @@ instance ToExpr Quickstrom.Position
 
 instance ToExpr QueriedElement
 
-instance ToExpr Quickstrom.ActionSubject
+instance ToExpr ActionSubject
 
 instance ToExpr Quickstrom.Element
 

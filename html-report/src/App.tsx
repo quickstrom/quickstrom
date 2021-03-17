@@ -444,7 +444,6 @@ const Screenshot: FunctionComponent<{ actionSubjects: ActionSubject[], state: St
                 .concat(actionSubjects.map(a => a.element))
                 .find(isActive) 
                 || null;
-        console.log(activeElement);
 
         function renderDim(element: Element | null) {
             return (

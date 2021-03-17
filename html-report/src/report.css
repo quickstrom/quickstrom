@@ -107,7 +107,7 @@ main .controls button:active {
 }
 
 .selector {
-    white-space: nowrap;
+    white-space: break-spaces;
     font-family: 'Monaco', 'Consolas', 'Ubuntu Mono', monospace;
     font-weight: normal;
 }

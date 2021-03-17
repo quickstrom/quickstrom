@@ -1,22 +1,21 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeOperators #-}
 
 module Quickstrom.Trace
   ( Selected (..),
     ObservedElementStates (..),
     ObservedElementState (..),
+    ActionSubject (..),
     Position (..),
     Action (..),
     ObservedState (..),
@@ -61,6 +60,9 @@ instance Monoid ObservedElementStates where
 data Position = Position {x :: Int, y :: Int, width :: Int, height :: Int}
   deriving (Eq, Show, Generic, FromJSON, ToJSON)
 
+data ActionSubject = ActionSubject { selected :: Selected, element :: Element, position :: Maybe Position }
+  deriving (Eq, Show, Generic, FromJSON, ToJSON)
+
 data ObservedElementState = ObservedElementState {element :: Element, position :: Maybe Position, elementState :: HashMap ElementState Value}
   deriving (Show, Eq, Generic, FromJSON, ToJSON)
 
@@ -80,7 +82,7 @@ data ActionResult = ActionSuccess | ActionFailed Text | ActionImpossible
   deriving (Show, Generic)
 
 data TraceElement ann
-  = TraceAction ann (ActionSequence Selected) ActionResult
+  = TraceAction ann (ActionSequence ActionSubject) ActionResult
   | TraceState ann ObservedState
   deriving (Show, Generic)
 
@@ -93,7 +95,7 @@ observedStates = traceElements . traverse . _Ctor @"TraceState" . Product.positi
 observedStatePositions :: Traversal' ObservedState (Maybe Position)
 observedStatePositions = field @"elementStates" . _Wrapped' . traverse . traverse . field @"position"
 
-traceActions :: Traversal' (Trace ann) (ActionSequence Selected)
+traceActions :: Traversal' (Trace ann) (ActionSequence ActionSubject)
 traceActions = traceElements . traverse . _Ctor @"TraceAction" . Product.position @2
 
 traceActionFailures :: Traversal' (Trace ann) Text

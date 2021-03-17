@@ -1,4 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -17,7 +16,7 @@ import Data.TreeDiff.QuickCheck (ediffEq)
 import Data.Vector (Vector)
 import qualified Data.Vector as Vector
 import qualified Quickstrom.Action as Quickstrom
-import Quickstrom.CLI.Reporter.HTML hiding (elements)
+import Quickstrom.CLI.Reporter.HTML hiding (elements, toActionSubject)
 import qualified Quickstrom.Element as Quickstrom
 import Quickstrom.Prelude hiding (State)
 import qualified Quickstrom.Trace as Quickstrom
@@ -54,7 +53,7 @@ toTrace ts =
     Just (x, _) ->
       Quickstrom.Trace
         ( pure (toStateElement (x ^. #states . #from))
-            <> (foldMap toTransition ts)
+            <> foldMap toTransition ts
         )
 
 toTransition :: Transition ByteString -> [Quickstrom.TraceElement Quickstrom.TraceElementEffect]
@@ -62,8 +61,22 @@ toTransition (Transition action' (States _ to') _) =
   maybe [] (pure . toActionElement) action'
     <> [toStateElement to']
 
-toActionElement :: Quickstrom.ActionSequence Quickstrom.Selected -> Quickstrom.TraceElement Quickstrom.TraceElementEffect
-toActionElement a = Quickstrom.TraceAction Quickstrom.NoStutter a Quickstrom.ActionSuccess
+toActionElement :: Quickstrom.ActionSequence ActionSubject -> Quickstrom.TraceElement Quickstrom.TraceElementEffect
+toActionElement a = Quickstrom.TraceAction Quickstrom.NoStutter (map toActionSubject a) Quickstrom.ActionSuccess
+
+toActionSubject :: ActionSubject -> Quickstrom.ActionSubject
+toActionSubject as =
+  Quickstrom.ActionSubject
+    (as ^. #selected)
+    (Quickstrom.Element (as ^. #element . #id))
+    (as ^. #element . #position)
+
+-- toActionSubject :: Quickstrom.ActionSubject -> ActionSubject
+-- toActionSubject as =
+--   ActionSubject
+--     { selected = as ^. #selected,
+--       element = ActionElement {id = as ^. #element . #ref, position = as ^. #position}
+--     }
 
 toStateElement :: State ByteString -> Quickstrom.TraceElement Quickstrom.TraceElementEffect
 toStateElement (State screenshot' queries') =
@@ -82,7 +95,7 @@ toStateElement (State screenshot' queries') =
         )
     )
 
-toObservedElementState :: Element -> Quickstrom.ObservedElementState
+toObservedElementState :: QueriedElement -> Quickstrom.ObservedElementState
 toObservedElementState element' =
   Quickstrom.ObservedElementState
     (Quickstrom.Element (element' ^. #id))
@@ -118,10 +131,10 @@ genState :: Gen (State ByteString)
 genState = State Nothing <$> vectorOf genQuery `suchThat` (not . hasDuplicates . map (view #selector))
 
 genQuery :: Gen Query
-genQuery = Query <$> identifier "selector-" <*> vectorOf genElement `suchThat` (not . hasDuplicates . map (view #id))
+genQuery = Query <$> identifier "selector-" <*> vectorOf genQueriedElement `suchThat` (not . hasDuplicates . map (view #id))
 
-genElement :: Gen Element
-genElement = Element <$> identifier "element-" <*> (Just <$> genPosition) <*> pure []
+genQueriedElement :: Gen QueriedElement
+genQueriedElement = QueriedElement <$> identifier "element-" <*> (Just <$> genPosition) <*> pure []
 
 genPosition :: Gen Quickstrom.Position
 genPosition = Quickstrom.Position <$> genNat <*> genNat <*> genNat <*> genNat
@@ -129,7 +142,7 @@ genPosition = Quickstrom.Position <$> genNat <*> genNat <*> genNat <*> genNat
 genNat :: Gen Int
 genNat = getPositive <$> arbitrary
 
-genActionSequence :: Gen (Quickstrom.ActionSequence Quickstrom.Selected)
+genActionSequence :: Gen (Quickstrom.ActionSequence ActionSubject)
 genActionSequence = pure (Quickstrom.ActionSequence (pure (Quickstrom.KeyPress 'a')))
 
 identifier :: [Char] -> Gen Text
@@ -155,7 +168,13 @@ instance ToExpr Query
 
 instance ToExpr Quickstrom.Position
 
-instance ToExpr Element
+instance ToExpr QueriedElement
+
+instance ToExpr ActionSubject
+
+instance ToExpr Quickstrom.Element
+
+instance ToExpr ActionElement
 
 instance ToExpr Diff
 

@@ -9,7 +9,7 @@ import Quickstrom.Element (Element)
 import Quickstrom.Prelude hiding (catch, check, trace)
 import Quickstrom.Specification (Queries)
 import Quickstrom.Timeout (Timeout)
-import Quickstrom.Trace (ObservedElementStates)
+import Quickstrom.Trace (ObservedElementStates, Position)
 import Quickstrom.WebDriver.Class (WebDriver, runScript)
 import System.Environment (lookupEnv)
 import System.FilePath ((</>))
@@ -18,6 +18,7 @@ newtype CheckScript a = CheckScript {runCheckScript :: forall m. WebDriver m => 
 
 data CheckScripts = CheckScripts
   { isElementVisible :: Element -> CheckScript Bool,
+    getPosition :: Element -> CheckScript (Maybe Position),
     observeState :: Queries -> CheckScript ObservedElementStates,
     registerNextStateObserver :: Timeout -> Queries -> CheckScript (),
     awaitNextState :: CheckScript ()
@@ -30,12 +31,14 @@ readScripts = do
   let readScript :: MonadIO m => String -> m Text
       readScript name = liftIO (fromString . toS <$> readFile (dir </> name <> ".js"))
   isElementVisibleScript <- readScript "isElementVisible"
+  getPositionScript <- readScript "getPosition"
   observeStateScript <- readScript "observeState"
   registerNextStateObserverScript <- readScript "registerNextStateObserver"
   awaitNextStateScript <- readScript "awaitNextState"
   pure
     CheckScripts
       { isElementVisible = \el -> CheckScript ((== JSON.Bool True) <$> runScript isElementVisibleScript [JSON.toJSON el]),
+        getPosition = \el -> CheckScript (runScript getPositionScript [JSON.toJSON el]),
         observeState = \queries' -> CheckScript (runScript observeStateScript [JSON.toJSON queries']),
         registerNextStateObserver = \timeout queries' -> CheckScript (runScript registerNextStateObserverScript [JSON.toJSON timeout, JSON.toJSON queries']),
         awaitNextState = CheckScript (runScript awaitNextStateScript [])

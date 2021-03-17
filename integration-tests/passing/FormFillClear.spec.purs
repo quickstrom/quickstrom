@@ -18,7 +18,7 @@ actions =
            `followedBy` enterText "jane.doe@example.com"
            `followedBy` focus "input[type=number]"
            `followedBy` enterText "30"
-           `weigthed` 5
+           `weighted` 5
       ]
 
 proposition :: Boolean

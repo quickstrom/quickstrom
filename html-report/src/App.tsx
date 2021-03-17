@@ -105,6 +105,16 @@ type Action =
     | { tag: "Navigate", contents: string }
     | { tag: "Refresh" };
 
+function getActionSubject(a: Action): ActionSubject[] {
+    switch (a.tag) {
+        case "Focus": return [a.contents];
+        case "Click": return [a.contents];
+        case "Clear": return [a.contents];
+        case "Focus": return [a.contents];
+        default: return [];
+    }
+}
+
 type NonEmptyArray<T> = [T, ...T[]];
 
 type TestViewerState = {
@@ -263,7 +273,7 @@ const TestViewer: FunctionComponent<{ test: Test }> = ({ test }) => {
     useEffect(() => {
         dispatch({ tag: "change-test", test });
     }, [test]);
-    const [selectedElement, setSelectedElement] = useState<QueriedElement | null>(null);
+    const [selectedElement, setSelectedElement] = useState<Element | null>(null);
     const transition = state.current;
     return <main>
         <section class="controls">
@@ -271,15 +281,15 @@ const TestViewer: FunctionComponent<{ test: Test }> = ({ test }) => {
             <button disabled={state.index === (state.test.transitions.length - 1)} onClick={() => dispatch({ tag: "next" })}>Next →</button>
         </section>
         <section class="content">
-            <ActionSequence actionSequence={transition.actionSequence} />
+            <ActionSequence actionSequence={transition.actionSequence} setSelectedElement={setSelectedElement} />
             <section class="states">
                 <State number={state.index + 1} extraClass="from" label="From" />
                 <State number={state.index + 2} extraClass="to" label="To" />
             </section>
             <section class="screenshots">
-                <Screenshot state={transition.states.from} extraClass="from" selectedElement={selectedElement}
+                <Screenshot actionSubjects={transition.actionSequence?.flatMap(getActionSubject) || []} state={transition.states.from} extraClass="from" selectedElement={selectedElement}
                     setSelectedElement={setSelectedElement} />
-                <Screenshot state={transition.states.to} extraClass="to" selectedElement={selectedElement}
+                <Screenshot actionSubjects={[]} state={transition.states.to} extraClass="to" selectedElement={selectedElement}
                     setSelectedElement={setSelectedElement} />
             </section>
             <section class="details">
@@ -295,7 +305,7 @@ const TestViewer: FunctionComponent<{ test: Test }> = ({ test }) => {
         ;
 }
 
-const ActionSequence: FunctionComponent<{ actionSequence?: NonEmptyArray<Action> }> = ({ actionSequence }) => {
+const ActionSequence: FunctionComponent<{ actionSequence?: NonEmptyArray<Action>, setSelectedElement: StateUpdater<Element | null> }> = ({ actionSequence, setSelectedElement }) => {
     function renderKey(key: string) {
         switch (key) {
             case "\ue006": return <span>⏎</span>;
@@ -305,7 +315,10 @@ const ActionSequence: FunctionComponent<{ actionSequence?: NonEmptyArray<Action>
     function renderDetails(action: Action) {
         function renderActionSubject(subject: ActionSubject) {
             return (
-                <div>
+                <div
+                  onMouseEnter={(() => setSelectedElement(subject.element))}
+                  onMouseLeave={(() => setSelectedElement(null))}
+                >
                     <p class="selector">{subject.selected[0]}</p>
                     <p class="selected-index">[{subject.selected[1]}]</p>
                 </div>
@@ -401,7 +414,7 @@ const State: FunctionComponent<{ number: number, extraClass: string, label: stri
     );
 }
 
-const MarkerDim: FunctionComponent<{ screenshot: Screenshot, element: QueriedElement | null }> = ({ screenshot, element }) => {
+const MarkerDim: FunctionComponent<{ screenshot: Screenshot, element: Element | null }> = ({ screenshot, element }) => {
     if (element && element.position) {
         return (
             <svg class="marker-dim active" viewBox={`0 0 ${screenshot.width} ${screenshot.height}`}>
@@ -421,14 +434,19 @@ const MarkerDim: FunctionComponent<{ screenshot: Screenshot, element: QueriedEle
     }
 }
 
-const Screenshot: FunctionComponent<{ state: State, extraClass: string, selectedElement: QueriedElement | null, setSelectedElement: StateUpdater<QueriedElement | null> }> =
-    ({ state, extraClass, selectedElement, setSelectedElement }) => {
-        function isActive(element: QueriedElement) {
+const Screenshot: FunctionComponent<{ actionSubjects: ActionSubject[], state: State, extraClass: string, selectedElement: Element | null, setSelectedElement: StateUpdater<Element | null> }> =
+    ({ actionSubjects, state, extraClass, selectedElement, setSelectedElement }) => {
+        function isActive(element: Element) {
             return selectedElement && selectedElement.id === element.id;
         }
-        const activeElement = state.queries.flatMap(q => q.elements).find(isActive) || null;
+        const activeElement = 
+            state.queries.flatMap(q => q.elements as Element[])
+                .concat(actionSubjects.map(a => a.element))
+                .find(isActive) 
+                || null;
+        console.log(activeElement);
 
-        function renderDim(element: QueriedElement | null) {
+        function renderDim(element: Element | null) {
             return (
                 <MarkerDim screenshot={state.screenshot} element={element} />
             );

@@ -158,15 +158,12 @@ main .controls button:active {
 .action-details .name.none {
     color: #666;
 }
-.action-details .text,
-.action-details .selector {
-    margin: .5em 0;
-}
-.action-details .selector {
+.action-details > * {
     margin: .5em 0;
 }
 .action-details .selected-index {
     font-weight: bold;
+    margin-top: .25em;
 }
 .action-details .key {
     display: inline-block;

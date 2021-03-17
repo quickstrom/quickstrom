@@ -3,6 +3,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedLabels #-}
 
 module Quickstrom.Run.Actions
   ( awaitElement,
@@ -14,10 +15,12 @@ module Quickstrom.Run.Actions
     runActionSequence,
     reselect,
     chooseAction,
+    recordActionSubjectPositions,
   )
 where
 
 import Control.Lens
+import Data.Generics.Labels ()
 import Control.Monad (fail)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Loops (andM)
@@ -58,7 +61,7 @@ generateValidActions possibleActions = loop
       lift (findActionCandidates possibleActions >>= filterCurrentlyValidActionCandidates >>= chooseAction)
         >>= \case
           Nothing -> pass
-          Just action -> Pipes.yield action >> loop
+          Just action -> lift (recordActionSubjectPositions action) >>= Pipes.yield >> loop
 
 findActionCandidates ::
   (MonadIO m, WebDriver m) =>
@@ -137,6 +140,17 @@ chooseAction ::
 chooseAction choices
   | Vector.null choices = pure Nothing
   | otherwise = Just <$> generate (QuickCheck.frequency [(w, pure x) | Weighted w x <- Vector.toList choices])
+
+recordActionSubjectPositions ::
+  (MonadIO m, WebDriver m) =>
+  ActionSequence ActionSubject
+  -> Runner m (ActionSequence ActionSubject)
+recordActionSubjectPositions seqs = do
+  scripts <- asks checkScripts
+  for seqs (\subject -> do
+      p <- runCheckScript (getPosition scripts (subject ^. #element))
+      pure (subject { position = p })
+    )
 
 tryAction :: MonadCatch m => Runner m ActionResult -> Runner m ActionResult
 tryAction action =

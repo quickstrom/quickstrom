@@ -37,7 +37,7 @@ import qualified Quickstrom.Action as Quickstrom
 import qualified Quickstrom.CLI.Reporter as Quickstrom
 import qualified Quickstrom.Element as Quickstrom
 import qualified Quickstrom.LogLevel as Quickstrom
-import Quickstrom.Prelude hiding (State, uncons)
+import Quickstrom.Prelude hiding (State, to, uncons)
 import qualified Quickstrom.Run as Quickstrom
 import qualified Quickstrom.Trace as Quickstrom
 import qualified System.Directory as Directory
@@ -65,13 +65,16 @@ data Test = Test {transitions :: Transitions}
   deriving (Eq, Show, Generic, JSON.ToJSON)
 
 data Transition screenshot = Transition
-  { actionSequence :: Maybe (Quickstrom.ActionSequence Quickstrom.ActionSubject),
+  { actionSequence :: Maybe (Quickstrom.ActionSequence ActionSubject),
     states :: States screenshot,
     stutter :: Bool
   }
   deriving (Eq, Show, Generic, JSON.ToJSON, Functor, Foldable, Traversable)
 
 type Transitions = Vector (Transition FileScreenshot)
+
+data ActionSubject = ActionSubject {selected :: Quickstrom.Selected, element :: ActionElement}
+  deriving (Eq, Show, Generic, JSON.ToJSON)
 
 data States screenshot = States {from :: State screenshot, to :: State screenshot}
   deriving (Eq, Show, Generic, JSON.ToJSON, Functor, Foldable, Traversable)
@@ -195,7 +198,7 @@ traceToTransitions (Quickstrom.Trace es) = go (Vector.fromList es) mempty
     actionTransition :: Vector (Quickstrom.TraceElement Quickstrom.TraceElementEffect) -> Maybe (Transition ByteString, Vector (Quickstrom.TraceElement Quickstrom.TraceElementEffect))
     actionTransition t = flip evalStateT t $ do
       (_, s1) <- pop (_Ctor @"TraceState")
-      a <- pop (_Ctor @"TraceAction" . _2)
+      a <- pop (_Ctor @"TraceAction" . _2 . Control.Lens.to (traverse %~ toActionSubject))
       (ann2, s2) <- pop (_Ctor @"TraceState")
       let diffs = elementStateDiffs s1 s2
       pure (Transition (Just a) (States (toState diffs s1) (toState diffs s2)) (ann2 == Quickstrom.Stutter), Vector.drop 2 t)
@@ -236,6 +239,13 @@ traceToTransitions (Quickstrom.Trace es) = go (Vector.fromList es) mempty
             Just x -> put t' >> pure x
             Nothing -> mzero
         Nothing -> mzero
+
+toActionSubject :: Quickstrom.ActionSubject -> ActionSubject
+toActionSubject as =
+  ActionSubject
+    { selected = as ^. #selected,
+      element = ActionElement {id = as ^. #element . #ref, position = as ^. #position}
+    }
 
 data ScreenshotFileException = ScreenshotFileException Text
   deriving (Show)

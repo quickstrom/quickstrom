@@ -82,7 +82,7 @@ data ActionResult = ActionSuccess | ActionFailed Text | ActionImpossible
   deriving (Show, Generic)
 
 data TraceElement ann
-  = TraceAction ann (ActionSequence ActionSubject) ActionResult
+  = TraceAction ann (ActionSequence ActionSubject ActionSubject) ActionResult
   | TraceState ann ObservedState
   deriving (Show, Generic)
 
@@ -95,7 +95,7 @@ observedStates = traceElements . traverse . _Ctor @"TraceState" . Product.positi
 observedStatePositions :: Traversal' ObservedState (Maybe Position)
 observedStatePositions = field @"elementStates" . _Wrapped' . traverse . traverse . field @"position"
 
-traceActions :: Traversal' (Trace ann) (ActionSequence ActionSubject)
+traceActions :: Traversal' (Trace ann) (ActionSequence ActionSubject ActionSubject)
 traceActions = traceElements . traverse . _Ctor @"TraceAction" . Product.position @2
 
 traceActionFailures :: Traversal' (Trace ann) Text

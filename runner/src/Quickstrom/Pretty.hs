@@ -35,9 +35,9 @@ prettyAction = \case
   Navigate uri -> "navigate to" <+> pretty uri
   Refresh -> "refresh"
 
-prettyActionSeq :: ActionSequence ActionSubject -> Doc AnsiStyle
-prettyActionSeq (ActionSequence (action' :| [])) = prettyAction action'
-prettyActionSeq (ActionSequence (action :| actions')) = "Sequence:" <> line <> indent 2 (vsep (zipWith item [1 ..] (action : toList actions')))
+prettyActionSeq :: ActionSequence ActionSubject ActionSubject -> Doc AnsiStyle
+prettyActionSeq (ActionSequence action' []) = prettyAction action'
+prettyActionSeq (ActionSequence action actions') = "Sequence:" <> line <> indent 2 (vsep (zipWith item [1 ..] (action : toList actions')))
   where
     item :: Int -> Action ActionSubject -> Doc AnsiStyle
     item i = \case

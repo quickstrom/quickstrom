@@ -65,7 +65,7 @@ data Test = Test {transitions :: Transitions}
   deriving (Eq, Show, Generic, JSON.ToJSON)
 
 data Transition screenshot = Transition
-  { actionSequence :: Maybe (Quickstrom.ActionSequence ActionSubject),
+  { actionSequence :: Maybe (NonEmpty (Quickstrom.Action ActionSubject)),
     states :: States screenshot,
     stutter :: Bool
   }
@@ -198,7 +198,8 @@ traceToTransitions (Quickstrom.Trace es) = go (Vector.fromList es) mempty
     actionTransition :: Vector (Quickstrom.TraceElement Quickstrom.TraceElementEffect) -> Maybe (Transition ByteString, Vector (Quickstrom.TraceElement Quickstrom.TraceElementEffect))
     actionTransition t = flip evalStateT t $ do
       (_, s1) <- pop (_Ctor @"TraceState")
-      a <- pop (_Ctor @"TraceAction" . _2 . Control.Lens.to (traverse %~ toActionSubject))
+      actionSeq <- pop (_Ctor @"TraceAction" . _2)
+      let a = map (map toActionSubject) (Quickstrom.actionSequenceToNonEmpty actionSeq)
       (ann2, s2) <- pop (_Ctor @"TraceState")
       let diffs = elementStateDiffs s1 s2
       pure (Transition (Just a) (States (toState diffs s1) (toState diffs s2)) (ann2 == Quickstrom.Stutter), Vector.drop 2 t)

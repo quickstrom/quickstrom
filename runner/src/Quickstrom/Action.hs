@@ -1,16 +1,16 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Quickstrom.Action where
 
 
 import Data.Aeson (ToJSON, FromJSON)
-import qualified Data.List.NonEmpty as NonEmpty
-import Data.Vector (Vector)
 import GHC.Generics (Generic)
 import Quickstrom.Element
 import Quickstrom.Prelude
+import Data.Bifunctor.TH (deriveBifunctor)
 
 data Selected = Selected Selector Int
   deriving (Eq, Show, Generic, FromJSON, ToJSON, Hashable)
@@ -28,18 +28,17 @@ data Action sel
   -- `Back` and `Forward` can't be supported, as the history cannot be introspected to validate if these actions are possible.
   deriving (Eq, Show, Functor, Foldable, Traversable, Generic, ToJSON, Hashable)
 
-newtype ActionSequence sel = ActionSequence (NonEmpty (Action sel))
+data ActionSequence restSel firstSel = ActionSequence (Action firstSel) [Action restSel]
   deriving (Eq, Show, Functor, Foldable, Traversable, Generic, ToJSON, Hashable)
+
+$(deriveBifunctor ''ActionSequence)
+
+actionSequenceToNonEmpty :: ActionSequence s s -> NonEmpty (Action s)
+actionSequenceToNonEmpty (ActionSequence a as) = a :| as
 
 type PotentialActionSequence = [Action Selector]
 
 type SelectedActionSequence = [Action Selected]
-
-actionSequenceToList :: ActionSequence sel -> [Action sel]
-actionSequenceToList (ActionSequence actions') = NonEmpty.toList actions'
-
-actionSequencesToLists :: Vector (Int, ActionSequence sel) -> Vector (Int, [Action sel])
-actionSequencesToLists = map (second actionSequenceToList)
 
 data Weighted a = Weighted {weight :: Int, weighted :: a}
   deriving (Show, Eq, Functor, Foldable, Traversable, Generic)

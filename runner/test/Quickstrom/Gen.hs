@@ -28,16 +28,16 @@ stringValues = elements ["s1", "s2", "s3"]
 observedState :: Gen ObservedState
 observedState = pure mempty
 
-selectedAction :: Gen (Action ActionSubject)
-selectedAction =
+selectedAction :: Gen s -> Gen (Action s)
+selectedAction genS =
   oneof
-    [ Focus <$> actionSubject,
+    [ Focus <$> genS,
       KeyPress <$> elements ['A' .. 'C'],
-      Click <$> actionSubject
+      Click <$> genS
     ]
 
-selectedActionSequence :: Gen (ActionSequence ActionSubject)
-selectedActionSequence = ActionSequence . pure <$> selectedAction
+selectedActionSequence :: Gen (ActionSequence ActionSubject ActionSubject)
+selectedActionSequence = ActionSequence <$> selectedAction actionSubject <*> pure []
 
 actionResult :: Gen ActionResult
 actionResult = oneof [pure ActionSuccess, pure (ActionFailed "failed"), pure ActionImpossible]

@@ -212,8 +212,10 @@ instance (MonadError EvalError m, ToHaskellValue m a) => ToHaskellValue m (Weigh
       <$> (require ss (Proxy @"VInt") =<< accessField ss "weight" obj)
       <*> (toHaskellValue ss =<< accessField ss "weighted" obj)
 
-instance MonadError EvalError m => ToHaskellValue m (ActionSequence Selector) where
-  toHaskellValue ss v = ActionSequence <$> toHaskellValue ss v
+instance MonadError EvalError m => ToHaskellValue m (ActionSequence Selector Selector) where
+  toHaskellValue ss v = do
+    a :| as <- toHaskellValue ss v
+    pure (ActionSequence a as)
 
 instance MonadError EvalError m => ToHaskellValue m (Action Selector) where
   toHaskellValue ss v = do

@@ -182,7 +182,7 @@ instance ToExpr Quickstrom.ElementState
 
 instance ToExpr ElementStateValue
 
-instance ToExpr s => ToExpr (Quickstrom.ActionSequence s)
+instance (ToExpr s1, ToExpr s2) => ToExpr (Quickstrom.ActionSequence s1 s2)
 
 instance ToExpr s => ToExpr (Quickstrom.Action s)
 

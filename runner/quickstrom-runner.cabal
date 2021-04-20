@@ -11,6 +11,7 @@ copyright:            Oskar Wickström
 common shared-deps
   build-depends:      base ^>= 4.12
                     , aeson
+                    , bifunctors
                     , bytestring
                     , containers
                     , directory

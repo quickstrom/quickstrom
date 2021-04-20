@@ -17,6 +17,6 @@ type Queries = HashMap Selector (HashSet ElementState)
 
 class Specification s where
   readyWhen :: s -> Selector
-  actions :: s -> Vector (Weighted (ActionSequence Selector))
+  actions :: s -> Vector (Weighted (ActionSequence Selector Selector))
   queries :: s -> Queries
   verify :: s -> [ObservedState] -> Either Text Result

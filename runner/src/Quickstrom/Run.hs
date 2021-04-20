@@ -52,7 +52,7 @@ import qualified Pipes.Prelude as Pipes
 import Quickstrom.Action
 import Quickstrom.Prelude hiding (Prefix, catch, check, trace)
 import Quickstrom.Result
-import Quickstrom.Run.Actions (awaitElement, defaultTimeout, generateValidActions, isCurrentlyValid, reselect, runActionSequence)
+import Quickstrom.Run.Actions (awaitElement, defaultTimeout, generateValidActions, isCurrentlyValid, selectOne, runActionSequence, Selectable)
 import Quickstrom.Run.Runner (CheckEnv (..), CheckOptions (..), Runner, Size (..), run)
 import Quickstrom.Run.Scripts (CheckScripts (..), readScripts, runCheckScript)
 import Quickstrom.Run.Shrinking
@@ -139,7 +139,7 @@ runSingle spec size = do
       if checkMaxShrinks > 0
         then do
           Pipes.yield (Shrinking checkMaxShrinks)
-          let prefixes = shrinkPrefixes (map (map (view #selected)) (trace ^.. traceActions))
+          let prefixes = shrinkPrefixes (map (bimap (view #selected) (view #selected)) (trace ^.. traceActions))
           counterExamples <-
             Pipes.toListM
               ( searchSmallestFailingPrefix runShrink (_Ctor @"ShrinkTestFailure") prefixes
@@ -152,9 +152,9 @@ runSingle spec size = do
         else pure (Left ft)
   where
     runAndVerifyIsolated ::
-      (MonadIO m, MonadCatch m, WebDriver m) =>
+      (MonadIO m, MonadCatch m, WebDriver m, Selectable s) =>
       Int ->
-      Producer (ActionSequence ActionSubject) (Runner m) () ->
+      Producer (ActionSequence s ActionSubject) (Runner m) () ->
       Producer TestEvent (Runner m) (Either FailedTest (Trace TraceElementEffect))
     runAndVerifyIsolated n producer = do
       trace <- lift do
@@ -168,13 +168,12 @@ runSingle spec size = do
         Left err -> pure (Left (FailedTest n trace (Just err)))
     runShrink ::
       (MonadIO m, MonadCatch m, WebDriver m) =>
-      Prefix (ActionSequence Selected) ->
+      Prefix (ActionSequence Selected Selected) ->
       Producer TestEvent (Runner m) ShrinkResult
     runShrink (Prefix actions') = do
       Pipes.yield (RunningShrink (length actions'))
       Pipes.each actions'
-        >-> Pipes.mapM (traverse reselect)
-        >-> Pipes.mapMaybe (traverse identity)
+        >-> Pipes.mapM (traverse selectOne)
         >-> Pipes.filterM isCurrentlyValid
         & runAndVerifyIsolated 0
         & (<&> either ShrinkTestFailure ShrinkTestSuccess)
@@ -222,15 +221,15 @@ takeScreenshot' = do
   CheckEnv {checkOptions = CheckOptions {checkCaptureScreenshots}} <- ask
   if checkCaptureScreenshots then Just <$> takeScreenshot else pure Nothing
 
-observeManyStatesAfter :: (MonadIO m, MonadCatch m, WebDriver m) => Queries -> ActionSequence ActionSubject -> Pipe a (TraceElement ()) (Runner m) ()
+observeManyStatesAfter :: (MonadIO m, MonadCatch m, WebDriver m, Selectable  s) => Queries -> ActionSequence s ActionSubject -> Pipe a (TraceElement ()) (Runner m) ()
 observeManyStatesAfter queries' actionSequence = do
   CheckEnv {checkScripts = scripts, checkOptions = CheckOptions {checkMaxTrailingStateChanges, checkTrailingStateChangeTimeout}} <- lift ask
   lift (runCheckScript (registerNextStateObserver scripts checkTrailingStateChangeTimeout queries'))
-  result <- lift (runActionSequence (actionSequence & traverse %~ view #element))
+  (actionSequence', result) <- lift (runActionSequence actionSequence)
   lift (runCheckScript (awaitNextState scripts) `catch` (\WebDriverResponseError {} -> pass))
   newState <- lift (runCheckScript (observeState scripts queries'))
   screenshot <- lift takeScreenshot'
-  Pipes.yield (TraceAction () actionSequence result)
+  Pipes.yield (TraceAction () actionSequence' result)
   Pipes.yield (TraceState () (ObservedState screenshot newState))
   nonStutters <-
     ( loop checkTrailingStateChangeTimeout
@@ -253,7 +252,7 @@ observeManyStatesAfter queries' actionSequence = do
       loop (mapTimeout (* 2) timeout)
 
 {-# SCC runActions' "runActions'" #-}
-runActions' :: (MonadIO m, MonadCatch m, WebDriver m, Specification spec) => spec -> Pipe (ActionSequence ActionSubject) (TraceElement ()) (Runner m) ()
+runActions' :: (MonadIO m, MonadCatch m, WebDriver m, Selectable s, Specification spec) => spec -> Pipe (ActionSequence s ActionSubject) (TraceElement ()) (Runner m) ()
 runActions' spec = do
   scripts <- lift (asks checkScripts)
   state1 <- lift (runCheckScript (observeState scripts queries'))

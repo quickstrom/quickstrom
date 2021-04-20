@@ -90,7 +90,7 @@ loadModuleFromSource modules input =
       pure result
   where
     printErrors :: P.MultipleErrors -> Text
-    printErrors errs = toS (P.prettyPrintMultipleErrors P.defaultPPEOptions (errs))
+    printErrors errs = toS (P.prettyPrintMultipleErrors P.defaultPPEOptions errs)
 
 loadModuleFromCoreFn :: FilePath -> ExceptT Text IO (Module CF.Ann)
 loadModuleFromCoreFn path = do
@@ -195,7 +195,7 @@ loadProgram ms input = runExceptT $ do
 
 data SpecificationProgram = SpecificationProgram
   { specificationReadyWhen :: Quickstrom.Selector,
-    specificationActions :: Vector (Quickstrom.Weighted (Quickstrom.ActionSequence Quickstrom.Selector)),
+    specificationActions :: Vector (Quickstrom.Weighted (Quickstrom.ActionSequence Quickstrom.Selector Quickstrom.Selector)),
     specificationQueries :: Quickstrom.Queries,
     specificationProgram :: Program WithObservedStates
   }

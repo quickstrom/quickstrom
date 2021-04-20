@@ -13,7 +13,8 @@ module Quickstrom.Run.Actions
     isCurrentlyValid,
     isActionCurrentlyValid,
     runActionSequence,
-    reselect,
+    Selectable,
+    selectOne,
     chooseAction,
     recordActionSubjectPositions,
   )
@@ -26,7 +27,6 @@ import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Loops (andM)
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import Data.List hiding (map)
-import qualified Data.List.NonEmpty as NonEmpty
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Text.Prettyprint.Doc
@@ -44,8 +44,9 @@ import Quickstrom.Trace (ActionResult (..), ActionSubject(..))
 import Quickstrom.WebDriver.Class
 import qualified Test.QuickCheck as QuickCheck
 import Control.Monad.Catch (MonadCatch(catch))
+import Control.Monad.Trans.Writer.Strict (runWriterT, tell, WriterT)
 
-shrinkAction :: ActionSequence Selected -> [ActionSequence Selected]
+shrinkAction :: ActionSequence Selector Selected -> [ActionSequence Selector Selected]
 shrinkAction _ = [] -- TODO?
 
 generate :: MonadIO m => QuickCheck.Gen a -> m a
@@ -53,8 +54,8 @@ generate = liftIO . QuickCheck.generate
 
 generateValidActions ::
   (MonadIO m, MonadCatch m, WebDriver m) =>
-  Vector (Weighted (ActionSequence Selector)) ->
-  Producer (ActionSequence ActionSubject) (Runner m) ()
+  Vector (Weighted (ActionSequence Selector Selector)) ->
+  Producer (ActionSequence Selector ActionSubject) (Runner m) ()
 generateValidActions possibleActions = loop
   where
     loop =
@@ -65,19 +66,14 @@ generateValidActions possibleActions = loop
 
 findActionCandidates ::
   (MonadIO m, WebDriver m) =>
-  Vector (Weighted (ActionSequence Selector)) ->
-  Runner m (Vector (Weighted (ActionSequence ActionSubject)))
+  Vector (Weighted (ActionSequence Selector Selector)) ->
+  Runner m (Vector (Weighted (ActionSequence Selector ActionSubject)))
 findActionCandidates = map fold . traverse (map (maybe mempty pure) . findActionSequenceCandidate)
   where
-    findActionSequenceCandidate :: (MonadIO m, WebDriver m) => Weighted (ActionSequence Selector) -> Runner m (Maybe (Weighted (ActionSequence ActionSubject)))
-    findActionSequenceCandidate (Weighted weight' (ActionSequence (action :| actions))) =
+    findActionSequenceCandidate :: (MonadIO m, WebDriver m) => Weighted (ActionSequence Selector Selector) -> Runner m (Maybe (Weighted (ActionSequence Selector ActionSubject)))
+    findActionSequenceCandidate (Weighted weight' (ActionSequence action actions)) =
       findActionCandidate action >>= \case
-        Just candidate -> do
-          candidates <-
-            traverse
-              (maybe (fail ("Cannot find elements to select for all subsequent actions in sequence: " <> show actions)) pure <=< findActionCandidate)
-              actions
-          pure (pure (Weighted weight' (ActionSequence (candidate :| candidates))))
+        Just candidate -> pure (pure (Weighted weight' (ActionSequence candidate actions)))
         Nothing -> pure Nothing
 
     findActionCandidate :: (MonadIO m, WebDriver m) => Action Selector -> Runner m (Maybe (Action ActionSubject))
@@ -101,12 +97,12 @@ findActionCandidates = map fold . traverse (map (maybe mempty pure) . findAction
 
 filterCurrentlyValidActionCandidates ::
   (MonadIO m, MonadCatch m, WebDriver m) =>
-  Vector (Weighted (ActionSequence ActionSubject)) ->
-  Runner m (Vector (Weighted (ActionSequence ActionSubject)))
+  Vector (Weighted (ActionSequence Selector ActionSubject)) ->
+  Runner m (Vector (Weighted (ActionSequence Selector ActionSubject)))
 filterCurrentlyValidActionCandidates = Vector.filterM (isCurrentlyValid . weighted)
 
-isCurrentlyValid :: (MonadCatch m, WebDriver m) => ActionSequence ActionSubject -> Runner m Bool
-isCurrentlyValid (ActionSequence actions') = isActionCurrentlyValid (NonEmpty.head actions')
+isCurrentlyValid :: (MonadCatch m, WebDriver m) => ActionSequence s ActionSubject -> Runner m Bool
+isCurrentlyValid (ActionSequence action _) = isActionCurrentlyValid action
 
 isActionCurrentlyValid :: (MonadCatch m, WebDriver m) => Action ActionSubject -> Runner m Bool
 isActionCurrentlyValid = \case
@@ -135,16 +131,16 @@ isActionCurrentlyValid = \case
 
 chooseAction ::
   (MonadIO m) =>
-  Vector (Weighted (ActionSequence ActionSubject)) ->
-  Runner m (Maybe (ActionSequence ActionSubject))
+  Vector (Weighted (ActionSequence Selector ActionSubject)) ->
+  Runner m (Maybe (ActionSequence Selector ActionSubject))
 chooseAction choices
   | Vector.null choices = pure Nothing
   | otherwise = Just <$> generate (QuickCheck.frequency [(w, pure x) | Weighted w x <- Vector.toList choices])
 
 recordActionSubjectPositions ::
   (MonadIO m, WebDriver m) =>
-  ActionSequence ActionSubject
-  -> Runner m (ActionSequence ActionSubject)
+  ActionSequence Selector ActionSubject
+  -> Runner m (ActionSequence Selector ActionSubject)
 recordActionSubjectPositions seqs = do
   scripts <- asks checkScripts
   for seqs (\subject -> do
@@ -183,21 +179,38 @@ runAction = \case
   Navigate uri -> tryAction (ActionSuccess <$ navigateTo uri)
   Refresh -> tryAction (ActionSuccess <$ pageRefresh)
 
-runActionSequence :: (MonadIO m, MonadCatch m, WebDriver m) => ActionSequence Element -> Runner m ActionResult
-runActionSequence (ActionSequence actions') =
-  let loop [] = pure ActionSuccess
-      loop (x : xs) =
-        runAction x >>= \case
-          ActionSuccess -> loop xs
+runActionSequence :: (MonadIO m, MonadCatch m, WebDriver m, Selectable s) => ActionSequence s ActionSubject -> Runner m (ActionSequence ActionSubject ActionSubject, ActionResult)
+runActionSequence (ActionSequence action actions) = do
+  (result, actions') <- runWriterT (ifSuccess (lift (runAction (action & traverse %~ view #element))) (runRest actions))
+  pure (ActionSequence action actions', result)
+  where
+    ifSuccess :: Monad m => m ActionResult -> m ActionResult -> m ActionResult
+    ifSuccess a b = 
+        a >>= \case
+          ActionSuccess -> b
           err -> pure err
-   in loop (toList actions')
+    runRest :: (WebDriver m, MonadCatch m, MonadIO m, Selectable s) => [Action s] -> WriterT [Action ActionSubject] (Runner m) ActionResult
+    runRest [] = pure ActionSuccess
+    runRest (x : xs) = do
+      x' <- traverse (lift . selectOne) x
+      ifSuccess (tell [x'] >> lift (runAction (x' & traverse %~ view #element))) (runRest xs)
 
-reselect :: WebDriver m => Selected -> m (Maybe ActionSubject)
-reselect selected'@(Selected s i) = do
-  es <- findAll s
-  pure $ do
-    e <- es ^? ix i
-    pure (ActionSubject selected' e Nothing)
+class Selectable s where
+  selectOne :: WebDriver m => s -> m ActionSubject
+
+instance Selectable Selector where
+  selectOne s = do
+    es <- findAll s
+    case es ^? ix 0 of
+      Just e -> pure (ActionSubject (Selected s 0) e Nothing)
+      Nothing -> fail ("Couldn't select a single element with selector: " <> show s)
+
+instance Selectable Selected where
+  selectOne selected'@(Selected s i) = do
+    es <- findAll s
+    case es ^? ix i of
+      Just e -> pure (ActionSubject selected' e Nothing)
+      Nothing -> fail ("Couldn't select a single element with selector: " <> show s)
 
 defaultTimeout :: Timeout
 defaultTimeout = Timeout 10_000

@@ -58,11 +58,11 @@ toTrace ts =
 
 toTransition :: Transition ByteString -> [Quickstrom.TraceElement Quickstrom.TraceElementEffect]
 toTransition (Transition action' (States _ to') _) =
-  maybe [] (pure . toActionElement) action'
+  maybe [] (\(a :| as) -> pure (toActionElement (Quickstrom.ActionSequence a as))) action'
     <> [toStateElement to']
 
-toActionElement :: Quickstrom.ActionSequence ActionSubject -> Quickstrom.TraceElement Quickstrom.TraceElementEffect
-toActionElement a = Quickstrom.TraceAction Quickstrom.NoStutter (map toActionSubject a) Quickstrom.ActionSuccess
+toActionElement :: Quickstrom.ActionSequence ActionSubject ActionSubject -> Quickstrom.TraceElement Quickstrom.TraceElementEffect
+toActionElement a = Quickstrom.TraceAction Quickstrom.NoStutter (bimap toActionSubject toActionSubject a) Quickstrom.ActionSuccess
 
 toActionSubject :: ActionSubject -> Quickstrom.ActionSubject
 toActionSubject as =
@@ -123,7 +123,7 @@ genTransitions = do
 genTransitionFrom :: State ByteString -> Gen (Transition ByteString)
 genTransitionFrom from' =
   Transition
-    <$> Gen.oneof [Just <$> genActionSequence, pure Nothing]
+    <$> Gen.oneof [Just . Quickstrom.actionSequenceToNonEmpty <$> genActionSequence, pure Nothing]
     <*> (States from' <$> genState)
     <*> pure False
 
@@ -142,8 +142,8 @@ genPosition = Quickstrom.Position <$> genNat <*> genNat <*> genNat <*> genNat
 genNat :: Gen Int
 genNat = getPositive <$> arbitrary
 
-genActionSequence :: Gen (Quickstrom.ActionSequence ActionSubject)
-genActionSequence = pure (Quickstrom.ActionSequence (pure (Quickstrom.KeyPress 'a')))
+genActionSequence :: Gen (Quickstrom.ActionSequence ActionSubject ActionSubject)
+genActionSequence = pure (Quickstrom.ActionSequence (Quickstrom.KeyPress 'a') [])
 
 identifier :: [Char] -> Gen Text
 identifier prefix = Text.pack . (prefix <>) . show <$> arbitrary @Word

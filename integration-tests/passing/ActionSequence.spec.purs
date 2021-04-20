@@ -7,14 +7,14 @@ import Data.Maybe (Maybe(..), isJust, isNothing)
 import Data.String (trim)
 
 readyWhen :: String
-readyWhen = "body"
+readyWhen = "form"
 
 actions :: Actions 
 actions = [ 
   focus "input[type=text]" 
     `followedBy` enterText "Hello" 
     `followedBy` specialKeyPress KeyEnter 
-    `followedBy` click "button" 
+    `followedBy` await "button" `followedBy` click "button" 
   ]
 
 proposition :: Boolean

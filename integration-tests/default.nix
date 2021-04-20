@@ -89,7 +89,7 @@ in makeTests {
     spec = ./passing/ActionSequence.spec.purs;
     origin = "$src/passing/ActionSequence.html";
     options = "--max-actions=10";
-    browser = browsers.chromium;
+    browser = browsers.firefox;
     expectedExitCode = 0;
   };
   MultiPage = {

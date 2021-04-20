@@ -9,9 +9,13 @@ import Data.String (trim)
 readyWhen :: String
 readyWhen = "body"
 
-actions :: Actions actions = [ focus "input[type=text]" `followedBy`
-enterText "Hello" `followedBy` specialKeyPress KeyEnter `followedBy` click
-"button" `weighted` 5 ]
+actions :: Actions 
+actions = [ 
+  focus "input[type=text]" 
+    `followedBy` enterText "Hello" 
+    `followedBy` specialKeyPress KeyEnter 
+    `followedBy` click "button" 
+  ]
 
 proposition :: Boolean
 proposition = true

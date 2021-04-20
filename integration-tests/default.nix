@@ -85,6 +85,13 @@ in makeTests {
     browser = browsers.firefox;
     expectedExitCode = 0;
   };
+  ActionSequence = {
+    spec = ./passing/ActionSequence.spec.purs;
+    origin = "$src/passing/ActionSequence.html";
+    options = "--max-actions=10";
+    browser = browsers.firefox;
+    expectedExitCode = 0;
+  };
   MultiPage = {
     spec = ./passing/MultiPage.spec.purs;
     origin = "$src/passing/MultiPage.html";

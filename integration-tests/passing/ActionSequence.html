@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Form</title>
+</head>
+<body>
+    <form action="ActionSequence.html">
+        <input type="text" name="message">
+        <input type="submit" value="Go">
+    </form>
+    <script>
+        const form = document.querySelector("form");
+        const params = new URLSearchParams(window.location.search);
+        const msgParam = params.get('message');
+        if (msgParam) {
+            form.remove();
+            let confirm = document.createElement("button");
+            confirm.textContent = `Confirm "${msgParam}"`;
+            confirm.addEventListener("click", () => {
+                confirm.disabled = true;
+            });
+            document.body.appendChild(confirm);
+        }
+    </script>
+</body>
+</html>

@@ -152,7 +152,7 @@ runSingle spec size = do
         else pure (Left ft)
   where
     runAndVerifyIsolated ::
-      (MonadIO m, MonadCatch m, WebDriver m, Selectable s) =>
+      (MonadIO m, MonadCatch m, WebDriver m, Selectable s, Show s) =>
       Int ->
       Producer (ActionSequence s ActionSubject) (Runner m) () ->
       Producer TestEvent (Runner m) (Either FailedTest (Trace TraceElementEffect))
@@ -173,7 +173,7 @@ runSingle spec size = do
     runShrink (Prefix actions') = do
       Pipes.yield (RunningShrink (length actions'))
       Pipes.each actions'
-        >-> Pipes.mapM (traverse selectOne)
+        >-> Pipes.mapM (traverse (maybe (fail "Couldn't reselect the shrunk action") pure <=< selectOne))
         >-> Pipes.filterM isCurrentlyValid
         & runAndVerifyIsolated 0
         & (<&> either ShrinkTestFailure ShrinkTestSuccess)
@@ -221,7 +221,7 @@ takeScreenshot' = do
   CheckEnv {checkOptions = CheckOptions {checkCaptureScreenshots}} <- ask
   if checkCaptureScreenshots then Just <$> takeScreenshot else pure Nothing
 
-observeManyStatesAfter :: (MonadIO m, MonadCatch m, WebDriver m, Selectable  s) => Queries -> ActionSequence s ActionSubject -> Pipe a (TraceElement ()) (Runner m) ()
+observeManyStatesAfter :: (MonadIO m, MonadCatch m, WebDriver m, Selectable s, Show s) => Queries -> ActionSequence s ActionSubject -> Pipe a (TraceElement ()) (Runner m) ()
 observeManyStatesAfter queries' actionSequence = do
   CheckEnv {checkScripts = scripts, checkOptions = CheckOptions {checkMaxTrailingStateChanges, checkTrailingStateChangeTimeout}} <- lift ask
   lift (runCheckScript (registerNextStateObserver scripts checkTrailingStateChangeTimeout queries'))
@@ -252,7 +252,7 @@ observeManyStatesAfter queries' actionSequence = do
       loop (mapTimeout (* 2) timeout)
 
 {-# SCC runActions' "runActions'" #-}
-runActions' :: (MonadIO m, MonadCatch m, WebDriver m, Selectable s, Specification spec) => spec -> Pipe (ActionSequence s ActionSubject) (TraceElement ()) (Runner m) ()
+runActions' :: (MonadIO m, MonadCatch m, WebDriver m, Selectable s, Show s, Specification spec) => spec -> Pipe (ActionSequence s ActionSubject) (TraceElement ()) (Runner m) ()
 runActions' spec = do
   scripts <- lift (asks checkScripts)
   state1 <- lift (runCheckScript (observeState scripts queries'))

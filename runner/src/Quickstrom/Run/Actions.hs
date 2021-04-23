@@ -2,8 +2,8 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NumericUnderscores #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedLabels #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Quickstrom.Run.Actions
   ( awaitElement,
@@ -21,11 +21,12 @@ module Quickstrom.Run.Actions
 where
 
 import Control.Lens
-import Data.Generics.Labels ()
-import Control.Monad (fail)
+import Control.Monad.Catch (MonadCatch (catch))
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Loops (andM)
 import Control.Monad.Trans.Class (MonadTrans (lift))
+import Control.Monad.Trans.Writer.Strict (WriterT, runWriterT, tell)
+import Data.Generics.Labels ()
 import Data.List hiding (map)
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -36,15 +37,13 @@ import Pipes (Producer)
 import qualified Pipes
 import Quickstrom.Action
 import Quickstrom.Element
-import Quickstrom.Prelude hiding (catch, check, trace)
+import Quickstrom.Prelude hiding (catch, check, trace, try)
 import Quickstrom.Run.Runner
 import Quickstrom.Run.Scripts (CheckScripts (..), runCheckScript)
 import Quickstrom.Timeout (Timeout (..))
-import Quickstrom.Trace (ActionResult (..), ActionSubject(..))
+import Quickstrom.Trace (ActionResult (..), ActionSubject (..))
 import Quickstrom.WebDriver.Class
 import qualified Test.QuickCheck as QuickCheck
-import Control.Monad.Catch (MonadCatch(catch))
-import Control.Monad.Trans.Writer.Strict (runWriterT, tell, WriterT)
 
 shrinkAction :: ActionSequence Selector Selected -> [ActionSequence Selector Selected]
 shrinkAction _ = [] -- TODO?
@@ -117,7 +116,7 @@ isActionCurrentlyValid = \case
   Refresh -> pure True
   where
     isNotActive e = (/= Just e) <$> activeElement
-    activeElement = (Just <$> getActiveElement) `catch` (\WebDriverResponseError{} -> pure Nothing)
+    activeElement = (Just <$> getActiveElement) `catch` (\WebDriverResponseError {} -> pure Nothing)
     isClickable e = do
       scripts <- asks checkScripts
       getElementTagName e >>= \case
@@ -139,13 +138,15 @@ chooseAction choices
 
 recordActionSubjectPositions ::
   (MonadIO m, WebDriver m) =>
-  ActionSequence Selector ActionSubject
-  -> Runner m (ActionSequence Selector ActionSubject)
+  ActionSequence Selector ActionSubject ->
+  Runner m (ActionSequence Selector ActionSubject)
 recordActionSubjectPositions seqs = do
   scripts <- asks checkScripts
-  for seqs (\subject -> do
-      p <- runCheckScript (getPosition scripts (subject ^. #element))
-      pure (subject { position = p })
+  for
+    seqs
+    ( \subject -> do
+        p <- runCheckScript (getPosition scripts (subject ^. #element))
+        pure (subject {position = p})
     )
 
 tryAction :: MonadCatch m => Runner m ActionResult -> Runner m ActionResult
@@ -179,38 +180,44 @@ runAction = \case
   Navigate uri -> tryAction (ActionSuccess <$ navigateTo uri)
   Refresh -> tryAction (ActionSuccess <$ pageRefresh)
 
-runActionSequence :: (MonadIO m, MonadCatch m, WebDriver m, Selectable s) => ActionSequence s ActionSubject -> Runner m (ActionSequence ActionSubject ActionSubject, ActionResult)
+runActionSequence :: (MonadIO m, MonadCatch m, WebDriver m, Selectable s, Show s) => ActionSequence s ActionSubject -> Runner m (ActionSequence ActionSubject ActionSubject, ActionResult)
 runActionSequence (ActionSequence action actions) = do
   (result, actions') <- runWriterT (ifSuccess (lift (runAction (action & traverse %~ view #element))) (runRest actions))
   pure (ActionSequence action actions', result)
   where
     ifSuccess :: Monad m => m ActionResult -> m ActionResult -> m ActionResult
-    ifSuccess a b = 
-        a >>= \case
-          ActionSuccess -> b
-          err -> pure err
-    runRest :: (WebDriver m, MonadCatch m, MonadIO m, Selectable s) => [Action s] -> WriterT [Action ActionSubject] (Runner m) ActionResult
+    ifSuccess a b =
+      a >>= \case
+        ActionSuccess -> b
+        err -> pure err
+    runRest :: (WebDriver m, MonadCatch m, MonadIO m, Selectable s, Show s) => [Action s] -> WriterT [Action ActionSubject] (Runner m) ActionResult
     runRest [] = pure ActionSuccess
     runRest (x : xs) = do
-      x' <- traverse (lift . selectOne) x
-      ifSuccess (tell [x'] >> lift (runAction (x' & traverse %~ view #element))) (runRest xs)
+      let selectOne' :: (WebDriver m, Selectable s, Show s) => s -> ExceptT ActionResult m ActionSubject
+          selectOne' s = 
+            lift (selectOne s) >>= \case
+              Just as -> pure as
+              Nothing -> throwError (ActionFailed ("Couldn't select a single element with selector: " <> show s))
+      lift (runExceptT (traverse selectOne' x)) >>= \case
+        Right x' -> ifSuccess (tell [x'] >> lift (runAction (x' & traverse %~ view #element))) (runRest xs)
+        Left err -> pure err
 
 class Selectable s where
-  selectOne :: WebDriver m => s -> m ActionSubject
+  selectOne :: WebDriver m => s -> m (Maybe ActionSubject)
 
 instance Selectable Selector where
   selectOne s = do
     es <- findAll s
     case es ^? ix 0 of
-      Just e -> pure (ActionSubject (Selected s 0) e Nothing)
-      Nothing -> fail ("Couldn't select a single element with selector: " <> show s)
+      Just e -> pure (Just (ActionSubject (Selected s 0) e Nothing))
+      Nothing -> pure Nothing
 
 instance Selectable Selected where
   selectOne selected'@(Selected s i) = do
     es <- findAll s
     case es ^? ix i of
-      Just e -> pure (ActionSubject selected' e Nothing)
-      Nothing -> fail ("Couldn't select a single element with selector: " <> show s)
+      Just e -> pure (Just (ActionSubject selected' e Nothing))
+      Nothing -> pure Nothing
 
 defaultTimeout :: Timeout
 defaultTimeout = Timeout 10_000

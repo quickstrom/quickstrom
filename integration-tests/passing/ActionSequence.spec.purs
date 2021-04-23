@@ -14,7 +14,8 @@ actions = [
   focus "input[type=text]" 
     `followedBy` enterText "Hello" 
     `followedBy` specialKeyPress KeyEnter 
-    `followedBy` await "button" `followedBy` click "button" 
+    `followedBy` await "button"
+    `followedBy` click "button" 
   ]
 
 proposition :: Boolean

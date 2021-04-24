@@ -14,9 +14,13 @@ actions = [
   focus "input[type=text]" 
     `followedBy` enterText "Hello" 
     `followedBy` specialKeyPress KeyEnter 
-    `followedBy` await "button"
+    -- `followedBy` awaitWithTimeoutSecs 2 "button"
     `followedBy` click "button" 
   ]
 
+buttonDisabled :: Maybe Boolean
+buttonDisabled = _.disabled <$> queryOne "button" { disabled }
+
 proposition :: Boolean
-proposition = true
+proposition = isJust (queryOne "form" {}) && (buttonDisabled == Nothing)
+  `until` (buttonDisabled == Just true)

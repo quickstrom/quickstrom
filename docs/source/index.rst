@@ -23,6 +23,7 @@ document:
 * :doc:`topics/index`: high-level explanations of concepts and how they fit
   together
 * :doc:`tutorials/index`: step-by-step guides focused on learning
+* :doc:`how-to-guides/index`: short guides to achieve specific goals
 
 Staying Updated
 ---------------
@@ -36,4 +37,5 @@ Sign up for the `the newsletter <https://buttondown.email/quickstrom>`_.
    installation
    topics/index
    tutorials/index
+   how-to-guides/index
    faq

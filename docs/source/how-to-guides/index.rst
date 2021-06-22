@@ -8,3 +8,4 @@ and run Quickstrom already.
 .. toctree::
 
    broken-links
+   testing-in-github-actions

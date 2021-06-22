@@ -1,8 +1,10 @@
 { pkgs ? import ../nixpkgs.nix { } }:
 let
   src = pkgs.nix-gitignore.gitignoreSource [ ] ./.;
-  sphinx-env = pkgs.python3.withPackages (ps: [ ps.sphinx ps.sphinx_rtd_theme ]);
-  dependencies = [ sphinx-env pkgs.texlive.combined.scheme-basic pkgs.graphviz ];
+  sphinx-env =
+    pkgs.python3.withPackages (ps: [ ps.sphinx ps.sphinx_rtd_theme ]);
+  dependencies =
+    [ sphinx-env pkgs.texlive.combined.scheme-basic pkgs.graphviz ];
   site = pkgs.stdenv.mkDerivation {
     inherit src;
     name = "docs";

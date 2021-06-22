@@ -35,13 +35,12 @@ commit to the ``main`` branch. It's based on Domen Kožar's gist. [#original]_
        # `example.spec.purs` in the root of the GitHub repository.
        - run: quickstrom check example.spec.purs https://example.com
 
-Replace the placeholder paths and URLs. Also, you might want to run tests in
-Chrome instead. See :doc:`../topics/checking` for instructions on using other
-browsers.
+Replace the placeholder paths and URLs. 
 
-Finally, if you'd like to check multiple specs and in multiple browsers, see
-`matrix configurations
-<https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idstrategymatrix>`_
-in the GitHub Actions documentation.
+Next Steps
+----------
+
+* You might want to run tests in Chrome instead. See :doc:`../topics/checking` for instructions on using other browsers.
+* If you'd like to check multiple specs and in multiple browsers, see `matrix configurations <https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idstrategymatrix>`_ in the GitHub Actions documentation.
 
 .. [#original] Domen Kožar wrote the original GitHub Action configuration for `Cachix <https://cachix.org>`__: https://gist.github.com/domenkozar/71135bf7aa6d50d6911fb74f4dcb4bad

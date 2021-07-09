@@ -31,6 +31,7 @@ import Quickstrom.CLI.Reporter (Reporter)
 import qualified Quickstrom.CLI.Reporter as Reporter
 import qualified Quickstrom.CLI.Reporter.Console as Reporter
 import qualified Quickstrom.CLI.Reporter.HTML as Reporter
+import qualified Quickstrom.CLI.Reporter.JSON as Reporter
 import qualified Quickstrom.CLI.Version as Quickstrom
 import qualified Quickstrom.LogLevel as Quickstrom
 import Quickstrom.Prelude hiding (option, try)
@@ -78,7 +79,8 @@ data CheckOptions = CheckOptions
     webDriverPort :: Int,
     webDriverPath :: FilePath,
     reporters :: [Text],
-    htmlReportDirectory :: FilePath
+    htmlReportDirectory :: FilePath,
+    jsonReportDirectory :: FilePath
   }
 
 data LintOptions = LintOptions
@@ -208,6 +210,13 @@ checkOptionsParser =
           <> long "html-report-directory"
           <> value "html-report"
           <> help "Output directory of generated HTML report"
+      )
+    <*> option
+      str
+      ( metavar "DIR"
+          <> long "json-report-directory"
+          <> value "json-report"
+          <> help "Output directory of generated JSON report"
       )
 
 lintOptionsParser :: Parser LintOptions
@@ -353,7 +362,8 @@ main = do
 availableReporters :: (MonadIO m, MonadReader Quickstrom.LogLevel m) => [(Text, CheckOptions -> Reporter m)]
 availableReporters =
   [ ("console", const Reporter.consoleReporter),
-    ("html", \opts -> Reporter.htmlReporter (htmlReportDirectory opts))
+    ("html", \opts -> Reporter.htmlReporter (htmlReportDirectory opts)),
+    ("json", \opts -> Reporter.jsonReporter (jsonReportDirectory opts))
   ]
 
 reporterNames :: [Text]

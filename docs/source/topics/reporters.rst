@@ -7,6 +7,7 @@ available:
 
 * ``console``
 * ``html``
+* ``json``
 
 Invoke reporters by passing the ``--reporter=<NAME>`` option to the ``check``
 command.
@@ -36,3 +37,13 @@ the following command:
 .. code-block:: console
 
    $ python3 -m http.server -d <DIR>
+
+JSON
+----
+
+The JSON report works similarly to the HTML report, except it generates only a
+JSON file and screenshots, no HTML files. In the report directory you'll find
+a file ``report.json`` that you can work with.
+
+To set the directory to generate the report in, use the option
+``--json-report-directory=<DIR>``.

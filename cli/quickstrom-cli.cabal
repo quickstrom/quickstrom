@@ -41,6 +41,7 @@ library
                     , Quickstrom.CLI.Reporter
                     , Quickstrom.CLI.Reporter.Console
                     , Quickstrom.CLI.Reporter.HTML
+                    , Quickstrom.CLI.Reporter.JSON
                     , Quickstrom.CLI.Version
                     , Paths_quickstrom_cli
   hs-source-dirs:     src
@@ -70,7 +71,7 @@ test-suite quickstrom-cli-test
   type:               exitcode-stdio-1.0
   main-is:            Main.hs
   hs-source-dirs:     test
-  other-modules:      Quickstrom.CLI.Reporter.HTMLTest
+  other-modules:      Quickstrom.CLI.Reporter.JSONTest
   build-depends:      base
                     , hedgehog
                     , QuickCheck

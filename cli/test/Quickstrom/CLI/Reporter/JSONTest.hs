@@ -4,7 +4,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Quickstrom.CLI.Reporter.HTMLTest where
+module Quickstrom.CLI.Reporter.JSONTest where
 
 import Control.Lens hiding (elements)
 import Data.Generics.Labels ()
@@ -16,7 +16,7 @@ import Data.TreeDiff.QuickCheck (ediffEq)
 import Data.Vector (Vector)
 import qualified Data.Vector as Vector
 import qualified Quickstrom.Action as Quickstrom
-import Quickstrom.CLI.Reporter.HTML hiding (elements, toActionSubject)
+import Quickstrom.CLI.Reporter.JSON hiding (elements, toActionSubject)
 import qualified Quickstrom.Element as Quickstrom
 import Quickstrom.Prelude hiding (State)
 import qualified Quickstrom.Trace as Quickstrom

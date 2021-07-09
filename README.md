@@ -2,7 +2,8 @@
 <h1>Quickstrom</h1>
 <p>High-confidence browser testing</p>
 <p>
-  <a href="https://docs.quickstrom.io/">Documentation</a>
+  <a href="https://app.quickstrom.io/">Quickstrom Cloud</a>
+  | <a href="https://docs.quickstrom.io/">Documentation</a>
   | <a href="https://buttondown.email/quickstrom">Newsletter</a>
   | <a href="https://wickstrom.tech/programming/2020/07/02/the-todomvc-showdown-testing-with-webcheck.html">TodoMVC Showdown</a>
   

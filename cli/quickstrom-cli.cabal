@@ -1,7 +1,7 @@
 cabal-version:        2.2
 
 name:                 quickstrom-cli
-version:              0.3.0
+version:              0.4.0
 author:               Oskar Wickström
 maintainer:           oskar@wickstrom.tech
 build-type:           Simple

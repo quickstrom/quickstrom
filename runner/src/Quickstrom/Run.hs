@@ -8,8 +8,8 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedLabels #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE Strict #-}
@@ -23,6 +23,7 @@ module Quickstrom.Run
     CheckEnv (..),
     CheckOptions (..),
     CheckResult (..),
+    checkResultActions,
     PassedTest (..),
     FailedTest (..),
     Size (..),
@@ -39,12 +40,14 @@ import Control.Monad.Trans.Class (MonadTrans (lift))
 import Data.Function ((&))
 import Data.Generics.Labels ()
 import Data.Generics.Product (field)
-import Data.Generics.Sum (_Ctor)
+import qualified Data.Generics.Product as Product
+import Data.Generics.Sum (_As, _Ctor)
 import Data.List hiding (map, sortOn)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Text.Prettyprint.Doc
 import Data.Vector (Vector)
+import qualified Data.Vector as Vector
 import GHC.Generics (Generic)
 import Pipes (Pipe, Producer, (>->))
 import qualified Pipes
@@ -52,7 +55,7 @@ import qualified Pipes.Prelude as Pipes
 import Quickstrom.Action
 import Quickstrom.Prelude hiding (Prefix, catch, check, trace)
 import Quickstrom.Result
-import Quickstrom.Run.Actions (awaitElement, defaultTimeout, generateValidActions, isCurrentlyValid, selectOne, runActionSequence, Selectable)
+import Quickstrom.Run.Actions (Selectable, awaitElement, defaultTimeout, generateValidActions, isCurrentlyValid, runActionSequence, selectOne)
 import Quickstrom.Run.Runner (CheckEnv (..), CheckOptions (..), Runner, Size (..), run)
 import Quickstrom.Run.Scripts (CheckScripts (..), readScripts, runCheckScript)
 import Quickstrom.Run.Shrinking
@@ -68,7 +71,7 @@ newtype PassedTest = PassedTest
   deriving (Show, Generic)
 
 data FailedTest = FailedTest
-  { numShrinks :: Int,
+  { failedAfterShrinks :: [ShrinkResult],
     trace :: Trace TraceElementEffect,
     reason :: Maybe Text
   }
@@ -79,6 +82,19 @@ data CheckResult
   | CheckFailure {failedAfter :: Int, passedTests :: Vector PassedTest, failedTest :: FailedTest}
   | CheckError {checkError :: Text}
   deriving (Show, Generic)
+
+checkResultActions :: CheckResult -> Vector (ActionSequence ActionSubject ActionSubject)
+checkResultActions = \case
+  CheckSuccess {passedTests} -> Vector.fromList (passedTests ^.. traverse . field @"trace" . traceActions)
+  CheckFailure {passedTests, failedTest} ->
+    Vector.fromList
+      ( passedTests ^.. traverse . field @"trace" . traceActions
+          <> failedTest ^.. field @"trace" . traceActions
+          <> failedTest ^.. field @"failedAfterShrinks" . traverse . _Ctor @"ShrinkTestFailure" . field @"trace" . traceActions
+      )
+  CheckError {} -> mempty
+
+-- <> Vector.fromList (r ^.. _Ctor @"CheckFailure" . Product.position @3 . field @"trace" . traceActions)
 
 data TestEvent
   = TestStarted Size
@@ -128,7 +144,7 @@ runSingle spec size = do
   result <-
     generateValidActions (actions spec)
       >-> Pipes.take (fromIntegral (unSize size))
-      & runAndVerifyIsolated 0
+      & runAndVerifyIsolated
   case result of
     Right trace -> do
       Pipes.yield (TestPassed size trace)
@@ -148,15 +164,14 @@ runSingle spec size = do
           let counterExample =
                 counterExamples
                   & minimumByOf (folded . _Ctor @"ShrinkTestFailure") (compare `on` lengthOf (field @"trace" . traceElements))
-          pure (maybe (Left ft) (Left . (field @"numShrinks" .~ length counterExamples)) counterExample)
+          pure (maybe (Left ft) (Left . (field @"failedAfterShrinks" .~ counterExamples)) counterExample)
         else pure (Left ft)
   where
     runAndVerifyIsolated ::
       (MonadIO m, MonadCatch m, WebDriver m, Selectable s, Show s) =>
-      Int ->
       Producer (ActionSequence s ActionSubject) (Runner m) () ->
       Producer TestEvent (Runner m) (Either FailedTest (Trace TraceElementEffect))
-    runAndVerifyIsolated n producer = do
+    runAndVerifyIsolated producer = do
       trace <- lift do
         opts <- asks checkOptions
         annotateStutteringSteps <$> inNewPrivateWindow (checkWebDriverOptions opts) do
@@ -164,8 +179,8 @@ runSingle spec size = do
           elementsToTrace (producer >-> runActions' spec)
       case verify spec (trace ^.. nonStutterStates) of
         Right Accepted -> pure (Right trace)
-        Right Rejected -> pure (Left (FailedTest n trace Nothing))
-        Left err -> pure (Left (FailedTest n trace (Just err)))
+        Right Rejected -> pure (Left (FailedTest mempty trace Nothing))
+        Left err -> pure (Left (FailedTest mempty trace (Just err)))
     runShrink ::
       (MonadIO m, MonadCatch m, WebDriver m) =>
       Prefix (ActionSequence Selected Selected) ->
@@ -175,7 +190,7 @@ runSingle spec size = do
       Pipes.each actions'
         >-> Pipes.mapM (traverse (maybe (fail "Couldn't reselect the shrunk action") pure <=< selectOne))
         >-> Pipes.filterM isCurrentlyValid
-        & runAndVerifyIsolated 0
+        & runAndVerifyIsolated
         & (<&> either ShrinkTestFailure ShrinkTestSuccess)
         & (`catch` (\(WebDriverOtherError t) -> pure (ShrinkTestError t)))
 

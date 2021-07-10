@@ -33,7 +33,7 @@ consoleReporter =
               Just err -> Quickstrom.logDoc (Quickstrom.logSingle Nothing (line <> annotate (color Red) ("Test failed with error:" <+> pretty err <> line)))
               Nothing -> pure ()
             Quickstrom.logDoc . Quickstrom.logSingle Nothing . annotate (color Red) $
-              line <> "Failed after" <+> pluralize failedAfter "test" <+> "and" <+> pluralize (Quickstrom.numShrinks failedTest) "shrink" <> "." <> line
+              line <> "Failed after" <+> pluralize failedAfter "test" <+> "and" <+> pluralize (length (Quickstrom.failedAfterShrinks failedTest)) "shrink" <> "." <> line
           Quickstrom.CheckError {Quickstrom.checkError} -> do
             Quickstrom.logDoc . Quickstrom.logSingle Nothing . annotate (color Red) $
               line <> "Check encountered an error:" <+> pretty checkError <> line

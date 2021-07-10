@@ -42,7 +42,8 @@ import System.FilePath ((</>))
 
 data Report = Report
   { generatedAt :: Time.UTCTime,
-    result :: Result
+    result :: Result,
+    totalActions :: Int
   }
   deriving (Eq, Show, Generic, JSON.ToJSON)
 
@@ -154,7 +155,7 @@ jsonReporter reportDir = Quickstrom.Reporter {preCheck, report}
           failedTest' <- traceToTest reportDir (failedTest ^. #trace)
           pure
             Failed
-              { numShrinks = Quickstrom.numShrinks failedTest,
+              { numShrinks = length (Quickstrom.failedAfterShrinks failedTest),
                 reason = Quickstrom.reason failedTest,
                 passedTests = passedTests',
                 failedTest = failedTest'
@@ -165,7 +166,8 @@ jsonReporter reportDir = Quickstrom.Reporter {preCheck, report}
           passedTests' <- traverse (traceToTest reportDir . view #trace) passedTests
           pure Passed {passedTests = passedTests'}
       let reportFile = reportDir </> "report.json"
-      liftIO $ LBS.writeFile reportFile (JSON.encode (Report now reportResult))
+          report' = Report now reportResult (lengthOf (folded . Quickstrom.actionSequenceActions) (Quickstrom.checkResultActions result))
+      liftIO $ LBS.writeFile reportFile (JSON.encode report')
 
 encodeScreenshot :: ByteString -> Either Text Base64Screenshot
 encodeScreenshot b =

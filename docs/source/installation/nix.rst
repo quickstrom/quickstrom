@@ -23,7 +23,7 @@ executable:
 .. note::
 
    If the installation fails with "too many open files", see
-   `https://stackoverflow.com/questions/49301678/how-do-i-set-the-ulimit-in-a-nix-build-shell`__.
+   `How do I set the ulimit in a nix build shell? <https://stackoverflow.com/questions/49301678/how-do-i-set-the-ulimit-in-a-nix-build-shell>`__.
 
 Verify that Quickstrom is now available in your environment:
 

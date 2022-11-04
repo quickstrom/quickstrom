@@ -1,3 +1,0 @@
-integration-tests/lib/* linguist-vendored
-html-report/yarn.nix linguist-generated
-dsl/spago-packages.nix linguist-generated

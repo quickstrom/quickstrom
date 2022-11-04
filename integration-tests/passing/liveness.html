@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Until Test</title>
+</head>
+
+<body>
+  <button>Moar</button>
+  <button>Moar</button>
+</body>
+<script>
+  function initButton(button) {
+    var i = 0;
+    function increment() {
+      if (i > 10) {
+        button.textContent = "Done";
+        button.disabled = true;
+      } else {
+        i++;
+      }
+    }
+    button.addEventListener("click", increment);
+  }
+  document.querySelectorAll("button").forEach(initButton);
+</script>
+
+</html>

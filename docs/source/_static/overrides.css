@@ -1,0 +1,92 @@
+body {
+  font-family: "Open Sans", sans-serif;
+  line-height: 1.6;
+  font-size: 16px;
+  color: #222;
+}
+
+code,
+pre {
+  font-family: "Inconsolata", monospace !important;
+  font-size: 110% !important;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: "Oswald", sans-serif;
+  font-weight: 500;
+}
+
+.rst-content blockquote {
+  font-style: italic;
+}
+
+.rst-content .document a {
+  text-decoration: underline;
+}
+a:link {
+  color: rgb(83, 41, 170);
+}
+a:visited {
+  color: rgba(44, 25, 83, 1) 0%,
+}
+
+.wy-menu-vertical a:active {
+  background: rgba(83, 41, 170, 1);
+}
+
+.wy-nav-top {
+  background: linear-gradient(
+    144deg,
+    rgba(44, 25, 83, 1) 0%,
+    rgba(83, 41, 170, 1) 100%
+  );
+}
+
+.wy-nav-top a,
+.wy-nav-side a {
+  color: inherit;
+}
+
+.wy-nav-side a.icon-home:before {
+  display: none;
+}
+.wy-nav-top a,
+.wy-nav-side a.icon-home {
+  font-size: 1.75rem;
+  font-family: "Oswald", sans-serif;
+  font-weight: 500;
+}
+
+.rst-content .note {
+  background: rgb(229, 222, 242);
+}
+
+.rst-content .note .admonition-title {
+  background: rgb(131, 108, 175);
+}
+
+.rst-content .toctree-wrapper ul {
+    line-height: inherit;
+}
+
+.rst-content code.literal {
+    background: rgba(0,0,0,.05);
+    border: none;
+    color: inherit;
+}
+
+.highlight-console .gp {
+  font-weight: bold;
+  -webkit-user-select: none; /* Chrome all / Safari all */
+  -moz-user-select: none; /* Firefox all */
+  -ms-user-select: none; /* IE 10+ */
+  user-select: none; /* Likely future */
+}
+.highlighttable .linenos {
+    color: #888;
+}

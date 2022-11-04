@@ -1,0 +1,24 @@
+import control;
+import list;
+import ltl;
+import quickstrom/keys;
+
+action click!(x) = for element in x. { id: "click", event: false, args: [element.ref] } when element.enabled && element.visible && element.interactable;
+
+action doubleClick!(x) = for element in x. { id: "doubleClick", event: false, args: [element.ref] } when element.enabled && element.visible && element.interactable;
+
+action clear!(x) = for element in x. { id: "clear", event: false, args: [element.ref] } when (not element.active) && element.interactable;
+
+action focus!(x) = for element in x. { id: "focus", event: false, args: [element.ref] } when (not element.active) && element.interactable;
+
+action keyPress!(key) = { id: "keyPress", event: false, args: [key] };
+
+action enterText!(text) = { id: "enterText", event: false, args: [text] };
+
+action enterTextInto!(text, elements) = for element in elements. { id: "enterTextInto", event: false, args: [text, element.ref] };
+
+action changed?(x) = for element in x. { id: "changed", event: true, args: [x.ref]};
+
+action loaded? = { id: "loaded", event: true, args: [] };
+
+action noop! = {id:"noop",event:false,args:[]};

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Form</title>
+    <style>
+     main {
+       display: none;
+     }
+     .loading {
+       position: fixed;
+       top: 0;
+       left: 0;
+       right: 0;
+       bottom: 0;
+       background: white;
+     }
+     .error {
+       border-color: red;
+     }
+    </style>
+</head>
+<body>
+    <main>
+        <form action="multi-page.html">
+            <input type="text" name="message">
+            <input type="submit" value="Go">
+        </form>
+        <p style="display: none;" id="message"></p>
+    </main>
+    <div class="loading">Loading...</div>
+    <script>
+        const main = document.querySelector("main");
+        const loading = document.querySelector(".loading");
+
+        setTimeout(() => {
+            const form = document.querySelector("form");
+            const textInput = document.querySelector("form input[type=text]");
+
+            function onInputChange() {
+              textInput.classList.remove("error");
+            }
+
+            textInput.addEventListener("change", onInputChange);
+            textInput.addEventListener("keyup", onInputChange);
+
+            form.addEventListener("submit", (e) => {
+                if (textInput.value.trim() === "") {
+                    textInput.classList.add("error");
+                    e.preventDefault();
+                }
+            });
+
+
+            const msg = document.querySelector("#message");
+            const params = new URLSearchParams(window.location.search);
+            const msgParam = params.get('message');
+
+            if (msgParam) {
+                form.style.display = "none";
+                msg.style.display = "block";
+                msg.textContent = msgParam;
+            }
+
+            main.style.display = "block";
+            loading.style.display = "none";
+        }, 500);
+    </script>
+</body>
+</html>

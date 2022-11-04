@@ -1,0 +1,13 @@
+// This checks that our spec finishes even if we don't declare any event
+// that matches when the counter changes within the timeout. Previously
+// this caused the check to run indefinitely, waiting for a matched event.
+import quickstrom;
+
+action wait! = noop! timeout 200;
+
+let ~n = parseInt(`#counter`.textContent);
+
+let ~prop =
+  (always {20} ((n < 10) until {10} (n == 10)));
+
+check prop with * when loaded?;

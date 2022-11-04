@@ -1,0 +1,61 @@
+import quickstrom;
+
+let ~input =
+  first(
+    for i in `input[type=text]` {
+      { message: i.value, active: i.active }
+    }
+  );
+
+let ~trimmedInputMessage = trim(input.message);
+
+let ~submittedMessage =
+  first(
+    for p in `#message` {
+      if p.visible { p.textContent }
+    }
+  );
+
+let ~isLoading = `.loading`.visible;
+
+action ~clientCodeLoaded? = changed?(`.loading`);
+
+let ~hasValidationError = length(`input[type=text].error`) == 1;
+
+action ~messageInvalidated? = changed?(`input[type=text]`) when hasValidationError;
+
+action ~submitValid! = click!(`input[type=submit]`) timeout 1000 when trimmedInputMessage != "";
+action ~submitInvalid! = click!(`input[type=submit]`) when trimmedInputMessage == "";
+
+action ~focusInput! = focus!(`input[type=text]`);
+action ~pressKey! = [
+  keyPress!(keys.space),
+  keyPress!("a")
+] when input.active;
+
+// States and transitions
+
+let ~initial = input.message == "";
+
+let ~enterMessage = not unchanged(input.message);
+
+let ~focusInput = (not input.active) && (next input.active);
+
+let ~submitInvalidMessage = trimmedInputMessage == "" && next hasValidationError;
+
+let ~submitValidMessage =
+    let msg = trimmedInputMessage;
+    msg != ""
+      && submittedMessage == null
+      && (not isLoading)
+      && next isLoading
+      && next (next (
+        not isLoading
+        && trim(submittedMessage) == msg
+      ));
+
+let ~prop = 
+  initial && ((focusInput || enterMessage || submitInvalidMessage) until {100} submitValidMessage);
+
+check prop with * when clientCodeLoaded?;
+

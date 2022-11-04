@@ -1,0 +1,39 @@
+[tool.poetry]
+name = "quickstrom"
+version = "0.1.0"
+description = ""
+authors = ["owickstrom <oskar@wickstrom.tech>"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+selenium = { version = "==4.0.0b3", allow-prereleases = true }
+click = "^7.1.2"
+jsonlines = "^2.0.0"
+deepdiff = "^5.2.3"
+tabulate = "^0.8.9"
+pypng = "^0.0.21"
+
+[tool.poetry.dev-dependencies]
+hypothesis = "^6.21.5"
+mypy = "^0.812"
+jedi = "^0.17.0"
+rope = "^0.18.0"
+yapf = "*"
+toml = "^0.10.2"
+pytest = "^6.2.5"
+
+[tool.poetry.scripts]
+quickstrom = 'quickstrom.cli:run'
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.yapf]
+based_on_style = "pep8"
+spaces_before_comment = 4
+split_before_logical_operator = true
+
+[tool.pyright]
+stubPath = "typings"
+typeCheckingMode = "basic"

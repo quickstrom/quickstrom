@@ -1,0 +1,321 @@
+*, *:before, *:after {
+  box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
+    font-family: 'Free Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.4;
+    background: #222;
+    color: #ccc;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    margin: 0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+}
+
+header, footer {
+    padding: 1.5rem;
+    background: #2a2a2a;
+}
+
+#root, .report {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+footer {
+    font-size: 0.875rem;
+}
+
+header {
+    display: flex;
+    align-items: center;
+}
+
+header .header-summary {
+    flex: 1 1 auto;
+}
+header .controls {
+    flex: 0 0 auto;
+}
+
+header h1 {
+    margin: 0 0 1rem;
+    font-size: 150%;
+    font-weight: 400;
+}
+
+header .summary p {
+    margin: .5em 0;
+}
+
+header .summary.error,
+header .summary.failure {
+    color: #d33;
+}
+
+header .summary.success {
+    color: #3d3;
+}
+
+section.error {
+    padding: 1.5rem;
+    color: #d33;
+    font-family: 'Monaco', 'Consolas', 'Ubuntu Mono', monospace;
+    white-space: pre;
+}
+
+main {
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+}
+
+main .content {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+}
+main .controls {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: space-between;
+}
+main .controls button {
+    background: #222;
+    border: none;
+    padding: 2rem;
+    cursor: pointer;
+    color: #ccc;
+    letter-spacing: 0.05em;
+    font-size: 1rem;
+    text-transform: uppercase;
+}
+main .controls button:disabled {
+    cursor: not-allowed;
+    color: #666;
+}
+main .controls button:hover,
+main .controls button:active {
+    background: #2f2f2f;
+}
+
+.selector {
+    white-space: break-spaces;
+    font-family: 'Monaco', 'Consolas', 'Ubuntu Mono', monospace;
+}
+
+.actions, .action, .states, .screenshots, .details {
+    width: 100%;
+    display: flex;
+}
+
+.actions {
+    flex-direction: column;
+    align-items: center;
+
+    width: calc(100%/6 * 3);
+    margin: 2rem calc(100%/6 * 1.5) 1rem;
+    border-top: 1px solid #666;
+    border-left: 1px solid #666;
+    border-right: 1px solid #666;
+
+    color: #fff;
+}
+.actions.initial {
+    border-left: none;
+}
+
+.actions .label {
+    margin: -2rem 0 0;
+    line-height: 1rem;
+    background: #222;
+    display: block;
+    text-transform: uppercase;
+    font-size: .75rem;
+    color: #999;
+}
+
+.actions-inner {
+    width: calc(100%/6 * 3);
+    text-align: center;
+    margin-top: 1.5rem;
+}
+.action-details code {
+    display: block;
+    margin: 1em 0 0 0;
+    font-family: 'Monaco', 'Consolas', 'Ubuntu Mono', monospace;
+}
+.action-details > * {
+    margin: .5em 0;
+}
+
+.states {
+    display: flex;
+    width: 100%;
+    margin: 0;
+}
+.state {
+    flex: 0 0 50%;
+    text-align: center;
+    color: #fff;
+}
+
+.state .label {
+    margin: .5rem 0;
+}
+
+.state h2 {
+    font-size: 150%;
+}
+
+.state .queries {
+    display: none;
+}
+
+.screenshots {
+    display: flex;
+    justify-content: space-evenly;
+    margin: 2rem 0;
+}
+.state-screenshot {
+    flex: 0 0 49%;
+    border: 2px solid #111;
+    display: flex;
+}
+.state-screenshot.missing {
+    border: none;
+}
+.state-screenshot-inner {
+    width: 100%;
+    flex: 0 0 auto;
+    position: relative;
+    margin: 0 auto;
+    overflow: hidden;
+}
+.state-screenshot img {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+.state-screenshot-inner .marker {
+    position: absolute;
+    z-index: 0;
+}
+.state-screenshot-inner .marker-dim {
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0;
+    transition: opacity .2s ease;
+    pointer-events: none;
+}
+.state-screenshot-inner .marker-dim.active {
+    opacity: 1;
+}
+.state-screenshot-inner .marker.active {
+    border: 1px dashed #000;
+    z-index: 2;
+}
+.state-screenshot-inner .marker.active.added {
+    border-color: #2c2;
+}
+.state-screenshot-inner .marker.active.modified {
+    border-color: orange;
+}
+.state-screenshot-inner .marker.active.removed {
+    border-color: red;
+}
+
+.state-screenshot-inner .marker .marker-details {
+    display: none;
+    position: absolute;
+    top: calc(100% + 1rem);
+    background: #fff;
+    color: #333;
+    border: 1px solid #333;
+    min-width: 10rem;
+    z-index: 2;
+}
+.state-screenshot-inner .marker.active .marker-details {
+    display: block;
+}
+
+.details {
+    display: flex;
+    flex-direction: column;
+    margin: 2rem 0;
+}
+.details .query {
+    display: flex;
+    flex-wrap: wrap;
+    text-align: center;
+}
+.details .selector {
+    flex: 1 1 100%;
+    padding: 1rem .5rem;
+}
+.details .state-queries {
+    flex: 1 1 50%;
+}
+.details ul {
+    margin: 1rem;
+}
+.details ul ul {
+    list-style: initial;
+    padding-left: 1rem;
+}
+.details li {
+    margin-bottom: 1rem;
+}
+
+.element-state {
+    background: #333;
+    color: #ccc;
+}
+
+.element-state.added {
+    background: rgb(54, 80, 54);
+    color: rgb(207, 255, 207);
+}
+
+.element-state.modified {
+    background: rgb(39, 39, 92);
+    color: rgb(208, 208, 255);
+}
+
+.element-state.removed {
+    background: rgb(83, 32, 32);
+    color: rgb(255, 206, 206);
+}
+
+.element-state table {
+    width: 100%;
+    border: 1px solid rgba(255,255,255,.1);
+}
+.element-state th {
+    text-align: center;
+}
+.element-state th,
+.element-state td {
+    padding: .5rem;
+    border-bottom: 1px solid rgba(255,255,255,.1);
+}
+.element-state td:first-child {
+    width: 1%;
+    border-right: 1px solid rgba(255,255,255,.1);
+}
+.element-state td:last-child {
+    text-align: right;
+    font-family: 'Monaco', 'Consolas', 'Ubuntu Mono', monospace;
+}

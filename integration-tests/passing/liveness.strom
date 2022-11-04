@@ -1,0 +1,29 @@
+import quickstrom;
+
+action ~moar! = click!(`button`);
+
+let ~buttons = for b in `button` {
+    { label: b.textContent, enabled: b.enabled }
+  };
+
+let isDone(b) = b.label == "Done";
+
+let ~allEnabled =
+  forall b in buttons { b.enabled };
+
+let ~anyDone =
+  exists b in buttons { isDone(b) };
+
+let allDone(ignored) =
+  forall b in buttons { isDone(b) };
+
+
+let ~prop =
+  // TODO(owickstrom): uncomment once "Eventually argument already evaluated" is fixed
+  // (eventually {100} allDone({})) &&
+   (forall i in range(0, length(buttons) - 1) {
+     (buttons[i]).enabled until {100} isDone(buttons[i])
+   })
+  ;
+
+check prop with * when loaded?;

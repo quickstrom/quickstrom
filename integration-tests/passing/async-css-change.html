@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8"/>
+    <title>Async CSS Change</title>
+    <style>
+      #secret {
+        opacity: 0;
+        visibility: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <nav>
+        <button id="reveal">Reveal</button>
+    </nav>
+    <div id="secret">Secret</div>
+    <script>
+      const secret = document.querySelector("#secret");
+      const reveal = document.querySelector("#reveal");
+
+      reveal.addEventListener("click", () => {
+        setTimeout(() => {
+          reveal.disabled = true;
+          setTimeout(() => {
+            document.head.insertAdjacentHTML("beforeend", `<style>#secret{
+              transition: opacity .4s linear, visibility .4s linear;
+              visibility: visible;
+              opacity: 1;
+            }</style>`)
+          }, 200);
+        }, 200);
+      });
+    </script>
+  </body>
+</html>

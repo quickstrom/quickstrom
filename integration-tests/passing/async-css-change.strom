@@ -1,0 +1,29 @@
+import quickstrom;
+
+// actions and events
+
+action ~reveal! = click!(`#reveal`) timeout 1000;
+
+action ~revealDisabled? = changed?(`#reveal`) timeout 1000;
+
+action ~revealed? = changed?(`#secret`);
+
+// element state
+
+let ~revealEnabled = first(`#reveal`).enabled;
+
+let ~secretVisible = first(`#secret`).css.visibility == "visible";
+
+// states
+
+let ~initial = revealEnabled && not secretVisible;
+
+let ~revealing = not revealEnabled && not secretVisible;
+
+let ~revealed = not revealEnabled && secretVisible;
+
+let ~prop = 
+  initial until {10} (revealing until {10} revealed)
+  ;
+
+check prop with * when loaded?;

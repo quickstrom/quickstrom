@@ -1,0 +1,18 @@
+import quickstrom;
+
+action ~loadData! = click!(`#load-data`) timeout 2000;
+
+action ~dataLoaded? = [changed?(`#load-data`), changed?(`#data`)];
+
+let ~isLoading = not first(`#load-data`).enabled;
+
+let ~data = first(`#data`).textContent;
+
+let ~prop = 
+  data == ""
+  && not isLoading
+  && (always {10} (contains(dataLoaded?, happened) ==> (always {10} (data != ""))))
+  // && nextF (isLoading && data == "" && nextF (not isLoading))
+  ;
+
+check prop with * when loaded?;

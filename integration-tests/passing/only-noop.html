@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Noop Test</title>
+</head>
+
+<body>
+  <span id="counter">0</span>
+</body>
+
+<script>
+  let n = 1;
+  setInterval(function () {
+    if (n >= 10) {
+      n = 0;
+    } else {
+      n++;
+    }
+    document.getElementById("counter").textContent = n;
+  }, 200);
+</script>
+</html>

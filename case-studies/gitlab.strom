@@ -1,0 +1,18 @@
+// GitLab
+
+import quickstrom
+
+let ~setPasswordField = `[data-page='passwords:edit'] [name='user[password]']`;
+let ~setPasswordConfirmationField = `[data-page='passwords:edit'] [name='user[password_confirmation]']`;
+
+action focusFormField! = focus!(`form input`);
+
+action enterUserName! =  enterText!("root")
+  when exists field in `[name='user[login]']` { field.active };
+
+action enterPassword! =  enterText!("test1234")
+  when exists field in `[name='user[password]']` { field.active };
+
+action submitForm! = click!(`input[type=submit]`);
+
+check prop with * when loaded?;

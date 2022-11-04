@@ -1,0 +1,306 @@
+// This is the TodoMVC specification from
+// https://wickstrom.tech/programming/2020/07/02/the-todomvc-showdown-testing-with-webcheck.html
+// ported to the new Specstrom-backed implementation of Quickstrom.
+import quickstrom;
+import todomvc/operators;
+import todomvc/elements;
+
+let subscript = 100;
+
+//-------------------------------------------------
+// Actions
+//-------------------------------------------------
+
+action ~selectOtherFilter! = click!(`.todoapp .filters a:not(.selected)`)
+  // weighted 5.0
+  when not isInEditMode
+  ;
+
+action ~selectSameFilter! = click!(`.todoapp .filters a.selected`) when not isInEditMode;
+
+action ~toggleAllTodos! = click!(`.todoapp label[for=toggle-all]`) when not isInEditMode;
+
+// timeout 100 to please Elm async usage in their impl
+
+action ~editTodo! = doubleClick!(`.todo-list li label`) timeout 100 when not isInEditMode;
+
+action ~deleteTodo! = click!(`.todoapp .destroy`) timeout 100 when not isInEditMode;
+
+action ~focusInput! = focus!(`.todoapp .new-todo`) when not isInEditMode;
+
+action ~typePendingText! = [keyPress!(" "), keyPress!("a"), keyPress!("b"), keyPress!(keys.backspace)]
+  when newTodoInput != null && newTodoInput.active;
+
+action ~typeEditText! = [
+    keyPress!("c"),
+    keyPress!(keys.backspace),
+  ]
+  when isInEditMode;
+
+action ~abortEdit! = [keyPress!(keys.escape), click!(`body`)] when isInEditMode;
+
+action ~commitEdit! = keyPress!(keys.return) when isInEditMode;
+
+action ~createTodo! = keyPress!(keys.return)
+  when newTodoInput != null
+    && newTodoInput.pendingText != ""
+    && newTodoInput.active;
+
+action ~itemsChanged? = changed?(`.todo-list li`);
+
+//-------------------------------------------------
+// States & Transitions
+//-------------------------------------------------
+
+let ~initial =
+    selectedFilter == null
+      && numItems == 0
+      && newTodoInput != null
+      && newTodoInput.pendingText == ""
+      && newTodoInput.active;
+
+let ~notLoaded = not initial;
+
+let ~focusNewTodo =
+  not newTodoInput.active
+    && newTodoInput.active becomes true
+    && unchanged([
+      selectedFilter,
+      newTodoInput.pendingText,
+      availableFilters,
+      items,
+      todoCount
+    ]);
+
+let ~enterNewTodoText =
+  changed(newTodoInput.pendingText)
+    && unchanged(items)
+    && unchanged(selectedFilter);
+
+let ~changeFilter =
+  changed(selectedFilter)
+  // Going to a different filter should not change the pending todo item.
+  && unchanged(newTodoInput.pendingText)
+  && (match selectedFilter {
+    // Can't change filter when the filters are hidden.
+    | case null { false }
+    // Going from "All" to another filter cannot increase number of items.
+    | case "All" { numItems becomes <= numItems }
+    | case "Active" { selectedFilter becomes "All" || selectedFilter becomes "Completed" }
+    | case "Completed" { selectedFilter becomes "All" || selectedFilter becomes "Active" }
+  });
+
+let ~setSameFilter =
+    unchanged([
+      selectedFilter,
+      newTodoInput.pendingText,
+      availableFilters,
+      for item in items { item.text },
+      todoCount
+    ]);
+
+let ~addNew =
+  let trimmed = trim(newTodoInput.pendingText);
+  // Blank todo items cannot be created.
+  trimmed != ""
+  // Creating an item clears the input and always enabled one of the filters.
+  && newTodoInput.pendingText becomes "" && selectedFilter does not become null
+  // Pressing return is the only way to create a todo item.
+  && nextT (contains(keyPress!(keys.return), happened))
+  && (match selectedFilter {
+    // Adding the first item should enable the last used filter (which we don't know
+    // what it was).
+    | case null {
+      true
+      // selectedFilter does not become "Completed" ==> lastItemText becomes trimmed
+    }
+    // Both in the "All' and "Active" filters the item should be appended to the
+    // list of items.
+    | case "All" { lastItemText becomes trimmed && unchanged(selectedFilter) }
+    | case "Active" { lastItemText becomes trimmed && unchanged(selectedFilter) }
+    // In the "Completed" filter we can't see the new item.
+    | case "Completed" { unchanged([items, selectedFilter]) }
+  })
+  ;
+
+let ~checkOne =
+  unchanged(newTodoInput.pendingText)
+    && unchanged(selectedFilter)
+    && (match selectedFilter {
+      | case "All" { unchanged(numItems) && (numChecked becomes < numChecked) }
+      | case "Active" { (numItems becomes > numItems) && (todoCount becomes > todoCount) }
+      | case other { false }
+    });
+
+let ~uncheckOne =
+  unchanged([newTodoInput.pendingText, selectedFilter])
+    && (match selectedFilter {
+      | case "All" { unchanged(numItems) && numChecked becomes > numChecked }
+      | case "Completed" { numItems becomes > numItems && todoCount becomes < todoCount }
+      | case other { false }
+    });
+
+let ~delete =
+  unchanged(newTodoInput.pendingText)
+    && (selectedFilter != null)
+    && (match numItems {
+      | case 0 { false }
+      | case 1 {
+        numItems becomes 0
+      }
+      | case other {
+          unchanged(selectedFilter)
+          && (numItems -= 1)
+          && match selectedFilter {
+            | case "Active" { todoCount -= 1 }
+            | case "Completed" { unchanged(todoCount) }
+            | case "All" { true }
+          }
+      }
+    });
+
+let ~toggleAll =
+  unchanged(newTodoInput.pendingText)
+    && unchanged(selectedFilter)
+    && nextT (if toggleAllChecked { numItems == numChecked } else { numItems == numUnchecked })
+    && (match selectedFilter {
+      | case null { false }
+      | case "All" {
+        unchanged(numItems)
+        && match numUnchecked {
+          // If there are no unchecked (active) items, all checked (completed) items
+          // are unchecked.
+          | case 0 { numUnchecked becomes numChecked }
+          // If there are unchecked (active) items, they're checked.
+          | case n { numItems becomes numChecked }
+        }
+      }
+      | case "Active" {
+        match numUnchecked {
+          // If there are no unchecked (active) items, all checked (completed) items
+          // are unchecked (but we can't see how many there are, just more than 0).
+          | case 0 { numItems becomes > 0 }
+          // If there are unchecked (active) items, they're checked.
+          | case n { numItems becomes 0 }
+        }
+      }
+      | case "Completed" {
+        match todoCount {
+          | case 0 { numItems becomes 0 }
+          | case n { numItems += todoCount }
+        }
+
+      }
+    });
+
+let ~startEditing =
+    (numInEditMode == 0) ~> (numInEditMode == 1 && editInput.active)
+        && unchanged([
+          newTodoInput.pendingText,
+          selectedFilter,
+          availableFilters,
+          todoCount
+        ])
+        && (newTodoInput != null ==> unchanged(newTodoInput.pendingText));
+
+let ~enterEditText =
+    numInEditMode == 1
+        && nextT (not contains(keyPress!(keys.escape), happened))
+        && editInput != null
+        && changed(editInput.text)
+        && unchanged([numInEditMode, selectedFilter, numItems, todoCount]);
+
+let abortEdit(originalItem) =
+    (numInEditMode == 1 ~> numInEditMode == 0)
+        && nextT (
+          let correspondingItem = items[originalItem.index];
+          contains(keyPress!(keys.escape), happened)
+            && correspondingItem != null
+            && correspondingItem.text == originalItem.text
+        );
+
+let commitEdit(originalItem) =
+    (numInEditMode == 1 ~> numInEditMode == 0)
+        && nextT (not contains(keyPress!(keys.escape), happened))
+        && (match editInput.text {
+          | case "" { numItems -= 1 }
+          | case newText {
+            nextT (
+              let correspondingItem = items[originalItem.index];
+              correspondingItem != null && correspondingItem.text == newText
+            )
+            && unchanged(numItems)
+          }
+        })
+        && unchanged([
+            selectedFilter,
+            newTodoInput.pendingText,
+            availableFilters
+        ]);
+
+let ~enterEditMode =
+    startEditing && nextT (
+      let initialItem = itemInEditMode;
+      enterEditText until {subscript} (commitEdit(initialItem) || abortEdit(initialItem))
+    );
+
+let ~editModeTransition =
+  (numInEditMode == 1 ~> numInEditMode == 1)
+  || (numInEditMode == 1 ~> numInEditMode == 0);
+
+// Global Invariants
+
+let ~hasFilters = numItems == 0 || availableFilters == ["All", "Active", "Completed"];
+
+let ~hasToggleAll = (not isInEditMode && selectedFilter != null) ==> toggleAllLabel != null;
+
+let ~correctFilterStates =
+  match selectedFilter {
+    | case null { numItems == 0 }
+    | case "All"  { todoCount != null && todoCount == numUnchecked && todoCount <= numItems }
+    | case "Active"  { todoCount != null && numItems == todoCount }
+    | case "Completed" { true }
+  };
+
+let ~editModeHasItems = isInEditMode ==> numItems > 0;
+
+let hasWord(word, sentence) =
+    let parts = split(" ", trim(sentence));
+    contains(word, parts);
+
+let ~itemsLeftPluralized =
+  match todoCount {
+    | case null { itemsLeft == null }
+    | case 1 { hasWord("item", itemsLeft)}
+    | case n { hasWord("items", itemsLeft) }
+  };
+
+// State machine definition
+
+let ~prop_safety =
+  notLoaded until {subscript}
+  (
+  initial
+    && (always {subscript}
+       ( focusNewTodo
+           || enterNewTodoText
+           || addNew
+           || changeFilter
+           || setSameFilter
+           || checkOne
+           || uncheckOne
+           || delete
+           || toggleAll
+           || enterEditMode
+           || editModeTransition
+       ))
+    // Disable basic invariants
+
+    // && (always {subscript} (hasFilters && hasToggleAll && correctFilterStates && editModeHasItems && itemsLeftPluralized))
+  );
+
+action ~pageLoaded? = loaded? timeout 2000;
+
+action ~ready? = changed?(`body`) when initial;
+
+check prop_safety with * when pageLoaded?;

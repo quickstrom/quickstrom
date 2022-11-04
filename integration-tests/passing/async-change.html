@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8"/>
+    <title>Async Change</title>
+  </head>
+  <body>
+    <nav>
+        <button id="load-data">Load data</button>
+    </nav>
+    <div id="data"></div>
+    <script>
+      const data = document.querySelector("#data");
+      const loadData = document.querySelector("#load-data");
+
+      loadData.addEventListener("click", () => {
+          loadData.disabled = true;
+          setTimeout(() => {
+            data.textContent = "Some data at " + (new Date()).toString();
+            loadData.disabled = false;
+          }, Math.random() * 200 + 400);
+      });
+    </script>
+  </body>
+</html>

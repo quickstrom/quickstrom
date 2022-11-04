@@ -2,12 +2,12 @@ Writing Your First Specification
 ================================
 
 In this tutorial we'll specify and check an *audio player* web
-application using the free version of Quickstrom.
+application using Quickstrom.
 
 The tutorial assumes you're running on a Unix-like operating system
 and that you have Docker installed. You may run this using :doc:`other
-installation methods <../../installation>` for Quickstrom and your
-WebDriver server, but all commands in this document are using Docker.
+installation methods <../../installation>`, but all commands in this
+document are using Docker.
 
 Open up a terminal and create a new directory to work in:
 
@@ -28,12 +28,6 @@ Next, pull the QuickStrom image using Docker:
 .. code-block:: console
 
    $ docker pull quickstrom/quickstrom:latest
-
-Finally, we need a WebDriver server. Pull that down with Docker, too:
-
-.. code-block:: console
-
-   $ docker pull selenium/standalone-chrome:3.141.59-20200826
 
 Downloading the Audio Player
 -----------------------------

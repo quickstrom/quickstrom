@@ -1,0 +1,69 @@
+// The following specifies a audio player, featuring a button that
+// toggles between the paused and playing states. The system under
+// test in this case is `audioplayer.html`.
+
+import quickstrom;
+
+// ELEMENTS
+
+// Text of the play/pause button.
+let ~buttonText = `.play-pause`.textContent;
+
+// Text of the time display.
+let ~timeDisplayText = `.time-display`.textContent;
+
+// STATES
+
+// When in the `playing` state, the button text is "Pause"
+let ~playing = buttonText == "Pause";
+
+// When in the `paused` state, the button text is "Play"
+let ~paused = buttonText == "Play";
+
+// ACTIONS
+
+action ~tick? = changed?(`.time-display`);
+
+// We want to interact with the player by clicking buttons. 
+action ~pause! = click!(`.play-pause`) when playing;
+// We wait for 1000ms after starting playback, to allow for ticks to
+// happen asynchronously.
+action ~play! = click!(`.play-pause`) timeout 1000 when paused;
+
+// The proposition describes the correct behavior of the web
+// application.  Here we start in the paused state, and a valid
+// transition is either `play` or `pause`.
+let ~proposition =
+
+  // The `play` transition means going from `paused` to `playing`
+  let ~play =
+    paused
+      && nextT playing
+      && unchanged(timeDisplayText);
+
+  // The `pause` transition means going from `playing` to `paused`
+  let ~pause =
+    playing
+      && nextT paused
+      && unchanged(timeDisplayText);
+
+  // The `tick` transitions happens when we're in `playing`,
+  // changing the time display's text
+  let ~tick =
+    playing
+      && nextT playing
+      && not unchanged(timeDisplayText);
+  
+    // This last part is the central part of the specification,
+    // describing the initial state and the possible transitions. It
+    // can be read in English as:
+    //
+    //   Initially, the record player is paused. From that point, one
+    //   can either play or pause, or the time can tick while playing,
+    //   all indefinitely.
+    //
+    // We require 20 states to be checked.
+    paused && (always {20} (play || pause || tick));
+
+
+check proposition with * when loaded?;

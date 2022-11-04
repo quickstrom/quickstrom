@@ -1,0 +1,19 @@
+html, body {
+    height: 100%;
+}
+.audio-player {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+.time-display {
+    display: block;
+    font-size: 4rem;
+    margin: 2rem 0;
+}
+.play-pause {
+    font-size: 2rem;
+    padding: 1rem;
+}

@@ -12,8 +12,8 @@
 <hr>
 
 <p align=center>
-  <a href="https://github.com/quickstrom/pyquickstrom/actions/workflows/test.yml">
-    <img src="https://github.com/quickstrom/pyquickstrom/actions/workflows/test.yml/badge.svg" />
+  <a href="https://github.com/quickstrom/quickstrom/actions/workflows/test.yml">
+    <img src="https://github.com/quickstrom/quickstrom/actions/workflows/test.yml/badge.svg" />
   </a>
 </p>
 

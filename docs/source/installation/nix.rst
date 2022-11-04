@@ -18,7 +18,7 @@ executable:
 .. code-block:: console
 
    $ cachix use quickstrom
-   $ nix-env -iA quickstrom -f https://github.com/quickstrom/pyquickstrom/tarball/main
+   $ nix-env -iA quickstrom -f https://github.com/quickstrom/quickstrom/tarball/main
 
 If you're on Darwin, you're probably going to have problems with
 Firefox and Chrome from nixpkgs. You can exclude browsers from the
@@ -28,7 +28,7 @@ Chrome/Chromium. If you want to do this, override it with this command:
 
 .. code-block:: console
 
-   $ nix-env -iA quickstrom -f https://github.com/quickstrom/pyquickstrom/tarball/main \
+   $ nix-env -iA quickstrom -f https://github.com/quickstrom/quickstrom/tarball/main \
        --arg includeBrowsers false
 
 Verify that Quickstrom is now available in your environment:

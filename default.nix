@@ -42,7 +42,7 @@ let
     };
 
   docker = pkgs.dockerTools.buildImage {
-    name = "quickstrom";
+    name = "quickstrom/quickstrom";
     tag = "latest";
     contents =
       [ pkgs.coreutils (quickstrom-wrapped { includeBrowsers = true; }) ];

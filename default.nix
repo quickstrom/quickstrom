@@ -1,8 +1,5 @@
-{ pkgs ? (import ./nix/nixpkgs.nix)
-, specstrom ? import ./nix/specstrom.nix
-, chromedriver ? pkgs.chromedriver
-, includeBrowsers ? true
-}:
+{ pkgs ? (import ./nix/nixpkgs.nix), specstrom ? import ./nix/specstrom.nix
+, chromedriver ? pkgs.chromedriver, includeBrowsers ? true }:
 let
   poetry2nix = import ./nix/poetry2nix.nix { inherit pkgs; };
 
@@ -44,8 +41,12 @@ let
   docker = pkgs.dockerTools.buildImage {
     name = "quickstrom/quickstrom";
     tag = "latest";
-    contents =
-      [ pkgs.coreutils (quickstrom-wrapped { includeBrowsers = true; }) ];
+    extraCommands = "mkdir -m 0777 tmp";
+    contents = [
+      pkgs.coreutils
+      pkgs.bash
+      (quickstrom-wrapped { includeBrowsers = true; })
+    ];
     config = { Cmd = [ "quickstrom" ]; };
   };
 in {

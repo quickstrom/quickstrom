@@ -104,10 +104,10 @@ Let's run some tests! Launch Quickstrom from within your
 
    $ docker run --rm \
      -v $PWD:/my-first-spec \
-     quickstrom/quickstrom \
-     quickstrom check \
-     /my-first-spec/AudioPlayer.spec.purs \
-     /my-first-spec/AudioPlayer.html \
+     quickstrom/quickstrom:0.5.0 \
+     quickstrom -I/my-first-spec check \
+     audioplayer \
+     /my-first-spec/audioplayer.html \
      --browser=chrome
 
 You should see output like the following:
@@ -277,16 +277,12 @@ Run Quickstrom again, now that we've fleshed out the specification:
 .. code-block:: console
 
    $ docker run --rm \
-     --network quickstrom \
      -v $PWD:/my-first-spec \
-     quickstrom/quickstrom \
-     quickstrom check \
-     --webdriver-host=webdriver \
-     --webdriver-path=/wd/hub \
-     --browser=chrome \
-     --tests=5 \
-     /my-first-spec/AudioPlayer.spec.purs \
-     /my-first-spec/AudioPlayer.html
+     quickstrom/quickstrom:0.5.0 \
+     quickstrom -I/my-first-spec check \
+     audioplayer \
+     /my-first-spec/audioplayer.html \
+     --browser=chrome
 
 You'll see a bunch of output, involving shrinking tests and more. It
 should end with something like the following:

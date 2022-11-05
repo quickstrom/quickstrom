@@ -4,4 +4,4 @@ Tutorials
 .. toctree::
    :titlesonly:
    
-   free/first
+   first

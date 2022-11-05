@@ -37,7 +37,7 @@ it using ``curl``:
 
 .. code-block:: console
                 
-   $ curl -L https://github.com/quickstrom/quickstrom/raw/main/examples/AudioPlayer.html -o AudioPlayer.html
+   $ curl -L https://github.com/quickstrom/quickstrom/raw/main/examples/audioplayer.html -o audioplayer.html
 
 
 If you don't have ``curl`` installed, you can download it from `this
@@ -49,152 +49,84 @@ directory as ``AudioPlayer.html``.
 .. code-block:: console
                 
    $ ls
-   AudioPlayer.html
+   audioplayer.html
 
 OK! We're now ready to write our specification.
 
 A Minimal Specification
 -----------------------
 
-We'll begin by writing a specification that always makes the tests
-pass. Create a new file ``AudioPlayer.spec.purs`` and open it in your
-text editor of choice:
+We'll begin by writing a specification that always makes the check
+pass. Create a new file ``audioplayer.strom`` and open it in your text
+editor of choice:
 
 .. code-block:: console
                 
-   $ touch AudioPlayer.spec.purs
-   $ $EDITOR AudioPlayer.spec.purs
+   $ touch audioplayer.strom
+   $ $EDITOR audioplayer.strom
 
 Type in the following in the file and save it:
 
-.. code-block:: haskell
+.. code-block:: javascript
    :linenos:
 
-   module AudioPlayer where
+   import quickstrom;
 
-   import Quickstrom
-   import Data.Maybe (Maybe(..))
+   action ~playOrPause! = click!(`.play-pause`);
 
-   readyWhen :: Selector
-   readyWhen = ".audio-player"
+   let ~proposition = true;
 
-   actions :: Actions
-   actions = clicks
-
-   proposition :: Boolean
-   proposition = true
+   check proposition with * when loaded?;
 
 A bunch of things are going on in this specification. Let's break it
 down line by line:
 
-* **Line 1:** We declare the ``AudioPlayer`` module. We must have a
-  module declaration, but it can be named whatever we like.
-* **Line 3-4:** We import the Quickstrom module. This is where we find
+* **Line 1:** We import the Quickstrom module. This is where we find
   definitions for DOM queries, actions, and logic. We also import
   `Maybe` which we'll need later on.
-* **Line 6-7:** The ``readyWhen`` definitions tells Quickstrom to wait
-  until there's an element in the DOM that matches this CSS
-  selector. After this condition holds, Quickstrom will start
-  performing actions. We use ``.audio-player`` as the selector, which
-  is used as a class for the top-level ``div`` in the audio player
-  web application.
-* **Line 9-10:** Our ``actions`` specify what Quickstrom should try to do. In
-  this case, we want it to click any available links, buttons, and so
-  on.
-* **Line 12-13:** In the ``proposition``, we specify what it means for
+* **Line 3:** Our actions specify what Quickstrom should try to do. In
+  this case, we want it to click the play/pause button.
+* **Line 5:** In the ``proposition``, we specify what it means for
   the system under test to be valid. For now, we'll set it to
-  ``true``, meaning that *any* behavior is considered valid.
+  ``true``, meaning that we require only a single state, and that
+  *any* such state is considered valid.
+* **Line 7:** The ``check`` statement tells Quickstrom how to test our
+  application. We ask it to check our defined ``proposition``, with
+  all declared actions, once the ``loaded?`` event has occured.
 
-Running Tests
--------------
+Running a Test
+--------------
 
-Let's run some tests!
-
-First, we need a Docker network. Let's name it ``quickstrom``:
-
-.. code-block:: console
-
-   $ docker network create quickstrom
-
-Next, from within your ``my-first-spec`` directory, launch a ChromeDriver instance in the
-background:
-
-.. code-block:: console
-
-   $ docker run --rm -d \
-       --network quickstrom \
-       --name webdriver \
-       -v /dev/shm:/dev/shm \
-       -v $PWD:/my-first-spec \
-       selenium/standalone-chrome:3.141.59-20200826
-
-Notice how we mount the current working directory to
-``/my-first-spec`` in the container. We do this to let Chrome access
-the ``AudioPlayer.html`` file.
-
-Now, let's launch Quickstrom, again from within your ``my-first-spec`` directory:
+Let's run some tests! Launch Quickstrom from within your
+``my-first-spec`` directory:
 
 .. code-block:: console
 
    $ docker run --rm \
-     --network quickstrom \
      -v $PWD:/my-first-spec \
      quickstrom/quickstrom \
      quickstrom check \
-     --webdriver-host=webdriver \
-     --webdriver-path=/wd/hub \
-     --browser=chrome \
-     --tests=5 \
      /my-first-spec/AudioPlayer.spec.purs \
-     /my-first-spec/AudioPlayer.html
+     /my-first-spec/AudioPlayer.html \
+     --browser=chrome
 
-After some time, you should see an output like the following:
+You should see output like the following:
 
 .. code::
    
-   Running 5 tests...
-   
-   ―――――――――――――――――――――――――――
-   
-   20 Actions
-   Test passed!
-   
-   ―――――――――――――――――――――――――――
-   
-   40 Actions
-   Test passed!
-   
-   ―――――――――――――――――――――――――――
-   
-   60 Actions
-   Test passed!
-   
-   ―――――――――――――――――――――――――――
-   
-   80 Actions
-   Test passed!
-   
-   ―――――――――――――――――――――――――――
-   
-   100 Actions
-   Test passed!
-   
-   ―――――――――――――――――――――――――――
-   
-   
-   Passed 5 tests.
+   The test passed.
 
 
 Cool, we have it running! So far, though, we haven't done much
-testing. Quickstrom is happily clicking its way around the web
-application, but whatever it finds we say "it's all good!" Let's make
-our specification actually say something about the audio player's
-intended behavior.
+testing. Quickstrom doesn't do more than the specification requires,
+and right now any initial state is good enough, so it doesn't perform
+any actions. Let's make our specification say something about the
+audio player's intended behavior.
 
 Refining the Proposition
 ------------------------
 
-Our system under test (``AudioPlayer.html``) is very simple. There's
+Our system under test (``audioplayer.html``) is very simple. There's
 a button for playing or pausing the audio player, and there's a time
 display.
 
@@ -207,51 +139,59 @@ work. Informally, we state the requirements as follows:
 * When in the ``playing`` state, the time display should reflect the
   progress with a ticking minutes and seconds display
 * When ``playing``, and when the play/pause button is clicked, it should
-  go to the ``paused`` state
+  go to the ``paused`` state, and time should not change
 * In the ``paused`` state, the button should say "Play"
 * In the ``playing`` state, the button should say "Pause"
 
 Let's translate those requirements to a formal specification in
 Quickstrom.
 
-Begin by defining two helpers, extracting the text content of the time
-display and the play/pause button. Place these definitions at the
-bottom of ``AudioPlayer.spec.purs``:
+Begin by defining two element helpers, extracting the text content of
+the play/pause button, and extracing and parsing the time display
+text. The time is represented as total number of seconds in our
+specification, making it easier to compare.
 
-.. code-block:: haskell
+Place these just after the imports section in ``audioplayer.strom``:
 
-   timeDisplayText :: Maybe String
-   timeDisplayText =
-     map _.textContent (queryOne ".time-display" { textContent })
+.. code-block:: javascript
 
-   buttonText :: Maybe String
-   buttonText =
-     map _.textContent (queryOne ".play-pause" { textContent })
+   let ~buttonText = `.play-pause`.textContent;
+   
+   let ~timeInSeconds =
+     let [minutes, seconds] = split(":", `.time-display`.textContent);
+     parseInt(minutes) * 60 + parseInt(seconds);
 
-Next, we'll change the ``proposition``. Remove ``true`` and type in
+Next, we'll define the two states as booleans:
+
+.. code-block:: javascript
+
+   let ~playing = buttonText == "Pause";
+   
+   let ~paused = buttonText == "Play";
+
+We also need to declare the actions a bit more precisely. Change to
+existing action declartion to the following:
+
+.. code-block:: javascript
+
+   action ~pause! = click!(`.play-pause`) when playing;
+
+   action ~play! = click!(`.play-pause`) timeout 1000 when paused;
+
+Finally, we'll change the ``proposition``. Remove ``true`` and type in
 the following code:
 
-.. code-block:: haskell
+.. code-block:: javascript
 
-   
-   proposition :: Boolean
-   proposition =
-     let
-       playing = ?playing
-   
-       paused = ?paused
-   
-       play = ?play
-   
-       pause = ?pause
-   
-       tick = ?tick
-     in
-       paused && always (play || pause || tick)
+   let ~proposition =
+     let ~play = ...;
+     let ~pause = ...;
+     let ~tick = ...;
+     paused && (always {20} (play || pause || tick));
 
-All those terms prefixed with question marks are called *holes*. A
-hole is a part of a program that is yet to be written, like a
-placeholder. We'll fill the holes one by one.
+.. note::
+
+   The ``...`` parts aren't valid ecpressions, but we'll replace them with valid ones in the next section.
 
 The last line in our proposition can be read in English as:
 
@@ -259,85 +199,62 @@ The last line in our proposition can be read in English as:
     either play or pause, or the time can tick while playing, all
     indefinitely.
 
-OK, onto filling the holes!
+OK, onto adding the missing parts!
 
-Filling Holes in the Specification
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The Missing State Transitions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Let's start with the definitions that describe *states* that the
-program can be in.
+We have a bunch of ``...`` placeholders in our state transition
+formulae. Let's fill them in!
 
-The ``playing`` definition should describe what it means to be in the
-``playing`` state. We specify it by stating that the button text
-should be "Pause". Replace ``?playing`` with the following expression:
+The definition ``play`` describes a transition between
+``paused`` and ``playing``:
 
-.. code-block:: haskell
+.. code-block:: javascript
 
-   buttonText == Just "Pause"
-
-The ``Just "Pause"`` means that there is a matching element with text
-content "Pause". ``Nothing`` would mean that the query didn't find any
-element.
-
-Similary, the ``paused`` state is defined as the button text being
-"Play". Replace ``?paused`` with:
-
-.. code-block:: haskell
-
-   buttonText == Just "Play"
-
-We've now specified the two states that the audio player can be
-in. Next, we specify *transitions* between states.
-
-
-
-The definition ``play`` describes a transition between ``paused`` and
-``playing``. Replace the hole ``?play`` with the following expression:
-
-.. code-block:: haskell
-
-   paused && next playing
+   let ~play =
+     paused
+       && nextT playing
+       && unchanged(timeInSeconds);
 
 OK, so what's going on here? We specify that the current state is
 ``paused``, and that the next state is ``playing``. That's how we
-encode state transitions.
+encode state transitions. We also say that the time shouldn't change.
 
-The ``pause`` transition is similar. Replace ``?pause`` with the
-following expression:
+.. note::
 
-.. code-block:: haskell
+   We need to use ``nextT`` instead of ``next`` here, because we don't
+   want to force another state being read. If there is a next state
+   available, we say that it should be ``playing``, otherwise we
+   default to true. That's what the ``T`` in ``nextT`` means.
 
-   playing && next paused
+The ``pause`` transition should look similar:
+
+.. code-block:: javascript
+
+   let ~pause =
+     playing
+       && nextT paused
+       && unchanged(timeInSeconds);
 
 Finally, we have the ``tick``. When we're in the ``playing`` state,
-the time display changes its text on a ``tick``. The displayed time
-should be monotonically increasing, so we compare alphabetically the
-current and the next time.
+the time changes on a ``tick``. The time should be monotonically
+increasing, so we compare the current and the next time:
 
-Replace the hole ``?tick`` with the following expression:
+.. code-block:: javascript
 
-.. code-block:: haskell
+   let ~tick =
+     playing
+       && nextT playing
+       && (let old = timeInSeconds; nextT (old < timeInSeconds));
 
-   playing
-     && next playing
-     && timeDisplayText < next timeDisplayText
+That's it! Your proposition should now look something like this:
 
-If the time display would go past "99:59", we'd get into trouble with
-this specification. But because we won't run tests for that long, we
-can get away with the string comparison.
-
-That's it! We've filled all the holes. Your proposition should now
-look something like this:
-
-.. code-block:: haskell
+.. code-block:: javascript
 
    proposition :: Boolean
    proposition =
      let
-       playing = buttonText == Just "Pause"
-   
-       paused = buttonText == Just "Play"
-   
        play = paused && next playing
    
        pause = playing && next paused
@@ -345,7 +262,7 @@ look something like this:
        tick =
          playing
            && next playing
-           && timeDisplayText < next timeDisplayText
+           && timeInSeconds < next timeDisplayText
      in
        paused && always (play || pause || tick)
 

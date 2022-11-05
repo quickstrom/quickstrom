@@ -43,6 +43,7 @@ let
 
   docker = pkgs.dockerTools.buildImage {
     name = "quickstrom";
+    tag = "latest";
     contents =
       [ pkgs.coreutils (quickstrom-wrapped { includeBrowsers = true; }) ];
     config = { Cmd = [ "quickstrom" ]; };

@@ -234,7 +234,8 @@ class Check():
                                 driver.get(self.origin)
                                 for cookie in self.cookies:
                                     self.log.debug(f"Setting {cookie}")
-                                    driver.add_cookie(dataclasses.asdict(cookie))
+                                    driver.add_cookie(
+                                        dataclasses.asdict(cookie))
                             # Now that cookies are set, we have to visit the origin again.
                             driver.get(self.origin)
                             # Hacky sleep to allow page load.
@@ -244,7 +245,8 @@ class Check():
 
                             scripts.install_event_listener(
                                 driver, msg.dependencies)
-                            await_events(driver, msg.dependencies, state_version, 10000)
+                            await_events(driver, msg.dependencies,
+                                         state_version, 10000)
 
                             await_session_commands(driver, msg.dependencies,
                                                    state_version)
@@ -335,11 +337,15 @@ class Check():
             options.headless = self.headless
             browser_path = which("chrome") or which("chromium")
             options.binary_location = browser_path    # type: ignore
+            options.add_argument('--no-sandbox')
+            options.add_argument("--single-process")
+            options.add_argument("--disable-dev-shm-usage")
             chromedriver_path = which('chromedriver')
             if not chromedriver_path:
                 raise Exception("chromedriver not found in PATH")
             return webdriver.Chrome(options=options,
-                                    executable_path=chromedriver_path)
+                                    executable_path=chromedriver_path,
+                                    service_log_path=self.driver_log_file)
         elif self.browser == 'firefox':
             options = firefox_options.Options()
             options.headless = self.headless
@@ -351,7 +357,8 @@ class Check():
             return webdriver.Firefox(options=options,
                                      firefox_binary=binary,
                                      executable_path=geckodriver_path,
-                                     service_log_path=self.driver_log_file or "geckodriver.log")
+                                     service_log_path=self.driver_log_file
+                                     or "geckodriver.log")
         else:
             raise Exception(f"Unsupported browser: {self.browser}")
 

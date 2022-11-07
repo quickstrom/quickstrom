@@ -42,34 +42,26 @@ let
       '';
     };
 
-  ubuntu = pkgs.dockerTools.pullImage {
-    imageName = "ubuntu";
-    imageDigest =
-      "sha256:edc5125bd9443ab5d5c92096cf0e481f5e8cb12db9f5461ab1ab7a936c7f7d30";
-    sha256 = "sha256-TZSqaLl28S71CLmfn5HEIN+/1UCPMrLlqpr5D0VcULg=";
-    finalImageTag = "22.10";
-    finalImageName = "ubuntu";
-  };
-
   docker = pkgs.dockerTools.buildImage {
-    fromImage = ubuntu;
     name = "quickstrom/quickstrom";
     tag = "latest";
     copyToRoot = pkgs.buildEnv {
       name = "image-root";
       paths = [
         (quickstrom-wrapped { includeBrowsers = true; })
+        pkgs.coreutils
         pkgs.bashInteractive
         pkgs.dockerTools.caCertificates
       ];
       pathsToLink = [ "/bin" "/etc" ];
     };
+    extraCommands = "mkdir -p -m 0777 tmp";
     config = {
       Cmd = [ "quickstrom" ];
       Env = [
         # Required for Chrome/Chromium rendering. It needs fallback fonts.
         "FONTCONFIG_FILE=${pkgs.fontconfig.out}/etc/fonts/fonts.conf"
-       ];
+      ];
     };
   };
 in {

@@ -335,11 +335,11 @@ class Check():
         if self.browser == 'chrome':
             options = chrome_options.Options()
             options.headless = self.headless
-            browser_path = which("chrome") or which("chromium")
+            browser_path = which("google-chrome-stable") or which("google-chrome") or which("chrome") or which("chromium")
             options.binary_location = browser_path    # type: ignore
             options.add_argument('--no-sandbox')
             options.add_argument("--single-process")
-            options.add_argument("--disable-dev-shm-usage")
+            # options.add_argument("--disable-dev-shm-usage")
             chromedriver_path = which('chromedriver')
             if not chromedriver_path:
                 raise Exception("chromedriver not found in PATH")

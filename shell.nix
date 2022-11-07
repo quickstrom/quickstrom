@@ -1,7 +1,7 @@
 { pkgs ? (import ./nix/nixpkgs.nix), specstrom ? import ./nix/specstrom.nix }:
 let
-  poetry2nix = import ./nix/poetry2nix.nix { inherit pkgs; };
-  appEnv = poetry2nix.mkPoetryEnv {
+  appEnv = pkgs.poetry2nix.mkPoetryEnv {
+    python = pkgs.python39;
     projectDir = ./.;
     editablePackageSources = { my-app = ./.; };
   };
@@ -14,7 +14,9 @@ in pkgs.mkShell {
     pkgs.poetry
 
     pkgs.geckodriver
+    pkgs.firefox
     pkgs.chromedriver
+    pkgs.google-chrome
 
     specstrom
     pkgs.nodePackages.pyright

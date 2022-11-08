@@ -36,7 +36,7 @@ The web application we're going to test is already written. Download
 it using ``curl``:
 
 .. code-block:: console
-                
+
    $ curl -L https://github.com/quickstrom/quickstrom/raw/main/examples/audioplayer.html -o audioplayer.html
 
 
@@ -47,7 +47,7 @@ using your web browser. Make sure you've saved it our working
 directory as ``AudioPlayer.html``.
 
 .. code-block:: console
-                
+
    $ ls
    audioplayer.html
 
@@ -61,7 +61,7 @@ pass. Create a new file ``audioplayer.strom`` and open it in your text
 editor of choice:
 
 .. code-block:: console
-                
+
    $ touch audioplayer.strom
    $ $EDITOR audioplayer.strom
 
@@ -113,7 +113,7 @@ Let's run some tests! Launch Quickstrom from within your
 You should see output like the following:
 
 .. code::
-   
+
    The test passed.
 
 
@@ -156,7 +156,7 @@ Place these just after the imports section in ``audioplayer.strom``:
 .. code-block:: javascript
 
    let ~buttonText = `.play-pause`.textContent;
-   
+
    let ~timeInSeconds =
      let [minutes, seconds] = split(":", `.time-display`.textContent);
      parseInt(minutes) * 60 + parseInt(seconds);
@@ -166,7 +166,7 @@ Next, we'll define the two states as booleans:
 .. code-block:: javascript
 
    let ~playing = buttonText == "Pause";
-   
+
    let ~paused = buttonText == "Play";
 
 We also need to declare the actions a bit more precisely. Change to
@@ -252,19 +252,23 @@ That's it! Your proposition should now look something like this:
 
 .. code-block:: javascript
 
-   proposition :: Boolean
-   proposition =
-     let
-       play = paused && next playing
-   
-       pause = playing && next paused
-   
-       tick =
-         playing
-           && next playing
-           && timeInSeconds < next timeDisplayText
-     in
-       paused && always (play || pause || tick)
+   let ~proposition =
+     let ~play =
+       paused
+         && nextT playing
+         && unchanged(timeInSeconds);
+
+     let ~pause =
+       playing
+         && nextT paused
+         && unchanged(timeInSeconds);
+
+     let ~tick =
+       playing
+         && nextT playing
+         && (let old = timeInSeconds; nextT (old < timeInSeconds));
+
+     paused && (always {20} (play || pause || tick));
 
 
 Let's run some more tests.
@@ -289,7 +293,7 @@ should end with something like the following:
 
 .. code-block::
    :emphasize-lines: 16
-   
+
    1. State
      • .play-pause
          -
@@ -306,7 +310,7 @@ should end with something like the following:
      • .time-display
          -
             - property "textContent" = "NaN:NaN"
-   
+
    Failed after 1 tests and 4 levels of shrinking.
 
 
@@ -367,7 +371,7 @@ Run new tests by executing the following command:
 You should see output such as the following:
 
 .. code::
-   
+
    1. State
      • .play-pause
          -

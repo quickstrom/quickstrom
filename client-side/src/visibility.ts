@@ -5,6 +5,8 @@ export function isElementVisible(el: HTMLElement): boolean {
         cs.getPropertyValue("visibility") !== "hidden" &&
         cs.getPropertyValue("opacity") !== "0" &&
         // Fixed elements and HTMLOptionElements (in Chrome, at least) have no offsetParent
-        (cs.position === "fixed" || el instanceof HTMLOptionElement || el.offsetParent !== null)
+        (cs.position === "fixed"
+            || (el instanceof HTMLOptionElement && el.parentElement === document.activeElement)
+            || el.offsetParent !== null)
     );
 }

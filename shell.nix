@@ -11,6 +11,8 @@ in pkgs.mkShell {
     pkgs.bashInteractive
 
     appEnv
+    # https://github.com/NixOS/nixpkgs/issues/11330
+    pkgs.libffi
     pkgs.poetry
 
     pkgs.geckodriver

@@ -12,8 +12,10 @@ from typing import List, Tuple, Union, Literal, Any, AnyStr
 from selenium import webdriver
 from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
+from selenium.webdriver.support.select import Select
 import selenium.webdriver.chrome.options as chrome_options
 import selenium.webdriver.firefox.options as firefox_options
 from selenium.webdriver.firefox.firefox_binary import FirefoxBinary
@@ -146,6 +148,17 @@ class Check():
                         element = WebElement(driver, id)
                         ActionChains(driver).move_to_element(
                             element).double_click(element).perform()
+                    elif action.id == 'select':
+                        id = action.args[0]
+                        value = action.args[1]
+                        option = WebElement(driver, id)
+                        select = Select(
+                            option.find_element(By.XPATH,
+                                                "./ancestor::select"))
+                        self.log.warn(option)
+                        self.log.warn(select)
+                        self.log.warn(value)
+                        select.select_by_value(value)
                     elif action.id == 'focus':
                         id = action.args[0]
                         element = WebElement(driver, id)
@@ -335,7 +348,8 @@ class Check():
         if self.browser == 'chrome':
             options = chrome_options.Options()
             options.headless = self.headless
-            browser_path = which("google-chrome-stable") or which("google-chrome") or which("chrome") or which("chromium")
+            browser_path = which("google-chrome-stable") or which(
+                "google-chrome") or which("chrome") or which("chromium")
             options.binary_location = browser_path    # type: ignore
             options.add_argument('--no-sandbox')
             options.add_argument("--single-process")

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8"/>
+    <title>Document</title>
+  </head>
+  <body>
+    <select id="options">
+      <option value="A">A</option>
+      <option value="B">B</option>
+      <optgroup label="Other">
+        <option value="C">C</option>
+      </optgroup>
+    </select>
+    <span id="selected">None</span>
+    <script>
+      const options = document.querySelector("#options");
+      const selected = document.querySelector("#selected");
+      options.addEventListener("change", (event) => {
+        selected.textContent = event.target.value;
+      });
+    </script>
+  </body>
+</html>

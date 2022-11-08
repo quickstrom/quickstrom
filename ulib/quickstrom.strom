@@ -7,6 +7,8 @@ action click!(x) = for element in x. { id: "click", event: false, args: [element
 
 action doubleClick!(x) = for element in x. { id: "doubleClick", event: false, args: [element.ref] } when element.enabled && element.visible && element.interactable;
 
+action select!(x) = for element in x. { id: "select", event: false, args: [element.ref, element.value] } when element.enabled && element.visible && element.interactable;
+
 action clear!(x) = for element in x. { id: "clear", event: false, args: [element.ref] } when (not element.active) && element.interactable;
 
 action focus!(x) = for element in x. { id: "focus", event: false, args: [element.ref] } when (not element.active) && element.interactable;

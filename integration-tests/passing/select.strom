@@ -1,0 +1,21 @@
+import quickstrom;
+
+action ~selectOne! = select!(`option`);
+action ~selected? = changed?(`#selected`);
+
+let ~selected = `#selected`.textContent;
+
+// Until the `eventually` operator is fixed in specstrom
+syntax eventually'_ 0 right;
+let eventually' ~p = true until {50} p;
+
+let ~prop = 
+  (selected == "None")
+  until {5}
+  (
+    (eventually' (selected == "A"))
+    && (eventually' (selected == "B"))
+    && (eventually' (selected == "C"))
+  );
+
+check prop with * when loaded?;

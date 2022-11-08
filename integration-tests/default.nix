@@ -68,4 +68,5 @@ in makeTests {
   async-change = passing("async-change");
   async-css-change = passing("async-css-change");
   only-noop = passing("only-noop");
+  select = passing("select");
 }

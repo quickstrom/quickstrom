@@ -6,7 +6,27 @@ together with `AudioPlayer.spec.purs` for demo purposes. -->
   <head>
     <meta charset="UTF-8"/>
     <title>Audio Player Example</title>
-    <link href="audioplayer.css" rel="stylesheet"/>
+    <style>
+        html, body {
+            height: 100%;
+        }
+        .audio-player {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .time-display {
+            display: block;
+            font-size: 4rem;
+            margin: 2rem 0;
+        }
+        .play-pause {
+            font-size: 2rem;
+            padding: 1rem;
+        }
+    </style>
   </head>
   <body>
     <div class="audio-player">
@@ -73,7 +93,7 @@ together with `AudioPlayer.spec.purs` for demo purposes. -->
       }
 
       inPaused(0).catch(err => console.error(err));
-      
+
     </script>
   </body>
 </html>

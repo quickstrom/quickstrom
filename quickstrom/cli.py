@@ -135,7 +135,7 @@ def check(module: str, origin: str, browser: executor.Browser, headless: bool,
 
     def get_interpreter_log_file():
         if interpreter_log_file is None:
-            return tempfile.NamedTemporaryFile(prefix="interpreter.", suffix=".log")
+            return tempfile.NamedTemporaryFile(prefix="interpreter.", suffix=".log", delete=False)
         else:
             return open(str(interpreter_log_file), "w+")
 

@@ -8,6 +8,6 @@ action wait! = noop! timeout 200;
 let ~n = parseInt(`#counter`.textContent);
 
 let ~prop =
-  (always {20} ((n < 10) until {10} (n == 10)));
+  (always {20} ((n < 10) until {0} (n == 10)));
 
 check prop with * when loaded?;

@@ -20,20 +20,23 @@ commit to the ``main`` branch. It's based on Domen Kožar's gist. [#original]_
 
        # We use `install-nix-action` and `cachix-action` to quickly install the 
        # latest Quickstrom from a binary cache.
-       - uses: cachix/install-nix-action@v12
-       - uses: cachix/cachix-action@v8
+       - uses: cachix/install-nix-action@v18
+       - uses: cachix/cachix-action@v12
          with:
            name: quickstrom
        - run: nix-env -iA quickstrom -f https://github.com/quickstrom/quickstrom/tarball/main
 
-       # We install and run Geckodriver in the background, so that we can run
-       # tests using Firefox.
-       - run: nix-env -i geckodriver -f https://github.com/NixOS/nixpkgs/tarball/nixos-21.05
-       - run: geckodriver&
+       # Now, run tests! This assumes there's a file called 
+       # `example.strom` in the root of the GitHub repository.
+       - run: quickstrom check example https://example.com --reporter=html --html-report-directory=report
 
-       # Finally, run tests! This assumes there's a file called 
-       # `example.spec.purs` in the root of the GitHub repository.
-       - run: quickstrom check example.spec.purs https://example.com
+       # Finally, we archive HTML report as an artifact. This
+       # can be downloaded an inspected after failed checks.
+       - name: Archive test results
+         uses: actions/upload-artifact@v3
+         with:
+           name: test-report
+           path: report
 
 Replace the placeholder paths and URLs. 
 

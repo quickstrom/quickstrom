@@ -1,0 +1,35 @@
+import quickstrom;
+
+// Only links beginning with a slash and ending
+// with .html are followed. We could also use
+// an absolute base URL, e.g:
+//
+//     a[href^='https://example.com']
+//
+action ~navigate! =
+  click!(`a[href^='/'][href$='.html']`);
+
+// We're interested in finding links that lead
+// to pages rendered with these status codes in
+// the heading.
+let patterns = [ "404", "500" ];
+
+// In our system's error pages, status codes
+// are rendered in an <h1> element.
+let ~heading =
+  let h1 = first(`h1`);
+  h1.textContent when h1 != null;
+
+// Check if the heading has any of the error
+// codes in the text.
+let ~hasErrorCode = 
+  exists p in patterns {
+    contains(p, heading)
+  };
+
+// This is the safety property. At no point,
+// following only internal links, should we
+// see error codes.
+let ~proposition = always (not hasErrorCode);
+
+check proposition with * when loaded?;

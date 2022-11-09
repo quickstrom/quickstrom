@@ -30,13 +30,10 @@ showing screenshots and overlayed state information for the queried elements.
 To set the directory to generate the report in, use the option
 ``--html-report-directory=<DIR>``.
 
-The HTML report directory must be served through an HTTP server in order
-to avoid problems with CORS. If you have Python 3 installed, serve it with
-the following command:
+.. tip::
 
-.. code-block:: console
-
-   $ python3 -m http.server -d <DIR>
+   If you run Quickstrom using Docker, make sure to generate the HTML
+   report in a mounted directory so that you can access it from the host.
 
 JSON
 ----

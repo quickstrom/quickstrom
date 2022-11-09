@@ -37,3 +37,13 @@ running the ``check`` command:
    $ quickstrom check \
       --browser=chrome \
       ... # more options
+
+
+You can also override which binary it uses when launching the browser:
+
+.. code-block:: console
+
+   $ quickstrom check \
+      --browser=chrome \
+      --browser-binary=/usr/bin/google-chrome-stable \
+      ... # more options

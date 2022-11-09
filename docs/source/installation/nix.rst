@@ -22,9 +22,8 @@ executable:
 
 If you're on Darwin, you're probably going to have problems with
 Firefox and Chrome from nixpkgs. You can exclude browsers from the
-Quickstrom environment and provide them on your own, but there's often
-problems with version mismatches between chromedriver and
-Chrome/Chromium. If you want to do this, override it with this command:
+Quickstrom environment and provide them on your own, e.g. through
+Homebrew. If you want to do this, override it with this command:
 
 .. code-block:: console
 

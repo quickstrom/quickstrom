@@ -18,6 +18,7 @@
 
 import sphinx_rtd_theme
 import re
+import os
 
 import datetime
 
@@ -29,9 +30,11 @@ project = u'Quickstrom'
 copyright = u'2020-2022, Oskar Wickström'
 author = u'Oskar Wickström'
 
+dir_path = os.path.dirname(os.path.realpath(__file__))
+
 
 def get_version():
-    with open("../../pyproject.toml", "r") as f:
+    with open(f"{dir_path}/../../pyproject.toml", "r") as f:
         for line in f.readlines():
             matches = re.match(r'version = "(.*)"', line)
             if matches:

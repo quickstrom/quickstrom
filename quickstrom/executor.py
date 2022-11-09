@@ -277,6 +277,9 @@ class Check():
                             raise e
                         except Exception as e:
                             send(Error(str(e)))
+                            msg = receive() 
+                            if not isinstance(msg, End):
+                                raise Exception(f"Expected End after Error but got: {msg}")
                     elif isinstance(msg, Done):
                         return [
                             attach_screenshots(result.from_protocol_result(r))

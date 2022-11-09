@@ -81,6 +81,9 @@ class End():
 class Done():
     results: List[Result]
 
+@dataclass
+class Aborted():
+    error_message: str
 
 @dataclass
 class RequestAction():
@@ -169,6 +172,8 @@ def _decode_hook(d: Any) -> Any:
         return End()
     elif d['tag'] == 'Done':
         return Done(results=d['results'])
+    elif d['tag'] == 'Aborted':
+        return Aborted(error_message=d['errorMessage'])
     elif d['tag'] == 'Definitely':
         return Validity('Definitely', d['contents'])
     elif d['tag'] == 'Probably':

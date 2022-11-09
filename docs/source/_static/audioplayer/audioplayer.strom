@@ -26,7 +26,7 @@ let ~paused = buttonText == "Play";
 
 action ~tick? = changed?(`.time-display`);
 
-// We want to interact with the player by clicking buttons. 
+// We want to interact with the player by clicking buttons.
 action ~pause! = click!(`.play-pause`) when playing;
 // We wait for 1000ms after starting playback, to allow for ticks to
 // happen asynchronously.
@@ -55,7 +55,7 @@ let ~proposition =
     playing
       && nextT playing
       && (let old = timeInSeconds; nextT (old < timeInSeconds));
-  
+
     // This last part is the central part of the specification,
     // describing the initial state and the possible transitions. It
     // can be read in English as:

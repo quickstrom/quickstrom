@@ -10,7 +10,7 @@ let
     pkgs.firefox
   ];
 
-  makeTest = { name, module, origin, options ? "", expectedExitCode }:
+  makeTest = { name, module, origin, include, options ? "", expectedExitCode }:
     pkgs.stdenv.mkDerivation {
       name = "quickstrom-integration-test-${name}";
       src = ./.;
@@ -19,9 +19,7 @@ let
         set +e
         mkdir -p $out
 
-        quickstrom --log-level=INFO -I${../case-studies} -I${
-          ./passing
-        } check ${module} ${origin} ${options} --browser=${browser} --reporter=console --reporter=html --html-report-directory=$out/html-report | tee $out/test-report.log
+        quickstrom --log-level=INFO -I${../case-studies} -I${include} check ${module} ${origin} ${options} --browser=${browser} --reporter=console --reporter=html --html-report-directory=$out/html-report | tee $out/test-report.log
         exit_code=$?
 
         if [ $exit_code == "${toString expectedExitCode}" ]; then
@@ -48,8 +46,17 @@ let
   passing = name: {
     module = name;
     origin = "${./passing}/${name}.html";
+    include = ./passing;
     options = "";
     expectedExitCode = 0;
+  };
+
+  failing = { name, expectedExitCode }: {
+    module = name;
+    origin = "${./failing}/${name}.html";
+    include = ./failing;
+    options = "";
+    inherit expectedExitCode;
   };
 
   todomvc = builtins.fetchTarball {
@@ -61,6 +68,7 @@ in makeTests {
   todomvc-backbone = {
     module = "todomvc";
     origin = "${todomvc}/examples/backbone/index.html";
+    include = ./passing;
     options = "";
     expectedExitCode = 0;
   };
@@ -69,4 +77,5 @@ in makeTests {
   async-css-change = passing("async-css-change");
   only-noop = passing("only-noop");
   select = passing("select");
+  invalid-spec = failing { name = "invalid-spec"; expectedExitCode = 2; };
 }

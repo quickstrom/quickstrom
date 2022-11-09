@@ -38,6 +38,13 @@ class SpecstromError(Exception):
     def __str__(self):
         return f"{self.message}, exit code {self.exit_code}"
 
+@dataclass
+class SpecstromAbortedError(Exception):
+    message: str
+
+    def __str__(self):
+        return f"{self.message}"
+
 
 @dataclass
 class PerformActionError(Exception):
@@ -128,11 +135,14 @@ class Check():
                     return msg
 
             def send(msg):
-                if p.poll() is None:
+                exit_code = p.poll()
+                if exit_code is None:
                     self.log.debug("Sending %s", msg)
                     output_messages.write(msg)
-                else:
+                elif exit_code == 0:
                     self.log.warning("Done, can't send.")
+                else:
+                    self.log.warning("Specstrom errored, can't send.")
 
             def perform_action(driver, action):
                 try:
@@ -263,6 +273,8 @@ class Check():
 
                             await_session_commands(driver, msg.dependencies,
                                                    state_version)
+                        except SpecstromAbortedError as e:
+                            raise e
                         except Exception as e:
                             send(Error(str(e)))
                     elif isinstance(msg, Done):
@@ -270,8 +282,10 @@ class Check():
                             attach_screenshots(result.from_protocol_result(r))
                             for r in msg.results
                         ]
-                    elif isinstance(msg, AwaitEvents):
-                        raise Exception(f"AwaitEvents in run_sessions: {msg}")
+                    elif isinstance(msg, Aborted):
+                        raise SpecstromAbortedError(msg.error_message)
+                    else:
+                        raise Exception(f"Unexpected message in run_sessions: {msg}")
 
             def await_session_commands(driver: WebDriver, deps, state_version):
                 try:
@@ -325,6 +339,8 @@ class Check():
                         elif isinstance(msg, End):
                             self.log.info("Ending session")
                             return
+                        elif isinstance(msg, Aborted):
+                            raise SpecstromAbortedError(msg.error_message)
                         else:
                             raise Exception(f"Unexpected message: {msg}")
                 finally:

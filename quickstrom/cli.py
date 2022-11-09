@@ -1,4 +1,5 @@
 import logging
+import tempfile
 from quickstrom.reporter import Reporter
 import click
 from typing import Tuple, cast, Dict, List, Optional
@@ -132,11 +133,16 @@ def check(module: str, origin: str, browser: executor.Browser, headless: bool,
         print(f"File does not exist: {origin}")
         exit(1)
 
-    if interpreter_log_file is None:
-        interpreter_log_file = "interpreter.log"
+    def get_interpreter_log_file():
+        if interpreter_log_file is None:
+            return tempfile.NamedTemporaryFile(prefix="interpreter.", suffix=".log", delete=False)
+        else:
+            return open(str(interpreter_log_file), "w+")
 
-    with open(str(interpreter_log_file), "w+") as ilog:
+    with get_interpreter_log_file() as ilog:
         try:
+            print(f"Interpreter log: {ilog.name}")
+
             cookies = [
                 executor.Cookie(domain, name, value)
                 for (domain, name, value) in cookie
@@ -183,7 +189,11 @@ def check(module: str, origin: str, browser: executor.Browser, headless: bool,
                 exit(1)
             elif any([(isinstance(r, Failed)) for r in results]):
                 exit(3)
-            print(f"Interpreter log: {ilog.name}")
+
+        except executor.SpecstromAbortedError as err:
+            print("\nCheck was aborted:\n")
+            print(err)
+            exit(2)
         except executor.SpecstromError as err:
             print(err)
             print(f"See interpreter log file for details: {ilog.name}")

@@ -30,9 +30,11 @@ class TraceActions():
 class TraceState():
     state: State
 
+
 @dataclass
 class TraceError():
     error: str
+
 
 TraceElement = Union[TraceActions, TraceState, TraceError]
 
@@ -81,9 +83,11 @@ class End():
 class Done():
     results: List[Result]
 
+
 @dataclass
 class Aborted():
     error_message: str
+
 
 @dataclass
 class RequestAction():
@@ -111,9 +115,11 @@ class Events():
     events: List[Action]
     state: State
 
+
 @dataclass
 class Error():
     error_message: str
+
 
 def message_writer(fp: IO[str]):
     dumps: Callable[[Any],
@@ -167,7 +173,8 @@ def _decode_hook(d: Any) -> Any:
     if d['tag'] == 'RequestAction':
         return RequestAction(action=d['action'], version=d['version'])
     if d['tag'] == 'AwaitEvents':
-        return AwaitEvents(await_timeout=d['awaitTimeout'], version=d['version'])
+        return AwaitEvents(await_timeout=d['awaitTimeout'],
+                           version=d['version'])
     elif d['tag'] == 'End':
         return End()
     elif d['tag'] == 'Done':

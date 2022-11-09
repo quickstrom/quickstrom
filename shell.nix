@@ -18,7 +18,7 @@ in pkgs.mkShell {
     pkgs.geckodriver
     pkgs.firefox
     pkgs.chromedriver
-    pkgs.google-chrome
+    pkgs.chromium
 
     specstrom
     pkgs.nodePackages.pyright

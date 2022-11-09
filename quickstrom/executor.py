@@ -166,9 +166,6 @@ class Check():
                         select = Select(
                             option.find_element(By.XPATH,
                                                 "./ancestor::select"))
-                        self.log.warn(option)
-                        self.log.warn(select)
-                        self.log.warn(value)
                         select.select_by_value(value)
                     elif action.id == 'focus':
                         id = action.args[0]

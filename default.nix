@@ -36,7 +36,7 @@ let
         makeWrapper ${quickstrom}/bin/quickstrom $out/bin/quickstrom \
           --set QUICKSTROM_CLIENT_SIDE_DIRECTORY ${client-side} \
           --set QUICKSTROM_HTML_REPORT_DIRECTORY ${html-report} \
-          --set PATH ${pkgs.lib.makeBinPath runtimeDeps} \
+          --prefix PATH : ${pkgs.lib.makeBinPath runtimeDeps} \
           --add-flags "-I$out/share/ulib"
 
       '';

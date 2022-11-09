@@ -27,7 +27,7 @@ Next, pull the QuickStrom image using Docker:
 
 .. code-block:: console
 
-   $ docker pull quickstrom/quickstrom:latest
+   $ docker pull quickstrom/quickstrom:{VERSION}
 
 Downloading the Audio Player
 -----------------------------

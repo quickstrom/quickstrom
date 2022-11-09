@@ -18,13 +18,13 @@ commit to the ``main`` branch. It's based on Domen Kožar's gist. [#original]_
        steps:
        - uses: actions/checkout@v2.3.4
 
-       # We use `install-nix-action` and `cachix-action` to quickly install the 
-       # latest Quickstrom from a binary cache.
+       # We use `install-nix-action` and `cachix-action` to quickly install
+       # Quickstrom from a binary cache.
        - uses: cachix/install-nix-action@v18
        - uses: cachix/cachix-action@v12
          with:
            name: quickstrom
-       - run: nix-env -iA quickstrom -f https://github.com/quickstrom/quickstrom/tarball/main
+       - run: nix-env -iA quickstrom -f https://github.com/quickstrom/quickstrom/tarball/{VERSION}
 
        # Now, run tests! This assumes there's a file called 
        # `example.strom` in the root of the GitHub repository.

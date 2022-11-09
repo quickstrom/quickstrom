@@ -17,21 +17,32 @@
 # sys.path.insert(0, os.path.abspath('.'))
 
 import sphinx_rtd_theme
+import re
 
 import datetime
+
 now = datetime.datetime.now()
 
 # -- Project information -----------------------------------------------------
 
 project = u'Quickstrom'
-copyright = u'2020, Oskar Wickström'
+copyright = u'2020-2022, Oskar Wickström'
 author = u'Oskar Wickström'
 
-# The short X.Y version
-version = u''
-# The full version, including alpha/beta/rc tags
-release = u'0.1.0'
 
+def get_version():
+    with open("../../pyproject.toml", "r") as f:
+        for line in f.readlines():
+            matches = re.match(r'version = "(.*)"', line)
+            if matches:
+                return matches.group(1)
+    return "latest"
+
+
+# The short X.Y version
+version = get_version()
+# The full version, including alpha/beta/rc tags
+release = version
 
 # -- General configuration ---------------------------------------------------
 
@@ -43,11 +54,8 @@ release = u'0.1.0'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.todo',
-    'sphinx.ext.mathjax',
-    'sphinx.ext.githubpages',
-    'sphinx.ext.graphviz',
-    'sphinx_rtd_theme'
+    'sphinx.ext.todo', 'sphinx.ext.mathjax', 'sphinx.ext.githubpages',
+    'sphinx.ext.graphviz', 'sphinx_rtd_theme'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -67,7 +75,7 @@ master_doc = 'index'
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = 'en'
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -76,7 +84,6 @@ exclude_patterns = []
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'xcode'
-
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -90,13 +97,14 @@ html_theme = "sphinx_rtd_theme"
 # documentation.
 #
 html_theme_options = {
-    'canonical_url': 'https://quickstrom.io/',
+    'html_baseurl': 'https://quickstrom.io/',
     # 'analytics_id': 'UA-XXXXXXX-1',  #  Provided by Google in your dashboard
     'logo_only': False,
     'display_version': True,
     'prev_next_buttons_location': 'bottom',
     'style_external_links': False,
-    'style_nav_header_background': 'linear-gradient(144deg, rgba(44,25,83,1) 0%, rgba(83,41,170,1) 100%)',
+    'style_nav_header_background':
+    'linear-gradient(144deg, rgba(44,25,83,1) 0%, rgba(83,41,170,1) 100%)',
     # Toc options
     'collapse_navigation': True,
     'sticky_navigation': True,
@@ -108,9 +116,9 @@ html_theme_options = {
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static' ]
+html_static_path = ['_static']
 
-html_context= {
+html_context = {
     "copyright": u'{} {}'.format(now.year, author),
     "display_github": True,
     "github_host": 'github.com',
@@ -131,12 +139,10 @@ html_context= {
 #
 # html_sidebars = {}
 
-
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'Quickstromdoc'
-
 
 # -- Options for LaTeX output ------------------------------------------------
 
@@ -166,16 +172,12 @@ latex_documents = [
      u'Oskar Wickström', 'manual'),
 ]
 
-
 # -- Options for manual page output ------------------------------------------
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [
-    (master_doc, 'quickstrom', u'Quickstrom Documentation',
-     [author], 1)
-]
-
+man_pages = [(master_doc, 'quickstrom', u'Quickstrom Documentation', [author],
+              1)]
 
 # -- Options for Texinfo output ----------------------------------------------
 
@@ -183,11 +185,9 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'Quickstrom', u'Quickstrom Documentation',
-     author, 'Quickstrom', 'One line description of project.',
-     'Miscellaneous'),
+    (master_doc, 'Quickstrom', u'Quickstrom Documentation', author,
+     'Quickstrom', 'One line description of project.', 'Miscellaneous'),
 ]
-
 
 # -- Options for Epub output -------------------------------------------------
 
@@ -206,10 +206,26 @@ epub_title = project
 # A list of files that should not be packed into the epub file.
 epub_exclude_files = ['search.html']
 
-
 # -- Extension configuration -------------------------------------------------
 
 # -- Options for todo extension ----------------------------------------------
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = True
+
+
+# Based on https://stackoverflow.com/a/56328457
+#
+def ultimate_replace(app, docname, source):
+    result = source[0]
+    for key in app.config.ultimate_replacements:
+        result = result.replace(key, app.config.ultimate_replacements[key])
+    source[0] = result
+
+
+ultimate_replacements = {"{VERSION}": version}
+
+
+def setup(app):
+    app.add_config_value('ultimate_replacements', {}, True)
+    app.connect('source-read', ultimate_replace)

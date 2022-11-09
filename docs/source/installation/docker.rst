@@ -6,13 +6,13 @@ the image using Docker:
 
 .. code-block:: console
 
-   $ docker pull quickstrom/quickstrom:0.5.0
+   $ docker pull quickstrom/quickstrom:{VERSION}
 
 Verify that Quickstrom can now be run using Docker:
 
 .. code-block:: console
 
-   $ docker run quickstrom/quickstrom:0.5.0 \
+   $ docker run quickstrom/quickstrom:{VERSION} \
        quickstrom --help
 
 You can now run Quickstrom checks:
@@ -22,7 +22,7 @@ You can now run Quickstrom checks:
 
    $ docker run \
      -v $PWD/specs:/specs \
-     quickstrom/quickstrom:0.5.0 \
+     quickstrom/quickstrom:{VERSION} \
      quickstrom -I/specs \
      check example \
      https://example.com
@@ -32,7 +32,7 @@ line does:
 
 #. Uses `docker run` to execute a program inside the container
 #. Mounts a host directory containing specification(s) to ``/specs`` in the container filesystem
-#. Uses the image ``quickstrom/quickstrom`` with the ``0.5.0`` tag
+#. Uses the image ``quickstrom/quickstrom`` with the ``{VERSION}`` tag
 #. Runs ``quickstrom`` with the mounted ``/specs`` directory as an include path
 #. Checks the ``example`` specificiation module (i.e. ``/specs/example.strom``)
 #. Passes an origin URI (this could also be a file path into the mounted directory)

@@ -102,6 +102,7 @@ class Check():
     module: str
     origin: str
     browser: Browser
+    browser_binary: Optional[str]
     include_paths: List[str]
     headless: bool
     capture_screenshots: bool
@@ -364,12 +365,10 @@ class Check():
         if self.browser == 'chrome':
             options = chrome_options.Options()
             options.headless = self.headless
-            browser_path = which("google-chrome-stable") or which(
-                "google-chrome") or which("chrome") or which("chromium")
+            browser_path = self.browser_binary or which("chromium") or which("google-chrome-stable") or which("google-chrome") or which("chrome")
             options.binary_location = browser_path    # type: ignore
             options.add_argument('--no-sandbox')
             options.add_argument("--single-process")
-            # options.add_argument("--disable-dev-shm-usage")
             chromedriver_path = which('chromedriver')
             if not chromedriver_path:
                 raise Exception("chromedriver not found in PATH")
@@ -379,8 +378,7 @@ class Check():
         elif self.browser == 'firefox':
             options = firefox_options.Options()
             options.headless = self.headless
-            binary = FirefoxBinary(which("firefox"))
-            # options.binary = FirefoxBinary(which("firefox"))    # type: ignore
+            binary = FirefoxBinary(self.browser_binary or which("firefox"))
             geckodriver_path = which('geckodriver')
             if not geckodriver_path:
                 raise Exception("geckodriver not found in PATH")

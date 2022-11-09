@@ -79,6 +79,7 @@ def root(ctx, color, log_level, include):
 @click.argument('module')
 @click.argument('origin')
 @click.option('-B', '--browser', default='firefox')
+@click.option('--browser-binary')
 @click.option('--headless/--headful', default=True)
 @click.option('-S',
               '--capture-screenshots/--no-capture-screenshots',
@@ -103,7 +104,7 @@ def root(ctx, color, log_level, include):
     multiple=True,
     type=(str, str, str),
     help='set a cookie based on three values, e.g. --cookie domain name value')
-def check(module: str, origin: str, browser: executor.Browser, headless: bool,
+def check(module: str, origin: str, browser: executor.Browser, browser_binary: Optional[str], headless: bool,
           capture_screenshots: bool, console_report_on_success: bool,
           reporter: List[str], interpreter_log_file: Optional[str], driver_log_file: Optional[str],
           json_report_file: str, json_report_files_directory: str,
@@ -150,6 +151,7 @@ def check(module: str, origin: str, browser: executor.Browser, headless: bool,
             results = executor.Check(module,
                                      origin_url.geturl(),
                                      browser,
+                                     browser_binary,
                                      cast(List[str],
                                           global_options['includes']),
                                      headless,

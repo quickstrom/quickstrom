@@ -28,9 +28,10 @@ action ~tick? = changed?(`.time-display`);
 
 // We want to interact with the player by clicking buttons.
 action ~pause! = click!(`.play-pause`) when playing;
-// We wait for 1000ms after starting playback, to allow for ticks to
-// happen asynchronously.
 action ~play! = click!(`.play-pause`) when paused;
+
+// We wait to allow for ticks to happen asynchronously.
+action ~wait! = noop! timeout 1000;
 
 // The proposition describes the correct behavior of the web
 // application.  Here we start in the paused state, and a valid
@@ -56,6 +57,10 @@ let ~proposition =
       && nextT playing
       && (let old = timeInSeconds; nextT (old < timeInSeconds));
 
+  let ~wait =
+    nextT (contains(noop!, happened))
+      ==> unchanged([timeInSeconds, playing]);
+
     // This last part is the central part of the specification,
     // describing the initial state and the possible transitions. It
     // can be read in English as:
@@ -65,6 +70,11 @@ let ~proposition =
     //   all indefinitely.
     //
     // We require 20 states to be checked.
-  paused && (always {20} (play || pause || tick));
+  paused && (always {20} (
+    play
+    || pause
+    || tick
+    || wait
+  ));
 
 check proposition with * when loaded?;

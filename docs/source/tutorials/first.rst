@@ -42,9 +42,9 @@ it using ``curl``:
 
 If you don't have ``curl`` installed, you can download it from `this
 URL
-<https://github.com/quickstrom/quickstrom/raw/main/examples/AudioPlayer.html>`__
+<https://github.com/quickstrom/quickstrom/raw/main/docs/source/_static/audioplayer/audioplayer.html>`__
 using your web browser. Make sure you've saved it our working
-directory as ``AudioPlayer.html``.
+directory as ``audioplayer.html``.
 
 .. code-block:: console
 
@@ -292,33 +292,129 @@ You'll see a bunch of output, involving shrinking tests and more. It
 should end with something like the following:
 
 .. code-block::
-   :emphasize-lines: 16
+   :emphasize-lines: 5,14,21
 
-   1. State
-     • .play-pause
-         -
-            - property "textContent" = "Play"
-     • .time-display
-         -
-            - property "textContent" = "00:00"
-   2. click button[0]
-   3. click button[0]
-   4. State
-     • .play-pause
-         -
-            - property "textContent" = "Play"
-     • .time-display
-         -
-            - property "textContent" = "NaN:NaN"
+   Transition #1
 
-   Failed after 1 tests and 4 levels of shrinking.
+   Actions and events:
 
+   - click('33a4c299-a382-44c2-870e-b48335f9c23a')
 
-Whoops, look at that! It says that the time display shows
-"NaN:NaN". We've found our first bug using Quickstrom!
+   State difference:
 
-Open up ``AudioPlayer.html``, and change the following lines near the
-end of the file:
+   `.play-pause`
+   ╒══════════════════════════════════════╤══════════════════════════════════════╕
+   │ 33a4c299-a382-44c2-870e-b48335f9c23a │ 33a4c299-a382-44c2-870e-b48335f9c23a │
+   │ enabled: true                        │ enabled: true                        │
+   │ interactable: true                   │ interactable: true                   │
+   │ textContent: "Play"                  │ textContent: "Play"                  │
+   │ visible: true                        │ visible: true                        │
+   ╘══════════════════════════════════════╧══════════════════════════════════════╛
+
+   `.time-display`
+   ╒══════════════════════════════════════╤══════════════════════════════════════╕
+   │ bd797365-5239-4a9b-9976-942288bd227a │ bd797365-5239-4a9b-9976-942288bd227a │
+   │ textContent: "00:00"                 │ textContent: "00:00"                 │
+   ╘══════════════════════════════════════╧══════════════════════════════════════╛
+
+Look, we've found our first bug using Quickstrom! It seems clicking the
+play/pause doesn't do anything. It should change the label to "Pause" to
+indicate it's in the playing state.
+
+The problem is the button text. Open up ``audioplayer.html``, and change the
+following function called ``playPauseLabel``:
+
+.. code-block:: javascript
+
+   function playPauseLabel(state) {
+       let label;
+       switch (state) {
+       case "playing":
+           label = "Pause";
+       case "paused":
+           label = "Play";
+       }
+       return label;
+   }
+
+It should be:
+
+.. code-block:: javascript
+
+   function playPauseLabel(state) {
+       switch (state) {
+       case "playing":
+           return "Pause";
+       case "paused":
+           return "Play";
+       }
+   }
+
+Are we done? Is the audio player correct? Not quite.
+
+Transitions Based on Time
+-------------------------
+
+The audio player transitions between states mainly as a result of
+user action, but not only. A ``tick`` transition (going from
+``playing`` to ``playing`` with an increased time) is triggered
+by *time*.
+
+In addition to our ``play!`` and ``pause!`` actions, we'll add a ``wait!``
+action. It does nothing for at most two seconds, until either something
+happens (a ``tick?`` event) or a timeout:
+
+.. code-block:: javascript
+
+   action ~wait! = noop! timeout 2000;
+
+But this means we have to allow nothing to change. This is often
+called a *stutter state*. Let's do that, but only in combination with
+a ``noop!`` action. Add one more state transition to the proposition:
+
+.. code-block:: javascript
+   :emphasize-lines: 3-5, 11
+
+   let ~proposition =
+      ...
+      let ~wait =
+        nextT (contains(noop!, happened))
+          ==> unchanged([timeInSeconds, playing]);
+
+      paused && (always {20} (
+        play
+        || pause
+        || tick
+        || wait
+      ));
+
+Run another check by executing the same command as before:
+
+.. code-block:: console
+
+   $ docker run --rm \
+     -v $PWD:/my-first-spec \
+     quickstrom/quickstrom:0.5.0 \
+     quickstrom -I/my-first-spec check \
+     audioplayer \
+     /my-first-spec/audioplayer.html \
+     --browser=chrome
+
+You should see output such as the following:
+
+.. code-block::
+   :emphasize-lines: 3
+
+   Check was aborted:
+
+   parseInt could not parse: "NaN"
+     ParseInt @ /my-first-spec/audioplayer.strom:15:2
+     <fun> @ /nix/store/xradz0aav0ijajw91x1vqfqsprgipfhx-specstrom/share/ulib/control.strom:30:21
+
+Whoops, look at that! It crashes because the time display shows "NaN",
+which is definitely not intended behavior. Open up
+``audioplayer.html``, and change the following lines near the end of
+the file:
 
 .. code-block:: javascript
 
@@ -332,71 +428,7 @@ They should be:
    case "pause":
        return await inPaused(time); // <-- this is where we must pass in time
 
-Rerun the tests using the same ``quickstrom`` command as before. All
-tests pass!
-
-Are we done? Is the audio player correct? Not quite.
-
-Transitions Based on Time
--------------------------
-
-The audio player transitions between states mainly as a result of
-user action, but not only. A ``tick`` transition (going from
-``playing`` to ``playing`` with an incremented progress) is triggered
-by *time*.
-
-We'll try tweaking Quickstrom's options related to :doc:`trailing
-state changes <../../topics/trailing-state-changes>` to test more of the
-time-related behavior of the application.
-
-Run new tests by executing the following command:
-
-.. code-block:: console
-   :emphasize-lines: 10-11
-
-   $ docker run --rm \
-     --network quickstrom \
-     -v $PWD:/my-first-spec \
-     quickstrom/quickstrom \
-     quickstrom check \
-     --webdriver-host=webdriver \
-     --webdriver-path=/wd/hub \
-     --browser=chrome \
-     --tests=5 \
-     --max-trailing-state-changes=1 \
-     --trailing-state-change-timeout=500 \
-     /my-first-spec/AudioPlayer.spec.purs \
-     /my-first-spec/AudioPlayer.html
-
-You should see output such as the following:
-
-.. code::
-
-   1. State
-     • .play-pause
-         -
-            - property "textContent" = "Play"
-     • .time-display
-         -
-            - property "textContent" = "00:00"
-   2. click button[0]
-   3. State
-     • .play-pause
-         -
-            - property "textContent" = "Play"
-     • .time-display
-         -
-            - property "textContent" = "00:01"
-
-   Failed after 1 tests and 5 levels of shrinking.
-
-Look, another bug! It seems that there are ``tick`` transitions even
-though the play/pause button indicates that we're in the ``paused``
-state.
-
-In fact, the problem is the button text, not the time display. I'll
-leave it up to you to find the error in the code, fix it, and make
-the tests pass.
+Rerun the check using the same ``quickstrom`` command as before. It passes!
 
 Summary
 -------
@@ -405,8 +437,9 @@ Congratulations! You've completed the tutorial, created your first
 specification, and found multiple bugs.
 
 Have we found all bugs? Possibly not. This is the thing with testing.
-We can't know if we've found all problems. However, Quickstrom tries
-very hard to find more of them for you, requiring less effort.
+We can't know if we've found all problems. However, with Quickstrom
+you can increase your confidence in the correctness of your web
+app, especially if you continously run tests on it.
 
 This tutorial is intentionally fast-paced and low on theory. Now that
 you've got your hands dirty, it's a good time to check out

@@ -37,7 +37,8 @@ it using ``curl``:
 
 .. code-block:: console
 
-   $ curl -L https://github.com/quickstrom/quickstrom/raw/main/examples/audioplayer.html -o audioplayer.html
+   $ curl -L https://github.com/quickstrom/quickstrom/raw/main/docs/source/_static/audioplayer/audioplayer.html -o audioplayer.html
+
 
 
 If you don't have ``curl`` installed, you can download it from `this
@@ -176,7 +177,7 @@ existing action declartion to the following:
 
    action ~pause! = click!(`.play-pause`) when playing;
 
-   action ~play! = click!(`.play-pause`) timeout 1000 when paused;
+   action ~play! = click!(`.play-pause`) when paused;
 
 Finally, we'll change the ``proposition``. Remove ``true`` and type in
 the following code:
@@ -403,9 +404,7 @@ Run another check by executing the same command as before:
 You should see output such as the following:
 
 .. code-block::
-   :emphasize-lines: 3
-
-   Check was aborted:
+   :emphasize-lines: 1
 
    parseInt could not parse: "NaN"
      ParseInt @ /my-first-spec/audioplayer.strom:15:2

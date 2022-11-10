@@ -102,7 +102,7 @@ Let's run some tests! Launch Quickstrom from within your
 
 .. code-block:: console
 
-   $ docker run --rm \
+   $ docker run --shm-size=1g --rm \
      -v $PWD:/my-first-spec \
      quickstrom/quickstrom:0.5.0 \
      quickstrom -I/my-first-spec check \
@@ -280,7 +280,7 @@ Run Quickstrom again, now that we've fleshed out the specification:
 
 .. code-block:: console
 
-   $ docker run --rm \
+   $ docker run --shm-size=1g --rm \
      -v $PWD:/my-first-spec \
      quickstrom/quickstrom:0.5.0 \
      quickstrom -I/my-first-spec check \
@@ -392,7 +392,7 @@ Run another check by executing the same command as before:
 
 .. code-block:: console
 
-   $ docker run --rm \
+   $ docker run --shm-size=1g --rm \
      -v $PWD:/my-first-spec \
      quickstrom/quickstrom:0.5.0 \
      quickstrom -I/my-first-spec check \

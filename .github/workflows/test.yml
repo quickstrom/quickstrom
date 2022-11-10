@@ -57,7 +57,8 @@ jobs:
       with:
         name: quickstrom
         signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
-    - run: nix-build docs/default.nix
+    - run: nix-shell --command "make linkcheck html SPHINXOPTS=-W"
+      working-directory: docs
 
   build-docker:
     needs: build

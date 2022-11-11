@@ -105,7 +105,7 @@ Let's run some tests! Launch Quickstrom from within your
 
    $ docker run --shm-size=1g --rm \
      -v $PWD:/my-first-spec \
-     quickstrom/quickstrom:0.5.0 \
+     quickstrom/quickstrom:{VERSION} \
      quickstrom -I/my-first-spec check \
      audioplayer \
      /my-first-spec/audioplayer.html \
@@ -283,7 +283,7 @@ Run Quickstrom again, now that we've fleshed out the specification:
 
    $ docker run --shm-size=1g --rm \
      -v $PWD:/my-first-spec \
-     quickstrom/quickstrom:0.5.0 \
+     quickstrom/quickstrom:{VERSION} \
      quickstrom -I/my-first-spec check \
      audioplayer \
      /my-first-spec/audioplayer.html \
@@ -395,7 +395,7 @@ Run another check by executing the same command as before:
 
    $ docker run --shm-size=1g --rm \
      -v $PWD:/my-first-spec \
-     quickstrom/quickstrom:0.5.0 \
+     quickstrom/quickstrom:{VERSION} \
      quickstrom -I/my-first-spec check \
      audioplayer \
      /my-first-spec/audioplayer.html \

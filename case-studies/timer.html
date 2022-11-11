@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8"/>
+        <title>Timer</title>
+        <style>
+         html, body {
+           min-height: 100%;
+           display: flex;
+           align-items: center;
+           justify-content: center;
+           flex-direction: column;
+         }
+
+         body {
+           font-size: 32px;
+           font-family: sans-serif;
+         }
+
+         button {
+           font-size: inherit;
+           padding: .25em .75em;
+         }
+
+         #timer {
+           display: flex;
+           align-items: center;
+           justify-content: center;
+           flex-direction: column;
+         }
+
+         #remaining {
+           display: block;
+           padding: 2rem;
+           font-size: 200%;
+           font-weight: bold;
+         }
+        </style>
+    </head>
+    <body>
+      <div id="timer">
+        <time id="remaining">5</time>
+        <button id="toggle">Start</button>
+      </div>
+      <script>
+       function listen(event, element) {
+         return new Promise(resolve => {
+           element.addEventListener(event, e => {
+             resolve(e);
+             e.preventDefault();
+           });
+         });
+       }
+       function delay(ms) {
+         return new Promise(resolve => {
+           setTimeout(resolve, ms);
+         });
+       }
+
+       const remaining = document.querySelector("#remaining");
+       const toggle = document.querySelector("#toggle");
+
+       function runTimer(msLeft) {
+         const seconds = Math.ceil(msLeft / 1000);
+         remaining.textContent = `${seconds}`;
+
+         if (msLeft <= 0) {
+           toggle.textContent = "Start";
+           return Promise.resolve();
+         }
+
+         const before = (new Date()).getTime();
+         const remainder = msLeft % 1000;
+
+         return Promise.race([
+           delay(remainder).then(() => true),
+           listen("click", toggle).then(() => false),
+         ]).then(cont => {
+           const passed = (new Date()).getTime() - before;
+           if (cont) {
+             return runTimer(msLeft - passed);
+           } else {
+             toggle.textContent = "Start";
+             return listen("click", toggle).then(() => {
+               toggle.textContent = "Stop";
+               runTimer(msLeft - passed);
+             });
+           }
+         });
+       }
+
+       listen("click", toggle).then(() => {
+         toggle.textContent = "Stop";
+         runTimer(5000);
+       });
+      </script>
+    </body>
+</html>

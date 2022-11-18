@@ -1,4 +1,3 @@
-from ast import Await
 import dataclasses
 import io
 import subprocess
@@ -8,7 +7,7 @@ import time
 from shutil import which
 from dataclasses import dataclass
 import png
-from typing import List, Tuple, Union, Literal, Any, AnyStr
+from typing import List, Union, Literal, Any
 from selenium import webdriver
 from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.action_chains import ActionChains
@@ -37,6 +36,7 @@ class SpecstromError(Exception):
 
     def __str__(self):
         return f"{self.message}, exit code {self.exit_code}"
+
 
 @dataclass
 class SpecstromAbortedError(Exception):
@@ -275,9 +275,10 @@ class Check():
                             raise e
                         except Exception as e:
                             send(Error(str(e)))
-                            msg = receive() 
+                            msg = receive()
                             if not isinstance(msg, End):
-                                raise Exception(f"Expected End after Error but got: {msg}")
+                                raise Exception(
+                                    f"Expected End after Error but got: {msg}")
                     elif isinstance(msg, Done):
                         return [
                             attach_screenshots(result.from_protocol_result(r))
@@ -286,7 +287,8 @@ class Check():
                     elif isinstance(msg, Aborted):
                         raise SpecstromAbortedError(msg.error_message)
                     else:
-                        raise Exception(f"Unexpected message in run_sessions: {msg}")
+                        raise Exception(
+                            f"Unexpected message in run_sessions: {msg}")
 
             def await_session_commands(driver: WebDriver, deps, state_version):
                 try:
@@ -365,7 +367,9 @@ class Check():
         if self.browser == 'chrome':
             options = chrome_options.Options()
             options.headless = self.headless
-            browser_path = self.browser_binary or which("chromium") or which("google-chrome-stable") or which("google-chrome") or which("chrome")
+            browser_path = self.browser_binary or which("chromium") or which(
+                "google-chrome-stable") or which("google-chrome") or which(
+                    "chrome")
             options.binary_location = browser_path    # type: ignore
             options.add_argument('--no-sandbox')
             options.add_argument("--single-process")

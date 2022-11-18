@@ -7,7 +7,7 @@ import quickstrom.protocol as protocol
 from quickstrom.result import *
 from quickstrom.reporter import Reporter
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 @dataclass(frozen=True)
@@ -22,15 +22,16 @@ class JsonReporter(Reporter):
     files_dir: Path
 
     def report(self, result: PlainResult):
-        result_with_paths = write_screenshots(result, self.path.parent, self.files_dir)
+        result_with_paths = write_screenshots(result, self.path.parent,
+                                              self.files_dir)
         report = Report(diff_result(result_with_paths), datetime.utcnow())
         encode_file(report, self.path)
 
 
-def write_screenshots(result: PlainResult,
-                      base: Path,
+def write_screenshots(result: PlainResult, base: Path,
                       dir: Path) -> ResultWithScreenshots[Path]:
     os.makedirs(dir)
+
     def on_state(
         state: State[protocol.JsonLike,
                      bytes]) -> State[protocol.JsonLike, Path]:
@@ -38,7 +39,10 @@ def write_screenshots(result: PlainResult,
         if state.screenshot:
             p = dir / Path(f"{state.hash}.png")
             p.write_bytes(state.screenshot.image)
-            return State(state.hash, state.queries, Screenshot(p.relative_to(base), state.screenshot.width, state.screenshot.height, state.screenshot.scale))
+            return State(
+                state.hash, state.queries,
+                Screenshot(p.relative_to(base), state.screenshot.width,
+                           state.screenshot.height, state.screenshot.scale))
         else:
             return State(state.hash, state.queries, None)
 
@@ -63,7 +67,8 @@ class _ReporterEncoder(json.JSONEncoder):
         if isinstance(o, Report):
             return {
                 'result': self.default(o.result),
-                'generatedAt': str(o.generated_at),
+                'generatedAt':
+                o.generated_at.astimezone(timezone.utc).isoformat(),
                 'tag': 'Report'
             }
         elif isinstance(o, Passed):

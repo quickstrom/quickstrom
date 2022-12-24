@@ -236,9 +236,6 @@ class Check():
                         screenshot(driver, dict_hash(events.state))
                         state_version.increment()
                         send(Events(events.events, events.state))
-                        #if msg_id == 'noop':
-                            #state = scripts.query_state(driver, deps)
-                            #send(Timeout(state=state))
                 except StaleElementReferenceException as e:
                     self.log.error(f"Stale element reference: {e}")
                     on_no_events()

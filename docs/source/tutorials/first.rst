@@ -171,7 +171,7 @@ Next, we'll define the two states as booleans:
    let ~paused = buttonText == "Play";
 
 We also need to declare the actions a bit more precisely. Change to
-existing action declartion to the following:
+existing action declaration to the following:
 
 .. code-block:: javascript
 

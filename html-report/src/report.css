@@ -10,6 +10,12 @@ html, body {
     overflow: hidden;
 }
 
+@media screen and (max-width: 800px) {
+    html, body {
+        font-siez: 14px;
+    }
+}
+
 body {
     display: flex;
     flex-direction: column;
@@ -44,19 +50,18 @@ header {
 
 
 .header-summary,
-.result-summary,
 header .controls {
-    flex: 1 0 33%;
+    flex: 1 0 50%;
 }
 
 
 .header-summary {
     overflow: hidden;
 }
-header .controls:before {
-    content: " ";
-}
 header .controls {
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-start;
 }
 
 header h1 {
@@ -73,9 +78,6 @@ header .summary p {
     margin: .5em 0;
 }
 
-header .result-summary {
-    text-align: center;
-}
 header .result-summary.error,
 header .result-summary.failure {
     color: #d33;
@@ -144,7 +146,7 @@ main .controls button:active {
     width: 100%;
     margin: 0;
     padding: 1rem;
-    min-height: 3rem;
+    flex: 0 0 auto;
 }
 .state, .actions {
     flex: 0 0 33%;
@@ -188,8 +190,6 @@ main .controls button:active {
     display: flex;
     justify-content: space-evenly;
     padding: 1rem 0;
-    height: 50vw;
-    max-height: 50vh;
 }
 .state-screenshot {
     flex: 0 0 49%;

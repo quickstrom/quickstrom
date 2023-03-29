@@ -247,27 +247,25 @@ function Header({
     report: Report<Result>;
     onTestSelect?: (test: Test) => void;
 }) {
-    const ResultSummary: FunctionComponent = () => {
+    function renderResultSummaryPrefix() {
         switch (report.result.tag) {
             case "Failed":
                 return (
-                    <div class="result-summary failure">
-                        <p>
-                            Failed on {ordinal(report.result.passedTests.length + 1)} test.
-                        </p>
-                    </div>
+                    <span class="result-summary failure">
+                        Failed on {ordinal(report.result.passedTests.length + 1)} test
+                    </span>
                 );
             case "Errored":
                 return (
-                    <div class="result-summary error">
-                        <p>{report.result.message ? `Error: ${report.result.message}` : "Errored!"}</p>
-                    </div>
+                    <span class="result-summary error">
+                        {report.result.message ? report.result.message : "Errored"}
+                    </span>
                 );
             case "Passed":
                 return (
-                    <div class="result-summary success">
-                        <p>Passed {report.result.passedTests.length} tests.</p>
-                    </div>
+                    <span class="result-summary success">
+                        Passed {report.result.passedTests.length} tests
+                    </span>
                 );
             default:
                 return null;
@@ -296,9 +294,10 @@ function Header({
         <header>
             <div className="header-summary">
                 <h1>Quickstrom Test Report</h1>
-                <div className="generated-at" title={`Generated at ${report.generatedAt}`}><time>{new Date(report.generatedAt).toLocaleString()}</time></div>
+                <div className="generated-at" title={`Generated at ${report.generatedAt}`}>
+                    {renderResultSummaryPrefix()} at <time>{new Date(report.generatedAt).toLocaleString()}</time>
+                </div>
             </div>
-            <ResultSummary />
             <nav className="controls">
                 {onTestSelect && (
                     <select

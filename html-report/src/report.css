@@ -12,7 +12,7 @@ html, body {
 
 @media screen and (max-width: 800px) {
     html, body {
-        font-siez: 14px;
+        font-size: 14px;
     }
 }
 
@@ -135,21 +135,17 @@ main .controls button:active {
     font-family: 'Monaco', 'Consolas', 'Ubuntu Mono', monospace;
 }
 
-.states-and-actions, .screenshots, .details {
+.actions, .screenshots, .details {
     width: 100%;
     display: flex;
 }
 
-.states-and-actions {
+.actions {
     display: flex;
-    align-items: flex-end;
-    width: 100%;
+    justify-content: center;
     margin: 0;
     padding: 1rem;
     flex: 0 0 auto;
-}
-.state, .actions {
-    flex: 0 0 33%;
 }
 
 .actions {
@@ -171,14 +167,15 @@ main .controls button:active {
 .state:last-child {
     text-align: right;
 }
-.state .label {
-    margin: .5rem 0;
+.state {
+    border-top: 2px solid #ddd;
+    background: #eee;
 }
-
 .state h2 {
     font-size: 1rem;
     font-weight: normal;
     margin: 0;
+    text-align: center;
 }
 
 .state .queries {
@@ -190,8 +187,12 @@ main .controls button:active {
     display: flex;
     justify-content: space-evenly;
     padding: 1rem 0;
+    max-width: 100vh;
+    margin: 0 auto;
 }
 .state-screenshot {
+    display: flex;
+    flex-direction: column;
     flex: 0 0 49%;
     border: 2px solid #ddd;
     display: flex;

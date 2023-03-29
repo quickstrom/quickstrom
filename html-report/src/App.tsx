@@ -386,18 +386,14 @@ const TestViewer: FunctionComponent<{ test: Test }> = ({ test }) => {
                 </nav>
             </section>
             <section class="content">
-                <section class="states-and-actions">
-                    <State number={state.index} extraClass="from" />
-                    <Actions
-                        initial={state.index === 0}
-                        actions={transition.actions}
-                        setSelectedElement={setSelectedElement}
-                    />
-                    <State number={state.index + 1} extraClass="to" />
-                </section>
+                <Actions
+                    actions={transition.actions}
+                    setSelectedElement={setSelectedElement}
+                />
                 <section class="screenshots">
                     {state.current.fromState?.screenshot ? (
                         <Screenshot
+                            index={state.index}
                             state={state.current.fromState}
                             extraClass="from"
                             selectedElement={selectedElement}
@@ -409,6 +405,7 @@ const TestViewer: FunctionComponent<{ test: Test }> = ({ test }) => {
                     {transition.tag === "StateTransition" &&
                         transition.toState?.screenshot ? (
                         <Screenshot
+                            index={state.index + 1}
                             state={transition.toState}
                             extraClass="to"
                             selectedElement={selectedElement}
@@ -425,10 +422,9 @@ const TestViewer: FunctionComponent<{ test: Test }> = ({ test }) => {
 };
 
 const Actions: FunctionComponent<{
-    initial: boolean;
     actions: NonEmptyArray<Action>;
     setSelectedElement: StateUpdater<Element | null>;
-}> = ({ initial, actions, setSelectedElement }) => {
+}> = ({ actions, setSelectedElement }) => {
     function renderArg(arg: any): string {
         return keyName(arg) || JSON.stringify(arg);
     }
@@ -519,11 +515,12 @@ const MissingScreenshot: FunctionComponent = () => {
 };
 
 const Screenshot: FunctionComponent<{
+    index: number;
     state: State;
     extraClass: string;
     selectedElement: Element | null;
     setSelectedElement: StateUpdater<Element | null>;
-}> = ({ state, extraClass, selectedElement, setSelectedElement }) => {
+}> = ({ index, state, extraClass, selectedElement, setSelectedElement }) => {
     function isActive(element: Element) {
         return selectedElement && selectedElement.ref === element.ref;
     }
@@ -570,6 +567,7 @@ const Screenshot: FunctionComponent<{
                 <img src={s.url} width={s.width} height={s.height} />
                 {dim}
             </div>
+            <State number={index} extraClass={extraClass} />
         </div>
     );
 };

@@ -7,6 +7,7 @@ html, body {
     font-family: 'Free Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
     font-size: 16px;
     line-height: 1.4;
+    overflow: hidden;
 }
 
 body {
@@ -14,14 +15,21 @@ body {
     flex-direction: column;
     padding: 0;
     margin: 0;
+    min-height: 100%;
 }
 
 h1, h2, h3, h4, h5, h6 {
     font-weight: 600;
 }
 
+main, header {
+    overflow: hidden;
+}
+
 header {
-    padding: .5rem;
+    flex: 0 0 auto;
+    padding: .5rem 1rem;
+    background: #eee;
 }
 
 #root, .report {
@@ -34,9 +42,6 @@ header {
     display: flex;
 }
 
-@media (screen and max-width: 800px) {
-
-}
 
 .header-summary,
 .result-summary,
@@ -81,7 +86,7 @@ header .result-summary.success {
 }
 
 section.error {
-    padding: .5rem;
+    padding: 1rem;
     color: #d33;
     font-family: 'Monaco', 'Consolas', 'Ubuntu Mono', monospace;
     font-size: .875rem;
@@ -90,7 +95,7 @@ section.error {
 }
 
 main {
-    flex: 1 0 auto;
+    flex: 1 1 auto;
     display: flex;
     flex-direction: column;
 }
@@ -99,18 +104,25 @@ main .content {
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 main .controls {
     flex: 0 0 auto;
     display: flex;
-    padding: .5rem;
+    padding: 0 1rem 1rem;
     justify-content: space-between;
+    background: #eee;
+    border-bottom: 2px solid #ddd;
+}
+main .controls .forwards,
+main .controls .backwards {
+    display: flex;
+    gap: .5rem;
 }
 main .controls button {
 }
 main .controls button:disabled {
     cursor: not-allowed;
-    color: #999;
 }
 main .controls button:hover,
 main .controls button:active {
@@ -131,7 +143,7 @@ main .controls button:active {
     align-items: flex-end;
     width: 100%;
     margin: 0;
-    padding: .5rem;
+    padding: 1rem;
     min-height: 3rem;
 }
 .state, .actions {
@@ -172,9 +184,12 @@ main .controls button:active {
 }
 
 .screenshots {
+    flex: 0 0 auto;
     display: flex;
     justify-content: space-evenly;
     padding: 1rem 0;
+    height: 50vw;
+    max-height: 50vh;
 }
 .state-screenshot {
     flex: 0 0 49%;
@@ -240,10 +255,14 @@ main .controls button:active {
 }
 
 .details {
+    flex: 1 1 auto;
     display: flex;
     flex-direction: column;
-    margin: 1rem 0;
+    margin: 0;
     font-size: .875rem;
+    overflow-y: auto;
+    background: #eee;
+    border-top: 2px solid #ddd;
 }
 .details .query {
     display: flex;

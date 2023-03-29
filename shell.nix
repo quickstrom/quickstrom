@@ -15,10 +15,10 @@ in pkgs.mkShell {
     pkgs.libffi
     pkgs.poetry
 
-    pkgs.geckodriver
-    pkgs.firefox
-    pkgs.chromedriver
-    pkgs.chromium
+    # pkgs.geckodriver
+    # pkgs.firefox
+    # pkgs.chromedriver
+    # pkgs.chromium
 
     specstrom
     pkgs.nodePackages.pyright

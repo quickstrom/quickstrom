@@ -7,8 +7,6 @@ html, body {
     font-family: 'Free Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
     font-size: 16px;
     line-height: 1.4;
-    background: #222;
-    color: #ccc;
 }
 
 body {
@@ -22,9 +20,8 @@ h1, h2, h3, h4, h5, h6 {
     font-weight: 600;
 }
 
-header, footer {
-    padding: 1.5rem;
-    background: #2a2a2a;
+header {
+    padding: .5rem;
 }
 
 #root, .report {
@@ -33,46 +30,63 @@ header, footer {
     flex-direction: column;
 }
 
-footer {
-    font-size: 0.875rem;
-}
-
 header {
     display: flex;
-    align-items: center;
 }
 
-header .header-summary {
-    flex: 1 1 auto;
+@media (screen and max-width: 800px) {
+
+}
+
+.header-summary,
+.result-summary,
+header .controls {
+    flex: 1 0 33%;
+}
+
+
+.header-summary {
+    overflow: hidden;
+}
+header .controls:before {
+    content: " ";
 }
 header .controls {
-    flex: 0 0 auto;
 }
 
 header h1 {
-    margin: 0 0 1rem;
-    font-size: 150%;
-    font-weight: 400;
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+header .generated-at {
+    font-size: .875rem;
+    overflow: hidden;
 }
 
 header .summary p {
     margin: .5em 0;
 }
 
-header .summary.error,
-header .summary.failure {
+header .result-summary {
+    text-align: center;
+}
+header .result-summary.error,
+header .result-summary.failure {
     color: #d33;
 }
 
-header .summary.success {
+header .result-summary.success {
     color: #3d3;
 }
 
 section.error {
-    padding: 1.5rem;
+    padding: .5rem;
     color: #d33;
     font-family: 'Monaco', 'Consolas', 'Ubuntu Mono', monospace;
+    font-size: .875rem;
     white-space: pre;
+    overflow-x: auto;
 }
 
 main {
@@ -89,25 +103,17 @@ main .content {
 main .controls {
     flex: 0 0 auto;
     display: flex;
+    padding: .5rem;
     justify-content: space-between;
 }
 main .controls button {
-    background: #222;
-    border: none;
-    padding: 2rem;
-    cursor: pointer;
-    color: #ccc;
-    letter-spacing: 0.05em;
-    font-size: 1rem;
-    text-transform: uppercase;
 }
 main .controls button:disabled {
     cursor: not-allowed;
-    color: #666;
+    color: #999;
 }
 main .controls button:hover,
 main .controls button:active {
-    background: #2f2f2f;
 }
 
 .selector {
@@ -115,68 +121,50 @@ main .controls button:active {
     font-family: 'Monaco', 'Consolas', 'Ubuntu Mono', monospace;
 }
 
-.actions, .action, .states, .screenshots, .details {
+.states-and-actions, .screenshots, .details {
     width: 100%;
     display: flex;
 }
 
+.states-and-actions {
+    display: flex;
+    align-items: flex-end;
+    width: 100%;
+    margin: 0;
+    padding: .5rem;
+    min-height: 3rem;
+}
+.state, .actions {
+    flex: 0 0 33%;
+}
+
 .actions {
-    flex-direction: column;
-    align-items: center;
-
-    width: calc(100%/6 * 3);
-    margin: 2rem calc(100%/6 * 1.5) 1rem;
-    border-top: 1px solid #666;
-    border-left: 1px solid #666;
-    border-right: 1px solid #666;
-
-    color: #fff;
-}
-.actions.initial {
-    border-left: none;
-}
-
-.actions .label {
-    margin: -2rem 0 0;
-    line-height: 1rem;
-    background: #222;
-    display: block;
-    text-transform: uppercase;
-    font-size: .75rem;
-    color: #999;
-}
-
-.actions-inner {
-    width: calc(100%/6 * 3);
     text-align: center;
-    margin-top: 1.5rem;
 }
 .action-details code {
     display: block;
     margin: 1em 0 0 0;
     font-family: 'Monaco', 'Consolas', 'Ubuntu Mono', monospace;
+    font-size: .875rem;
 }
 .action-details > * {
     margin: .5em 0;
 }
 
-.states {
-    display: flex;
-    width: 100%;
-    margin: 0;
+.state:first-child {
+    text-align: left;
 }
-.state {
-    flex: 0 0 50%;
-    text-align: center;
-    color: #fff;
+.state:last-child {
+    text-align: right;
 }
-
 .state .label {
     margin: .5rem 0;
 }
 
 .state h2 {
-    font-size: 150%;
+    font-size: 1rem;
+    font-weight: normal;
+    margin: 0;
 }
 
 .state .queries {
@@ -186,11 +174,11 @@ main .controls button:active {
 .screenshots {
     display: flex;
     justify-content: space-evenly;
-    margin: 2rem 0;
+    padding: 1rem 0;
 }
 .state-screenshot {
     flex: 0 0 49%;
-    border: 2px solid #111;
+    border: 2px solid #ddd;
     display: flex;
 }
 .state-screenshot.missing {
@@ -254,7 +242,8 @@ main .controls button:active {
 .details {
     display: flex;
     flex-direction: column;
-    margin: 2rem 0;
+    margin: 1rem 0;
+    font-size: .875rem;
 }
 .details .query {
     display: flex;
@@ -280,28 +269,26 @@ main .controls button:active {
 }
 
 .element-state {
-    background: #333;
-    color: #ccc;
 }
 
 .element-state.added {
-    background: rgb(54, 80, 54);
-    color: rgb(207, 255, 207);
+    color: rgb(54, 80, 54);
+    background: rgb(207, 255, 207);
 }
 
 .element-state.modified {
-    background: rgb(39, 39, 92);
-    color: rgb(208, 208, 255);
+    color: rgb(39, 39, 92);
+    background: rgb(208, 208, 255);
 }
 
 .element-state.removed {
-    background: rgb(83, 32, 32);
-    color: rgb(255, 206, 206);
+    color: rgb(83, 32, 32);
+    background: rgb(255, 206, 206);
 }
 
 .element-state table {
     width: 100%;
-    border: 1px solid rgba(255,255,255,.1);
+    border: 1px solid rgba(0,0,0,.1);
 }
 .element-state th {
     text-align: center;
@@ -309,11 +296,11 @@ main .controls button:active {
 .element-state th,
 .element-state td {
     padding: .5rem;
-    border-bottom: 1px solid rgba(255,255,255,.1);
+    border-bottom: 1px solid rgba(0,0,0,.1);
 }
 .element-state td:first-child {
     width: 1%;
-    border-right: 1px solid rgba(255,255,255,.1);
+    border-right: 1px solid rgba(0,0,0,.1);
 }
 .element-state td:last-child {
     text-align: right;

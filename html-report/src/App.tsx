@@ -445,11 +445,21 @@ const Actions: FunctionComponent<{
             </div>
         );
     }
+    function renderAll(all: Action[]) {
+        const actions = all.filter(a => !a.isEvent);
+        const events = all.filter(a => a.isEvent);
+        if (all.length > 3) {
+            return <details>
+                <summary>{actions.length} actions, {events.length} events</summary>
+                {all.map(renderDetails)}
+            </details>;
+        } else {
+            return all.map(renderDetails)
+        }
+    }
 
     return (
-        <div class="actions">
-            {actions.map(renderDetails)}
-        </div>
+        <div class="actions"> {renderAll(actions)} </div>
     );
 };
 

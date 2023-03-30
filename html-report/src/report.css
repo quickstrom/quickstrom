@@ -142,18 +142,22 @@ main .controls button:active {
 
 .actions {
     display: flex;
+    flex-direction: column;
     justify-content: center;
     margin: 0;
     padding: 1rem;
     flex: 0 0 auto;
+    text-align: center;
+    min-height: 5rem;
+}
+.actions details {
+    display: flex;
+    flex-direction: column;
 }
 
-.actions {
-    text-align: center;
-}
 .action-details code {
     display: block;
-    margin: 1em 0 0 0;
+    margin: .5rem 0 0 0;
     font-family: 'Monaco', 'Consolas', 'Ubuntu Mono', monospace;
     font-size: .875rem;
 }

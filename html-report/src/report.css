@@ -280,6 +280,7 @@ main .controls button:active {
 }
 .details .state-queries {
     flex: 1 1 50%;
+    overflow: hidden;
 }
 .details ul {
     margin: 1rem;
@@ -293,6 +294,7 @@ main .controls button:active {
 }
 
 .element-state {
+    overflow-x: auto;
 }
 
 .element-state.added {

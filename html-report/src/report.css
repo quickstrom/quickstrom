@@ -84,7 +84,7 @@ header .result-summary.failure {
 }
 
 header .result-summary.success {
-    color: #3d3;
+    color: #00a400;
 }
 
 section.error {
@@ -295,6 +295,7 @@ main .controls button:active {
 
 .element-state {
     overflow-x: auto;
+    border: 1px solid rgba(0,0,0,.1);
 }
 
 .element-state.added {
@@ -314,7 +315,6 @@ main .controls button:active {
 
 .element-state table {
     width: 100%;
-    border: 1px solid rgba(0,0,0,.1);
 }
 .element-state th {
     text-align: center;

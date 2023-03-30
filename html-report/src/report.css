@@ -296,6 +296,7 @@ main .controls button:active {
 .element-state {
     overflow-x: auto;
     border: 1px solid rgba(0,0,0,.1);
+    background: #fff;
 }
 
 .element-state.added {
@@ -331,4 +332,7 @@ main .controls button:active {
 .element-state td:last-child {
     text-align: right;
     font-family: 'Monaco', 'Consolas', 'Ubuntu Mono', monospace;
+}
+.element-state tr:last-child td {
+    border-bottom: none;
 }

@@ -1,7 +1,7 @@
 import { toArray } from "./arrays";
 import { isElementInteractable } from "./interactability";
 import { getPosition, Position } from "./position";
-import { isElementVisible } from "./visibility";
+import {isElementInViewport, isElementVisible} from "./visibility";
 
 export type Selector = string;
 
@@ -70,6 +70,9 @@ export function runQuery(selector: Selector, schema: Schema): ElementState[] {
                     break;
                 case "visible":
                     m[key] = isElementVisible(element as HTMLElement);
+                    break;
+                case "inViewport":
+                    m[key] = isElementInViewport(element as HTMLElement);
                     break;
                 case "interactable":
                     m[key] = isElementInteractable(element);

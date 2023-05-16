@@ -33,3 +33,31 @@ export function isElementVisible(el: HTMLElement): boolean {
             || el.offsetParent !== null)
     );
 }
+
+type Point = [number, number];
+
+export function isElementInViewport(element: HTMLElement): boolean {
+    const windowHeight = window.innerHeight || document.documentElement.clientHeight;
+    const windowWidth = window.innerWidth || document.documentElement.clientWidth;
+
+    function contained([y, x]: Point): boolean {
+        return (
+            y >= 0
+            && x >= 0
+            && y < windowHeight
+            && x < windowWidth
+        );
+    }
+
+    const rects: DOMRect[] = element.getClientRects() as any as DOMRect[];
+
+    for (const rect of rects) {
+        const points: Point[] = [[rect.top, rect.left], [rect.top, rect.right], [rect.bottom, rect.left], [rect.bottom, rect.right]];
+        for (const point of points) {
+            if (contained(point)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}

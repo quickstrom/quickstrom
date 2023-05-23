@@ -24,3 +24,25 @@ action changed?(x) = for element in x. { id: "changed", event: true, args: [x.re
 action loaded? = { id: "loaded", event: true, args: [] };
 
 action noop! = {id:"noop",event:false,args:[]};
+
+/// Scroll by absolute number of pixels from the current position. Use negative `x` or `y` arguments to scroll left or up.
+action scrollBy!(x, y) =
+  { id: "scrollBy", event: false, args: [x, y] } when (
+    // Check that the scroll position will be changed in at least one direction.
+    (y != 0 &&
+        if y < 0 {
+          `html`.scrollTop > 0
+        } else {
+          `html`.scrollTop < (`html`.scrollHeight - `html`.clientHeight)
+        }
+    ) ||
+    (x != 0 &&
+      if x < 0 {
+        `html`.scrollLeft > 0
+      } else {
+        `html`.scrollLeft < (`html`.scrollWidth - `html`.clientWidth)
+      })
+  );
+
+/// Scroll by ratio of the viewport size, i.e. `scrollByViewport!(0, 1)` to scroll down one viewport height. Use negative `x` or `y` arguments to scroll left or up.
+action scrollByViewport!(x, y) = scrollBy!(`html`.clientWidth * x, `html`.clientHeight * y);

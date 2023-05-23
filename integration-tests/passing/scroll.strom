@@ -1,0 +1,9 @@
+import quickstrom;
+
+action ~scrollDownChunk! = scrollBy!(0, 300);
+action ~scrollDownPage! = scrollByViewport!(0, 1);
+
+let ~isTextVisible = `p`.inViewport;
+let ~prop = not isTextVisible until {100} isTextVisible;
+
+check prop with * when loaded?;

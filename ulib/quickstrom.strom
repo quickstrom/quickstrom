@@ -25,4 +25,14 @@ action loaded? = { id: "loaded", event: true, args: [] };
 
 action noop! = {id:"noop",event:false,args:[]};
 
-action scroll!(x, y) = { id: "scroll", event: false, args: [x, y] };
+/// Scroll by absolute number of pixels from the current position. Use negative `x` or `y` arguments to scroll left or up.
+action scrollBy!(x, y) = { id: "scrollBy", event: false, args: [x, y] } when (
+  (y != 0 ==> `html`.scrollTop < (`html`.scrollHeight - `html`.clientHeight))
+  && (x != 0 ==> `html`.scrollLeft < (`html`.scrollWidth - `html`.clientWidth))
+);
+
+/// Scroll by ratio of the viewport size, i.e. `scrollByViewport!(0, 1)` to scroll down one viewport height. Use negative `x` or `y` arguments to scroll left or up.
+action scrollByViewport!(x, y) = { id: "scrollBy", event: false, args: [`html`.clientWidth * x, `html`.clientHeight * y] } when (
+  (y != 0 ==> `html`.scrollTop < (`html`.scrollHeight - `html`.clientHeight))
+  && (x != 0 ==> `html`.scrollLeft < (`html`.scrollWidth - `html`.clientWidth))
+);

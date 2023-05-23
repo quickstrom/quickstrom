@@ -186,7 +186,7 @@ class Check():
                         id = action.args[0]
                         element = WebElement(driver, id)
                         element.clear()
-                    elif action.id == 'scroll':
+                    elif action.id == 'scrollBy':
                         driver.execute_script("window.scrollBy(arguments[0], arguments[1])", action.args[0], action.args[1])
                     else:
                         raise UnsupportedActionError(action)

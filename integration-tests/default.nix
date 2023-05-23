@@ -78,4 +78,5 @@ in makeTests {
   only-noop = passing("only-noop");
   select = passing("select");
   invalid-spec = failing { name = "invalid-spec"; expectedExitCode = 2; };
+  scroll = passing("scroll");
 }

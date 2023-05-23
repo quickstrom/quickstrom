@@ -24,3 +24,5 @@ action changed?(x) = for element in x. { id: "changed", event: true, args: [x.re
 action loaded? = { id: "loaded", event: true, args: [] };
 
 action noop! = {id:"noop",event:false,args:[]};
+
+action scroll!(x, y) = { id: "scroll", event: false, args: [x, y] };

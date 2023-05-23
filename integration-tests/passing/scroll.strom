@@ -1,0 +1,8 @@
+import quickstrom;
+
+action ~scrollDown! = scroll!(0, 300);
+
+let ~isTextVisible = `p`.inViewport;
+let ~prop = not isTextVisible until {100} isTextVisible;
+
+check prop with * when loaded?;

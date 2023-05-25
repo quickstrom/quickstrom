@@ -1,7 +1,7 @@
-import { h, FunctionComponent } from "preact";
+import {h, FunctionComponent} from "preact";
 import Preact from "preact";
-import { useReducer, useState, StateUpdater, useEffect } from "preact/hooks";
-import { keyName } from "./keys";
+import {useReducer, useState, StateUpdater, useEffect} from "preact/hooks";
+import {keyName} from "./keys";
 
 export type Report<R> = {
     tag: "Report";
@@ -84,7 +84,7 @@ type Screenshot = {
 
 function scaled(s: Screenshot): Screenshot {
     const scale = (n: number) => Math.round(n / s.scale);
-    return { ...s, width: scale(s.width), height: scale(s.height) };
+    return {...s, width: scale(s.width), height: scale(s.height)};
 }
 
 type Element = {
@@ -136,7 +136,7 @@ function testViewerReducer(
                 const newIndex = 0;
                 const newCurrent = state.test.transitions[newIndex];
                 if (newCurrent) {
-                    return { ...state, index: newIndex, current: newCurrent };
+                    return {...state, index: newIndex, current: newCurrent};
                 } else {
                     return state;
                 }
@@ -145,12 +145,14 @@ function testViewerReducer(
             return (() => {
                 const newIndex = state.test.transitions.length - 1;
                 const newCurrent = state.test.transitions[newIndex];
+
                 function lastState() {
                     const lastTransition = state.test.transitions[newIndex - 1];
                     if (lastTransition && lastTransition.tag === "StateTransition") {
                         return lastTransition.toState;
                     }
                 }
+
                 if (newCurrent) {
                     return {
                         ...state,
@@ -167,7 +169,7 @@ function testViewerReducer(
                 const newIndex = state.index - 1;
                 const newCurrent = state.test.transitions[newIndex];
                 if (newCurrent) {
-                    return { ...state, index: newIndex, current: newCurrent };
+                    return {...state, index: newIndex, current: newCurrent};
                 } else {
                     return state;
                 }
@@ -176,12 +178,14 @@ function testViewerReducer(
             return (() => {
                 const newIndex = state.index + 1;
                 const newCurrent = state.test.transitions[newIndex];
+
                 function lastState() {
                     const lastTransition = state.test.transitions[newIndex - 1];
                     if (lastTransition && lastTransition.tag === "StateTransition") {
                         return lastTransition.toState;
                     }
                 }
+
                 if (newCurrent) {
                     return {
                         ...state,
@@ -203,21 +207,21 @@ function testViewerReducer(
     }
 }
 
-function TestsReport({ report }: { report: Report<Passed | Failed> }) {
+function TestsReport({report}: { report: Report<Passed | Failed> }) {
     const [selectedTest, setSelectedTest] = useState<Test | null>(null);
     return (
         <div className="report">
-            <Header report={report} onTestSelect={setSelectedTest} />
-            {selectedTest && <TestViewer test={selectedTest} />}
+            <Header report={report} onTestSelect={setSelectedTest}/>
+            {selectedTest && <TestViewer test={selectedTest}/>}
         </div>
     );
 }
 
-function ErroredReport({ report }: { report: Report<Errored> }) {
+function ErroredReport({report}: { report: Report<Errored> }) {
     return (
         <div className="report">
-            <Header report={report} />
-            {<TestViewer test={report.result.erroredTest} />}
+            <Header report={report}/>
+            {<TestViewer test={report.result.erroredTest}/>}
         </div>
     );
 }
@@ -241,9 +245,9 @@ function ordinal(n: number): string {
 }
 
 function Header({
-    report,
-    onTestSelect,
-}: {
+                    report,
+                    onTestSelect,
+                }: {
     report: Report<Result>;
     onTestSelect?: (test: Test) => void;
 }) {
@@ -270,7 +274,7 @@ function Header({
             default:
                 return null;
         }
-    };
+    }
 
     function testsInResult(result: Result): Test[] {
         switch (result.tag) {
@@ -318,16 +322,16 @@ function Header({
     );
 }
 
-const TestViewer: FunctionComponent<{ test: Test }> = ({ test }) => {
+const TestViewer: FunctionComponent<{ test: Test }> = ({test}) => {
     const [state, dispatch] = useReducer(testViewerReducer, {
         current: test.transitions[0],
         index: 0,
         test,
     });
     useEffect(() => {
-        dispatch({ tag: "change-test", test });
+        dispatch({tag: "change-test", test});
     }, [test]);
-    const [selectedElement, setSelectedElement] = useState<Element | null>(null);
+    const [selectedRef, setSelectedRef] = useState<string | null>(null);
     const transition = state.current;
 
     function transitionToDetails(transition: Transition) {
@@ -340,11 +344,14 @@ const TestViewer: FunctionComponent<{ test: Test }> = ({ test }) => {
                             {transition.fromState && (
                                 <QueryDetails
                                     elements={transition.fromState.queries[selector]}
+                                    setSelectedRef={setSelectedRef}
                                 />
                             )}
                         </div>
                         <div class="state-queries to">
-                            <QueryDetails elements={transition.toState.queries[selector]} />
+                            <QueryDetails elements={transition.toState.queries[selector]}
+                                          setSelectedRef={setSelectedRef}
+                            />
                         </div>
                     </div>
                 );
@@ -353,19 +360,20 @@ const TestViewer: FunctionComponent<{ test: Test }> = ({ test }) => {
             return <section className="error">{transition.error}</section>;
         }
     }
+
     return (
         <main>
             <section class="controls">
                 <nav className="backwards">
                     <button
                         disabled={state.index === 0}
-                        onClick={() => dispatch({ tag: "first" })}
+                        onClick={() => dispatch({tag: "first"})}
                     >
                         ⇤ First
                     </button>
                     <button
                         disabled={state.index === 0}
-                        onClick={() => dispatch({ tag: "previous" })}
+                        onClick={() => dispatch({tag: "previous"})}
                     >
                         ← Previous
                     </button>
@@ -373,13 +381,13 @@ const TestViewer: FunctionComponent<{ test: Test }> = ({ test }) => {
                 <nav className="forwards">
                     <button
                         disabled={state.index === state.test.transitions.length - 1}
-                        onClick={() => dispatch({ tag: "next" })}
+                        onClick={() => dispatch({tag: "next"})}
                     >
                         Next →
                     </button>
                     <button
                         disabled={state.index === state.test.transitions.length - 1}
-                        onClick={() => dispatch({ tag: "last" })}
+                        onClick={() => dispatch({tag: "last"})}
                     >
                         Last ⇥
                     </button>
@@ -388,7 +396,7 @@ const TestViewer: FunctionComponent<{ test: Test }> = ({ test }) => {
             <section class="content">
                 <Actions
                     actions={transition.actions}
-                    setSelectedElement={setSelectedElement}
+                    setSelectedRef={setSelectedRef}
                 />
                 <section class="screenshots">
                     {state.current.fromState?.screenshot ? (
@@ -396,23 +404,23 @@ const TestViewer: FunctionComponent<{ test: Test }> = ({ test }) => {
                             index={state.index}
                             state={state.current.fromState}
                             extraClass="from"
-                            selectedElement={selectedElement}
-                            setSelectedElement={setSelectedElement}
+                            selectedRef={selectedRef}
+                            setSelectedRef={setSelectedRef}
                         />
                     ) : (
-                        <MissingScreenshot />
+                        <MissingScreenshot/>
                     )}
                     {transition.tag === "StateTransition" &&
-                        transition.toState?.screenshot ? (
+                    transition.toState?.screenshot ? (
                         <Screenshot
                             index={state.index + 1}
                             state={transition.toState}
                             extraClass="to"
-                            selectedElement={selectedElement}
-                            setSelectedElement={setSelectedElement}
+                            selectedRef={selectedRef}
+                            setSelectedRef={setSelectedRef}
                         />
                     ) : (
-                        <MissingScreenshot />
+                        <MissingScreenshot/>
                     )}
                 </section>
                 <section class="details">{transitionToDetails(state.current)}</section>
@@ -423,28 +431,34 @@ const TestViewer: FunctionComponent<{ test: Test }> = ({ test }) => {
 
 const Actions: FunctionComponent<{
     actions: NonEmptyArray<Action>;
-    setSelectedElement: StateUpdater<Element | null>;
-}> = ({ actions, setSelectedElement }) => {
-    function renderArg(arg: any): string {
-        return keyName(arg) || JSON.stringify(arg);
+    setSelectedRef: StateUpdater<string | null>;
+}> = ({actions, setSelectedRef}) => {
+    function renderArg(arg: any, index: number) {
+        return <>
+            {index > 0 ? ", " : null}
+            <span onMouseEnter={() => { console.log(arg); setSelectedRef(arg) }}
+                     onMouseLeave={() => setSelectedRef(null)}>{keyName(arg) || JSON.stringify(arg)}</span>
+        </>;
     }
+
     function renderTimeoutSuffix(action: Action) {
         return action.timeout ? ` timeout ${action.timeout}` : null;
     }
-    function renderDetails(action: Action) {
+
+    function renderDetails(action: Action): Preact.VNode {
         // <div
-        //   onMouseEnter={() => setSelectedElement(subject.element)}
-        //   onMouseLeave={() => setSelectedElement(null)}
+        //   onMouseEnter={() => setSelectedRef(subject.element)}
+        //   onMouseLeave={() => setSelectedRef(null)}
         // >
         return (
             <div class="action-details">
                 <code>
-                    <span class="id">{action.id}</span>(
-                    {action.args.map(renderArg).join(", ")}){renderTimeoutSuffix(action)}
+                    <span class="id">{action.id}</span>({action.args.map(renderArg)}){renderTimeoutSuffix(action)}
                 </code>
             </div>
         );
     }
+
     function renderAll(all: Action[]) {
         const actions = all.filter(a => !a.isEvent);
         const events = all.filter(a => a.isEvent);
@@ -466,7 +480,7 @@ const Actions: FunctionComponent<{
 const State: FunctionComponent<{
     number: number;
     extraClass: string;
-}> = ({ number, extraClass }) => {
+}> = ({number, extraClass}) => {
     if (number > 0) {
         return (
             <div class={"state " + extraClass}>
@@ -474,20 +488,20 @@ const State: FunctionComponent<{
             </div>
         );
     } else {
-        return <div class={"state"} />;
+        return <div class={"state"}/>;
     }
 };
 
 const MarkerDim: FunctionComponent<{
     screenshot: Screenshot;
     element: Element | null;
-}> = ({ screenshot, element }) => {
+}> = ({screenshot, element}) => {
     const s = scaled(screenshot);
     if (element && element.position) {
         return (
             <svg class="marker-dim active" viewBox={`0 0 ${s.width} ${s.height}`}>
                 <mask id={`${element.ref}-mask`}>
-                    <rect x="0" y="0" width={s.width} height={s.height} fill="white" />
+                    <rect x="0" y="0" width={s.width} height={s.height} fill="white"/>
                     <rect
                         x={element.position.x}
                         y={element.position.y}
@@ -528,23 +542,26 @@ const Screenshot: FunctionComponent<{
     index: number;
     state: State;
     extraClass: string;
-    selectedElement: Element | null;
-    setSelectedElement: StateUpdater<Element | null>;
-}> = ({ index, state, extraClass, selectedElement, setSelectedElement }) => {
+    selectedRef: string | null;
+    setSelectedRef: StateUpdater<string | null>;
+}> = ({index, state, extraClass, selectedRef, setSelectedRef}) => {
     function isActive(element: Element) {
-        return selectedElement && selectedElement.ref === element.ref;
+        return selectedRef === element.ref;
     }
+
     const activeElement =
         Object.values(state.queries)
             .flatMap((q) => q as Element[])
             .find(isActive) || null;
 
     function renderDim(element: Element | null) {
-        return <MarkerDim screenshot={state.screenshot} element={element} />;
+        return <MarkerDim screenshot={state.screenshot} element={element}/>;
     }
+
     function percentageOf(x: number, total: number): string {
         return `${(x / total) * 100}%`;
     }
+
     function renderQueryMarkers(element: QueriedElement) {
         if (element.position && state.screenshot) {
             const s = scaled(state.screenshot);
@@ -552,8 +569,8 @@ const Screenshot: FunctionComponent<{
                 <div
                     key={element.ref}
                     className={`marker ${isActive(element) ? " active" : "inactive"}`}
-                    onMouseEnter={() => setSelectedElement(element)}
-                    onMouseLeave={() => setSelectedElement(null)}
+                    onMouseEnter={() => setSelectedRef(element.ref)}
+                    onMouseLeave={() => setSelectedRef(null)}
                     style={{
                         top: percentageOf(element.position.y, s.height),
                         left: percentageOf(element.position.x, s.width),
@@ -562,50 +579,54 @@ const Screenshot: FunctionComponent<{
                     }}
                 >
                     <div class="marker-details">
-                        <ElementState element={element} />
+                        <ElementState element={element}/>
                     </div>
                 </div>
             );
         }
     }
+
     const dim = renderDim(activeElement);
     const s = scaled(state.screenshot);
     return (
         <div class={`state-screenshot ${extraClass}`}>
             <div class=" state-screenshot-inner">
                 {Object.values(uniqueElementsInState(state)).map(renderQueryMarkers)}
-                <img src={s.url} width={s.width} height={s.height} />
+                <img src={s.url} width={s.width} height={s.height}/>
                 {dim}
             </div>
-            <State number={index} extraClass={extraClass} />
+            <State number={index} extraClass={extraClass}/>
         </div>
     );
 };
 
-const QueryDetails: FunctionComponent<{ elements: QueriedElement[] }> = ({
-    elements,
-}) => {
+const QueryDetails: FunctionComponent<{ elements: QueriedElement[], setSelectedRef: StateUpdater<string | null> }> = ({
+                                                                                                                               elements,
+                                                                                                                               setSelectedRef,
+                                                                                                                           }) => {
     return (
         <ul>
             {elements.map((element) => (
                 <li>
-                    <ElementState element={element} />
+                    <ElementState element={element} setSelectedRef={setSelectedRef}/>
                 </li>
             ))}
         </ul>
     );
 };
-const ElementState: FunctionComponent<{ element: QueriedElement }> = ({
-    element,
-}) => {
+const ElementState: FunctionComponent<{ element: QueriedElement, setSelectedRef?: StateUpdater<string | null> }> = ({
+                                                                                                                             element,
+                                                                                                                             setSelectedRef,
+                                                                                                                         }) => {
     const ignoredKeys = ["ref", "diff", "position"];
     return (
         <div class={"element-state " + (element.diff?.toLowerCase() || "")}>
             <table>
                 <thead>
-                    <tr>
-                        <th colSpan={2}>{element.ref}</th>
-                    </tr>
+                <tr>
+                    <th colSpan={2} onMouseEnter={() => setSelectedRef && setSelectedRef(element.ref)}
+                        onMouseLeave={() => setSelectedRef && setSelectedRef(null)}>{element.ref}</th>
+                </tr>
                 </thead>
                 {Object.entries(element)
                     .filter(([k, _]) => ignoredKeys.indexOf(k) < 0)
@@ -620,14 +641,14 @@ const ElementState: FunctionComponent<{ element: QueriedElement }> = ({
     );
 };
 
-function App({ report }: { report: Report<Result> }) {
+function App({report}: { report: Report<Result> }) {
     switch (report.result.tag) {
         case "Passed":
-            return <TestsReport report={report as Report<Passed>} />;
+            return <TestsReport report={report as Report<Passed>}/>;
         case "Errored":
-            return <ErroredReport report={report as Report<Errored>} />;
+            return <ErroredReport report={report as Report<Errored>}/>;
         case "Failed":
-            return <TestsReport report={report as Report<Failed>} />;
+            return <TestsReport report={report as Report<Failed>}/>;
     }
 }
 

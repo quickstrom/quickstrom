@@ -4,6 +4,7 @@
     "esModuleInterop": true,
     "jsx": "react",
     "jsxFactory": "h",
+    "jsxFragmentFactory": "Preact.Fragment",
     "lib": ["es2015", "dom", "esnext"],
     "moduleResolution": "node",
     "strict": true,

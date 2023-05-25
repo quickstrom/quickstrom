@@ -60,7 +60,7 @@ class UnsupportedActionError(Exception):
     action: Action
 
     def __str__(self):
-        return f"Error while performing {self.action} (this is likely a bug in Quickstrom)"
+        return f"Unsupported action: {self.action.id}"
 
 
 @dataclass

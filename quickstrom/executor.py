@@ -221,7 +221,7 @@ class Check():
 
                 return result.map_states(r, on_state)
 
-            def await_events(driver, deps, state_version, timeout: int):
+            def await_events(driver, deps, state_version, timeout: int, msg_id):
                 def on_no_events():
                     state = scripts.query_state(driver, deps)
                     screenshot(driver, dict_hash(state))
@@ -233,7 +233,7 @@ class Check():
                     events = scripts.await_events(driver, deps, timeout)
                     self.log.debug(f"Change: {events}")
 
-                    if events is None:
+                    if events is None or msg_id == 'noop':
                         self.log.info(f"Timed out!")
                         on_no_events()
                     else:
@@ -271,7 +271,7 @@ class Check():
                             scripts.install_event_listener(
                                 driver, msg.dependencies)
                             await_events(driver, msg.dependencies,
-                                         state_version, 10000)
+                                         state_version, 10000, 'start')
 
                             await_session_commands(driver, msg.dependencies,
                                                    state_version)
@@ -324,7 +324,7 @@ class Check():
 
                                 if msg.action.timeout is not None:
                                     await_events(driver, deps, state_version,
-                                                 msg.action.timeout)
+                                                 msg.action.timeout, msg.action.id)
                             else:
                                 self.log.warn(
                                     f"Got stale message ({msg}) in state {state_version.value}"
@@ -337,7 +337,7 @@ class Check():
                                 )
                                 scripts.install_event_listener(driver, deps)
                                 await_events(driver, deps, state_version,
-                                             msg.await_timeout)
+                                             msg.await_timeout, msg.action.id)
                             else:
                                 self.log.warn(
                                     f"Got stale message ({msg}) in state {state_version.value}"

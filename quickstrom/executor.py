@@ -12,6 +12,7 @@ from shutil import which
 import png
 import selenium.webdriver.chrome.options as chrome_options
 import selenium.webdriver.firefox.options as firefox_options
+import selenium.webdriver.safari.webdriver as safari
 from selenium import webdriver
 from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.action_chains import ActionChains
@@ -88,7 +89,7 @@ class Scripts():
                            Optional[ClientSideEvents]]
 
 
-Browser = Union[Literal['chrome'], Literal['firefox']]
+Browser = Union[Literal['chrome'], Literal['firefox'], Literal['safari']]
 
 
 @dataclass
@@ -421,7 +422,8 @@ class Check():
             if self.driver_log_file:
                 options.log.level = "debug"
             if self.browser_log_file:
-                options.add_argument("--MOZ_LOG=timestamp,nsHttp:3,cache2:3,nsSocketTransport:3,nsHostResolver:3,cookie:3")
+                options.add_argument(
+                    "--MOZ_LOG=timestamp,nsHttp:3,cache2:3,nsSocketTransport:3,nsHostResolver:3,cookie:3")
                 options.add_argument(f"--MOZ_LOG_FILE={self.browser_log_file}")
             if self.browser_data_directory:
                 # `--profile` causes Firefox to hang and not display the origin page for some reason, so it's disabled
@@ -433,6 +435,14 @@ class Check():
                                                          firefox_binary=binary,
                                                          executable_path=geckodriver_path,
                                                          service_log_path=self.driver_log_file))
+        elif self.browser == 'safari':
+            driver = safari.WebDriver(
+                executable_path=which('safaridriver'),
+                keep_alive=False,
+                quiet=False,
+                reuse_service=False,
+                service_args=["--diagnose"])
+            return CheckBrowser(check=self, driver=driver)
         else:
             raise Exception(f"Unsupported browser: {self.browser}")
 

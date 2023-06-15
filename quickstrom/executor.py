@@ -13,6 +13,7 @@ import png
 import selenium.webdriver.chrome.options as chrome_options
 import selenium.webdriver.firefox.options as firefox_options
 import selenium.webdriver.safari.webdriver as safari
+import selenium.webdriver.edge.webdriver as edge
 from selenium import webdriver
 from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.action_chains import ActionChains
@@ -89,7 +90,7 @@ class Scripts():
                            Optional[ClientSideEvents]]
 
 
-Browser = Union[Literal['chrome'], Literal['firefox'], Literal['safari']]
+Browser = Union[Literal['chrome'], Literal['firefox'], Literal['safari'], Literal['edge']]
 
 
 @dataclass
@@ -442,6 +443,24 @@ class Check():
                 quiet=False,
                 reuse_service=False,
                 service_args=["--diagnose"])
+            return CheckBrowser(check=self, driver=driver)
+        elif self.browser == 'edge':
+            options = edge.Options()
+            options.headless = self.headless
+            options.binary_location = self.browser_binary or which("microsoft-edge-stable")
+            options.add_argument('--no-sandbox')
+            if self.browser_log_file:
+                if not self.browser_data_directory:
+                    raise Exception("--browser-log-file requires --browser-data-directory to be set")
+                options.add_argument("--enable-logging")
+                options.add_argument("--v=1")
+                options.add_argument(f"--user-data-dir={self.browser_data_directory}")
+            driver = edge.WebDriver(
+                executable_path=which('msedgedriver'),
+                service_log_path=self.driver_log_file,
+                verbose=True,
+                options=options,
+            )
             return CheckBrowser(check=self, driver=driver)
         else:
             raise Exception(f"Unsupported browser: {self.browser}")

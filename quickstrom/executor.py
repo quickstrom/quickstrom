@@ -1,29 +1,30 @@
 import dataclasses
 import io
-import subprocess
 import logging
+import os
+import shutil
+import subprocess
 import threading
 import time
+from pathlib import Path
 from shutil import which
-from dataclasses import dataclass
+
 import png
-from typing import List, Union, Literal, Any
+import selenium.webdriver.chrome.options as chrome_options
+import selenium.webdriver.firefox.options as firefox_options
 from selenium import webdriver
 from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
+from selenium.webdriver.firefox.firefox_binary import FirefoxBinary
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support.select import Select
-import selenium.webdriver.chrome.options as chrome_options
-import selenium.webdriver.firefox.options as firefox_options
-from selenium.webdriver.firefox.firefox_binary import FirefoxBinary
 
-from quickstrom.protocol import *
-from quickstrom.hash import dict_hash
-import quickstrom.result as result
 import quickstrom.printer as printer
-import os
+import quickstrom.result as result
+from quickstrom.hash import dict_hash
+from quickstrom.protocol import *
 
 Url = str
 
@@ -98,6 +99,22 @@ class Cookie():
 
 
 @dataclass
+class CheckBrowser:
+    driver: WebDriver
+    check: 'Check'
+
+    def close(self):
+        try:
+            self.driver.quit()
+        finally:
+            if self.check.browser == "chrome" and self.check.browser_log_file and self.check.browser_data_directory:
+                self.check.log.info("Copying browser log file to: %s", self.check.browser_log_file)
+                # copy file from user data directory to browser log file:
+                log_file = Path(self.check.browser_data_directory, "Default", "chrome_debug.log")
+                shutil.copyfile(log_file, self.check.browser_log_file)
+
+
+@dataclass
 class Check():
     module: str
     origin: str
@@ -108,6 +125,8 @@ class Check():
     capture_screenshots: bool
     cookies: List[Cookie]
     driver_log_file: Optional[str]
+    browser_log_file: Optional[str]
+    browser_data_directory: Optional[str]
     interpreter_log_file: IO
     log: logging.Logger = logging.getLogger('quickstrom.executor')
 
@@ -198,12 +217,12 @@ class Check():
             def screenshot(driver: WebDriver, hash: str):
                 if self.capture_screenshots:
                     bs: bytes = driver.get_screenshot_as_png(
-                    )    # type: ignore
+                    )  # type: ignore
                     (width, height, _, _) = png.Reader(io.BytesIO(bs)).read()
                     window_size = driver.get_window_size()
                     scale = round(width / window_size['width'])
                     if scale != round(height / window_size['height']):
-                        self.log.warn(
+                        self.log.warning(
                             "Width and height scales do not match for screenshot"
                         )
                     screenshots[hash] = result.Screenshot(image=bs,
@@ -216,8 +235,8 @@ class Check():
                 def on_state(state):
                     return result.State(screenshot=screenshots.get(
                         state.hash, None),
-                                        queries=state.queries,
-                                        hash=state.hash)
+                        queries=state.queries,
+                        hash=state.hash)
 
                 return result.map_states(r, on_state)
 
@@ -251,29 +270,29 @@ class Check():
                     if isinstance(msg, Start):
                         try:
                             self.log.info("Starting session")
-                            driver = self.new_driver()
-                            driver.set_window_size(1200, 1200)
+                            browser = self.new_browser()
+                            browser.driver.set_window_size(1200, 1200)
 
                             if len(self.cookies) > 0:
                                 # First we need to visit the page in order to set cookies.
-                                driver.get(self.origin)
+                                browser.driver.get(self.origin)
                                 for cookie in self.cookies:
                                     self.log.debug(f"Setting {cookie}")
-                                    driver.add_cookie(
+                                    browser.driver.add_cookie(
                                         dataclasses.asdict(cookie))
                             # Now that cookies are set, we have to visit the origin again.
-                            driver.get(self.origin)
+                            browser.driver.get(self.origin)
                             # Hacky sleep to allow page load.
                             time.sleep(1)
 
                             state_version = Counter(initial_value=0)
 
                             scripts.install_event_listener(
-                                driver, msg.dependencies)
-                            await_events(driver, msg.dependencies,
+                                browser.driver, msg.dependencies)
+                            await_events(browser.driver, msg.dependencies,
                                          state_version, 10000)
 
-                            await_session_commands(driver, msg.dependencies,
+                            await_session_commands(browser, msg.dependencies,
                                                    state_version)
                         except SpecstromAbortedError as e:
                             raise e
@@ -294,7 +313,7 @@ class Check():
                         raise Exception(
                             f"Unexpected message in run_sessions: {msg}")
 
-            def await_session_commands(driver: WebDriver, deps, state_version):
+            def await_session_commands(browser: CheckBrowser, deps, state_version):
                 try:
                     while True:
                         msg = receive()
@@ -309,24 +328,24 @@ class Check():
                                     f"Performing action in state {state_version.value}: {printer.pretty_print_action(msg.action)}"
                                 )
 
-                                perform_action(driver, msg.action)
+                                perform_action(browser.driver, msg.action)
 
                                 if msg.action.timeout is not None:
                                     self.log.debug(
                                         "Installing change observer")
                                     scripts.install_event_listener(
-                                        driver, deps)
+                                        browser.driver, deps)
 
-                                state = scripts.query_state(driver, deps)
-                                screenshot(driver, dict_hash(state))
+                                state = scripts.query_state(browser.driver, deps)
+                                screenshot(browser.driver, dict_hash(state))
                                 state_version.increment()
                                 send(Performed(state=state))
 
                                 if msg.action.timeout is not None:
-                                    await_events(driver, deps, state_version,
+                                    await_events(browser.driver, deps, state_version,
                                                  msg.action.timeout)
                             else:
-                                self.log.warn(
+                                self.log.warning(
                                     f"Got stale message ({msg}) in state {state_version.value}"
                                 )
                                 send(Stale())
@@ -335,11 +354,11 @@ class Check():
                                 self.log.info(
                                     f"Awaiting events in state {state_version.value} with timeout {msg.await_timeout}"
                                 )
-                                scripts.install_event_listener(driver, deps)
-                                await_events(driver, deps, state_version,
+                                scripts.install_event_listener(browser.driver, deps)
+                                await_events(browser.driver, deps, state_version,
                                              msg.await_timeout)
                             else:
-                                self.log.warn(
+                                self.log.warning(
                                     f"Got stale message ({msg}) in state {state_version.value}"
                                 )
                                 send(Stale())
@@ -351,14 +370,14 @@ class Check():
                         else:
                             raise Exception(f"Unexpected message: {msg}")
                 finally:
-                    driver.close()
+                    browser.close()
 
             return run_sessions()
 
     def launch_specstrom(self, ilog):
         includes = list(map(lambda i: "-I" + i, self.include_paths))
         cmd = ["specstrom", "check", self.module
-               ] + includes    # + ["+RTS", "-p"]
+               ] + includes  # + ["+RTS", "-p"]
         self.log.debug("Invoking Specstrom with: %s", " ".join(cmd))
         return subprocess.Popen(cmd,
                                 text=True,
@@ -367,22 +386,31 @@ class Check():
                                 stdin=subprocess.PIPE,
                                 bufsize=0)
 
-    def new_driver(self):
+    def new_browser(self) -> CheckBrowser:
         if self.browser == 'chrome':
             options = chrome_options.Options()
             options.headless = self.headless
             browser_path = self.browser_binary or which("chromium") or which(
                 "google-chrome-stable") or which("google-chrome") or which(
-                    "chrome")
-            options.binary_location = browser_path    # type: ignore
+                "chrome")
+            options.binary_location = browser_path  # type: ignore
             options.add_argument('--no-sandbox')
             options.add_argument("--single-process")
+            if self.browser_log_file:
+                if not self.browser_data_directory:
+                    raise Exception("--browser-log-file requires --browser-data-directory to be set")
+                options.add_argument("--enable-logging")
+                options.add_argument("--v=1")
+                options.add_argument(f"--user-data-dir={self.browser_data_directory}")
             chromedriver_path = which('chromedriver')
+
             if not chromedriver_path:
                 raise Exception("chromedriver not found in PATH")
-            return webdriver.Chrome(options=options,
-                                    executable_path=chromedriver_path,
-                                    service_log_path=self.driver_log_file)
+
+            return CheckBrowser(check=self,
+                                driver=webdriver.Chrome(options=options,
+                                                        executable_path=chromedriver_path,
+                                                        service_log_path=self.driver_log_file))
         elif self.browser == 'firefox':
             options = firefox_options.Options()
             options.headless = self.headless
@@ -390,11 +418,21 @@ class Check():
             geckodriver_path = which('geckodriver')
             if not geckodriver_path:
                 raise Exception("geckodriver not found in PATH")
-            return webdriver.Firefox(options=options,
-                                     firefox_binary=binary,
-                                     executable_path=geckodriver_path,
-                                     service_log_path=self.driver_log_file
-                                     or "geckodriver.log")
+            if self.driver_log_file:
+                options.log.level = "debug"
+            if self.browser_log_file:
+                options.add_argument("--MOZ_LOG=timestamp,nsHttp:3,cache2:3,nsSocketTransport:3,nsHostResolver:3,cookie:3")
+                options.add_argument(f"--MOZ_LOG_FILE={self.browser_log_file}")
+            if self.browser_data_directory:
+                # `--profile` causes Firefox to hang and not display the origin page for some reason, so it's disabled
+                # for now
+                raise Exception("--browser-data-directory is not supported for Firefox")
+
+            return CheckBrowser(check=self,
+                                driver=webdriver.Firefox(options=options,
+                                                         firefox_binary=binary,
+                                                         executable_path=geckodriver_path,
+                                                         service_log_path=self.driver_log_file))
         else:
             raise Exception(f"Unsupported browser: {self.browser}")
 
@@ -448,7 +486,7 @@ class Check():
                 try:
                     r = driver.execute_async_script(
                         script, *args) if is_async else driver.execute_script(
-                            script, *args)
+                        script, *args)
                     return result_mappers[name](r)
                 except StaleElementReferenceException as e:
                     raise e

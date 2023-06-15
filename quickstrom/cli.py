@@ -94,6 +94,7 @@ def root(ctx, color, log_level, include):
               help='enable a reporter by name')
 @click.option('--interpreter-log-file', default=None)
 @click.option('--driver-log-file', default=None)
+@click.option('--browser-log-file', default=None)
 @click.option('--json-report-file', default='report.json')
 @click.option('--json-report-files-directory',
               default='json-report-files',
@@ -104,11 +105,16 @@ def root(ctx, color, log_level, include):
     multiple=True,
     type=(str, str, str),
     help='set a cookie based on three values, e.g. --cookie domain name value')
+@click.option('--browser-data-directory', default=None, help='directory for browser data files (user profile, etc)')
 def check(module: str, origin: str, browser: executor.Browser, browser_binary: Optional[str], headless: bool,
           capture_screenshots: bool, console_report_on_success: bool,
-          reporter: List[str], interpreter_log_file: Optional[str], driver_log_file: Optional[str],
+          reporter: List[str], interpreter_log_file: Optional[str],
+          driver_log_file: Optional[str],
+          browser_log_file: Optional[str],
           json_report_file: str, json_report_files_directory: str,
-          html_report_directory: str, cookie: List[Tuple[str, str, str]]):
+          html_report_directory: str, cookie: List[Tuple[str, str, str]],
+          browser_data_directory: Optional[str],
+          ):
     """Checks the configured properties in the given module."""
 
     def reporters_by_names(names: List[str]) -> List[Reporter]:
@@ -157,8 +163,10 @@ def check(module: str, origin: str, browser: executor.Browser, browser_binary: O
                                      headless,
                                      capture_screenshots,
                                      cookies,
+                                     browser_data_directory=browser_data_directory,
                                      interpreter_log_file=ilog,
-                                     driver_log_file=driver_log_file).execute()
+                                     driver_log_file=driver_log_file,
+                                     browser_log_file=browser_log_file).execute()
             chosen_reporters = reporters_by_names(reporter)
             for result in results:
                 for r in chosen_reporters:

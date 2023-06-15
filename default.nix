@@ -1,5 +1,4 @@
-{ pkgs ? (import ./nix/nixpkgs.nix), specstrom ? import ./nix/specstrom.nix
-, chromedriver ? pkgs.chromedriver, includeBrowsers ? true }:
+{ pkgs ? (import ./nix/nixpkgs.nix), specstrom ? import ./nix/specstrom.nix }:
 let
 
   quickstrom = pkgs.poetry2nix.mkPoetryApplication {
@@ -17,14 +16,9 @@ let
   client-side = import ./client-side { inherit pkgs; };
   html-report = import ./html-report { inherit pkgs; };
 
-  runtimeDeps = [ specstrom ] ++ pkgs.lib.optionals includeBrowsers [
-    chromedriver
-    pkgs.geckodriver
-    pkgs.chromium
-    pkgs.firefox
-  ];
+  runtimeDeps = [ specstrom ];
 
-  quickstrom-wrapped = { includeBrowsers }:
+  quickstrom-wrapped =
     pkgs.stdenv.mkDerivation {
       name = "quickstrom-wrapped";
       srcs = ./.;
@@ -48,10 +42,14 @@ let
     copyToRoot = pkgs.buildEnv {
       name = "image-root";
       paths = [
-        (quickstrom-wrapped { includeBrowsers = true; })
+        quickstrom-wrapped
         pkgs.coreutils
         pkgs.bashInteractive
         pkgs.dockerTools.caCertificates
+        pkgs.firefox
+        pkgs.geckodriver
+        pkgs.chromium
+        pkgs.chromedriver
       ];
       pathsToLink = [ "/bin" "/etc" ];
     };
@@ -65,7 +63,7 @@ let
     };
   };
 in {
-  quickstrom = quickstrom-wrapped { inherit includeBrowsers; };
+  quickstrom = quickstrom-wrapped;
   docker = docker;
 }
 

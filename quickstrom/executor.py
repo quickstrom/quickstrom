@@ -108,6 +108,8 @@ class Check():
     capture_screenshots: bool
     cookies: List[Cookie]
     driver_log_file: Optional[str]
+    remote_desired_capabilities: Optional[Dict[str, Any]]
+    remote_webdriver_url: Optional[str]
     interpreter_log_file: IO
     log: logging.Logger = logging.getLogger('quickstrom.executor')
 
@@ -252,6 +254,7 @@ class Check():
                         try:
                             self.log.info("Starting session")
                             driver = self.new_driver()
+                            driver.set_script_timeout(10)
                             driver.set_window_size(1200, 1200)
 
                             if len(self.cookies) > 0:
@@ -396,27 +399,8 @@ class Check():
                                      service_log_path=self.driver_log_file
                                                       or "geckodriver.log")
         elif self.browser == 'remote':
-            username = os.environ.get('SAUCE_USERNAME')
-            access_key = os.environ.get('SAUCE_ACCESS_KEY')
-            # options = webdriver.FirefoxOptions()
-            # options.browser_version = 'latest'
-            # options.platform_name = 'Windows 10'
-            # options.set_capability("extendedDebugging", "true")
-            # options.browser_version = '16'
-            # options.platform_name = 'macOS 13'
-            caps = {}
-            caps['browserName'] = 'Safari'
-            caps['browserVersion'] = '16'
-            caps['platformName'] = 'macOS 13'
-            caps['sauce:options'] = {
-                'username': username,
-                'accessKey': access_key,
-                'build': 'foo',
-                'name': 'bar',
-            }
-
-            url = "https://ondemand.eu-central-1.saucelabs.com:443/wd/hub"
-            return webdriver.Remote(command_executor=url, desired_capabilities=caps)
+            return webdriver.Remote(command_executor=self.remote_webdriver_url,
+                                    desired_capabilities=self.remote_desired_capabilities)
         else:
             raise Exception(f"Unsupported browser: {self.browser}")
 

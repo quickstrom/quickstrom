@@ -198,7 +198,7 @@ class Check():
             def screenshot(driver: WebDriver, hash: str):
                 if self.capture_screenshots:
                     bs: bytes = driver.get_screenshot_as_png(
-                    )    # type: ignore
+                    )  # type: ignore
                     (width, height, _, _) = png.Reader(io.BytesIO(bs)).read()
                     window_size = driver.get_window_size()
                     scale = round(width / window_size['width'])
@@ -216,8 +216,8 @@ class Check():
                 def on_state(state):
                     return result.State(screenshot=screenshots.get(
                         state.hash, None),
-                                        queries=state.queries,
-                                        hash=state.hash)
+                        queries=state.queries,
+                        hash=state.hash)
 
                 return result.map_states(r, on_state)
 
@@ -358,7 +358,7 @@ class Check():
     def launch_specstrom(self, ilog):
         includes = list(map(lambda i: "-I" + i, self.include_paths))
         cmd = ["specstrom", "check", self.module
-               ] + includes    # + ["+RTS", "-p"]
+               ] + includes  # + ["+RTS", "-p"]
         self.log.debug("Invoking Specstrom with: %s", " ".join(cmd))
         return subprocess.Popen(cmd,
                                 text=True,
@@ -373,8 +373,8 @@ class Check():
             options.headless = self.headless
             browser_path = self.browser_binary or which("chromium") or which(
                 "google-chrome-stable") or which("google-chrome") or which(
-                    "chrome")
-            options.binary_location = browser_path    # type: ignore
+                "chrome")
+            options.binary_location = browser_path  # type: ignore
             options.add_argument('--no-sandbox')
             options.add_argument("--single-process")
             chromedriver_path = which('chromedriver')
@@ -394,25 +394,29 @@ class Check():
                                      firefox_binary=binary,
                                      executable_path=geckodriver_path,
                                      service_log_path=self.driver_log_file
-                                     or "geckodriver.log")
+                                                      or "geckodriver.log")
         elif self.browser == 'remote':
             username = os.environ.get('SAUCE_USERNAME')
             access_key = os.environ.get('SAUCE_ACCESS_KEY')
-            options = webdriver.FirefoxOptions()
-            options.browser_version = 'latest'
-            options.platform_name = 'Windows 10'
-            options.set_capability("extendedDebugging", "true")
+            # options = webdriver.FirefoxOptions()
+            # options.browser_version = 'latest'
+            # options.platform_name = 'Windows 10'
+            # options.set_capability("extendedDebugging", "true")
             # options.browser_version = '16'
             # options.platform_name = 'macOS 13'
-            sauce_options = {}
-            sauce_options['username'] = username
-            sauce_options['accessKey'] = access_key
-            sauce_options['build'] = 'foo'
-            sauce_options['name'] = 'bar'
-            options.set_capability('sauce:options', sauce_options)
+            caps = {}
+            caps['browserName'] = 'Safari'
+            caps['browserVersion'] = '16'
+            caps['platformName'] = 'macOS 13'
+            caps['sauce:options'] = {
+                'username': username,
+                'accessKey': access_key,
+                'build': 'foo',
+                'name': 'bar',
+            }
 
             url = "https://ondemand.eu-central-1.saucelabs.com:443/wd/hub"
-            return webdriver.Remote(command_executor=url, options=options)
+            return webdriver.Remote(command_executor=url, desired_capabilities=caps)
         else:
             raise Exception(f"Unsupported browser: {self.browser}")
 
@@ -466,7 +470,7 @@ class Check():
                 try:
                     r = driver.execute_async_script(
                         script, *args) if is_async else driver.execute_script(
-                            script, *args)
+                        script, *args)
                     return result_mappers[name](r)
                 except StaleElementReferenceException as e:
                     raise e

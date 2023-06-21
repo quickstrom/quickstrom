@@ -87,7 +87,7 @@ class Scripts():
                            Optional[ClientSideEvents]]
 
 
-Browser = Union[Literal['chrome'], Literal['firefox']]
+Browser = Union[Literal['chrome'], Literal['firefox'], Literal['remote']]
 
 
 @dataclass
@@ -395,6 +395,24 @@ class Check():
                                      executable_path=geckodriver_path,
                                      service_log_path=self.driver_log_file
                                      or "geckodriver.log")
+        elif self.browser == 'remote':
+            username = os.environ.get('SAUCE_USERNAME')
+            access_key = os.environ.get('SAUCE_ACCESS_KEY')
+            options = webdriver.FirefoxOptions()
+            options.browser_version = 'latest'
+            options.platform_name = 'Windows 10'
+            options.set_capability("extendedDebugging", "true")
+            # options.browser_version = '16'
+            # options.platform_name = 'macOS 13'
+            sauce_options = {}
+            sauce_options['username'] = username
+            sauce_options['accessKey'] = access_key
+            sauce_options['build'] = 'foo'
+            sauce_options['name'] = 'bar'
+            options.set_capability('sauce:options', sauce_options)
+
+            url = "https://ondemand.eu-central-1.saucelabs.com:443/wd/hub"
+            return webdriver.Remote(command_executor=url, options=options)
         else:
             raise Exception(f"Unsupported browser: {self.browser}")
 

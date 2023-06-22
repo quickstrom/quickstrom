@@ -10,15 +10,24 @@ function isChildOf(el: HTMLElement, parent: HTMLElement): boolean {
     }
 }
 
-function wouldReceiveClick(element: HTMLElement) {
+function wouldReceiveClick(element: HTMLElement): boolean {
     // check if clicking at the center of the element would hit it
     const rect = element.getBoundingClientRect();
     const x = rect.left + rect.width / 2;
     const y = rect.top + rect.height / 2;
     const hitElement = document.elementFromPoint(x, y);
-    return hitElement && isChildOf(hitElement as HTMLElement, element);
+    return !!hitElement && isChildOf(hitElement as HTMLElement, element);
+}
+
+function isElementInFront(element: HTMLElement): boolean {
+    if (element instanceof HTMLOptionElement) {
+        // HTMLOptionElement are not interacted with directly, but through their parent select element
+        return isElementInFront(element.parentElement as HTMLElement);
+    } else {
+        return wouldReceiveClick(element);
+    }
 }
 
 export function isElementInteractable(element: HTMLElement) {
-    return isElementVisible(element) && window.getComputedStyle(element).pointerEvents !== "none" && wouldReceiveClick(element);
+    return isElementVisible(element) && window.getComputedStyle(element).pointerEvents !== "none" && isElementInFront(element);
 }

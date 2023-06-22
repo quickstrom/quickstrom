@@ -1,0 +1,7 @@
+import quickstrom;
+
+action ~clickIt! = click!(`button`);
+
+let ~prop = next (length(`button`) > 0);
+
+check prop with * when loaded?;

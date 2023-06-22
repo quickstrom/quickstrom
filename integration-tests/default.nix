@@ -79,4 +79,5 @@ in makeTests {
   select = passing("select");
   invalid-spec = failing { name = "invalid-spec"; expectedExitCode = 2; };
   scroll = passing("scroll");
+  not-interactable = failing { name = "not-interactable"; expectedExitCode = 3; };
 }

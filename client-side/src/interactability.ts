@@ -21,7 +21,10 @@ function wouldReceiveClick(element: HTMLElement): boolean {
 
 function isElementInFront(element: HTMLElement): boolean {
     if (element instanceof HTMLOptionElement) {
-        // HTMLOptionElement are not interacted with directly, but through their parent select element
+        // Options are not interacted with directly, but through their parent select element
+        return isElementInFront(element.parentElement as HTMLElement);
+    } else if (element instanceof HTMLOptGroupElement) {
+        // Option groups are not interacted with directly, but through their parent select element
         return isElementInFront(element.parentElement as HTMLElement);
     } else {
         return wouldReceiveClick(element);

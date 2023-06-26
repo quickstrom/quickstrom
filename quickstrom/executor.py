@@ -52,7 +52,7 @@ class PerformActionError(Exception):
     error: Exception
 
     def __str__(self):
-        return f"Error while performing {self.action}:\n\n{self.error}"
+        return f"Error while performing {self.action}:\n\n{self.error} {self.error}"
 
 
 @dataclass
@@ -154,8 +154,14 @@ class Check():
                     elif action.id == 'click':
                         id = action.args[0]
                         element = WebElement(driver, id)
-                        ActionChains(driver).move_to_element(element).click(
-                            element).perform()
+                        # try:
+                        #     ActionChains(driver).move_to_element(element).click(element).perform()
+                        # except Exception as e:
+                        try:
+                            element.click()
+                        except Exception as e:
+                            self.log.warning("Basic click failed, falling back to JS click: %s", e)
+                            driver.execute_script("arguments[0].click();", element)
                     elif action.id == 'doubleClick':
                         id = action.args[0]
                         element = WebElement(driver, id)

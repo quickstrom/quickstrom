@@ -47,6 +47,8 @@ version = get_version()
 # The full version, including alpha/beta/rc tags
 release = version
 
+git_ref = version if version != "latest" else "latest"
+
 # -- General configuration ---------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
@@ -228,7 +230,7 @@ def ultimate_replace(app, docname, source):
     source[0] = result
 
 
-ultimate_replacements = {"{VERSION}": version}
+ultimate_replacements = {"{VERSION}": version, "{GIT_REF}": git_ref}
 
 
 def setup(app):

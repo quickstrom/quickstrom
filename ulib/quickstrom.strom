@@ -3,26 +3,37 @@ import list;
 import ltl;
 import quickstrom/keys;
 
-action click!(x) = for element in x. { id: "click", event: false, args: [element.ref] } when element.enabled && element.visible && element.interactable;
+/// Returns a list of click actions on the given elements.
+action click!(elements) = for element in elements. { id: "click", event: false, args: [element.ref] } when element.enabled && element.visible && element.interactable;
 
-action doubleClick!(x) = for element in x. { id: "doubleClick", event: false, args: [element.ref] } when element.enabled && element.visible && element.interactable;
+/// Returns a list of double-click actions on the given elements.
+action doubleClick!(elements) = for element in elements. { id: "doubleClick", event: false, args: [element.ref] } when element.enabled && element.visible && element.interactable;
 
-action select!(x) = for element in x. { id: "select", event: false, args: [element.ref, element.value] } when element.enabled && element.visible && element.interactable;
+/// Returns a list of select actions on the given option elements.
+action select!(elements) = for element in elements. { id: "select", event: false, args: [element.ref, element.value] } when element.enabled && element.visible && element.interactable;
 
-action clear!(x) = for element in x. { id: "clear", event: false, args: [element.ref] } when (not element.active) && element.interactable;
+/// Returns a list of clear actions on the given input elements.
+action clear!(elements) = for element in elements. { id: "clear", event: false, args: [element.ref] } when (not element.active) && element.interactable;
 
-action focus!(x) = for element in x. { id: "focus", event: false, args: [element.ref] } when (not element.active) && element.interactable;
+/// Returns a list of focus actions on the given input elements.
+action focus!(elements) = for element in elements. { id: "focus", event: false, args: [element.ref] } when (not element.active) && element.interactable;
 
+/// An action that presses the given key. Keys are defined by Quickstrom in the `keys` object, e.g. `keys.escape`.
 action keyPress!(key) = { id: "keyPress", event: false, args: [key] };
 
+/// An action that enters the given text into the currently focused input element.
 action enterText!(text) = { id: "enterText", event: false, args: [text] };
 
+/// Returns a list of actions which enter the given text into the given input elements.
 action enterTextInto!(text, elements) = for element in elements. { id: "enterTextInto", event: false, args: [text, element.ref] };
 
-action changed?(x) = for element in x. { id: "changed", event: true, args: [x.ref]};
+/// Emitted when the given element is visible.
+action changed?(elements) = for element in elements. { id: "changed", event: true, args: [elements.ref]};
 
+/// Emitted when the document has loaded, i.e. the DOM `load` event.
 action loaded? = { id: "loaded", event: true, args: [] };
 
+/// An action that does nothing. Use together with `timeout` to wait for a certain amount of time, or for an event to occur within that timespan.
 action noop! = {id:"noop",event:false,args:[]};
 
 /// Scroll by absolute number of pixels from the current position. Use negative `x` or `y` arguments to scroll left or up.

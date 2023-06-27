@@ -303,19 +303,35 @@ using the ``action`` keyword:
 Built-in Actions
 ~~~~~~~~~~~~~~~~
 
-The following actions and events are provided in the Quickstrom
-library:
+The following actions and events are provided in `the Quickstrom
+library <https://github.com/quickstrom/quickstrom/blob/{GIT_REF}/ulib/quickstrom.strom>`_:
 
-* ``click!``
-* ``doubleClick!``
-* ``clear!``
-* ``focus!``
-* ``keyPress!``
-* ``enterText!``
-* ``enterTextInto!``
-* ``noop!``
-* ``changed?``
-* ``loaded?``
+``click!(elements)``
+  Returns a list of click actions on the given elements.
+``doubleClick!(elements)``
+  Returns a list of double-click actions on the given elements.
+``select!(elements)``
+  Returns a list of select actions on the given option elements.
+``clear!(elements)``
+  Returns a list of clear actions on the given input elements.
+``focus!(elements)``
+  Returns a list of focus actions on the given input elements.
+``keyPress!(key)``
+  An action that presses the given key. Keys are defined by Quickstrom in the `keys <https://github.com/quickstrom/quickstrom/blob/{GIT_REF}/ulib/quickstrom/keys.strom>`_ object, e.g. ``keys.escape``.
+``enterText!(text``
+  An action that enters the given text into the currently focused input element.
+``enterTextInto!(text, elements)``
+  Returns a list of actions which enter the given text into the given input elements.
+``noop!``
+  An action that does nothing. Use together with ``timeout`` to wait for a certain amount of time, or for an event to occur within that timespan.
+``scrollBy!(x, y)``
+  Scroll by absolute number of pixels from the current position. Use negative ``x`` or ``y`` arguments to scroll left or up.
+``scrollByViewport!(x, y)``
+  Scroll by ratio of the viewport size, i.e. ``scrollByViewport!(0, 1)`` to scroll down one viewport height. Use negative ``x`` or ``y`` arguments to scroll left or up.
+``changed?``
+  Emitted when the given element is visible.
+``loaded?``
+  Emitted when the document has loaded, i.e. the DOM ``load`` event.
 
 .. note::
 
@@ -333,7 +349,7 @@ preconditions. We use the `when` construct to express a precondition:
 
 Many of the built-in actions in Quickstrom already have useful
 preconditions set, like `click!` only be applicable on elements that
-are interactable and enabled. This means that we don't have to specify
+are visible, clickable, and enabled. This means that we don't have to specify
 such basic preconditions. It's more likely that preconditions will be
 domain-specific rules, if required at all.
 

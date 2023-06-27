@@ -52,7 +52,7 @@ class PerformActionError(Exception):
     error: Exception
 
     def __str__(self):
-        return f"Error while performing {self.action}:\n\n{self.error}"
+        return f"Error while performing {self.action}:\n\n{self.error} {self.error}"
 
 
 @dataclass
@@ -87,7 +87,7 @@ class Scripts():
                            Optional[ClientSideEvents]]
 
 
-Browser = Union[Literal['chrome'], Literal['firefox']]
+Browser = Union[Literal['chrome'], Literal['firefox'], Literal['remote']]
 
 
 @dataclass
@@ -108,6 +108,8 @@ class Check():
     capture_screenshots: bool
     cookies: List[Cookie]
     driver_log_file: Optional[str]
+    remote_desired_capabilities: Optional[Dict[str, Any]]
+    remote_webdriver_url: Optional[str]
     interpreter_log_file: IO
     log: logging.Logger = logging.getLogger('quickstrom.executor')
 
@@ -152,8 +154,11 @@ class Check():
                     elif action.id == 'click':
                         id = action.args[0]
                         element = WebElement(driver, id)
-                        ActionChains(driver).move_to_element(element).click(
-                            element).perform()
+                        try:
+                            element.click()
+                        except Exception as e:
+                            self.log.warning("Basic click failed, falling back to JS click: %s", e)
+                            driver.execute_script("arguments[0].click();", element)
                     elif action.id == 'doubleClick':
                         id = action.args[0]
                         element = WebElement(driver, id)
@@ -198,7 +203,7 @@ class Check():
             def screenshot(driver: WebDriver, hash: str):
                 if self.capture_screenshots:
                     bs: bytes = driver.get_screenshot_as_png(
-                    )    # type: ignore
+                    )  # type: ignore
                     (width, height, _, _) = png.Reader(io.BytesIO(bs)).read()
                     window_size = driver.get_window_size()
                     scale = round(width / window_size['width'])
@@ -216,8 +221,8 @@ class Check():
                 def on_state(state):
                     return result.State(screenshot=screenshots.get(
                         state.hash, None),
-                                        queries=state.queries,
-                                        hash=state.hash)
+                        queries=state.queries,
+                        hash=state.hash)
 
                 return result.map_states(r, on_state)
 
@@ -252,6 +257,7 @@ class Check():
                         try:
                             self.log.info("Starting session")
                             driver = self.new_driver()
+                            driver.set_script_timeout(10)
                             driver.set_window_size(1200, 1200)
 
                             if len(self.cookies) > 0:
@@ -358,7 +364,7 @@ class Check():
     def launch_specstrom(self, ilog):
         includes = list(map(lambda i: "-I" + i, self.include_paths))
         cmd = ["specstrom", "check", self.module
-               ] + includes    # + ["+RTS", "-p"]
+               ] + includes  # + ["+RTS", "-p"]
         self.log.debug("Invoking Specstrom with: %s", " ".join(cmd))
         return subprocess.Popen(cmd,
                                 text=True,
@@ -373,8 +379,8 @@ class Check():
             options.headless = self.headless
             browser_path = self.browser_binary or which("chromium") or which(
                 "google-chrome-stable") or which("google-chrome") or which(
-                    "chrome")
-            options.binary_location = browser_path    # type: ignore
+                "chrome")
+            options.binary_location = browser_path  # type: ignore
             options.add_argument('--no-sandbox')
             options.add_argument("--single-process")
             chromedriver_path = which('chromedriver')
@@ -394,7 +400,10 @@ class Check():
                                      firefox_binary=binary,
                                      executable_path=geckodriver_path,
                                      service_log_path=self.driver_log_file
-                                     or "geckodriver.log")
+                                                      or "geckodriver.log")
+        elif self.browser == 'remote':
+            return webdriver.Remote(command_executor=self.remote_webdriver_url,
+                                    desired_capabilities=self.remote_desired_capabilities)
         else:
             raise Exception(f"Unsupported browser: {self.browser}")
 
@@ -448,7 +457,7 @@ class Check():
                 try:
                     r = driver.execute_async_script(
                         script, *args) if is_async else driver.execute_script(
-                            script, *args)
+                        script, *args)
                     return result_mappers[name](r)
                 except StaleElementReferenceException as e:
                     raise e

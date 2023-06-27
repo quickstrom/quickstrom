@@ -1,3 +1,4 @@
+import json
 import logging
 import tempfile
 from quickstrom.reporter import Reporter
@@ -104,11 +105,14 @@ def root(ctx, color, log_level, include):
     multiple=True,
     type=(str, str, str),
     help='set a cookie based on three values, e.g. --cookie domain name value')
+@click.option('--remote-webdriver-url')
+@click.option('--remote-desired-capabilities')
 def check(module: str, origin: str, browser: executor.Browser, browser_binary: Optional[str], headless: bool,
           capture_screenshots: bool, console_report_on_success: bool,
           reporter: List[str], interpreter_log_file: Optional[str], driver_log_file: Optional[str],
           json_report_file: str, json_report_files_directory: str,
-          html_report_directory: str, cookie: List[Tuple[str, str, str]]):
+          html_report_directory: str, cookie: List[Tuple[str, str, str]],
+          remote_webdriver_url: Optional[str], remote_desired_capabilities: Optional[str]):
     """Checks the configured properties in the given module."""
 
     def reporters_by_names(names: List[str]) -> List[Reporter]:
@@ -158,7 +162,10 @@ def check(module: str, origin: str, browser: executor.Browser, browser_binary: O
                                      capture_screenshots,
                                      cookies,
                                      interpreter_log_file=ilog,
-                                     driver_log_file=driver_log_file).execute()
+                                     driver_log_file=driver_log_file,
+                                     remote_webdriver_url=remote_webdriver_url,
+                                     remote_desired_capabilities=json.loads(
+                                         remote_desired_capabilities) if remote_desired_capabilities else None).execute()
             chosen_reporters = reporters_by_names(reporter)
             for result in results:
                 for r in chosen_reporters:

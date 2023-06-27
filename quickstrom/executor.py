@@ -154,9 +154,6 @@ class Check():
                     elif action.id == 'click':
                         id = action.args[0]
                         element = WebElement(driver, id)
-                        # try:
-                        #     ActionChains(driver).move_to_element(element).click(element).perform()
-                        # except Exception as e:
                         try:
                             element.click()
                         except Exception as e:

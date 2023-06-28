@@ -17,11 +17,18 @@ from selenium.webdriver.common.options import BaseOptions
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support.select import Select
+
 from selenium.webdriver.chrome.options import Options as ChromeOptions
 from selenium.webdriver.chrome.service import Service as ChromeService
+
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from selenium.webdriver.firefox.service import Service as FirefoxService
-from selenium.webdriver.firefox.firefox_binary import FirefoxBinary
+
+from selenium.webdriver.edge.options import Options as EdgeOptions
+from selenium.webdriver.edge.service import Service as EdgeService
+
+from selenium.webdriver.safari.options import Options as SafariOptions
+from selenium.webdriver.safari.service import Service as SafariService
 
 from quickstrom.protocol import *
 from quickstrom.hash import dict_hash
@@ -92,7 +99,12 @@ class Scripts:
     ]
 
 
-Browser = Union[Literal["chrome"], Literal["firefox"]]
+Browser = Union[
+    Literal["chrome"],
+    Literal["firefox"],
+    Literal["edge"],
+    Literal["safari"],
+]
 
 
 @dataclass
@@ -409,6 +421,25 @@ class Check:
                     executable_path=chromedriver_path, log_path=self.driver_log_file
                 ),
             )
+        elif self.browser == "edge":
+            edge_opts = cast(EdgeOptions, self.browser_shared_options())
+            edgedriver_path = which("msedgedriver")
+            if not edgedriver_path:
+                raise Exception("msedgedriver not found in PATH")
+            browser_path = (
+                self.browser_binary
+                or which("microsoft-edge-stable")
+                or which("microsoft-edge")
+            )
+            edge_opts.binary_location = browser_path  # type: ignore
+            edge_opts.add_argument("--no-sandbox")
+            edge_opts.add_argument("--single-process")
+            return webdriver.Edge(
+                options=edge_opts,
+                service=EdgeService(
+                    executable_path=edgedriver_path, log_path=self.driver_log_file
+                ),
+            )
         elif self.browser == "firefox":
             firefox_opts = cast(FirefoxOptions, self.browser_shared_options())
             binary = self.browser_binary or which("firefox")
@@ -426,8 +457,7 @@ class Check:
         else:
             raise Exception(f"Unsupported browser: {self.browser}")
 
-
-    def browser_shared_options(self) -> Union[ChromeOptions, FirefoxOptions]:
+    def browser_shared_options(self) -> Union[ChromeOptions, FirefoxOptions, EdgeOptions, SafariOptions]:
         def set_shared(options):
             for key, value in (self.extra_desired_capabilities or {}).items():
                 options.set_capability(key, value)
@@ -438,8 +468,13 @@ class Check:
             return set_shared(ChromeOptions())
         elif self.browser == "firefox":
             return set_shared(FirefoxOptions())
+        elif self.browser == "edge":
+            return set_shared(EdgeOptions())
+        elif self.browser == "safari":
+            return set_shared(SafariOptions())
         else:
             raise Exception(f"Unsupported browser: {self.browser}")
+
     def load_scripts(self) -> Scripts:
         def map_query_state(r):
             if r is None:
@@ -529,15 +564,3 @@ class Counter(object):
     def increment(self):
         with self._lock:
             self.value += 1
-
-
-class RemoteOptions(BaseOptions):
-    def __init__(self, remote_capabilities: Dict[str, Any]):
-        super().__init__()
-        self._caps = remote_capabilities
-
-    def to_capabilities(self):
-        return self._caps
-
-    def default_capabilities(self):
-        return {}

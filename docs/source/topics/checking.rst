@@ -25,8 +25,9 @@ Cross-Browser Testing
 Quickstrom currently supports these browsers:
 
 - Firefox (``firefox``)
-- Chrome/Chromium (``chrome``)
-- Remote (``remote``)
+- Chrome (``chrome``)
+- Microsoft Edge (``edge``)
+- Safari (``safari``)
 
 Unless specified, the default browser used is Firefox. To override,
 use the ``--browser`` option and set the appropriate browser when
@@ -49,21 +50,23 @@ You can also override which binary it uses when launching the browser:
       --browser-binary=/usr/bin/google-chrome-stable \
       ... # more options
 
-The ``remote`` browser mode is useful for services like SauceLabs or BrowserStack, where you pass in the desired
-capabilities to control the environment:
+Remote WebDriver Support
+------------------------
+
+The remote WebDriver mode is useful for services like SauceLabs or BrowserStack, where you pass in the
+driver URL, and possibly extra desired capabilities to control the environment:
 
 .. code-block:: console
 
    $ capabilities=$(cat <<-END
      {
-       "browserName": "Chrome",
        "browserVersion": "102.0",
        ...
      }
      END
    )
    $ quickstrom check \
-      --browser=remote \
+      --browser=chrome \
        --remote-webdriver-url="https://webdriver.example.com:443/wd/hub" \
-       --remote-desired-capabilities="$capabilities" \
+       --extra-desired-capabilities="$capabilities" \
       ... # more options

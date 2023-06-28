@@ -6,7 +6,7 @@ authors = ["owickstrom <oskar@wickstrom.tech>"]
 
 [tool.poetry.dependencies]
 python = "^3.8"
-selenium = { version = "==4.0.0b3", allow-prereleases = true }
+selenium = { version = "^4.10" }
 click = "^7.1.2"
 jsonlines = "^2.0.0"
 deepdiff = "^5.2.3"

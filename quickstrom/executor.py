@@ -8,7 +8,7 @@ from shutil import which
 from dataclasses import dataclass
 import traceback
 import png
-from typing import List, Union, Literal, Any
+from typing import List, Union, Literal, Any, cast
 from selenium import webdriver
 from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.action_chains import ActionChains
@@ -17,9 +17,9 @@ from selenium.webdriver.common.options import BaseOptions
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support.select import Select
-import selenium.webdriver.chrome.options as chrome_options
+from selenium.webdriver.chrome.options import Options as ChromeOptions
 from selenium.webdriver.chrome.service import Service as ChromeService
-import selenium.webdriver.firefox.options as firefox_options
+from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from selenium.webdriver.firefox.service import Service as FirefoxService
 from selenium.webdriver.firefox.firefox_binary import FirefoxBinary
 
@@ -92,7 +92,7 @@ class Scripts:
     ]
 
 
-Browser = Union[Literal["chrome"], Literal["firefox"], Literal["remote"]]
+Browser = Union[Literal["chrome"], Literal["firefox"]]
 
 
 @dataclass
@@ -113,7 +113,7 @@ class Check:
     capture_screenshots: bool
     cookies: List[Cookie]
     driver_log_file: Optional[str]
-    remote_desired_capabilities: Optional[Dict[str, Any]]
+    extra_desired_capabilities: Optional[Dict[str, Any]]
     remote_webdriver_url: Optional[str]
     interpreter_log_file: IO
     log: logging.Logger = logging.getLogger("quickstrom.executor")
@@ -382,10 +382,17 @@ class Check:
             bufsize=0,
         )
 
-    def new_driver(self):
-        if self.browser == "chrome":
-            options = chrome_options.Options()
-            options.headless = self.headless
+    def new_driver(self) -> WebDriver:
+        if self.remote_webdriver_url is not None:
+            return webdriver.Remote(
+                command_executor=self.remote_webdriver_url,
+                options=self.browser_shared_options(),
+            )
+        elif self.browser == "chrome":
+            chrome_opts = cast(ChromeOptions, self.browser_shared_options())
+            chromedriver_path = which("chromedriver")
+            if not chromedriver_path:
+                raise Exception("chromedriver not found in PATH")
             browser_path = (
                 self.browser_binary
                 or which("chromium")
@@ -393,50 +400,46 @@ class Check:
                 or which("google-chrome")
                 or which("chrome")
             )
-            options.binary_location = browser_path  # type: ignore
-            options.add_argument("--no-sandbox")
-            options.add_argument("--single-process")
-            chromedriver_path = which("chromedriver")
-            if not chromedriver_path:
-                raise Exception("chromedriver not found in PATH")
+            chrome_opts.binary_location = browser_path  # type: ignore
+            chrome_opts.add_argument("--no-sandbox")
+            chrome_opts.add_argument("--single-process")
             return webdriver.Chrome(
-                options=options,
+                options=chrome_opts,
                 service=ChromeService(
                     executable_path=chromedriver_path, log_path=self.driver_log_file
                 ),
             )
         elif self.browser == "firefox":
-            options = firefox_options.Options()
-            options.headless = self.headless
+            firefox_opts = cast(FirefoxOptions, self.browser_shared_options())
             binary = self.browser_binary or which("firefox")
             geckodriver_path = which("geckodriver")
             if not geckodriver_path:
                 raise Exception("geckodriver not found in PATH")
             return webdriver.Firefox(
-                options=options,
+                options=firefox_opts,
                 service=FirefoxService(
                     executable_path=geckodriver_path,
                     log_path=self.driver_log_file or "geckodriver.log",
                     service_args=["--binary", binary] if binary else [],
                 ),
             )
-        elif self.browser == "remote":
-            if self.remote_webdriver_url is None:
-                raise Exception(
-                    "--remote-webdriver-url must be specified when using --browser=remote"
-                )
-            if self.remote_desired_capabilities is None:
-                raise Exception(
-                    "--remote-desired-capabilities must be specified when using --browser=remote"
-                )
-            options = RemoteOptions(self.remote_desired_capabilities)
-            return webdriver.Remote(
-                command_executor=self.remote_webdriver_url,
-                options=options,
-            )
         else:
             raise Exception(f"Unsupported browser: {self.browser}")
 
+
+    def browser_shared_options(self) -> Union[ChromeOptions, FirefoxOptions]:
+        def set_shared(options):
+            for key, value in (self.extra_desired_capabilities or {}).items():
+                options.set_capability(key, value)
+            options.headless = self.headless
+            return options
+
+        if self.browser == "chrome":
+            return set_shared(ChromeOptions())
+        elif self.browser == "firefox":
+            return set_shared(FirefoxOptions())
+        else:
+            raise Exception(f"Unsupported browser: {self.browser}")
     def load_scripts(self) -> Scripts:
         def map_query_state(r):
             if r is None:

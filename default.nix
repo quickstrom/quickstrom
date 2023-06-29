@@ -6,9 +6,8 @@ let
     projectDir = ./.;
     python = pkgs.python39;
     propagatedBuildInputs = [ specstrom ];
-    checkInputs = [ pkgs.nodePackages.pyright ];
     checkPhase = ''
-      pyright -p . quickstrom tests
+      ${pkgs.nodePackages.pyright}/bin/pyright -p . quickstrom tests
       pytest
     '';
 

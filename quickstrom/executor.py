@@ -6,18 +6,29 @@ import threading
 import time
 from shutil import which
 from dataclasses import dataclass
+import traceback
 import png
-from typing import List, Union, Literal, Any
+from typing import List, Union, Literal, Any, cast
 from selenium import webdriver
 from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.options import BaseOptions
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support.select import Select
-import selenium.webdriver.chrome.options as chrome_options
-import selenium.webdriver.firefox.options as firefox_options
-from selenium.webdriver.firefox.firefox_binary import FirefoxBinary
+
+from selenium.webdriver.chrome.options import Options as ChromeOptions
+from selenium.webdriver.chrome.service import Service as ChromeService
+
+from selenium.webdriver.firefox.options import Options as FirefoxOptions
+from selenium.webdriver.firefox.service import Service as FirefoxService
+
+from selenium.webdriver.edge.options import Options as EdgeOptions
+from selenium.webdriver.edge.service import Service as EdgeService
+
+from selenium.webdriver.safari.options import Options as SafariOptions
+from selenium.webdriver.safari.service import Service as SafariService
 
 from quickstrom.protocol import *
 from quickstrom.hash import dict_hash
@@ -74,31 +85,37 @@ class ScriptError(Exception):
 
 
 @dataclass
-class ClientSideEvents():
+class ClientSideEvents:
     events: List[Action]
     state: State
 
 
 @dataclass
-class Scripts():
+class Scripts:
     query_state: Callable[[WebDriver, Dict[Selector, Schema]], State]
     install_event_listener: Callable[[WebDriver, Dict[Selector, Schema]], None]
-    await_events: Callable[[WebDriver, Dict[Selector, Schema], int],
-                           Optional[ClientSideEvents]]
+    await_events: Callable[
+        [WebDriver, Dict[Selector, Schema], int], Optional[ClientSideEvents]
+    ]
 
 
-Browser = Union[Literal['chrome'], Literal['firefox'], Literal['remote']]
+Browser = Union[
+    Literal["chrome"],
+    Literal["firefox"],
+    Literal["edge"],
+    Literal["safari"],
+]
 
 
 @dataclass
-class Cookie():
+class Cookie:
     domain: str
     name: str
     value: str
 
 
 @dataclass
-class Check():
+class Check:
     module: str
     origin: str
     browser: Browser
@@ -108,10 +125,10 @@ class Check():
     capture_screenshots: bool
     cookies: List[Cookie]
     driver_log_file: Optional[str]
-    remote_desired_capabilities: Optional[Dict[str, Any]]
+    extra_desired_capabilities: Optional[Dict[str, Any]]
     remote_webdriver_url: Optional[str]
     interpreter_log_file: IO
-    log: logging.Logger = logging.getLogger('quickstrom.executor')
+    log: logging.Logger = logging.getLogger("quickstrom.executor")
 
     def execute(self) -> List[result.PlainResult]:
         scripts = self.load_scripts()
@@ -130,9 +147,11 @@ class Check():
                     if exit_code == 0:
                         return None
                     else:
-                        raise SpecstromError("Specstrom invocation failed",
-                                             exit_code,
-                                             self.interpreter_log_file.name)
+                        raise SpecstromError(
+                            "Specstrom invocation failed",
+                            exit_code,
+                            self.interpreter_log_file.name,
+                        )
                 else:
                     self.log.debug("Received %s", msg)
                     return msg
@@ -149,52 +168,57 @@ class Check():
 
             def perform_action(driver, action):
                 try:
-                    if action.id == 'noop':
+                    if action.id == "noop":
                         pass
-                    elif action.id == 'click':
+                    elif action.id == "click":
                         id = action.args[0]
                         element = WebElement(driver, id)
                         try:
                             element.click()
                         except Exception as e:
-                            self.log.warning("Basic click failed, falling back to JS click: %s", e)
+                            self.log.warning(
+                                "Basic click failed, falling back to JS click: %s", e
+                            )
                             driver.execute_script("arguments[0].click();", element)
-                    elif action.id == 'doubleClick':
+                    elif action.id == "doubleClick":
                         id = action.args[0]
                         element = WebElement(driver, id)
-                        ActionChains(driver).move_to_element(
-                            element).double_click(element).perform()
-                    elif action.id == 'select':
+                        ActionChains(driver).move_to_element(element).double_click(
+                            element
+                        ).perform()
+                    elif action.id == "select":
                         id = action.args[0]
                         value = action.args[1]
                         option = WebElement(driver, id)
                         select = Select(
-                            option.find_element(By.XPATH,
-                                                "./ancestor::select"))
+                            option.find_element(By.XPATH, "./ancestor::select")
+                        )
                         select.select_by_value(value)
-                    elif action.id == 'focus':
+                    elif action.id == "focus":
                         id = action.args[0]
                         element = WebElement(driver, id)
                         element.send_keys("")
-                    elif action.id == 'keyPress':
+                    elif action.id == "keyPress":
                         char = action.args[0]
                         element = driver.switch_to.active_element
                         element.send_keys(char)
-                    elif action.id == 'enterText':
+                    elif action.id == "enterText":
                         element = driver.switch_to.active_element
                         element.send_keys(action.args[0])
-                    elif action.id == 'enterTextInto':
+                    elif action.id == "enterTextInto":
                         id = action.args[1]
                         element = WebElement(driver, id)
                         element.send_keys(action.args[0])
-                    elif action.id == 'clear':
+                    elif action.id == "clear":
                         id = action.args[0]
                         element = WebElement(driver, id)
                         element.clear()
-                    elif action.id == 'scrollBy':
+                    elif action.id == "scrollBy":
                         driver.execute_script(
                             "window.scrollBy(arguments[0], arguments[1])",
-                            action.args[0], action.args[1])
+                            action.args[0],
+                            action.args[1],
+                        )
                     else:
                         raise UnsupportedActionError(action)
                 except Exception as e:
@@ -202,27 +226,25 @@ class Check():
 
             def screenshot(driver: WebDriver, hash: str):
                 if self.capture_screenshots:
-                    bs: bytes = driver.get_screenshot_as_png(
-                    )  # type: ignore
+                    bs: bytes = driver.get_screenshot_as_png()  # type: ignore
                     (width, height, _, _) = png.Reader(io.BytesIO(bs)).read()
                     window_size = driver.get_window_size()
-                    scale = round(width / window_size['width'])
-                    if scale != round(height / window_size['height']):
+                    scale = round(width / window_size["width"])
+                    if scale != round(height / window_size["height"]):
                         self.log.warn(
                             "Width and height scales do not match for screenshot"
                         )
-                    screenshots[hash] = result.Screenshot(image=bs,
-                                                          width=width,
-                                                          height=height,
-                                                          scale=scale)
+                    screenshots[hash] = result.Screenshot(
+                        image=bs, width=width, height=height, scale=scale
+                    )
 
-            def attach_screenshots(
-                    r: result.PlainResult) -> result.PlainResult:
+            def attach_screenshots(r: result.PlainResult) -> result.PlainResult:
                 def on_state(state):
-                    return result.State(screenshot=screenshots.get(
-                        state.hash, None),
+                    return result.State(
+                        screenshot=screenshots.get(state.hash, None),
                         queries=state.queries,
-                        hash=state.hash)
+                        hash=state.hash,
+                    )
 
                 return result.map_states(r, on_state)
 
@@ -265,8 +287,7 @@ class Check():
                                 driver.get(self.origin)
                                 for cookie in self.cookies:
                                     self.log.debug(f"Setting {cookie}")
-                                    driver.add_cookie(
-                                        dataclasses.asdict(cookie))
+                                    driver.add_cookie(dataclasses.asdict(cookie))
                             # Now that cookies are set, we have to visit the origin again.
                             driver.get(self.origin)
                             # Hacky sleep to allow page load.
@@ -274,21 +295,21 @@ class Check():
 
                             state_version = Counter(initial_value=0)
 
-                            scripts.install_event_listener(
-                                driver, msg.dependencies)
-                            await_events(driver, msg.dependencies,
-                                         state_version, 10000)
+                            scripts.install_event_listener(driver, msg.dependencies)
+                            await_events(driver, msg.dependencies, state_version, 10000)
 
-                            await_session_commands(driver, msg.dependencies,
-                                                   state_version)
+                            await_session_commands(
+                                driver, msg.dependencies, state_version
+                            )
                         except SpecstromAbortedError as e:
                             raise e
                         except Exception as e:
-                            send(Error(str(e)))
+                            send(Error(traceback.format_exc()))
                             msg = receive()
                             if not isinstance(msg, End):
                                 raise Exception(
-                                    f"Expected End after Error but got: {msg}")
+                                    f"Expected End after Error but got: {msg}"
+                                )
                     elif isinstance(msg, Done):
                         return [
                             attach_screenshots(result.from_protocol_result(r))
@@ -297,8 +318,7 @@ class Check():
                     elif isinstance(msg, Aborted):
                         raise SpecstromAbortedError(msg.error_message)
                     else:
-                        raise Exception(
-                            f"Unexpected message in run_sessions: {msg}")
+                        raise Exception(f"Unexpected message in run_sessions: {msg}")
 
             def await_session_commands(driver: WebDriver, deps, state_version):
                 try:
@@ -318,10 +338,8 @@ class Check():
                                 perform_action(driver, msg.action)
 
                                 if msg.action.timeout is not None:
-                                    self.log.debug(
-                                        "Installing change observer")
-                                    scripts.install_event_listener(
-                                        driver, deps)
+                                    self.log.debug("Installing change observer")
+                                    scripts.install_event_listener(driver, deps)
 
                                 state = scripts.query_state(driver, deps)
                                 screenshot(driver, dict_hash(state))
@@ -329,8 +347,9 @@ class Check():
                                 send(Performed(state=state))
 
                                 if msg.action.timeout is not None:
-                                    await_events(driver, deps, state_version,
-                                                 msg.action.timeout)
+                                    await_events(
+                                        driver, deps, state_version, msg.action.timeout
+                                    )
                             else:
                                 self.log.warn(
                                     f"Got stale message ({msg}) in state {state_version.value}"
@@ -342,8 +361,9 @@ class Check():
                                     f"Awaiting events in state {state_version.value} with timeout {msg.await_timeout}"
                                 )
                                 scripts.install_event_listener(driver, deps)
-                                await_events(driver, deps, state_version,
-                                             msg.await_timeout)
+                                await_events(
+                                    driver, deps, state_version, msg.await_timeout
+                                )
                             else:
                                 self.log.warn(
                                     f"Got stale message ({msg}) in state {state_version.value}"
@@ -363,47 +383,95 @@ class Check():
 
     def launch_specstrom(self, ilog):
         includes = list(map(lambda i: "-I" + i, self.include_paths))
-        cmd = ["specstrom", "check", self.module
-               ] + includes  # + ["+RTS", "-p"]
+        cmd = ["specstrom", "check", self.module] + includes  # + ["+RTS", "-p"]
         self.log.debug("Invoking Specstrom with: %s", " ".join(cmd))
-        return subprocess.Popen(cmd,
-                                text=True,
-                                stdout=subprocess.PIPE,
-                                stderr=ilog,
-                                stdin=subprocess.PIPE,
-                                bufsize=0)
+        return subprocess.Popen(
+            cmd,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=ilog,
+            stdin=subprocess.PIPE,
+            bufsize=0,
+        )
 
-    def new_driver(self):
-        if self.browser == 'chrome':
-            options = chrome_options.Options()
-            options.headless = self.headless
-            browser_path = self.browser_binary or which("chromium") or which(
-                "google-chrome-stable") or which("google-chrome") or which(
-                "chrome")
-            options.binary_location = browser_path  # type: ignore
-            options.add_argument('--no-sandbox')
-            options.add_argument("--single-process")
-            chromedriver_path = which('chromedriver')
+    def new_driver(self) -> WebDriver:
+        if self.remote_webdriver_url is not None:
+            return webdriver.Remote(
+                command_executor=self.remote_webdriver_url,
+                options=self.browser_shared_options(),
+            )
+        elif self.browser == "chrome":
+            chrome_opts = cast(ChromeOptions, self.browser_shared_options())
+            chromedriver_path = which("chromedriver")
             if not chromedriver_path:
                 raise Exception("chromedriver not found in PATH")
-            return webdriver.Chrome(options=options,
-                                    executable_path=chromedriver_path,
-                                    service_log_path=self.driver_log_file)
-        elif self.browser == 'firefox':
-            options = firefox_options.Options()
-            options.headless = self.headless
-            binary = FirefoxBinary(self.browser_binary or which("firefox"))
-            geckodriver_path = which('geckodriver')
+            browser_path = (
+                self.browser_binary
+                or which("chromium")
+                or which("google-chrome-stable")
+                or which("google-chrome")
+                or which("chrome")
+            )
+            chrome_opts.binary_location = browser_path  # type: ignore
+            chrome_opts.add_argument("--no-sandbox")
+            chrome_opts.add_argument("--single-process")
+            return webdriver.Chrome(
+                options=chrome_opts,
+                service=ChromeService(
+                    executable_path=chromedriver_path, log_path=self.driver_log_file
+                ),
+            )
+        elif self.browser == "edge":
+            edge_opts = cast(EdgeOptions, self.browser_shared_options())
+            edgedriver_path = which("msedgedriver")
+            if not edgedriver_path:
+                raise Exception("msedgedriver not found in PATH")
+            browser_path = (
+                self.browser_binary
+                or which("microsoft-edge-stable")
+                or which("microsoft-edge")
+            )
+            edge_opts.binary_location = browser_path  # type: ignore
+            edge_opts.add_argument("--no-sandbox")
+            edge_opts.add_argument("--single-process")
+            return webdriver.Edge(
+                options=edge_opts,
+                service=EdgeService(
+                    executable_path=edgedriver_path, log_path=self.driver_log_file
+                ),
+            )
+        elif self.browser == "firefox":
+            firefox_opts = cast(FirefoxOptions, self.browser_shared_options())
+            binary = self.browser_binary or which("firefox")
+            geckodriver_path = which("geckodriver")
             if not geckodriver_path:
                 raise Exception("geckodriver not found in PATH")
-            return webdriver.Firefox(options=options,
-                                     firefox_binary=binary,
-                                     executable_path=geckodriver_path,
-                                     service_log_path=self.driver_log_file
-                                                      or "geckodriver.log")
-        elif self.browser == 'remote':
-            return webdriver.Remote(command_executor=self.remote_webdriver_url,
-                                    desired_capabilities=self.remote_desired_capabilities)
+            return webdriver.Firefox(
+                options=firefox_opts,
+                service=FirefoxService(
+                    executable_path=geckodriver_path,
+                    log_path=self.driver_log_file or "geckodriver.log",
+                    service_args=["--binary", binary] if binary else [],
+                ),
+            )
+        else:
+            raise Exception(f"Unsupported browser: {self.browser}")
+
+    def browser_shared_options(self) -> Union[ChromeOptions, FirefoxOptions, EdgeOptions, SafariOptions]:
+        def set_shared(options):
+            for key, value in (self.extra_desired_capabilities or {}).items():
+                options.set_capability(key, value)
+            options.headless = self.headless
+            return options
+
+        if self.browser == "chrome":
+            return set_shared(ChromeOptions())
+        elif self.browser == "firefox":
+            return set_shared(FirefoxOptions())
+        elif self.browser == "edge":
+            return set_shared(EdgeOptions())
+        elif self.browser == "safari":
+            return set_shared(SafariOptions())
         else:
             raise Exception(f"Unsupported browser: {self.browser}")
 
@@ -417,47 +485,51 @@ class Check():
 
         def map_client_side_events(r):
             def map_event(e: dict):
-                if e['tag'] == 'loaded':
-                    return Action(id='loaded',
-                                  args=[],
-                                  isEvent=True,
-                                  timeout=None)
-                elif e['tag'] == 'changed':
-                    return Action(id='changed',
-                                  args=[elements_to_refs(e['element'])],
-                                  isEvent=True,
-                                  timeout=None)
-                elif e['tag'] == 'detached':
-                    return Action(id='detached',
-                                  args=[e['markup']],
-                                  isEvent=True,
-                                  timeout=None)
+                if e["tag"] == "loaded":
+                    return Action(id="loaded", args=[], isEvent=True, timeout=None)
+                elif e["tag"] == "changed":
+                    return Action(
+                        id="changed",
+                        args=[elements_to_refs(e["element"])],
+                        isEvent=True,
+                        timeout=None,
+                    )
+                elif e["tag"] == "detached":
+                    return Action(
+                        id="detached", args=[e["markup"]], isEvent=True, timeout=None
+                    )
                 else:
                     raise Exception(f"Invalid event tag in: {e}")
 
-            return ClientSideEvents([map_event(e) for e in r['events']],
-                                    elements_to_refs(
-                                        r['state'])) if r is not None else None
+            return (
+                ClientSideEvents(
+                    [map_event(e) for e in r["events"]], elements_to_refs(r["state"])
+                )
+                if r is not None
+                else None
+            )
 
         result_mappers = {
-            'queryState': map_query_state,
-            'installEventListener': lambda r: r,
-            'awaitEvents': map_client_side_events,
+            "queryState": map_query_state,
+            "installEventListener": lambda r: r,
+            "awaitEvents": map_client_side_events,
         }
 
         def load_script(name: str, is_async: bool = False) -> Any:
-            key = 'QUICKSTROM_CLIENT_SIDE_DIRECTORY'
+            key = "QUICKSTROM_CLIENT_SIDE_DIRECTORY"
             client_side_dir = os.getenv(key)
             if not client_side_dir:
-                raise Exception(f'Environment variable {key} must be set')
-            file = open(f'{client_side_dir}/{name}.js')
+                raise Exception(f"Environment variable {key} must be set")
+            file = open(f"{client_side_dir}/{name}.js")
             script = file.read()
 
             def f(driver: WebDriver, *args: Any) -> JsonLike:
                 try:
-                    r = driver.execute_async_script(
-                        script, *args) if is_async else driver.execute_script(
-                        script, *args)
+                    r = (
+                        driver.execute_async_script(script, *args)
+                        if is_async
+                        else driver.execute_script(script, *args)
+                    )
                     return result_mappers[name](r)
                 except StaleElementReferenceException as e:
                     raise e
@@ -467,9 +539,9 @@ class Check():
             return f
 
         return Scripts(
-            query_state=load_script('queryState'),
-            install_event_listener=load_script('installEventListener'),
-            await_events=load_script('awaitEvents', is_async=True),
+            query_state=load_script("queryState"),
+            install_event_listener=load_script("installEventListener"),
+            await_events=load_script("awaitEvents", is_async=True),
         )
 
 

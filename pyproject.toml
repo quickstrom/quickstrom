@@ -6,7 +6,7 @@ authors = ["owickstrom <oskar@wickstrom.tech>"]
 
 [tool.poetry.dependencies]
 python = "^3.8"
-selenium = { version = "^4.10" }
+selenium = { version = "^4.23" }
 click = "^7.1.2"
 jsonlines = "^2.0.0"
 deepdiff = "^5.2.3"
@@ -14,13 +14,13 @@ tabulate = "^0.8.9"
 pypng = "^0.0.21"
 
 [tool.poetry.dev-dependencies]
-hypothesis = "^6.21.5"
-mypy = "^0.812"
-jedi = "^0.17.0"
-rope = "^0.18.0"
+hypothesis = "^6"
+mypy = "*"
+jedi = "*"
+rope = "*"
 yapf = "*"
-toml = "^0.10.2"
-pytest = "^6.2.5"
+toml = "*"
+pytest = "*"
 
 [tool.poetry.scripts]
 quickstrom = 'quickstrom.cli:run'

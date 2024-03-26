@@ -1,7 +1,7 @@
-{ pkgs ? import ../nix/nixpkgs.nix }:
+{ nix-gitignore, mkYarnPackage }:
 let
-  src = pkgs.nix-gitignore.gitignoreSource [ ] ./.;
-  html-report = pkgs.mkYarnPackage {
+  src = nix-gitignore.gitignoreSource [ ] ./.;
+  html-report = mkYarnPackage {
     inherit src;
     name = "html-report";
     packageJSON = ./package.json;

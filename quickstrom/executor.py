@@ -415,6 +415,9 @@ class Check:
             chrome_opts.binary_location = browser_path  # type: ignore
             chrome_opts.add_argument("--no-sandbox")
             chrome_opts.add_argument("--single-process")
+            chrome_opts.add_argument("--disable-dev-shm-usage")
+            if self.headless:
+                chrome_opts.add_argument("--headless=new")
             return webdriver.Chrome(
                 options=chrome_opts,
                 service=ChromeService(
@@ -434,6 +437,8 @@ class Check:
             edge_opts.binary_location = browser_path  # type: ignore
             edge_opts.add_argument("--no-sandbox")
             edge_opts.add_argument("--single-process")
+            if self.headless:
+                edge_opts.add_argument("--headless=new")
             return webdriver.Edge(
                 options=edge_opts,
                 service=EdgeService(
@@ -446,6 +451,8 @@ class Check:
             geckodriver_path = which("geckodriver")
             if not geckodriver_path:
                 raise Exception("geckodriver not found in PATH")
+            if self.headless:
+                firefox_opts.add_argument("--headless")
             return webdriver.Firefox(
                 options=firefox_opts,
                 service=FirefoxService(
@@ -461,7 +468,6 @@ class Check:
         def set_shared(options):
             for key, value in (self.extra_desired_capabilities or {}).items():
                 options.set_capability(key, value)
-            options.headless = self.headless
             return options
 
         if self.browser == "chrome":

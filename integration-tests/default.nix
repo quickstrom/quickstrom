@@ -1,17 +1,37 @@
-{ pkgs ? (import ../nix/nixpkgs.nix), browser ? "chrome" }:
+{
+  stdenv,
+  lib,
+  quickstrom,
+  browser ? "chrome",
+  chromedriver,
+  chromium,
+  geckodriver,
+  firefox,
+}:
 let
-  quickstrom = (import ../. { inherit pkgs; }).quickstrom;
-
-  webdriver-deps = if browser == "chrome" then [
-    pkgs.chromedriver
-    pkgs.chromium
-  ] else [
-    pkgs.geckodriver
-    pkgs.firefox
-  ];
-
-  makeTest = { name, module, origin, include, options ? "", expectedExitCode }:
-    pkgs.stdenv.mkDerivation {
+  browserDeps =
+    if browser == "chrome" then
+      [
+        chromedriver
+        chromium
+      ]
+    else
+      [
+        geckodriver
+        firefox
+      ];
+  browserBinary =
+    if browser == "chrome" then "${chromium}/bin/chromium" else "${firefox}/bin/firefox";
+  makeTest =
+    {
+      name,
+      module,
+      origin,
+      include,
+      options ? "",
+      expectedExitCode,
+    }:
+    stdenv.mkDerivation {
       name = "quickstrom-integration-test-${name}";
       src = ./.;
       phases = [ "checkPhase" ];
@@ -19,29 +39,28 @@ let
         set +e
         mkdir -p $out
 
-        quickstrom --log-level=INFO -I${../case-studies} -I${include} check ${module} ${origin} ${options} --browser=${browser} --reporter=console --reporter=html --html-report-directory=$out/html-report | tee $out/test-report.log
+        echo quickstrom --log-level=INFO -I${../case-studies} -I${include} check ${module} ${origin} ${options} --browser=${browser} --browser-binary="${browserBinary}" --reporter=console --driver-log-file=driver.log | tee $out/test-report.log
+        quickstrom --log-level=INFO -I${../case-studies} -I${include} check ${module} ${origin} ${options} --browser=${browser} --browser-binary="${browserBinary}" --reporter=console --driver-log-file=driver.log | tee $out/test-report.log
         exit_code=$?
 
         if [ $exit_code == "${toString expectedExitCode}" ]; then
-            echo "Expected exit code (${
-              toString expectedExitCode
-            }) was returned."
+            echo "Expected exit code (${toString expectedExitCode}) was returned."
         else
-            cat geckodriver.log || echo "No geckodriver log"
+            cat driver.log || echo "No driver log file"
             cat interpreter.log
-            echo "Expected exit code ${
-              toString expectedExitCode
-            }, but $exit_code was returned."
+            echo "Expected exit code ${toString expectedExitCode}, but $exit_code was returned."
             exit 1
         fi
       '';
       doCheck = true;
-      buildInputs = [ quickstrom ] ++ webdriver-deps;
+      buildInputs = [
+        quickstrom
+        browserDeps
+      ];
       __noChroot = true;
     };
 
-  makeTests =
-    pkgs.lib.mapAttrs (name: value: makeTest (value // { inherit name; }));
+  makeTests = lib.mapAttrs (name: value: makeTest (value // { inherit name; }));
 
   passing = name: {
     module = name;
@@ -51,33 +70,39 @@ let
     expectedExitCode = 0;
   };
 
-  failing = { name, expectedExitCode }: {
-    module = name;
-    origin = "${./failing}/${name}.html";
-    include = ./failing;
-    options = "";
-    inherit expectedExitCode;
-  };
+  failing =
+    { name, expectedExitCode }:
+    {
+      module = name;
+      origin = "${./failing}/${name}.html";
+      include = ./failing;
+      options = "";
+      inherit expectedExitCode;
+    };
 
-  todomvc = builtins.fetchTarball {
-    url =
-      "https://github.com/tastejs/todomvc/archive/41ba86db92336c11e56d425c5151b7ec2932be9a.tar.gz";
+in
+{
+  tests = makeTests {
+    todomvc-backbone = {
+      module = "todomvc";
+      origin = "${todomvc}/examples/backbone/index.html";
+      include = ./passing;
+      options = "";
+      expectedExitCode = 0;
+    };
+    liveness = passing ("liveness");
+    async-change = passing ("async-change");
+    async-css-change = passing ("async-css-change");
+    only-noop = passing ("only-noop");
+    select = passing ("select");
+    invalid-spec = failing {
+      name = "invalid-spec";
+      expectedExitCode = 2;
+    };
+    scroll = passing ("scroll");
+    not-interactable = failing {
+      name = "not-interactable";
+      expectedExitCode = 1;
+    };
   };
-
-in makeTests {
-  todomvc-backbone = {
-    module = "todomvc";
-    origin = "${todomvc}/examples/backbone/index.html";
-    include = ./passing;
-    options = "";
-    expectedExitCode = 0;
-  };
-  liveness = passing("liveness");
-  async-change = passing("async-change");
-  async-css-change = passing("async-css-change");
-  only-noop = passing("only-noop");
-  select = passing("select");
-  invalid-spec = failing { name = "invalid-spec"; expectedExitCode = 2; };
-  scroll = passing("scroll");
-  not-interactable = failing { name = "not-interactable"; expectedExitCode = 1; };
 }

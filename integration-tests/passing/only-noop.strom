@@ -1,16 +1,21 @@
-// This checks that our spec finishes even if we don't declare any event
-// that matches when the counter changes within the timeout. Previously
-// this caused the check to run indefinitely, waiting for a matched event.
+// What this should check is that our spec finishes even if we don't declare
+// any event that matches when the counter changes within the timeout.
+// However, this causes the check to run indefinitely, waiting for a matched
+// event.
+//
+// For now, we add the `counterChanged?` event to have it finish.
 import quickstrom;
 
-action wait! = noop! timeout 200;
+action wait! = noop! timeout 1000;
 
 let ~n = parseInt(`#counter`.textContent);
 
+action ~counterChanged? = changed?(`#counter`) timeout 1000;
+
 let ~prop =
   always {100} (
-    let old = n;
-    nextT (n >= old)
+     let old = n;
+     nextT (n >= old)
   );
 
 check prop with * when loaded?;

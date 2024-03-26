@@ -1,7 +1,7 @@
-{ pkgs ? import ../nix/nixpkgs.nix }:
+{ lib, stdenv, nix-gitignore, nodejs, nodePackages }:
 let
-  src = pkgs.nix-gitignore.gitignoreSource [ ] ./.;
-  scriptNames = builtins.map (pkgs.lib.removeSuffix ".ts")
+  src = nix-gitignore.gitignoreSource [ ] ./.;
+  scriptNames = builtins.map (lib.removeSuffix ".ts")
     (builtins.attrNames (builtins.readDir ./src/scripts));
   browserifyScript = scriptName: ''
     echo "Bundling script ${scriptName} ..."
@@ -9,14 +9,10 @@ let
     browserify dist/scripts/${scriptName}.js >> dist/bundled/${scriptName}.js
     echo "return window.quickstrom.run.apply(null, arguments);" >> dist/bundled/${scriptName}.js
   '';
-  client-side = pkgs.stdenv.mkDerivation {
+  client-side = stdenv.mkDerivation {
     inherit src;
     name = "quickstrom-client-side";
-    buildInputs = with pkgs; [
-      nodejs
-      nodePackages.typescript
-      nodePackages.browserify
-    ];
+    buildInputs = [ nodejs nodePackages.typescript nodePackages.browserify ];
     buildPhase = ''
       echo "Compiling ${src} ..."
       tsc --outDir dist

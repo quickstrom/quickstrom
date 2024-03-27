@@ -3,7 +3,7 @@
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
   inputs.systems.url = "github:nix-systems/default";
-  inputs.specstrom.url = "github:quickstrom/specstrom/flake";
+  inputs.specstrom = { url = "github:quickstrom/specstrom/flake"; };
   inputs.poetry2nix = {
     url = "github:nix-community/poetry2nix";
     inputs.nixpkgs.follows = "nixpkgs";

@@ -127,16 +127,15 @@
         "systems": "systems_4"
       },
       "locked": {
-        "lastModified": 1711544160,
-        "narHash": "sha256-/Yr2cIib4WcXhg16peTdfRgDsmhbtk6Ykdal+hytCQo=",
+        "lastModified": 1724002849,
+        "narHash": "sha256-HaB3PRyx0dRwaYZgiTMt7YedBeJr7ybwOUtSiYrUTOY=",
         "owner": "quickstrom",
         "repo": "specstrom",
-        "rev": "d35a88cc120bad2cc9defb3c5518abe04ee92e52",
+        "rev": "9c4fef83e7f101ac467802929b39238d2f73258e",
         "type": "github"
       },
       "original": {
         "owner": "quickstrom",
-        "ref": "flake",
         "repo": "specstrom",
         "type": "github"
       }

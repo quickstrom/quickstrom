@@ -4,7 +4,7 @@
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
   inputs.flake-utils.url = "github:numtide/flake-utils";
   inputs.specstrom = {
-    url = "github:quickstrom/specstrom/flake";
+    url = "github:quickstrom/specstrom";
   };
   inputs.poetry2nix = {
     url = "github:nix-community/poetry2nix";

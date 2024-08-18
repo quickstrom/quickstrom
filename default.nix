@@ -5,6 +5,7 @@ let
   quickstrom = poetry2nix.mkPoetryApplication {
     python = python3;
     projectDir = ./.;
+    src = pkgs.nix-gitignore.gitignoreSource [ "docs" "integration-tests" ] ./.;
     propagatedBuildInputs = [ specstrom ];
     preferWheels = true;
     checkPhase = ''

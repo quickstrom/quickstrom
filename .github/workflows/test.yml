@@ -12,37 +12,35 @@ jobs:
       with:
         nix_path: nixpkgs=channel:nixos-unstable
         extra_nix_config: |
-          experimental-features = nix-command
+          experimental-features = nix-command flakes
     - uses: cachix/cachix-action@v12
       with:
         name: quickstrom
         signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
     - run: nix show-config
-    - run: nix-env -f '<nixpkgs>' -i nix-build-uncached
-    - run: nix-build-uncached default.nix
+    - run: nix build .
 
   integration-tests:
     needs: build
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        browser:
-          - chrome
-          # - firefox
+    strategy:      
+      matrix:      
+        browser:   
+          - chrome 
+          - firefox
     steps:
     - uses: actions/checkout@v2.3.1
     - uses: cachix/install-nix-action@v20
       with:
         nix_path: nixpkgs=channel:nixos-unstable
         extra_nix_config: |
-          experimental-features = nix-command
+          experimental-features = nix-command flakes
     - uses: cachix/cachix-action@v12
       with:
         name: quickstrom
         signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
     - run: nix show-config
-    - run: nix-env -f '<nixpkgs>' -i nix-build-uncached
-    - run: nix build -L -j1 --option sandbox relaxed --argstr browser ${{matrix.browser}} -f integration-tests/default.nix
+    - run: nix develop '.#integration-tests' --command integration-tests/run.py ${{matrix.browser}}
 
   lint-docs:
     runs-on: ubuntu-latest
@@ -52,12 +50,12 @@ jobs:
       with:
         nix_path: nixpkgs=channel:nixos-unstable
         extra_nix_config: |
-          experimental-features = nix-command
+          experimental-features = nix-command flakes
     - uses: cachix/cachix-action@v12
       with:
         name: quickstrom
         signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
-    - run: nix-shell --command "make linkcheck html SPHINXOPTS=-W"
+    - run: nix develop '..#docs' --command make linkcheck html SPHINXOPTS=-W
       working-directory: docs
 
   build-docker:
@@ -69,7 +67,7 @@ jobs:
       with:
         nix_path: nixpkgs=channel:nixos-unstable
         extra_nix_config: |
-          experimental-features = nix-command
+          experimental-features = nix-command flakes
     - uses: cachix/cachix-action@v12
       with:
         name: quickstrom
@@ -83,7 +81,7 @@ jobs:
       if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
       env:
         DOCKER_HUB_ACCESS_TOKEN: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-    - run: docker load -i $(nix-build -A docker default.nix)
+    - run: docker load -i $(nix build '.#docker' --print-out-paths)
     - run: |
         docker push quickstrom/quickstrom:latest
       if: github.ref == 'refs/heads/main'

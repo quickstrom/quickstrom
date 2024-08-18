@@ -1,28 +1,31 @@
-{ pkgs ? (import ./nix/nixpkgs.nix), specstrom ? import ./nix/specstrom.nix }:
+{ python3, poetry2nix, specstrom, bashInteractive, libffi, poetry, mkShell
+, pyright, lib, stdenv, includeBrowsers ? false, firefox, chromium
+, geckodriver, chromedriver, callPackage }:
 let
-  appEnv = pkgs.poetry2nix.mkPoetryEnv {
-    python = pkgs.python39;
+  appEnv = poetry2nix.mkPoetryEnv {
+    python = python3;
     projectDir = ./.;
     editablePackageSources = { my-app = ./.; };
+    preferWheels = true;
   };
 
-in pkgs.mkShell {
+in mkShell {
   buildInputs = [
-    pkgs.bashInteractive
+    bashInteractive
 
     appEnv
     # https://github.com/NixOS/nixpkgs/issues/11330
-    pkgs.libffi
-    pkgs.poetry
-
-    # pkgs.geckodriver
-    # pkgs.firefox
-    # pkgs.chromedriver
-    # pkgs.chromium
+    libffi
+    poetry
 
     specstrom
-    pkgs.nodePackages.pyright
-  ] ++ pkgs.lib.optional pkgs.stdenv.isLinux [ pkgs.firefox pkgs.chromium ];
-  QUICKSTROM_CLIENT_SIDE_DIRECTORY = import ./client-side { inherit pkgs; };
-  QUICKSTROM_HTML_REPORT_DIRECTORY = import ./html-report { inherit pkgs; };
+    pyright
+  ] ++ lib.optional includeBrowsers [
+    firefox
+    chromium
+    geckodriver
+    chromedriver
+  ];
+  QUICKSTROM_CLIENT_SIDE_DIRECTORY = callPackage ./client-side { };
+  QUICKSTROM_HTML_REPORT_DIRECTORY = callPackage ./html-report { };
 }

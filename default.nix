@@ -1,11 +1,29 @@
-{ callPackage, lib, stdenv, makeWrapper, buildEnv, dockerTools, specstrom
-, python3, poetry2nix, pyright, chromedriver, geckodriver, chromium
-, firefox, includeBrowsers ? true }:
+{
+  callPackage,
+  lib,
+  stdenv,
+  nix-gitignore,
+  makeWrapper,
+  buildEnv,
+  dockerTools,
+  specstrom,
+  python3,
+  poetry2nix,
+  pyright,
+  chromedriver,
+  geckodriver,
+  chromium,
+  firefox,
+  includeBrowsers ? true,
+}:
 let
   quickstrom = poetry2nix.mkPoetryApplication {
     python = python3;
     projectDir = ./.;
-    src = pkgs.nix-gitignore.gitignoreSource [ "docs" "integration-tests" ] ./.;
+    src = nix-gitignore.gitignoreSource [
+      "docs"
+      "integration-tests"
+    ] ./.;
     propagatedBuildInputs = [ specstrom ];
     preferWheels = true;
     checkPhase = ''
@@ -18,12 +36,14 @@ let
   client-side = callPackage ./client-side { };
   html-report = callPackage ./html-report { };
 
-  runtimeDeps = [ specstrom ] ++ lib.optionals includeBrowsers [
-    chromedriver
-    geckodriver
-    chromium
-    firefox
-  ];
+  runtimeDeps =
+    [ specstrom ]
+    ++ lib.optionals includeBrowsers [
+      chromedriver
+      geckodriver
+      chromium
+      firefox
+    ];
 
   quickstrom-wrapped = stdenv.mkDerivation {
     name = "quickstrom-wrapped";
@@ -42,5 +62,5 @@ let
     '';
   };
 
-in quickstrom-wrapped
-
+in
+quickstrom-wrapped

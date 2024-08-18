@@ -50,12 +50,12 @@ jobs:
       with:
         nix_path: nixpkgs=channel:nixos-unstable
         extra_nix_config: |
-          experimental-features = nix-command
+          experimental-features = nix-command flakes
     - uses: cachix/cachix-action@v12
       with:
         name: quickstrom
         signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
-    - run: nix-shell --command "make linkcheck html SPHINXOPTS=-W"
+    - run: nix develop '..#docs' --command make linkcheck html SPHINXOPTS=-W
       working-directory: docs
 
   build-docker:

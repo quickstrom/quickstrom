@@ -38,18 +38,17 @@
             inherit poetry2nix;
             includeBrowsers = false;
           };
-          docker = pkgs.callPackage ./docker.nix {
-            quickstrom = self.packages.${system}.default;
-          };
+          docker = pkgs.callPackage ./docker.nix { quickstrom = self.packages.${system}.default; };
         };
         devShells = {
           default = pkgs.callPackage ./shell.nix {
             inherit poetry2nix;
             includeBrowsers = system == "x86_64-linux";
           };
-          integration-tests = (
-            pkgs.callPackage ./integration-tests/shell.nix { quickstrom = self.packages.${system}.default; }
-          );
+          integration-tests = pkgs.callPackage ./integration-tests/shell.nix {
+            quickstrom = self.packages.${system}.default;
+          };
+          docs = pkgs.callPackage ./docs/default.nix { quickstrom = self.packages.${system}.default; };
         };
       }
     );

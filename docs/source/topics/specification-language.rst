@@ -324,6 +324,8 @@ library <https://github.com/quickstrom/quickstrom/blob/{GIT_REF}/ulib/quickstrom
   Returns a list of actions which enter the given text into the given input elements.
 ``noop!``
   An action that does nothing. Use together with ``timeout`` to wait for a certain amount of time, or for an event to occur within that timespan.
+``refresh!``
+  Refreshes the page.
 ``scrollBy!(x, y)``
   Scroll by absolute number of pixels from the current position. Use negative ``x`` or ``y`` arguments to scroll left or up.
 ``scrollByViewport!(x, y)``

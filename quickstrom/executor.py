@@ -11,6 +11,7 @@ import png
 from typing import List, Union, Literal, Any, cast
 from selenium import webdriver
 from selenium.common.exceptions import StaleElementReferenceException
+from selenium.common.exceptions import JavascriptException
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.options import BaseOptions
@@ -170,6 +171,8 @@ class Check:
                 try:
                     if action.id == "noop":
                         pass
+                    elif action.id == "refresh":
+                        driver.refresh()
                     elif action.id == "click":
                         id = action.args[0]
                         element = WebElement(driver, id)
@@ -179,7 +182,12 @@ class Check:
                             self.log.warning(
                                 "Basic click failed, falling back to JS click: %s", e
                             )
-                            driver.execute_script("arguments[0].click();", element)
+                            try:
+                                driver.execute_script("arguments[0].click();", element)
+                            except StaleElementReferenceException:
+                                self.log.warning("Stale element reference when doing JS click. Swallowing.")
+                            except JavascriptException as e:
+                                self.log.warning("A JS exception occurred while attempting JS click. Swallowing:", e)
                     elif action.id == "doubleClick":
                         id = action.args[0]
                         element = WebElement(driver, id)
@@ -530,17 +538,22 @@ class Check:
             script = file.read()
 
             def f(driver: WebDriver, *args: Any) -> JsonLike:
-                try:
-                    r = (
-                        driver.execute_async_script(script, *args)
-                        if is_async
-                        else driver.execute_script(script, *args)
-                    )
-                    return result_mappers[name](r)
-                except StaleElementReferenceException as e:
-                    raise e
-                except Exception as e:
-                    raise ScriptError(name, list(args), e)
+                attempts = 0
+                while attempts < 3:
+                    try:
+                        r = (
+                            driver.execute_async_script(script, *args)
+                            if is_async
+                            else driver.execute_script(script, *args)
+                        )
+                        return result_mappers[name](r)
+                    except StaleElementReferenceException as e:
+                        attempts += 1
+                        self.log.info(f"Stale element reference, retry attempt {attempts}")
+                        if attempts >= 3:
+                            raise ScriptError(name, list(args), e)
+                    except Exception as e:
+                        raise ScriptError(name, list(args), e)
 
             return f
 

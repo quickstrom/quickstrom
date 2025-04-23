@@ -33,6 +33,9 @@ action changed?(elements) = for element in elements. { id: "changed", event: tru
 /// Emitted when the document has loaded, i.e. the DOM `load` event.
 action loaded? = { id: "loaded", event: true, args: [] };
 
+//// Reload the current page 
+action refresh! = { id: "refresh", event: false, args: [] };
+
 /// An action that does nothing. Use together with `timeout` to wait for a certain amount of time, or for an event to occur within that timespan.
 action noop! = {id:"noop",event:false,args:[]};
 
